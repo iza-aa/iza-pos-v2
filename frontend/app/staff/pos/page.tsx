@@ -6,7 +6,7 @@ import MenuCategoryTabs from "@/app/components/staff/pos/MenuCategoryTabs";
 import FoodItemCard from "@/app/components/staff/pos/FoodItemCard";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentMethodSelector from "@/app/components/staff/pos/PaymentMethodSelector";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 // Mock data
 const mockOrders = [
@@ -40,6 +40,7 @@ export default function POSPage() {
 	const [foodItems, setFoodItems] = useState(mockFoodItems);
 	const [selectedOrder, setSelectedOrder] = useState<any>(null);
 	const [paymentMethod, setPaymentMethod] = useState("card");
+	const [showOrderLine, setShowOrderLine] = useState(true);
 
 	const handleQuantityChange = (id: string, delta: number) => {
 		setFoodItems((items) =>
@@ -67,41 +68,50 @@ export default function POSPage() {
 	};
 
 	return (
-		<main className="min-h-screen bg-gray-50 p-6 flex gap-6 relative">
+		<main className="min-h-screen bg-gray-50 p-2 px-6 pt-6 flex gap-6 relative">
 			{/* Section 1: Order Line & Menu - Left scrollable */}
-			<section className="w-full pr-[36%] flex flex-col gap-6">
+			<section className="w-full pr-[36%] flex flex-col ">
 				{/* Order Line */}
 				<div>
-					<h2 className="text-2xl font-bold text-gray-800 mb-4">Order Line</h2>
-					<OrderLineTabs activeTab={activeTab} setActiveTab={setActiveTab} counts={counts} />
+					<OrderLineTabs 
+						activeTab={activeTab} 
+						setActiveTab={setActiveTab} 
+						showOrderLine={showOrderLine}
+						counts={counts} 
+					/>
 					
-					<div className="flex items-center gap-4">
-						<button className="p-2 rounded-full hover:bg-gray-200 transition">
-							<ChevronLeftIcon className="w-5 h-5 text-gray-600" />
-						</button>
-						<div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-							{mockOrders.map((order) => (
-								<OrderLineCard key={order.id} order={order} onClick={setSelectedOrder} />
-							))}
+					{showOrderLine && (
+						<div className="flex items-center gap-4 mb-6">
+							<button className="p-2 rounded-full hover:bg-gray-200 transition">
+								<ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+							</button>
+							<div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+								{mockOrders.map((order) => (
+									<OrderLineCard key={order.id} order={order} onClick={setSelectedOrder} />
+								))}
+							</div>
+							<button className="p-2 rounded-full hover:bg-gray-200 transition">
+								<ChevronRightIcon className="w-5 h-5 text-gray-600" />
+							</button>
 						</div>
-						<button className="p-2 rounded-full hover:bg-gray-200 transition">
-							<ChevronRightIcon className="w-5 h-5 text-gray-600" />
-						</button>
-					</div>
+					)}
 				</div>
 
 				{/* Foodies Menu */}
 				<div>
 					<div className="flex items-center justify-between mb-4">
 						<h2 className="text-2xl font-bold text-gray-800">Foodies Menu</h2>
-						<div className="flex gap-2">
-							<button className="p-2 rounded-full hover:bg-gray-200 transition">
-								<ChevronLeftIcon className="w-5 h-5 text-gray-600" />
-							</button>
-							<button className="p-2 rounded-full hover:bg-gray-200 transition">
-								<ChevronRightIcon className="w-5 h-5 text-gray-600" />
-							</button>
-						</div>
+						<button 
+							onClick={() => setShowOrderLine(!showOrderLine)}
+							className="flex items-center justify-center w-9 h-9 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+							title={showOrderLine ? "Hide Order Line" : "Show Order Line"}
+						>
+							{showOrderLine ? (
+								<EyeSlashIcon className="w-5 h-5 text-gray-600" />
+							) : (
+								<EyeIcon className="w-5 h-5 text-gray-600" />
+							)}
+						</button>
 					</div>
 					
 					<MenuCategoryTabs
@@ -119,7 +129,7 @@ export default function POSPage() {
 			</section>
 
 			{/* Section 2: Order Summary - Fixed Right Sidebar */}
-			<section className="w-2/6 flex flex-col fixed top-24 right-6 bottom-6 gap-4">
+			<section className="w-2/6 flex flex-col fixed top-20 right-6 bottom-6 gap-2">
 				<OrderSummary
 					tableNumber="Table No #04"
 					orderNumber="Order #FO030"
@@ -135,7 +145,7 @@ export default function POSPage() {
 				/>
 
 				{/* Action Buttons */}
-				<div className="flex gap-3">
+				<div className="flex gap-3 mt-auto">
 					<button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition font-medium shadow-sm">
 						🖨️ Print
 					</button>

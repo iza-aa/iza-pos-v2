@@ -3,6 +3,7 @@
 interface OrderLineTabsProps {
 	activeTab: string;
 	setActiveTab: (tab: string) => void;
+	showOrderLine: boolean;
 	counts: {
 		all: number;
 		dineIn: number;
@@ -12,7 +13,7 @@ interface OrderLineTabsProps {
 	};
 }
 
-export default function OrderLineTabs({ activeTab, setActiveTab, counts }: OrderLineTabsProps) {
+export default function OrderLineTabs({ activeTab, setActiveTab, showOrderLine, counts }: OrderLineTabsProps) {
 	const tabs = [
 		{ id: "all", label: "All", count: counts.all, color: "teal" },
 		{ id: "dineIn", label: "Dine in", count: counts.dineIn, color: "teal" },
@@ -21,8 +22,15 @@ export default function OrderLineTabs({ activeTab, setActiveTab, counts }: Order
 		{ id: "served", label: "Served", count: counts.served, color: "green" },
 	];
 
+	if (!showOrderLine) return null;
+
 	return (
-		<div className="flex gap-2 mb-4 overflow-x-auto">
+		<div>
+			{/* Title */}
+			<h3 className="text-2xl font-bold text-gray-800 mb-4">Order Line</h3>
+
+			{/* Tabs */}
+			<div className="flex gap-2 mb-4 overflow-x-auto">
 			{tabs.map((tab) => (
 				<button
 					key={tab.id}
@@ -43,6 +51,7 @@ export default function OrderLineTabs({ activeTab, setActiveTab, counts }: Order
 					</span>
 				</button>
 			))}
+			</div>
 		</div>
 	);
 }

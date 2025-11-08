@@ -64,7 +64,7 @@ export default function ReportAnalytics() {
       </div>
 
       {/* Chart */}
-      <div className="h-[325.9px] mb-6">
+      <div className="h-[337px] mb-6">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={weeklyData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
             <defs>
