@@ -29,7 +29,7 @@ export default function ReportAnalytics() {
   const growthPercentage = avgAmount > 0 ? (growth / avgAmount) * 100 : 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow p-6">
+    <div className="bg-white rounded-2xl shadow p-6 border border-gray-100">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ export default function ReportAnalytics() {
       </div>
 
       {/* Chart */}
-      <div className="h-[312.4px] mb-6">
+      <div className="h-[325.9px] mb-6">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={weeklyData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
             <defs>

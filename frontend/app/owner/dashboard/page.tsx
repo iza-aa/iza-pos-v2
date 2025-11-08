@@ -6,6 +6,8 @@ import TotalProductSales from "@/app/components/owner/dashboard/analytics/totalp
 import TotalCustomer from "@/app/components/owner/dashboard/analytics/totalcustomer"
 import ReportAnalytics from "@/app/components/owner/dashboard/analytics/reportanalytics"
 import FavoriteProduct from "@/app/components/owner/dashboard/analytics/favoriteproduct"
+import PaymentMethod from "@/app/components/owner/dashboard/analytics/paymentmethod"
+import PeakPerformance from "@/app/components/owner/dashboard/analytics/peakperformance"
 import Chatbot from "@/app/components/owner/dashboard/chatbot/page"
 import { CalendarIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline"
 
@@ -49,10 +51,16 @@ export default function OwnerDashboardPage() {
         {/* Revenue Chart & Favorite Products */}
         <ReportAnalytics />
         <FavoriteProduct />
+
+        {/* Payment Method & Peak Performance */}
+        <div className="grid grid-cols-2 gap-4">
+          <PaymentMethod />
+          <PeakPerformance />
+        </div>
       </section>
 
       {/* Section 2: Chatbot - 2/5 layar */}
-      <section className="w-2/6 bg-white rounded-2xl shadow p-6 flex flex-col fixed top-24 right-6 bottom-6">
+      <section className="w-2/6 bg-white rounded-2xl shadow p-6 flex flex-col fixed top-24 right-6 bottom-6 border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">AI Assistant</h3>
         <div className="flex-1 overflow-hidden">
           <Chatbot />
