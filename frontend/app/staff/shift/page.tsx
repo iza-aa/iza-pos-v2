@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { BiQr, BiKey } from "react-icons/bi";
+import { useSearchParams } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,9 @@ const supabase = createClient(
 );
 
 export default function ShiftPresensiPage() {
+  const searchParams = useSearchParams();
+  const viewAsOwner = searchParams.get('viewAs') === 'owner';
+  
   const [inputKode, setInputKode] = useState("");
   const [presensi, setPresensi] = useState<any[]>([]);
   const [error, setError] = useState("");
@@ -34,14 +38,22 @@ export default function ShiftPresensiPage() {
   useEffect(() => {
     async function fetchPresensi() {
       const today = new Date().toISOString().slice(0, 10);
-      const { data } = await supabase
+      
+      let query = supabase
         .from("presensi_shift")
         .select("staff_id, staff:staff_id(name, staff_code), created_at")
         .eq("tanggal", today);
+      
+      // Jika bukan owner (staff biasa), filter hanya data mereka
+      if (!viewAsOwner && staff?.id) {
+        query = query.eq("staff_id", staff.id);
+      }
+      
+      const { data } = await query;
       setPresensi(data || []);
     }
     fetchPresensi();
-  }, []);
+  }, [viewAsOwner, staff]);
 
   const handlePresensi = async () => {
     if (!staff) return;
@@ -91,28 +103,42 @@ export default function ShiftPresensiPage() {
     <div className="w-full mx-auto py-8 px-4 relative">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="lg:text-2xl md:text-xl text-xl font-bold">Presensi Staff</h2>
+          <h2 className="lg:text-2xl md:text-xl text-xl font-bold">
+            Presensi Staff
+            {viewAsOwner && (
+              <span className="ml-3 text-sm font-normal bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                👁️ Viewing as Owner
+              </span>
+            )}
+          </h2>
           <p className="text-gray-500 text-sm">
-            Silakan lakukan presensi dengan memasukkan kode atau scan QR.
+            {viewAsOwner 
+              ? "Melihat semua presensi staff hari ini"
+              : "Silakan lakukan presensi dengan memasukkan kode atau scan QR."
+            }
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center"
-            onClick={() => setShowModal("input")}
-            disabled={!staff}
-            title="Input Kode"
-          >
-            <BiKey className="w-6 h-6" />
-          </button>
-          <button
-            className="bg-black text-white p-2 rounded-lg hover:bg-blue-700 transition"
-            title="Scan QR Code"
-            onClick={() => setShowModal("scan")}
-            disabled={!staff}
-          >
-            <BiQr className="w-6 h-6" />
-          </button>
+          {!viewAsOwner && (
+            <>
+              <button
+                className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center"
+                onClick={() => setShowModal("input")}
+                disabled={!staff}
+                title="Input Kode"
+              >
+                <BiKey className="w-6 h-6" />
+              </button>
+              <button
+                className="bg-black text-white p-2 rounded-lg hover:bg-blue-700 transition"
+                title="Scan QR Code"
+                onClick={() => setShowModal("scan")}
+                disabled={!staff}
+              >
+                <BiQr className="w-6 h-6" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 

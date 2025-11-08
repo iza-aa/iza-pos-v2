@@ -1,6 +1,7 @@
 "use client";
 
 import { ClockIcon } from "@heroicons/react/24/solid";
+import { useState, useEffect } from "react";
 
 // Generate heatmap data - hours (vertical) x days (horizontal)
 const generateHeatmapData = () => {
@@ -27,8 +28,13 @@ const getColorByIntensity = (intensity: number) => {
 };
 
 export default function PeakPerformance() {
-  const heatmapData = generateHeatmapData();
+  const [heatmapData, setHeatmapData] = useState<Array<{ hour: string; values: number[] }>>([]);
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Generate data hanya di client-side untuk menghindari hydration mismatch
+  useEffect(() => {
+    setHeatmapData(generateHeatmapData());
+  }, []);
 
   return (
     <div className="bg-white rounded-2xl shadow p-5 w-full border border-gray-100">
@@ -44,27 +50,48 @@ export default function PeakPerformance() {
       <div className="flex gap-3">
         {/* Y-axis (Hours) */}
         <div className="flex flex-col justify-between py-1 text-xs text-gray-500 min-w-[45px]">
-          {heatmapData.map((row, idx) => (
-            <div key={idx} className="h-8 flex items-center justify-end pr-2">
-              {row.hour}
-            </div>
-          ))}
+          {heatmapData.length > 0 ? (
+            heatmapData.map((row, idx) => (
+              <div key={idx} className="h-8 flex items-center justify-end pr-2">
+                {row.hour}
+              </div>
+            ))
+          ) : (
+            Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="h-8 flex items-center justify-end pr-2">
+                --:--
+              </div>
+            ))
+          )}
         </div>
 
         {/* Heatmap Grid */}
         <div className="flex-1">
           <div className="flex flex-col gap-1.5">
-            {heatmapData.map((row, rowIdx) => (
-              <div key={rowIdx} className="flex gap-1.5">
-                {row.values.map((intensity, colIdx) => (
-                  <div
-                    key={colIdx}
-                    className={`flex-1 h-8 ${getColorByIntensity(intensity)} rounded-lg transition-all hover:scale-105 cursor-pointer`}
-                    title={`${row.hour} - ${days[colIdx]}: ${intensity * 25}% capacity`}
-                  />
-                ))}
-              </div>
-            ))}
+            {heatmapData.length > 0 ? (
+              heatmapData.map((row, rowIdx) => (
+                <div key={rowIdx} className="flex gap-1.5">
+                  {row.values.map((intensity, colIdx) => (
+                    <div
+                      key={colIdx}
+                      className={`flex-1 h-8 ${getColorByIntensity(intensity)} rounded-lg transition-all hover:scale-105 cursor-pointer`}
+                      title={`${row.hour} - ${days[colIdx]}: ${intensity * 25}% capacity`}
+                    />
+                  ))}
+                </div>
+              ))
+            ) : (
+              Array.from({ length: 6 }).map((_, rowIdx) => (
+                <div key={rowIdx} className="flex gap-1.5">
+                  {Array.from({ length: 7 }).map((_, colIdx) => (
+                    <div
+                      key={colIdx}
+                      className="flex-1 h-8 bg-gray-100 rounded-lg animate-pulse"
+                    />
+                  ))}
+                </div>
+              ))
+            )}
           </div>
 
           {/* X-axis (Days) */}
