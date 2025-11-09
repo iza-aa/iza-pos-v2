@@ -7,17 +7,42 @@ interface FoodItem {
 	price: number;
 	image: string;
 	quantity: number;
+	hasVariants?: boolean; // Tambah field untuk detect variants
 }
 
 interface FoodItemCardProps {
 	item: FoodItem;
 	onQuantityChange: (id: string, delta: number) => void;
+	onItemClick?: (item: FoodItem) => void; // Callback untuk buka variant sidebar
 }
 
-export default function FoodItemCard({ item, onQuantityChange }: FoodItemCardProps) {
+export default function FoodItemCard({ item, onQuantityChange, onItemClick }: FoodItemCardProps) {
+	const handleCardClick = () => {
+		if (item.hasVariants && onItemClick) {
+			onItemClick(item);
+		}
+	};
+
+	const handlePlusClick = (e: React.MouseEvent) => {
+		e.stopPropagation(); // Prevent card click
+		if (item.hasVariants && onItemClick) {
+			onItemClick(item);
+		} else {
+			onQuantityChange(item.id, 1);
+		}
+	};
+
+	const handleMinusClick = (e: React.MouseEvent) => {
+		e.stopPropagation(); // Prevent card click
+		onQuantityChange(item.id, -1);
+	};
+
 	return (
 		<div
-			className={`rounded-2xl transition cursor-pointer ${
+			onClick={handleCardClick}
+			className={`rounded-2xl transition ${
+				item.hasVariants ? 'cursor-pointer' : ''
+			} ${
 				item.quantity > 0
 					? "border-2 border-blue-400 bg-blue-50"
 					: "border-2 border-gray-200 bg-white hover:border-gray-300"
@@ -38,20 +63,22 @@ export default function FoodItemCard({ item, onQuantityChange }: FoodItemCardPro
 			<div className="flex items-center justify-between">
 				<div className="font-bold text-gray-900">${item.price.toFixed(2)}</div>
 				<div className="flex items-center gap-2">
-					<button
-						onClick={() => onQuantityChange(item.id, -1)}
-						disabled={item.quantity === 0}
-						className={`w-7 h-7 rounded-full flex items-center justify-center transition ${
-							item.quantity > 0
-								? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-								: "bg-gray-100 text-gray-400 cursor-not-allowed"
-						}`}
-					>
-						−
-					</button>
+					{!item.hasVariants && (
+						<button
+							onClick={handleMinusClick}
+							disabled={item.quantity === 0}
+							className={`w-7 h-7 rounded-full flex items-center justify-center transition ${
+								item.quantity > 0
+									? "bg-gray-200 hover:bg-gray-300 text-gray-700"
+									: "bg-gray-100 text-gray-400 cursor-not-allowed"
+							}`}
+						>
+							−
+						</button>
+					)}
 					<span className="w-6 text-center font-semibold text-blue-600">{item.quantity}</span>
 					<button
-						onClick={() => onQuantityChange(item.id, 1)}
+						onClick={handlePlusClick}
 						className="w-7 h-7 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition"
 					>
 						+

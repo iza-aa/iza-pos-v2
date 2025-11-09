@@ -2,14 +2,18 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { products as mockProducts } from '@/app/lib/mockData'
+import ProductModal from './ProductModal'
 
 interface Product {
-  id: number
+  id: string
   name: string
   category: string
   price: number
   stock: number
+  hasVariants?: boolean
+  variantGroups?: string[]
 }
 
 export default function ProductsManager() {
@@ -17,27 +21,59 @@ export default function ProductsManager() {
   const viewAsOwner = searchParams.get('viewAs') === 'owner'
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
   useEffect(() => {
-    // Mock data untuk demo
-    setProducts([
-      { id: 1, name: 'Espresso', category: 'Coffee', price: 25000, stock: 100 },
-      { id: 2, name: 'Cappuccino', category: 'Coffee', price: 30000, stock: 85 },
-      { id: 3, name: 'Latte', category: 'Coffee', price: 32000, stock: 90 },
-      { id: 4, name: 'Americano', category: 'Coffee', price: 28000, stock: 95 },
-      { id: 5, name: 'Mocha', category: 'Coffee', price: 35000, stock: 70 },
-      { id: 6, name: 'Affogato', category: 'Coffee', price: 38000, stock: 45 },
-      { id: 7, name: 'Green Tea Latte', category: 'Non-Coffee', price: 30000, stock: 60 },
-      { id: 8, name: 'Chocolate', category: 'Non-Coffee', price: 28000, stock: 75 },
-      { id: 9, name: 'Croissant', category: 'Pastry', price: 25000, stock: 50 },
-      { id: 10, name: 'Blueberry Muffin', category: 'Pastry', price: 22000, stock: 40 },
-    ])
-  }, [viewAsOwner])
+    // Use data from mockData
+    setProducts(mockProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      price: p.price,
+      stock: p.stock,
+      hasVariants: p.hasVariants,
+      variantGroups: p.variantGroups,
+    })));
+  }, [])
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.category.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const handleAddProduct = () => {
+    setShowAddModal(true)
+    console.log('Opening Add Product modal')
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product)
+    console.log('Editing product:', product)
+  }
+
+  const handleSaveNewProduct = (newProduct: Omit<Product, 'id'>) => {
+    const product: Product = {
+      ...newProduct,
+      id: `prod-${Date.now()}`, // Generate temporary ID
+    }
+    setProducts(prev => [...prev, product])
+    setShowAddModal(false)
+    console.log('Product added:', product)
+  }
+
+  const handleUpdateProduct = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
+    setEditingProduct(null)
+    console.log('Product updated:', updatedProduct)
+  }
+
+  const handleDeleteProduct = (productId: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      setProducts(prev => prev.filter(p => p.id !== productId))
+      console.log('Product deleted:', productId)
+    }
+  }
 
   return (
     <div className="h-[calc(100vh-64px)] bg-gray-50 flex flex-col overflow-hidden">
@@ -69,7 +105,10 @@ export default function ProductsManager() {
             </div>
 
             {!viewAsOwner && (
-              <button className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium">
+              <button 
+                onClick={handleAddProduct}
+                className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium"
+              >
                 <PlusIcon className="w-5 h-5" />
                 Add Product
               </button>
@@ -116,10 +155,22 @@ export default function ProductsManager() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {!viewAsOwner ? (
-                      <button className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium transition">
-                        <PencilIcon className="w-4 h-4" />
-                        Edit
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleEditProduct(product)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Edit"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                          title="Delete"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-gray-400 text-sm">View only</span>
                     )}
@@ -137,6 +188,18 @@ export default function ProductsManager() {
           </div>
         )}
       </section>
+
+      {/* Product Modal */}
+      <ProductModal
+        isOpen={showAddModal || editingProduct !== null}
+        onClose={() => {
+          setShowAddModal(false)
+          setEditingProduct(null)
+        }}
+        onSave={handleSaveNewProduct}
+        onUpdate={handleUpdateProduct}
+        editProduct={editingProduct}
+      />
     </div>
   )
 }

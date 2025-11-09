@@ -5,35 +5,43 @@ import OrderLineCard from "@/app/components/staff/pos/OrderLineCard";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
 import MenuCategories from "@/app/components/staff/pos/MenuCategories";
 import FoodItemCard from "@/app/components/staff/pos/FoodItemCard";
+import VariantSidebar from "@/app/components/staff/pos/VariantSidebar";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentMethodSelector from "@/app/components/staff/pos/PaymentMethodSelector";
-import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { products, categories, orders } from "@/app/lib/mockData";
 
-// Mock data
-const mockOrders = [
-	{ id: "1", orderNumber: "Order #FO027", table: "Table 03", itemCount: 8, timeAgo: "2 mins ago", status: "in-kitchen" as const },
-	{ id: "2", orderNumber: "Order #FO028", table: "Table 07", itemCount: 3, timeAgo: "Just Now", status: "wait-list" as const },
-	{ id: "3", orderNumber: "Order #FO019", table: "Table 09", itemCount: 2, timeAgo: "25 mins ago", status: "ready" as const },
-];
+// Transform orders for display
+const mockOrders = orders.slice(0, 3).map(order => ({
+	id: order.id,
+	orderNumber: order.orderNumber,
+	table: order.table,
+	itemCount: order.itemCount,
+	timeAgo: order.timeAgo,
+	status: order.status,
+}));
 
+// Transform categories for menu
 const mockCategories = [
-	{ id: "all", label: "All Menu", icon: "🍽️", count: 154 },
-	{ id: "special", label: "Special", icon: "⭐", count: 19, isSpecial: true },
-	{ id: "soups", label: "Soups", icon: "🍜", count: 3 },
-	{ id: "desserts", label: "Desserts", icon: "🍰", count: 19 },
-	{ id: "chickens", label: "Chickens", icon: "🍗", count: 10 },
+	{ id: 'all', label: 'All Menu', icon: '🍽️', count: products.length },
+	...categories.map(cat => ({
+		id: cat.id,
+		label: cat.name,
+		icon: cat.icon,
+		count: cat.count,
+	}))
 ];
 
-const mockFoodItems = [
-	{ id: "1", name: "Grilled Salmon Steak", category: "Lunch", price: 15.0, image: "", quantity: 0 },
-	{ id: "2", name: "Tofu Poke Bowl", category: "Salad", price: 7.0, image: "", quantity: 0 },
-	{ id: "3", name: "Pasta with Roast Beef", category: "Pasta", price: 10.0, image: "", quantity: 2 },
-	{ id: "4", name: "Beef Steak", category: "Beef", price: 30.0, image: "", quantity: 0 },
-	{ id: "5", name: "Shrimp Rice Bowl", category: "Rice", price: 6.0, image: "", quantity: 2 },
-	{ id: "6", name: "Apple Stuffed Pancake", category: "Dessert", price: 35.0, image: "", quantity: 1 },
-	{ id: "7", name: "Chicken Quinoa & Herbs", category: "Chicken", price: 12.0, image: "", quantity: 0 },
-	{ id: "8", name: "Vegetable Shrimp", category: "Salad", price: 10.0, image: "", quantity: 1 },
-];
+// Transform products for food items with quantity state
+const mockFoodItems = products.map(p => ({
+	id: p.id,
+	name: p.name,
+	category: p.category,
+	price: p.price,
+	image: p.image,
+	quantity: 0,
+	hasVariants: p.hasVariants,
+}));
 
 export default function POSPage() {
 	const [activeTab, setActiveTab] = useState("all");
@@ -43,6 +51,8 @@ export default function POSPage() {
 	const [paymentMethod, setPaymentMethod] = useState("card");
 	const [showOrderLine, setShowOrderLine] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [variantSidebarOpen, setVariantSidebarOpen] = useState(false);
+	const [selectedItem, setSelectedItem] = useState<any>(null);
 
 	const handleQuantityChange = (id: string, delta: number) => {
 		setFoodItems((items) =>
@@ -51,6 +61,28 @@ export default function POSPage() {
 			)
 		);
 	};
+
+	const handleItemClick = (item: any) => {
+		setSelectedItem(item);
+		setVariantSidebarOpen(true);
+	};
+
+	const handleAddToOrder = (item: any, selectedVariants: any, totalPrice: number) => {
+		// Add item dengan variants ke order
+		setFoodItems((items) =>
+			items.map((i) =>
+				i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+			)
+		);
+		console.log('Added to order:', { item, selectedVariants, totalPrice });
+	};
+
+	// Filter items by category and search
+	const filteredFoodItems = foodItems.filter(item => {
+		const matchesCategory = activeCategory === 'all' || item.category === categories.find(c => c.id === activeCategory)?.name;
+		const matchesSearch = searchQuery === '' || item.name.toLowerCase().includes(searchQuery.toLowerCase());
+		return matchesCategory && matchesSearch;
+	});
 
 	const orderedItems = foodItems
 		.filter((item) => item.quantity > 0)
@@ -118,8 +150,13 @@ export default function POSPage() {
 
 					{/* Food Items Grid */}
 					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-						{foodItems.map((item) => (
-							<FoodItemCard key={item.id} item={item} onQuantityChange={handleQuantityChange} />
+						{filteredFoodItems.map((item) => (
+							<FoodItemCard 
+								key={item.id} 
+								item={item} 
+								onQuantityChange={handleQuantityChange}
+								onItemClick={handleItemClick}
+							/>
 						))}
 					</div>
 				</div>
@@ -151,6 +188,16 @@ export default function POSPage() {
 					</button>
 				</div>
 			</section>
+
+			{/* Variant Sidebar */}
+			{selectedItem && (
+				<VariantSidebar
+					isOpen={variantSidebarOpen}
+					onClose={() => setVariantSidebarOpen(false)}
+					item={selectedItem}
+					onAddToOrder={handleAddToOrder}
+				/>
+			)}
 		</main>
 	);
 }

@@ -5,7 +5,7 @@ import { FiMenu, FiX, FiBell } from "react-icons/fi";
 import { usePathname, useSearchParams } from "next/navigation";
 import ProfilePopout from "../profile/page";
 
-// Menu untuk setiap role
+// Menu untuk setiap role (tanpa query parameter)
 const roleMenus = {
   owner: [
     { label: "Dashboard", href: "/owner/dashboard" },
@@ -14,16 +14,16 @@ const roleMenus = {
     { label: "Settings", href: "/owner/settings" },
   ],
   manager: [
-    { label: "Products", href: "/manager/products?viewAs=owner" },
-    { label: "Menu", href: "/manager/menu?viewAs=owner" },
-    { label: "Inventory", href: "/manager/inventory?viewAs=owner" },
-    { label: "Table Manager", href: "/manager/table-manager?viewAs=owner" },
-    { label: "Order", href: "/manager/order?viewAs=owner" },
+    { label: "Products", href: "/manager/products" },
+    { label: "Menu", href: "/manager/menu" },
+    { label: "Variants", href: "/manager/variants" },
+    { label: "Inventory", href: "/manager/inventory" },
+    { label: "Table Manager", href: "/manager/table-manager" },
   ],
   staff: [
-    { label: "POS", href: "/staff/pos?viewAs=owner" },
-    { label: "Order", href: "/staff/order?viewAs=owner" },
-    { label: "My Shift", href: "/staff/shift?viewAs=owner" },
+    { label: "POS", href: "/staff/pos" },
+    { label: "Order", href: "/staff/order" },
+    { label: "My Shift", href: "/staff/shift" },
   ],
 };
 
@@ -31,6 +31,14 @@ const roleLabels = {
   owner: "Owner",
   manager: "Manager", 
   staff: "Staff",
+};
+
+// Helper function untuk menambahkan query parameter jika diperlukan
+const getMenuItemHref = (href: string, shouldAddViewAsOwner: boolean) => {
+  if (shouldAddViewAsOwner && !href.startsWith("/owner")) {
+    return `${href}?viewAs=owner`;
+  }
+  return href;
 };
 
 export default function Navbar() {
@@ -60,30 +68,37 @@ export default function Navbar() {
       setSelectedRole(autoRole);
     }
   }, [pathname, mounted]);
-  
-  // Jika bukan owner route dan bukan viewAs=owner, gunakan navbar biasa (staff)
-  if (!isOwnerRoute && !viewAsOwner) {
-    const staffNav = [
-      { label: "Dashboard", href: "/staff/dashboard" },
-      { label: "Pesanan", href: "/staff/order" },
-      { label: "Shift", href: "/staff/shift" },
-    ];
-    const selected = staffNav.findIndex(item => item.href === pathname);
+
+  // Jika bukan owner dan tidak viewAs=owner, tampilkan navbar sederhana (tanpa role tabs)
+  const isStaffRoute = pathname.startsWith("/staff");
+  const isManagerRoute = pathname.startsWith("/manager");
+  const showRoleTabs = isOwnerRoute || viewAsOwner;
+
+  // Navbar sederhana untuk staff/manager tanpa role tabs
+  if (!showRoleTabs && (isStaffRoute || isManagerRoute)) {
+    const simpleNavItems = isStaffRoute ? roleMenus.staff : roleMenus.manager;
+    const selected = simpleNavItems.findIndex(item => {
+      return item.href === pathname;
+    });
 
     return (
       <>
-        <nav className="bg-[#fafafa] border-b border-gray-200 px-4 py-3 grid grid-cols-3 items-center relative sticky top-0 z-50">
-          <div className="flex items-center col-start-1">
+        <nav className="bg-[#fafafa] border-b border-gray-200 px-4 py-3 flex items-center justify-between relative sticky top-0 z-50">
+          {/* Kiri: Logo */}
+          <div className="flex items-center">
             <img src="/logo/IZALogo2.png" alt="Logo" className="w-12 h-8 object-contain" />
           </div>
 
-          <div className="hidden md:flex justify-self-center gap-8 col-start-2">
-            {staffNav.map((item, idx) => (
+          {/* Tengah: Nav Items */}
+          <div className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+            {simpleNavItems.map((item, idx) => (
               <button
                 key={item.label}
                 onClick={() => window.location.href = item.href}
                 className={`text-base transition font-medium ${
-                  selected === idx ? "text-gray-900 font-bold" : "text-gray-400 hover:text-gray-700"
+                  selected === idx
+                    ? "text-gray-900 font-bold"
+                    : "text-gray-400 hover:text-gray-700"
                 }`}
               >
                 {item.label}
@@ -91,14 +106,48 @@ export default function Navbar() {
             ))}
           </div>
 
-          <div className="hidden md:flex items-center justify-self-end gap-6 col-start-3">
+          {/* Kanan: Icon & Avatar */}
+          <div className="hidden md:flex items-center gap-6">
             <FiBell className="w-5 h-5 text-gray-700 cursor-pointer" />
             <button onClick={() => setShowProfile(true)}>
               <img src="/avatar.jpg" alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
             </button>
           </div>
+
+          {/* Hamburger (mobile) */}
+          <div className="flex md:hidden ml-auto">
+            <button onClick={() => setOpen(!open)}>
+              {open ? <FiX className="w-7 h-7" /> : <FiMenu className="w-7 h-7" />}
+            </button>
+          </div>
+
+          {/* Mobile menu */}
+          {open && (
+            <div className="absolute top-full left-0 w-full bg-white shadow-lg z-50 flex flex-col md:hidden">
+              {simpleNavItems.map((item, idx) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    window.location.href = item.href;
+                    setOpen(false);
+                  }}
+                  className={`py-4 px-6 text-left text-base border-b border-gray-100 ${
+                    selected === idx
+                      ? "text-gray-900 font-bold"
+                      : "text-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </nav>
-        {showProfile && <ProfilePopout onClose={() => setShowProfile(false)} />}
+
+        {/* Popout Profile */}
+        {showProfile && (
+          <ProfilePopout onClose={() => setShowProfile(false)} />
+        )}
       </>
     );
   }
@@ -108,9 +157,7 @@ export default function Navbar() {
   
   // Cek active state dengan mempertimbangkan query parameter
   const selected = navItems.findIndex(item => {
-    const itemUrl = new URL(item.href, 'http://localhost');
-    const itemPath = itemUrl.pathname;
-    return itemPath === pathname;
+    return item.href === pathname;
   });
 
   // Render loading state jika belum mounted untuk avoid hydration mismatch
@@ -168,7 +215,7 @@ export default function Navbar() {
             {navItems.map((item, idx) => (
               <button
                 key={item.label}
-                onClick={() => window.location.href = item.href}
+                onClick={() => window.location.href = getMenuItemHref(item.href, showRoleTabs)}
                 className={`text-base transition font-medium ${
                   selected === idx
                     ? "text-gray-900 font-bold"
@@ -222,7 +269,7 @@ export default function Navbar() {
               <button
                 key={item.label}
                 onClick={() => {
-                  window.location.href = item.href;
+                  window.location.href = getMenuItemHref(item.href, showRoleTabs);
                   setOpen(false);
                 }}
                 className={`py-4 px-6 text-left text-base border-b border-gray-100 ${

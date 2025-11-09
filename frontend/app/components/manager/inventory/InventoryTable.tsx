@@ -1,7 +1,7 @@
 'use client'
 
 interface InventoryItem {
-  id: number
+  id: string
   name: string
   category: string
   currentStock: number
@@ -15,9 +15,11 @@ interface InventoryItem {
 interface InventoryTableProps {
   items: InventoryItem[]
   viewAsOwner: boolean
+  onRestock?: (item: InventoryItem) => void
+  onEdit?: (item: InventoryItem) => void
 }
 
-export default function InventoryTable({ items, viewAsOwner }: InventoryTableProps) {
+export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit }: InventoryTableProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'in-stock': return 'bg-green-100 text-green-700'
@@ -92,11 +94,17 @@ export default function InventoryTable({ items, viewAsOwner }: InventoryTablePro
               {!viewAsOwner && (
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    <button 
+                      onClick={() => onRestock?.(item)}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
                       Restock
                     </button>
                     <span className="text-gray-300">|</span>
-                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    <button 
+                      onClick={() => onEdit?.(item)}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
                       Edit
                     </button>
                   </div>

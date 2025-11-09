@@ -6,7 +6,7 @@ interface Order {
 	table: string;
 	itemCount: number;
 	timeAgo: string;
-	status: "in-kitchen" | "wait-list" | "ready";
+	status: "in-kitchen" | "wait-list" | "ready" | "in-progress";
 }
 
 interface OrderLineCardProps {
@@ -18,6 +18,7 @@ export default function OrderLineCard({ order, onClick }: OrderLineCardProps) {
 	const statusConfig = {
 		"in-kitchen": { bg: "bg-blue-100", text: "text-blue-700", label: "In Kitchen" },
 		"wait-list": { bg: "bg-orange-100", text: "text-orange-700", label: "Wait List" },
+		"in-progress": { bg: "bg-purple-100", text: "text-purple-700", label: "In Progress" },
 		ready: { bg: "bg-green-100", text: "text-green-700", label: "Ready" },
 	};
 

@@ -6,9 +6,11 @@ import { PlusIcon, ArrowPathIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react
 import InventoryStats from './inventory/InventoryStats'
 import InventoryFilters from './inventory/InventoryFilters'
 import InventoryTable from './inventory/InventoryTable'
+import InventoryModal from './InventoryModal'
+import { inventoryItems as mockInventoryItems } from '@/app/lib/mockData'
 
 interface InventoryItem {
-  id: number
+  id: string
   name: string
   category: string
   currentStock: number
@@ -20,12 +22,10 @@ interface InventoryItem {
 }
 
 const categories = [
-  { id: 'all', name: 'All Items', count: 156 },
-  { id: 'ingredients', name: 'Ingredients', count: 45 },
-  { id: 'beverages', name: 'Beverages', count: 32 },
-  { id: 'packaging', name: 'Packaging', count: 28 },
-  { id: 'cleaning', name: 'Cleaning Supplies', count: 15 },
-  { id: 'equipment', name: 'Equipment', count: 36 },
+  { id: 'all', name: 'All Items', count: mockInventoryItems.length },
+  { id: 'ingredients', name: 'Ingredients', count: mockInventoryItems.filter(i => i.category === 'Ingredients').length },
+  { id: 'packaging', name: 'Packaging', count: mockInventoryItems.filter(i => i.category === 'Packaging').length },
+  { id: 'cleaning', name: 'Cleaning', count: mockInventoryItems.filter(i => i.category === 'Cleaning').length },
 ]
 
 export default function InventoryManager() {
@@ -36,21 +36,13 @@ export default function InventoryManager() {
   const [searchQuery, setSearchQuery] = useState('')
   const [items, setItems] = useState<InventoryItem[]>([])
   const [showStats, setShowStats] = useState(true)
+  const [showAddItemModal, setShowAddItemModal] = useState(false)
+  const [showRestockModal, setShowRestockModal] = useState(false)
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
 
   useEffect(() => {
-    // Mock inventory data
-    setItems([
-      { id: 1, name: 'Coffee Beans (Arabica)', category: 'Ingredients', currentStock: 25, reorderLevel: 10, unit: 'kg', supplier: 'PT Kopi Nusantara', lastRestocked: '2025-11-05', status: 'in-stock' },
-      { id: 2, name: 'Fresh Milk', category: 'Ingredients', currentStock: 8, reorderLevel: 15, unit: 'liters', supplier: 'Dairy Farm Ltd', lastRestocked: '2025-11-07', status: 'low-stock' },
-      { id: 3, name: 'Sugar', category: 'Ingredients', currentStock: 50, reorderLevel: 20, unit: 'kg', supplier: 'Sweet Supply Co', lastRestocked: '2025-11-01', status: 'in-stock' },
-      { id: 4, name: 'Paper Cups (12oz)', category: 'Packaging', currentStock: 500, reorderLevel: 200, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-06', status: 'in-stock' },
-      { id: 5, name: 'Plastic Lids', category: 'Packaging', currentStock: 150, reorderLevel: 300, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-10-28', status: 'low-stock' },
-      { id: 6, name: 'Espresso Machine Cleaner', category: 'Cleaning Supplies', currentStock: 0, reorderLevel: 5, unit: 'bottles', supplier: 'Clean Tech', lastRestocked: '2025-10-15', status: 'out-of-stock' },
-      { id: 7, name: 'Chocolate Syrup', category: 'Ingredients', currentStock: 12, reorderLevel: 8, unit: 'bottles', supplier: 'Sweet Supply Co', lastRestocked: '2025-11-04', status: 'in-stock' },
-      { id: 8, name: 'Whipped Cream', category: 'Ingredients', currentStock: 6, reorderLevel: 10, unit: 'cans', supplier: 'Dairy Farm Ltd', lastRestocked: '2025-11-07', status: 'low-stock' },
-      { id: 9, name: 'Vanilla Extract', category: 'Ingredients', currentStock: 3, reorderLevel: 5, unit: 'bottles', supplier: 'Flavor World', lastRestocked: '2025-11-02', status: 'low-stock' },
-      { id: 10, name: 'Paper Napkins', category: 'Packaging', currentStock: 1000, reorderLevel: 500, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-05', status: 'in-stock' },
-    ])
+    // Use data from mockData
+    setItems(mockInventoryItems)
   }, [])
 
   const filteredItems = items.filter(item => {
@@ -64,6 +56,67 @@ export default function InventoryManager() {
     lowStock: items.filter(i => i.status === 'low-stock').length,
     outOfStock: items.filter(i => i.status === 'out-of-stock').length,
     inStock: items.filter(i => i.status === 'in-stock').length,
+  }
+
+  const handleToggleStats = () => {
+    setShowStats(!showStats)
+  }
+
+  const handleRestock = () => {
+    setShowRestockModal(true)
+    console.log('Opening Restock modal')
+  }
+
+  const handleAddNewItem = () => {
+    setShowAddItemModal(true)
+    setEditingItem(null)
+    console.log('Opening Add New Item modal')
+  }
+
+  const handleSaveNewItem = (newItem: Omit<InventoryItem, 'id' | 'lastRestocked' | 'status'>) => {
+    const status = newItem.currentStock === 0 ? 'out-of-stock' : 
+                  newItem.currentStock <= newItem.reorderLevel ? 'low-stock' : 'in-stock'
+    const item: InventoryItem = {
+      ...newItem,
+      id: `inv-${Date.now()}`,
+      lastRestocked: new Date().toISOString(),
+      status: status as 'in-stock' | 'low-stock' | 'out-of-stock',
+    }
+    setItems(prev => [...prev, item])
+    setShowAddItemModal(false)
+    console.log('Inventory item added:', item)
+  }
+
+  const handleUpdateItem = (updatedItem: InventoryItem) => {
+    setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i))
+    setEditingItem(null)
+    console.log('Inventory item updated:', updatedItem)
+  }
+
+  const handleRestockItem = (item: InventoryItem) => {
+    const quantity = prompt(`Restock ${item.name}. Enter quantity:`)
+    if (quantity && !isNaN(Number(quantity))) {
+      setItems(prev => prev.map(i => {
+        if (i.id === item.id) {
+          const newStock = i.currentStock + Number(quantity)
+          const newStatus = newStock <= i.reorderLevel ? 'low-stock' : 
+                           newStock === 0 ? 'out-of-stock' : 'in-stock'
+          return {
+            ...i,
+            currentStock: newStock,
+            status: newStatus as 'in-stock' | 'low-stock' | 'out-of-stock',
+            lastRestocked: new Date().toISOString()
+          }
+        }
+        return i
+      }))
+      console.log(`Restocked ${item.name} with ${quantity} units`)
+    }
+  }
+
+  const handleEditItem = (item: InventoryItem) => {
+    setEditingItem(item)
+    console.log('Editing item:', item)
   }
 
   return (
@@ -84,11 +137,17 @@ export default function InventoryManager() {
           <div className="flex items-center gap-4">
             {!viewAsOwner && (
               <>
-                <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+                <button 
+                  onClick={handleRestock}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+                >
                   <ArrowPathIcon className="w-5 h-5 text-gray-600" />
                   <span className="text-sm font-medium text-gray-700">Restock</span>
                 </button>
-                <button className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium">
+                <button 
+                  onClick={handleAddNewItem}
+                  className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium"
+                >
                   <PlusIcon className="w-5 h-5" />
                   Add New Item
                 </button>
@@ -117,14 +176,31 @@ export default function InventoryManager() {
           showStats={showStats}
           onCategoryChange={setSelectedCategory}
           onSearchChange={setSearchQuery}
-          onToggleStats={() => setShowStats(!showStats)}
+          onToggleStats={handleToggleStats}
         />
       </section>
 
       {/* Section 2: Table List (Scrollable) */}
       <section className="flex-1 overflow-y-auto px-8 pb-8">
-        <InventoryTable items={filteredItems} viewAsOwner={viewAsOwner} />
+        <InventoryTable 
+          items={filteredItems} 
+          viewAsOwner={viewAsOwner}
+          onRestock={handleRestockItem}
+          onEdit={handleEditItem}
+        />
       </section>
+
+      {/* Inventory Modal */}
+      <InventoryModal
+        isOpen={showAddItemModal || editingItem !== null}
+        onClose={() => {
+          setShowAddItemModal(false)
+          setEditingItem(null)
+        }}
+        onSave={handleSaveNewItem}
+        onUpdate={handleUpdateItem}
+        editItem={editingItem}
+      />
     </div>
   )
 }

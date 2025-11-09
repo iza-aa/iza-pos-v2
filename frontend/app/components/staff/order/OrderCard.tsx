@@ -10,7 +10,7 @@ interface Order {
 	total: number;
 	date: string;
 	time: string;
-	status: "ready" | "in-progress";
+	status: "in-kitchen" | "wait-list" | "ready" | "in-progress";
 	avatar: string;
 }
 
@@ -21,6 +21,20 @@ interface OrderCardProps {
 
 export default function OrderCard({ order, onClick }: OrderCardProps) {
 	const statusConfig = {
+		"in-kitchen": {
+			icon: ClockIcon,
+			color: "text-orange-500",
+			bg: "bg-orange-50",
+			border: "border-orange-200",
+			label: "In Kitchen",
+		},
+		"wait-list": {
+			icon: ClockIcon,
+			color: "text-blue-500",
+			bg: "bg-blue-50",
+			border: "border-blue-200",
+			label: "Wait List",
+		},
 		ready: {
 			icon: CheckCircleIcon,
 			color: "text-green-500",
@@ -30,9 +44,9 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
 		},
 		"in-progress": {
 			icon: ClockIcon,
-			color: "text-yellow-500",
-			bg: "bg-yellow-50",
-			border: "border-yellow-200",
+			color: "text-purple-500",
+			bg: "bg-purple-50",
+			border: "border-purple-200",
 			label: "In Progress",
 		},
 	};

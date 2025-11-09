@@ -3,51 +3,62 @@
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { MagnifyingGlassIcon, PlusIcon, Squares2X2Icon, ListBulletIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import { products, categories as mockCategories } from '@/app/lib/mockData'
+import DishModal from './DishModal'
+import CategoryModal from './CategoryModal'
 
 interface Dish {
-  id: number
+  id: string
   name: string
   category: string
+  categoryId: string
   price: number
   image: string
   available: boolean
+  hasVariants?: boolean
+  variantGroups: string[]
 }
 
 const categories = [
-  { id: 'all', name: 'All Dishes', icon: '🍽️', count: 154 },
-  { id: 'breakfast', name: 'Breakfast', icon: '🍳', count: 12 },
-  { id: 'beef', name: 'Beef Dishes', icon: '🥩', count: 5 },
-  { id: 'biryani', name: 'Biryani', icon: '🍛', count: 8 },
-  { id: 'chicken', name: 'Chicken Dishes', icon: '🍗', count: 10 },
-  { id: 'desserts', name: 'Desserts', icon: '🍰', count: 19 },
-  { id: 'dinner', name: 'Dinner', icon: '🍽️', count: 8 },
-  { id: 'drinks', name: 'Drinks', icon: '🥤', count: 15 },
+  { id: 'all', name: 'All Dishes', icon: '🍽️', count: products.length },
+  ...mockCategories.map(cat => ({
+    id: cat.id,
+    name: cat.name,
+    icon: cat.icon,
+    count: cat.count,
+  }))
 ]
 
 export default function MenuManager() {
   const searchParams = useSearchParams()
   const viewAsOwner = searchParams.get('viewAs') === 'owner'
   
-  const [selectedCategory, setSelectedCategory] = useState('desserts')
+  const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [dishes, setDishes] = useState<Dish[]>([])
+  const [showFilterModal, setShowFilterModal] = useState(false)
+  const [showAddDishModal, setShowAddDishModal] = useState(false)
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [editingDish, setEditingDish] = useState<Dish | null>(null)
 
   useEffect(() => {
-    // Mock data untuk desserts
-    setDishes([
-      { id: 1, name: 'Cheese Syrniki Pancakes', category: 'Dessert', price: 8.00, image: '🥞', available: true },
-      { id: 2, name: 'Apple Stuffed Pancake', category: 'Dessert', price: 10.00, image: '🥞', available: true },
-      { id: 3, name: 'Terracotta Bowl', category: 'Dessert', price: 12.00, image: '🍨', available: true },
-      { id: 4, name: 'Croissant Dessert', category: 'Dessert', price: 15.00, image: '🥐', available: true },
-      { id: 5, name: 'Granola Banana & Berry', category: 'Dessert', price: 10.00, image: '🥣', available: true },
-      { id: 6, name: 'Vanilla Cherry Cupcake', category: 'Dessert', price: 8.00, image: '🧁', available: true },
-      { id: 7, name: 'Belgian Waffles', category: 'Dessert', price: 20.00, image: '🧇', available: true },
-      { id: 8, name: 'Granola with Yoghurt', category: 'Dessert', price: 15.00, image: '🥣', available: true },
-      { id: 9, name: 'Apple Stuffed Pancake', category: 'Dessert', price: 8.00, image: '🥞', available: true },
-      { id: 10, name: 'Muesli Bowl', category: 'Dessert', price: 10.00, image: '🥣', available: true },
-      { id: 11, name: 'Waffles with Ice-cream', category: 'Dessert', price: 10.00, image: '🧇', available: true },
-    ])
+    // Filter products by selected category
+    const filteredProducts = selectedCategory === 'all' 
+      ? products 
+      : products.filter(p => p.categoryId === selectedCategory);
+    
+    setDishes(filteredProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      categoryId: p.categoryId,
+      price: p.price,
+      image: p.image,
+      available: p.available,
+      hasVariants: p.hasVariants,
+      variantGroups: p.variantGroups || [],
+    })));
   }, [selectedCategory])
 
   const filteredDishes = dishes.filter(dish =>
@@ -55,6 +66,56 @@ export default function MenuManager() {
   )
 
   const currentCategory = categories.find(cat => cat.id === selectedCategory)
+
+  const handleAddNewCategory = () => {
+    setShowAddCategoryModal(true)
+    console.log('Opening Add Category modal')
+  }
+
+  const handleSaveNewCategory = (name: string, icon: string) => {
+    console.log('New category added:', name, icon)
+    // TODO: Add to categories array and update Supabase
+    setShowAddCategoryModal(false)
+  }
+
+  const handleAddNewDish = () => {
+    setShowAddDishModal(true)
+    setEditingDish(null)
+    console.log('Adding new dish to category:', selectedCategory)
+  }
+
+  const handleEditDish = (dish: Dish) => {
+    setEditingDish(dish)
+    console.log('Editing dish:', dish)
+  }
+
+  const handleSaveNewDish = (newDish: Omit<Dish, 'id'>) => {
+    const dish: Dish = {
+      ...newDish,
+      id: `dish-${Date.now()}`,
+    }
+    setDishes(prev => [...prev, dish])
+    setShowAddDishModal(false)
+    console.log('Dish added:', dish)
+  }
+
+  const handleUpdateDish = (updatedDish: Dish) => {
+    setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d))
+    setEditingDish(null)
+    console.log('Dish updated:', updatedDish)
+  }
+
+  const handleDeleteDish = (dish: Dish) => {
+    if (confirm(`Are you sure you want to delete "${dish.name}"?`)) {
+      setDishes(prev => prev.filter(d => d.id !== dish.id))
+      console.log('Dish deleted:', dish)
+    }
+  }
+
+  const handleFilter = () => {
+    setShowFilterModal(true)
+    console.log('Opening filter modal')
+  }
 
   return (
     <div className="h-[calc(100vh-64px)] bg-gray-50 flex overflow-hidden">
@@ -88,7 +149,10 @@ export default function MenuManager() {
           ))}
         </div>
 
-        <button className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-xl hover:bg-blue-600 transition font-medium flex-shrink-0">
+        <button 
+          onClick={handleAddNewCategory}
+          className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-xl hover:bg-blue-600 transition font-medium flex-shrink-0"
+        >
           <PlusIcon className="w-5 h-5" />
           Add New Category
         </button>
@@ -142,18 +206,13 @@ export default function MenuManager() {
               </div>
 
               {/* Filter */}
-              <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+              <button 
+                onClick={handleFilter}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              >
                 <FunnelIcon className="w-5 h-5 text-gray-600" />
                 <span className="text-sm font-medium text-gray-700">Filter</span>
               </button>
-
-              {/* Add New Dish */}
-              {!viewAsOwner && (
-                <button className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium">
-                  <PlusIcon className="w-5 h-5" />
-                  Add New Dishes
-                </button>
-              )}
             </div>
           </div>
         </section>
@@ -169,7 +228,10 @@ export default function MenuManager() {
           <div className="grid grid-cols-4 gap-6 pb-8">
             {/* Add New Dish Card */}
             {!viewAsOwner && (
-              <button className="border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 hover:border-blue-500 hover:bg-blue-50 transition min-h-[280px]">
+              <button 
+                onClick={handleAddNewDish}
+                className="border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 hover:border-blue-500 hover:bg-blue-50 transition min-h-[280px]"
+              >
                 <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center">
                   <PlusIcon className="w-8 h-8 text-white" />
                 </div>
@@ -180,45 +242,67 @@ export default function MenuManager() {
 
             {/* Dish Cards */}
             {filteredDishes.map((dish) => (
-              <div key={dish.id} className="bg-white rounded-2xl p-4 border border-gray-200 hover:shadow-lg transition">
-                {/* Checkbox */}
-                <div className="flex items-start justify-between mb-3">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-
+              <div key={dish.id} className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition">
                 {/* Dish Image */}
-                <div className="flex justify-center mb-4">
-                  <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center text-4xl">
-                    {dish.image}
+                <div className="relative p-[3px]">
+                  <div className="w-full h-24 bg-gray-200 rounded-xl overflow-hidden">
+                    <img
+                      src={dish.image || "/placeholder.jpg"}
+                      alt={dish.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </div>
 
                 {/* Dish Info */}
-                <div className="text-center">
+                <div className="p-4">
                   <p className="text-xs text-gray-500 mb-1">{dish.category}</p>
-                  <h3 className="text-sm font-semibold text-gray-800 mb-2">{dish.name}</h3>
-                  <p className="text-lg font-bold text-gray-900">${dish.price.toFixed(2)}</p>
-                </div>
+                  <h3 className="font-semibold text-gray-800 mb-2 truncate">{dish.name}</h3>
+                  <p className="font-bold text-gray-900 mb-4">${dish.price.toFixed(2)}</p>
 
-                {/* Actions */}
-                {!viewAsOwner && (
-                  <div className="flex items-center gap-2 mt-4">
-                    <button className="flex-1 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition">
-                      Edit
-                    </button>
-                    <button className="flex-1 px-3 py-2 text-xs font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition">
-                      Delete
-                    </button>
-                  </div>
-                )}
+                  {/* Actions */}
+                  {!viewAsOwner && (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleEditDish(dish)}
+                        className="flex-1 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteDish(dish)}
+                        className="flex-1 px-3 py-2 text-xs font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </section>
       </div>
+
+      {/* Dish Modal */}
+      <DishModal
+        isOpen={showAddDishModal || editingDish !== null}
+        onClose={() => {
+          setShowAddDishModal(false)
+          setEditingDish(null)
+        }}
+        onSave={handleSaveNewDish}
+        onUpdate={handleUpdateDish}
+        editDish={editingDish}
+        categories={categories.filter(c => c.id !== 'all')}
+      />
+
+      {/* Category Modal */}
+      <CategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onSave={handleSaveNewCategory}
+      />
     </div>
   )
 }
