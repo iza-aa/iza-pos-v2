@@ -13,7 +13,7 @@ export default function PaymentMethodSelector({ selectedMethod, onMethodChange }
 	];
 
 	return (
-		<div className="bg-white rounded-2xl p-6 shadow-sm mb-4">
+		<div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
 			<h3 className="font-semibold text-gray-800 mb-3">Payment Method</h3>
 			<div className="flex gap-2">
 				{methods.map((method) => (
@@ -22,7 +22,7 @@ export default function PaymentMethodSelector({ selectedMethod, onMethodChange }
 						onClick={() => onMethodChange(method.id)}
 						className={`flex-1 py-2.5 rounded-lg border-2 transition text-sm font-medium ${
 							selectedMethod === method.id
-								? "border-teal-300 bg-teal-50 text-teal-700"
+								? "border-blue-300 bg-blue-50 text-blue-700"
 								: "border-gray-200 text-gray-600 hover:border-gray-300"
 						}`}
 					>

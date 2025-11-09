@@ -72,15 +72,13 @@ export default function InventoryManager() {
       <section className="flex-shrink-0 p-8 pb-4 overflow-hidden">
         {/* Header dengan Title dan Action Buttons */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-8">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">Inventory Management</h1>
-              {viewAsOwner && (
-                <span className="inline-block mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
-                  👁️ Viewing as Owner
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-800">Inventory Management</h1>
+            {viewAsOwner && (
+              <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                👁️ Viewing as Owner
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

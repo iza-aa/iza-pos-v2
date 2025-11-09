@@ -2,7 +2,8 @@
 import { useState } from "react";
 import OrderLineTabs from "@/app/components/staff/pos/OrderLineTabs";
 import OrderLineCard from "@/app/components/staff/pos/OrderLineCard";
-import MenuCategoryTabs from "@/app/components/staff/pos/MenuCategoryTabs";
+import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
+import MenuCategories from "@/app/components/staff/pos/MenuCategories";
 import FoodItemCard from "@/app/components/staff/pos/FoodItemCard";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentMethodSelector from "@/app/components/staff/pos/PaymentMethodSelector";
@@ -41,6 +42,7 @@ export default function POSPage() {
 	const [selectedOrder, setSelectedOrder] = useState<any>(null);
 	const [paymentMethod, setPaymentMethod] = useState("card");
 	const [showOrderLine, setShowOrderLine] = useState(true);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const handleQuantityChange = (id: string, delta: number) => {
 		setFoodItems((items) =>
@@ -68,9 +70,9 @@ export default function POSPage() {
 	};
 
 	return (
-		<main className="min-h-screen bg-gray-50 p-2 px-6 pt-6 flex gap-6 relative">
+		<main className="h-[calc(100vh-64px)] bg-gray-50 flex overflow-hidden">
 			{/* Section 1: Order Line & Menu - Left scrollable */}
-			<section className="w-full pr-[36%] flex flex-col ">
+			<section className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
 				{/* Order Line */}
 				<div>
 					<OrderLineTabs 
@@ -99,27 +101,22 @@ export default function POSPage() {
 
 				{/* Foodies Menu */}
 				<div>
-					<div className="flex items-center justify-between mb-4">
-						<h2 className="text-2xl font-bold text-gray-800">Foodies Menu</h2>
-						<button 
-							onClick={() => setShowOrderLine(!showOrderLine)}
-							className="flex items-center justify-center w-9 h-9 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-							title={showOrderLine ? "Hide Order Line" : "Show Order Line"}
-						>
-							{showOrderLine ? (
-								<EyeSlashIcon className="w-5 h-5 text-gray-600" />
-							) : (
-								<EyeIcon className="w-5 h-5 text-gray-600" />
-							)}
-						</button>
-					</div>
-					
-					<MenuCategoryTabs
+					{/* Foodies Menu Card: Title + Search + Hide Button */}
+					<FoodiesMenuHeader
+						searchQuery={searchQuery}
+						onSearchChange={setSearchQuery}
+						showOrderLine={showOrderLine}
+						onToggleOrderLine={() => setShowOrderLine(!showOrderLine)}
+					/>
+
+					{/* Menu Categories - Outside Card */}
+					<MenuCategories
 						categories={mockCategories}
 						activeCategory={activeCategory}
 						setActiveCategory={setActiveCategory}
 					/>
 
+					{/* Food Items Grid */}
 					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
 						{foodItems.map((item) => (
 							<FoodItemCard key={item.id} item={item} onQuantityChange={handleQuantityChange} />
@@ -129,7 +126,7 @@ export default function POSPage() {
 			</section>
 
 			{/* Section 2: Order Summary - Fixed Right Sidebar */}
-			<section className="w-2/6 flex flex-col fixed top-20 right-6 bottom-6 gap-2">
+			<section className="w-[450px] flex-shrink-0 flex flex-col gap-2 py-6 pr-6 overflow-hidden">
 				<OrderSummary
 					tableNumber="Table No #04"
 					orderNumber="Order #FO030"
@@ -149,7 +146,7 @@ export default function POSPage() {
 					<button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition font-medium shadow-sm">
 						🖨️ Print
 					</button>
-					<button className="flex-1 py-3 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-semibold transition shadow-md">
+					<button className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold transition shadow-md">
 						📦 Place Order
 					</button>
 				</div>

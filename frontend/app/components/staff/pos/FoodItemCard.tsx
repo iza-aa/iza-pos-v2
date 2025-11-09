@@ -17,13 +17,13 @@ interface FoodItemCardProps {
 export default function FoodItemCard({ item, onQuantityChange }: FoodItemCardProps) {
 	return (
 		<div
-			className={`rounded-2xl p-4 transition cursor-pointer ${
+			className={`rounded-2xl transition cursor-pointer ${
 				item.quantity > 0
-					? "border-2 border-teal-400 bg-teal-50"
+					? "border-2 border-blue-400 bg-blue-50"
 					: "border-2 border-gray-200 bg-white hover:border-gray-300"
 			}`}
 		>
-			<div className="relative mb-3">
+			<div className="relative p-[3px]">
 				<div className="w-full h-24 bg-gray-200 rounded-xl overflow-hidden">
 					<img
 						src={item.image || "/placeholder.jpg"}
@@ -32,6 +32,7 @@ export default function FoodItemCard({ item, onQuantityChange }: FoodItemCardPro
 					/>
 				</div>
 			</div>
+		<div className="p-4">	
 			<div className="text-xs text-gray-500 mb-1">{item.category}</div>
 			<div className="font-semibold text-gray-800 mb-2 truncate">{item.name}</div>
 			<div className="flex items-center justify-between">
@@ -48,15 +49,16 @@ export default function FoodItemCard({ item, onQuantityChange }: FoodItemCardPro
 					>
 						−
 					</button>
-					<span className="w-6 text-center font-semibold text-teal-600">{item.quantity}</span>
+					<span className="w-6 text-center font-semibold text-blue-600">{item.quantity}</span>
 					<button
 						onClick={() => onQuantityChange(item.id, 1)}
-						className="w-7 h-7 rounded-full bg-teal-500 hover:bg-teal-600 text-white flex items-center justify-center transition"
+						className="w-7 h-7 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition"
 					>
 						+
 					</button>
 				</div>
 			</div>
+		</div>
 		</div>
 	);
 }

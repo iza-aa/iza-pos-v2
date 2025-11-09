@@ -16,9 +16,9 @@ interface OrderLineCardProps {
 
 export default function OrderLineCard({ order, onClick }: OrderLineCardProps) {
 	const statusConfig = {
-		"in-kitchen": { bg: "bg-teal-100", text: "text-teal-700", label: "In Kitchen" },
+		"in-kitchen": { bg: "bg-blue-100", text: "text-blue-700", label: "In Kitchen" },
 		"wait-list": { bg: "bg-orange-100", text: "text-orange-700", label: "Wait List" },
-		ready: { bg: "bg-purple-100", text: "text-purple-700", label: "Ready" },
+		ready: { bg: "bg-green-100", text: "text-green-700", label: "Ready" },
 	};
 
 	const config = statusConfig[order.status];

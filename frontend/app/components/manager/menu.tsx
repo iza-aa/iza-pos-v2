@@ -99,10 +99,10 @@ export default function MenuManager() {
         {/* Section 2: Header - Fixed, tidak bisa scroll */}
         <section className="bg-gray-50 p-8 border-b border-gray-200 flex-shrink-0 overflow-hidden">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-gray-800">Manage Dishes</h1>
               {viewAsOwner && (
-                <span className="inline-block mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
                   👁️ Viewing as Owner
                 </span>
               )}

@@ -31,7 +31,7 @@ export default function OrderSummary({
 	const total = subtotal + tax + donation;
 
 	return (
-		<div className="bg-white rounded-2xl p-6 shadow-sm mb-4">
+		<div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
 			{/* Header */}
 			<div className="flex justify-between items-start mb-6">
 				<div>

@@ -40,22 +40,19 @@ export default function ProductsManager() {
   )
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="mb-6">
+    <div className="h-[calc(100vh-64px)] bg-gray-50 flex flex-col overflow-hidden">
+      {/* Section 1: Header + Search (Fixed) */}
+      <section className="flex-shrink-0 p-8 pb-4 overflow-hidden">
+        {/* Header dengan Title dan Search */}
         <div className="flex items-center justify-between mb-6">
-          <div>
+          <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-gray-800">Kelola Produk</h1>
+            
             {viewAsOwner && (
-              <span className="inline-block mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+              <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
                 👁️ Viewing as Owner
               </span>
             )}
-            <p className="text-gray-500 text-sm mt-1">
-              {viewAsOwner 
-                ? "Monitoring semua produk sebagai owner"
-                : "Kelola dan update produk menu"
-              }
-            </p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -67,77 +64,79 @@ export default function ProductsManager() {
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
               />
             </div>
 
             {!viewAsOwner && (
-              <button className="flex items-center gap-2 bg-teal-500 text-white px-4 py-2 rounded-xl hover:bg-teal-600 transition font-medium">
+              <button className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium">
                 <PlusIcon className="w-5 h-5" />
                 Add Product
               </button>
             )}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Products Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Produk</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Harga</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stok</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredProducts.map((product) => (
-              <tr key={product.id} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm font-semibold text-gray-800">{product.name}</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-600">{product.category}</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm font-medium text-gray-800">Rp {product.price.toLocaleString('id-ID')}</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                    product.stock > 50 
-                      ? 'bg-green-100 text-green-700' 
-                      : product.stock > 20 
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    {product.stock} unit
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {!viewAsOwner ? (
-                    <button className="flex items-center gap-1 text-teal-600 hover:text-teal-800 text-sm font-medium transition">
-                      <PencilIcon className="w-4 h-4" />
-                      Edit
-                    </button>
-                  ) : (
-                    <span className="text-gray-400 text-sm">View only</span>
-                  )}
-                </td>
+      {/* Section 2: Table (Scrollable) */}
+      <section className="flex-1 overflow-y-auto px-8 pb-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Produk</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Harga</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stok</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Empty State */}
-      {filteredProducts.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No products found</p>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredProducts.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-semibold text-gray-800">{product.name}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-600">{product.category}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-medium text-gray-800">Rp {product.price.toLocaleString('id-ID')}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                      product.stock > 50 
+                        ? 'bg-green-100 text-green-700' 
+                        : product.stock > 20 
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {product.stock} unit
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {!viewAsOwner ? (
+                      <button className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium transition">
+                        <PencilIcon className="w-4 h-4" />
+                        Edit
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-sm">View only</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {/* Empty State */}
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No products found</p>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
