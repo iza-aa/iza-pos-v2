@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { recipes as initialRecipes, variantGroups, Recipe, inventoryItems, calculateCanMake } from '@/app/lib/mockData'
+import { recipes as initialRecipes, variantGroups, Recipe, inventoryItems, calculateCanMake } from '@/lib/mockData'
 
 // Simplified Recipe Variants Tab
 interface RecipeVariantsTabProps {

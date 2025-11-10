@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
-import { inventoryItems, Recipe, RecipeIngredient, variantGroups } from '@/app/lib/mockData'
+import { inventoryItems, Recipe, RecipeIngredient, variantGroups } from '@/lib/mockData'
 
 interface RecipeModalProps {
   isOpen: boolean

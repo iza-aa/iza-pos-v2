@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { QRCodeSVG } from "qrcode.react";
 import { FiSearch } from "react-icons/fi";
 import { BiQr } from "react-icons/bi";
-import CostumDropdown from "@/app/components/costumdropdown/page";
+import CostumDropdown from "@/app/components/ui/costumdropdown/page";
 
 const supabase = createClient(
 	process.env.NEXT_PUBLIC_SUPABASE_URL!,

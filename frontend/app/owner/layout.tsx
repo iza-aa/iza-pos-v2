@@ -2,7 +2,7 @@
 
 // filepath: d:\iza-pos-v2\frontend\app\owner\layout.tsx
 import { usePathname } from "next/navigation";
-import Navbar from "../components/navbar/page";
+import Navbar from "../components/ui/navbar/page";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

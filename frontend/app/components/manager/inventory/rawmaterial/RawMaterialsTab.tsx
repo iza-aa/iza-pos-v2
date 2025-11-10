@@ -5,9 +5,9 @@ import { PlusIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import InventoryStats from './InventoryStats'
 import InventoryFilters from './InventoryFilters'
 import InventoryTable from './InventoryTable'
-import InventoryModal from '../InventoryModal'
+import InventoryModal from './InventoryModal'
 import DeleteModal from '../../ui/DeleteModal'
-import { inventoryItems as mockInventoryItems } from '@/app/lib/mockData'
+import { inventoryItems as mockInventoryItems } from '@/lib/mockData'
 
 interface InventoryItem {
   id: string

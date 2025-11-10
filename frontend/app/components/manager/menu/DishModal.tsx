@@ -1,60 +1,118 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { XMarkIcon } from '@heroicons/react/24/outline'
-import { variantGroups } from '@/app/lib/mockData'
+import { useState, useEffect, useRef } from 'react'
+import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import { variantGroups } from '@/lib/mockData'
 
-interface Product {
+interface Dish {
   id: string
   name: string
   category: string
+  categoryId: string
   price: number
-  stock: number
+  image: string
+  available: boolean
   hasVariants?: boolean
-  variantGroups?: string[]
+  variantGroups: string[]
 }
 
-interface ProductModalProps {
+interface DishModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (product: Omit<Product, 'id'>) => void
-  onUpdate?: (product: Product) => void
-  editProduct?: Product | null
+  onSave: (dish: Omit<Dish, 'id'>) => void
+  onUpdate?: (dish: Dish) => void
+  editDish?: Dish | null
+  categories: Array<{ id: string; name: string }>
 }
 
-const categories = ['Coffee', 'Food', 'Snack', 'Dessert', 'Non Coffee']
-
-export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editProduct }: ProductModalProps) {
+export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish, categories }: DishModalProps) {
   const [formData, setFormData] = useState({
     name: '',
-    category: 'Coffee',
+    category: '',
+    categoryId: '',
     price: 0,
-    stock: 0,
+    image: '',
+    available: true,
     hasVariants: false,
     variantGroups: [] as string[],
   })
+  const [imagePreview, setImagePreview] = useState<string>('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (editProduct) {
+    if (editDish) {
       setFormData({
-        name: editProduct.name,
-        category: editProduct.category,
-        price: editProduct.price,
-        stock: editProduct.stock,
-        hasVariants: editProduct.hasVariants || false,
-        variantGroups: editProduct.variantGroups || [],
+        name: editDish.name,
+        category: editDish.category,
+        categoryId: editDish.categoryId,
+        price: editDish.price,
+        image: editDish.image,
+        available: editDish.available,
+        hasVariants: editDish.hasVariants || false,
+        variantGroups: editDish.variantGroups || [],
       })
-    } else {
+      setImagePreview(editDish.image)
+    } else if (categories.length > 0) {
+      const firstCategory = categories[0]
       setFormData({
         name: '',
-        category: 'Coffee',
+        category: firstCategory.name,
+        categoryId: firstCategory.id,
         price: 0,
-        stock: 0,
+        image: '',
+        available: true,
         hasVariants: false,
         variantGroups: [],
       })
+      setImagePreview('')
     }
-  }, [editProduct, isOpen])
+  }, [editDish, isOpen, categories])
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file')
+        return
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB')
+        return
+      }
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result as string
+        setImagePreview(result)
+        setFormData({ ...formData, image: result })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setImagePreview('')
+    setFormData({ ...formData, image: '' })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const categoryId = e.target.value
+    const selectedCategory = categories.find(c => c.id === categoryId)
+    if (selectedCategory) {
+      setFormData({ 
+        ...formData, 
+        categoryId: categoryId,
+        category: selectedCategory.name
+      })
+    }
+  }
 
   const handleToggleVariantGroup = (variantGroupId: string) => {
     setFormData(prev => ({
@@ -67,8 +125,8 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (editProduct && onUpdate) {
-      onUpdate({ ...formData, id: editProduct.id })
+    if (editDish && onUpdate) {
+      onUpdate({ ...formData, id: editDish.id })
     } else {
       onSave(formData)
     }
@@ -83,7 +141,7 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-800">
-            {editProduct ? 'Edit Product' : 'Add New Product'}
+            {editDish ? 'Edit Dish' : 'Add Dish'}
           </h2>
           <button
             onClick={onClose}
@@ -96,10 +154,10 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
         {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {/* Product Name */}
+            {/* Dish Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Product Name
+                Dish Name
               </label>
               <input
                 type="text"
@@ -107,22 +165,26 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter product name"
+                placeholder="Enter dish name"
               />
             </div>
 
-            {/* Category */}
+            {/* Category Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
               <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                required
+                value={formData.categoryId}
+                onChange={handleCategoryChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
+                <option value="">Select category</option>
                 {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -130,12 +192,13 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
             {/* Price */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price (Rp)
+                Price ($)
               </label>
               <input
                 type="number"
                 required
                 min="0"
+                step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -143,33 +206,78 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
               />
             </div>
 
-            {/* Stock */}
+            {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stock
+                Dish Image
               </label>
+              
+              {/* Image Preview or Upload Area */}
+              {imagePreview ? (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="Dish preview"
+                    className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition"
+                >
+                  <PhotoIcon className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600 mb-1">
+                    Click to upload dish image
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG up to 5MB
+                  </p>
+                </div>
+              )}
+
+              {/* Hidden File Input */}
               <input
-                type="number"
-                required
-                min="0"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter stock quantity"
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
               />
+            </div>
+
+            {/* Available */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="available"
+                checked={formData.available}
+                onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
+                className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+              />
+              <label htmlFor="available" className="text-sm font-medium text-gray-700">
+                Available for sale
+              </label>
             </div>
 
             {/* Has Variants */}
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
-                id="hasVariants"
+                id="hasVariantsDish"
                 checked={formData.hasVariants}
                 onChange={(e) => setFormData({ ...formData, hasVariants: e.target.checked })}
                 className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
               />
-              <label htmlFor="hasVariants" className="text-sm font-medium text-gray-700">
-                This product has variants
+              <label htmlFor="hasVariantsDish" className="text-sm font-medium text-gray-700">
+                This dish has variants
               </label>
             </div>
 
@@ -225,7 +333,7 @@ export default function ProductModal({ isOpen, onClose, onSave, onUpdate, editPr
               type="submit"
               className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium"
             >
-              {editProduct ? 'Update' : 'Add'} Product
+              {editDish ? 'Update' : 'Add'} Dish
             </button>
           </div>
         </form>

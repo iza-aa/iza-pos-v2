@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { PlusIcon } from '@heroicons/react/24/outline'
-import { recipes as initialRecipes, products, inventoryItems, calculateCanMake, Recipe } from '@/app/lib/mockData'
+import { recipes as initialRecipes, products, inventoryItems, calculateCanMake, Recipe } from '@/lib/mockData'
 import RecipeModal from './RecipeModal'
 
 interface RecipeDishesTabProps {

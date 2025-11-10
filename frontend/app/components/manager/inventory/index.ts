@@ -1,10 +1,11 @@
-export { default as InventoryStats } from './InventoryStats'
-export { default as InventoryFilters } from './InventoryFilters'
-export { default as InventoryTable } from './InventoryTable'
+// Main navigation
 export { default as InventoryTabs } from './InventoryTabs'
-export { default as RawMaterialsTab } from './RawMaterialsTab'
-export { default as RecipesTab } from './RecipesTab'
-export { default as RecipeDishesTab } from './RecipeDishesTab'
-export { default as RecipeVariantsTab } from './RecipeVariantsTab'
-export { default as RecipeModal } from './RecipeModal'
-export { default as UsageHistoryTab } from './UsageHistoryTab'
+
+// Raw Materials
+export * from './rawmaterial'
+
+// Recipes
+export * from './recipe'
+
+// Usage History
+export * from './usagehistory'

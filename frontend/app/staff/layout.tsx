@@ -1,6 +1,6 @@
 'use client'
 
-import Navbar from "../components/navbar/page";
+import Navbar from "../components/ui/navbar/page";
 import { usePathname } from "next/navigation";
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {

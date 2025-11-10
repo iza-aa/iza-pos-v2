@@ -9,7 +9,7 @@ import VariantSidebar from "@/app/components/staff/pos/VariantSidebar";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentMethodSelector from "@/app/components/staff/pos/PaymentMethodSelector";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
-import { products, categories, orders } from "@/app/lib/mockData";
+import { products, categories, orders } from "@/lib/mockData";
 
 // Transform orders for display
 const mockOrders = orders.slice(0, 3).map(order => ({

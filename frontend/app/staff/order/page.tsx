@@ -2,7 +2,7 @@
 import { useState } from "react";
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
 import OrderCard from "@/app/components/staff/order/OrderCard";
-import { orders } from "@/app/lib/mockData";
+import { orders } from "@/lib/mockData";
 
 // Transform orders for display
 const mockOrders = orders.map(order => ({

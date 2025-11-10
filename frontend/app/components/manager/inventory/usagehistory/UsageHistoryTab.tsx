@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { usageTransactions } from '@/app/lib/mockData'
+import { usageTransactions } from '@/lib/mockData'
 
 interface UsageHistoryTabProps {
   viewAsOwner: boolean
