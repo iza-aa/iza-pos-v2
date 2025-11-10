@@ -160,6 +160,13 @@ export default function Navbar() {
     return item.href === pathname;
   });
 
+  // Handler untuk switch role
+  const handleRoleSwitch = (role: 'owner' | 'manager' | 'staff') => {
+    setSelectedRole(role);
+    setShowRoleDropdown(false);
+    // Tidak navigate, hanya ganti navbar tabs
+  };
+
   // Render loading state jika belum mounted untuk avoid hydration mismatch
   if (!mounted) {
     return (
@@ -188,44 +195,27 @@ export default function Navbar() {
           <img src="/logo/IZALogo2.png" alt="Logo" className="w-12 h-8 object-contain" />
         </div>
 
-        {/* Tengah: Role Tabs + Nav Items */}
+        {/* Tengah: Nav Items (tanpa role tabs) */}
         <div className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
-          {/* Role Tabs */}
-          <div className="flex items-center gap-2">
-            {(Object.keys(roleMenus) as Array<keyof typeof roleMenus>).map((role) => (
-              <button
-                key={role}
-                onClick={() => setSelectedRole(role)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  selectedRole === role
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {roleLabels[role]}
-              </button>
-            ))}
-          </div>
-
-          {/* Divider */}
-          <div className="h-6 w-px bg-gray-300" />
-
-          {/* Navigation Items */}
-          <div className="flex items-center gap-6">
-            {navItems.map((item, idx) => (
-              <button
-                key={item.label}
-                onClick={() => window.location.href = getMenuItemHref(item.href, showRoleTabs)}
-                className={`text-base transition font-medium ${
-                  selected === idx
-                    ? "text-gray-900 font-bold"
-                    : "text-gray-400 hover:text-gray-700"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          {navItems.map((item, idx) => (
+            <button
+              key={item.label}
+              onClick={() => {
+                // Jika selectedRole bukan owner, tambahkan ?viewAs=owner
+                const targetHref = selectedRole !== 'owner' 
+                  ? `${item.href}?viewAs=owner`
+                  : item.href;
+                window.location.href = targetHref;
+              }}
+              className={`text-base transition font-medium ${
+                selected === idx
+                  ? "text-gray-900 font-bold"
+                  : "text-gray-400 hover:text-gray-700"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
 
         {/* Kanan: Icon & Avatar */}
@@ -243,6 +233,44 @@ export default function Navbar() {
           </button>
         </div>
 
+        {/* Chevron Button - Absolute di bawah tengah navbar (hanya untuk Owner) */}
+        <button
+          onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+          className="hidden md:flex absolute left-1/2 -translate-x-1/2 -bottom-3 w-8 h-8 bg-white border border-gray-300 rounded-full items-center justify-center shadow-md hover:bg-gray-50 transition z-[60]"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            strokeWidth={2} 
+            stroke="currentColor" 
+            className={`w-4 h-4 text-gray-600 transition-transform ${showRoleDropdown ? 'rotate-180' : ''}`}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+
+        {/* Role Dropdown - 3 Cards Horizontal */}
+        {showRoleDropdown && (
+          <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-full mt-2 z-[55]">
+            <div className="bg-white border border-gray-300 rounded-2xl shadow-lg p-3 flex gap-3">
+              {(Object.keys(roleMenus) as Array<keyof typeof roleMenus>).map((role) => (
+                <button
+                  key={role}
+                  onClick={() => handleRoleSwitch(role)}
+                  className={`px-6 py-3 rounded-lg text-sm font-medium transition min-w-[120px] ${
+                    selectedRole === role
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
+                  }`}
+                >
+                  {roleLabels[role]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Mobile menu */}
         {open && (
           <div className="absolute top-full left-0 w-full bg-white shadow-lg z-50 flex flex-col md:hidden">
@@ -252,7 +280,7 @@ export default function Navbar() {
                 {(Object.keys(roleMenus) as Array<keyof typeof roleMenus>).map((role) => (
                   <button
                     key={role}
-                    onClick={() => setSelectedRole(role)}
+                    onClick={() => handleRoleSwitch(role)}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition ${
                       selectedRole === role
                         ? 'bg-blue-500 text-white'
@@ -269,7 +297,11 @@ export default function Navbar() {
               <button
                 key={item.label}
                 onClick={() => {
-                  window.location.href = getMenuItemHref(item.href, showRoleTabs);
+                  // Jika selectedRole bukan owner, tambahkan ?viewAs=owner
+                  const targetHref = selectedRole !== 'owner' 
+                    ? `${item.href}?viewAs=owner`
+                    : item.href;
+                  window.location.href = targetHref;
                   setOpen(false);
                 }}
                 className={`py-4 px-6 text-left text-base border-b border-gray-100 ${

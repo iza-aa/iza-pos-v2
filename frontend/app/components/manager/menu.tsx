@@ -6,6 +6,7 @@ import { MagnifyingGlassIcon, PlusIcon, Squares2X2Icon, ListBulletIcon, FunnelIc
 import { products, categories as mockCategories } from '@/app/lib/mockData'
 import DishModal from './DishModal'
 import CategoryModal from './CategoryModal'
+import DeleteModal from '../ui/DeleteModal'
 
 interface Dish {
   id: string
@@ -41,6 +42,7 @@ export default function MenuManager() {
   const [showAddDishModal, setShowAddDishModal] = useState(false)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [editingDish, setEditingDish] = useState<Dish | null>(null)
+  const [deletingDish, setDeletingDish] = useState<Dish | null>(null)
 
   useEffect(() => {
     // Filter products by selected category
@@ -106,9 +108,13 @@ export default function MenuManager() {
   }
 
   const handleDeleteDish = (dish: Dish) => {
-    if (confirm(`Are you sure you want to delete "${dish.name}"?`)) {
-      setDishes(prev => prev.filter(d => d.id !== dish.id))
-      console.log('Dish deleted:', dish)
+    setDeletingDish(dish)
+  }
+
+  const confirmDeleteDish = () => {
+    if (deletingDish) {
+      setDishes(prev => prev.filter(d => d.id !== deletingDish.id))
+      console.log('Dish deleted:', deletingDish)
     }
   }
 
@@ -302,6 +308,16 @@ export default function MenuManager() {
         isOpen={showAddCategoryModal}
         onClose={() => setShowAddCategoryModal(false)}
         onSave={handleSaveNewCategory}
+      />
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deletingDish !== null}
+        onClose={() => setDeletingDish(null)}
+        onConfirm={confirmDeleteDish}
+        title="Delete Dish"
+        itemName={deletingDish?.name || ''}
+        description="This dish will be permanently removed from the menu."
       />
     </div>
   )

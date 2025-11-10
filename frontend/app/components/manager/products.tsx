@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { products as mockProducts } from '@/app/lib/mockData'
 import ProductModal from './ProductModal'
+import DeleteModal from '../ui/DeleteModal'
 
 interface Product {
   id: string
@@ -23,6 +24,7 @@ export default function ProductsManager() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     // Use data from mockData
@@ -68,10 +70,14 @@ export default function ProductsManager() {
     console.log('Product updated:', updatedProduct)
   }
 
-  const handleDeleteProduct = (productId: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      setProducts(prev => prev.filter(p => p.id !== productId))
-      console.log('Product deleted:', productId)
+  const handleDeleteProduct = (product: Product) => {
+    setDeletingProduct(product)
+  }
+
+  const confirmDelete = () => {
+    if (deletingProduct) {
+      setProducts(prev => prev.filter(p => p.id !== deletingProduct.id))
+      console.log('Product deleted:', deletingProduct)
     }
   }
 
@@ -164,7 +170,7 @@ export default function ProductsManager() {
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => handleDeleteProduct(product.id)}
+                          onClick={() => handleDeleteProduct(product)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                           title="Delete"
                         >
@@ -172,7 +178,7 @@ export default function ProductsManager() {
                         </button>
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-sm">View only</span>
+                      <span className="text-gray-400 text-sm">-</span>
                     )}
                   </td>
                 </tr>
@@ -180,13 +186,6 @@ export default function ProductsManager() {
             </tbody>
           </table>
         </div>
-
-        {/* Empty State */}
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No products found</p>
-          </div>
-        )}
       </section>
 
       {/* Product Modal */}
@@ -199,6 +198,16 @@ export default function ProductsManager() {
         onSave={handleSaveNewProduct}
         onUpdate={handleUpdateProduct}
         editProduct={editingProduct}
+      />
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deletingProduct !== null}
+        onClose={() => setDeletingProduct(null)}
+        onConfirm={confirmDelete}
+        title="Delete Product"
+        itemName={deletingProduct?.name || ''}
+        description="This product will be permanently removed from your inventory."
       />
     </div>
   )

@@ -1,5 +1,7 @@
 'use client'
 
+import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+
 interface InventoryItem {
   id: string
   name: string
@@ -17,9 +19,10 @@ interface InventoryTableProps {
   viewAsOwner: boolean
   onRestock?: (item: InventoryItem) => void
   onEdit?: (item: InventoryItem) => void
+  onDelete?: (item: InventoryItem) => void
 }
 
-export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit }: InventoryTableProps) {
+export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, onDelete }: InventoryTableProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'in-stock': return 'bg-green-100 text-green-700'
@@ -103,9 +106,17 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit }
                     <span className="text-gray-300">|</span>
                     <button 
                       onClick={() => onEdit?.(item)}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      title="Edit"
                     >
-                      Edit
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => onDelete?.(item)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="Delete"
+                    >
+                      <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
                 </td>

@@ -277,38 +277,32 @@ export const categories = [
 // Inventory Items
 export const inventoryItems = [
   // Coffee Ingredients
-  { id: 'inv1', name: 'Coffee Beans (Arabica)', category: 'Ingredients', currentStock: 25, reorderLevel: 10, unit: 'kg', supplier: 'PT Kopi Nusantara', lastRestocked: '2025-11-05', status: 'in-stock' as const },
-  { id: 'inv2', name: 'Fresh Milk', category: 'Ingredients', currentStock: 8, reorderLevel: 15, unit: 'liters', supplier: 'Dairy Farm Ltd', lastRestocked: '2025-11-07', status: 'low-stock' as const },
-  { id: 'inv3', name: 'Sugar', category: 'Ingredients', currentStock: 50, reorderLevel: 20, unit: 'kg', supplier: 'Sweet Supply Co', lastRestocked: '2025-11-01', status: 'in-stock' as const },
-  { id: 'inv4', name: 'Caramel Syrup', category: 'Ingredients', currentStock: 12, reorderLevel: 8, unit: 'bottles', supplier: 'Flavor World', lastRestocked: '2025-11-04', status: 'in-stock' as const },
-  { id: 'inv5', name: 'Vanilla Syrup', category: 'Ingredients', currentStock: 3, reorderLevel: 5, unit: 'bottles', supplier: 'Flavor World', lastRestocked: '2025-11-02', status: 'low-stock' as const },
+  { id: 'inv1', name: 'Coffee Beans', category: 'Ingredients', currentStock: 5000, reorderLevel: 1000, unit: 'gram', supplier: 'PT Kopi Nusantara', lastRestocked: '2025-11-05', status: 'in-stock' as const },
+  { id: 'inv2', name: 'Water', category: 'Ingredients', currentStock: 50000, reorderLevel: 10000, unit: 'ml', supplier: 'Aqua', lastRestocked: '2025-11-07', status: 'in-stock' as const },
+  { id: 'inv3', name: 'Ice Cubes', category: 'Ingredients', currentStock: 8000, reorderLevel: 2000, unit: 'gram', supplier: 'Ice Factory', lastRestocked: '2025-11-08', status: 'in-stock' as const },
+  { id: 'inv4', name: 'Milk', category: 'Ingredients', currentStock: 8000, reorderLevel: 3000, unit: 'ml', supplier: 'Dairy Farm Ltd', lastRestocked: '2025-11-07', status: 'in-stock' as const },
+  { id: 'inv5', name: 'Sugar', category: 'Ingredients', currentStock: 5000, reorderLevel: 1000, unit: 'gram', supplier: 'Sweet Supply Co', lastRestocked: '2025-11-01', status: 'in-stock' as const },
+  { id: 'inv6', name: 'Vanilla Syrup', category: 'Ingredients', currentStock: 2000, reorderLevel: 500, unit: 'ml', supplier: 'Flavor World', lastRestocked: '2025-11-02', status: 'in-stock' as const },
+  { id: 'inv7', name: 'Chocolate Syrup', category: 'Ingredients', currentStock: 1500, reorderLevel: 500, unit: 'ml', supplier: 'Flavor World', lastRestocked: '2025-11-03', status: 'in-stock' as const },
+  { id: 'inv8', name: 'Caramel Syrup', category: 'Ingredients', currentStock: 500, reorderLevel: 300, unit: 'ml', supplier: 'Flavor World', lastRestocked: '2025-11-04', status: 'low-stock' as const },
+  { id: 'inv9', name: 'Whipped Cream', category: 'Ingredients', currentStock: 1000, reorderLevel: 500, unit: 'gram', supplier: 'Dairy Farm Ltd', lastRestocked: '2025-11-05', status: 'in-stock' as const },
+  
+  // Cups/Packaging
+  { id: 'inv10', name: 'Cup Small', category: 'Packaging', currentStock: 500, reorderLevel: 100, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-06', status: 'in-stock' as const },
+  { id: 'inv11', name: 'Cup Medium', category: 'Packaging', currentStock: 200, reorderLevel: 150, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-06', status: 'low-stock' as const },
+  { id: 'inv12', name: 'Cup Large', category: 'Packaging', currentStock: 300, reorderLevel: 100, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-06', status: 'in-stock' as const },
   
   // Food Ingredients
-  { id: 'inv6', name: 'Rice', category: 'Ingredients', currentStock: 100, reorderLevel: 30, unit: 'kg', supplier: 'Local Farm', lastRestocked: '2025-11-06', status: 'in-stock' as const },
-  { id: 'inv7', name: 'Noodles', category: 'Ingredients', currentStock: 45, reorderLevel: 20, unit: 'kg', supplier: 'Asian Food Co', lastRestocked: '2025-11-05', status: 'in-stock' as const },
-  { id: 'inv8', name: 'Chicken Breast', category: 'Ingredients', currentStock: 20, reorderLevel: 15, unit: 'kg', supplier: 'Fresh Meat Ltd', lastRestocked: '2025-11-07', status: 'in-stock' as const },
+  { id: 'inv13', name: 'Rice', category: 'Ingredients', currentStock: 10000, reorderLevel: 3000, unit: 'gram', supplier: 'Local Farm', lastRestocked: '2025-11-06', status: 'in-stock' as const },
+  { id: 'inv14', name: 'Chicken', category: 'Ingredients', currentStock: 5000, reorderLevel: 2000, unit: 'gram', supplier: 'Fresh Meat Ltd', lastRestocked: '2025-11-07', status: 'in-stock' as const },
+  { id: 'inv15', name: 'Vegetables', category: 'Ingredients', currentStock: 3000, reorderLevel: 1000, unit: 'gram', supplier: 'Veggie Mart', lastRestocked: '2025-11-06', status: 'in-stock' as const },
+  { id: 'inv16', name: 'Cooking Oil', category: 'Ingredients', currentStock: 5000, reorderLevel: 1000, unit: 'ml', supplier: 'Oil Co', lastRestocked: '2025-11-05', status: 'in-stock' as const },
+  { id: 'inv17', name: 'Spices', category: 'Ingredients', currentStock: 500, reorderLevel: 100, unit: 'gram', supplier: 'Spice Market', lastRestocked: '2025-11-04', status: 'in-stock' as const },
   
-  // Snack Ingredients
-  { id: 'inv9', name: 'Potatoes', category: 'Ingredients', currentStock: 35, reorderLevel: 25, unit: 'kg', supplier: 'Veggie Mart', lastRestocked: '2025-11-06', status: 'in-stock' as const },
-  { id: 'inv10', name: 'Cheese', category: 'Ingredients', currentStock: 5, reorderLevel: 10, unit: 'kg', supplier: 'Dairy Farm Ltd', lastRestocked: '2025-10-28', status: 'low-stock' as const },
-  
-  // Dessert Ingredients
-  { id: 'inv11', name: 'Flour', category: 'Ingredients', currentStock: 60, reorderLevel: 30, unit: 'kg', supplier: 'Bakery Supply Co', lastRestocked: '2025-11-03', status: 'in-stock' as const },
-  { id: 'inv12', name: 'Eggs', category: 'Ingredients', currentStock: 200, reorderLevel: 100, unit: 'pcs', supplier: 'Farm Fresh', lastRestocked: '2025-11-07', status: 'in-stock' as const },
-  { id: 'inv13', name: 'Chocolate Chips', category: 'Ingredients', currentStock: 0, reorderLevel: 5, unit: 'kg', supplier: 'Sweet Supply Co', lastRestocked: '2025-10-20', status: 'out-of-stock' as const },
-  
-  // Non-Coffee Ingredients
-  { id: 'inv14', name: 'Matcha Powder', category: 'Ingredients', currentStock: 8, reorderLevel: 5, unit: 'kg', supplier: 'Japanese Import Co', lastRestocked: '2025-11-05', status: 'in-stock' as const },
-  { id: 'inv15', name: 'Cocoa Powder', category: 'Ingredients', currentStock: 15, reorderLevel: 8, unit: 'kg', supplier: 'Bakery Supply Co', lastRestocked: '2025-11-04', status: 'in-stock' as const },
-  
-  // Packaging
-  { id: 'inv16', name: 'Paper Cups (12oz)', category: 'Packaging', currentStock: 500, reorderLevel: 200, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-06', status: 'in-stock' as const },
-  { id: 'inv17', name: 'Plastic Lids', category: 'Packaging', currentStock: 150, reorderLevel: 300, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-10-28', status: 'low-stock' as const },
-  { id: 'inv18', name: 'Food Containers', category: 'Packaging', currentStock: 250, reorderLevel: 150, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-11-05', status: 'in-stock' as const },
-  
-  // Cleaning
-  { id: 'inv19', name: 'Dish Soap', category: 'Cleaning', currentStock: 10, reorderLevel: 5, unit: 'bottles', supplier: 'Clean Tech', lastRestocked: '2025-11-03', status: 'in-stock' as const },
-  { id: 'inv20', name: 'Sanitizer', category: 'Cleaning', currentStock: 0, reorderLevel: 8, unit: 'bottles', supplier: 'Clean Tech', lastRestocked: '2025-10-15', status: 'out-of-stock' as const },
+  // Others
+  { id: 'inv18', name: 'Matcha Powder', category: 'Ingredients', currentStock: 800, reorderLevel: 200, unit: 'gram', supplier: 'Japanese Import Co', lastRestocked: '2025-11-05', status: 'in-stock' as const },
+  { id: 'inv19', name: 'Cocoa Powder', category: 'Ingredients', currentStock: 1500, reorderLevel: 500, unit: 'gram', supplier: 'Bakery Supply Co', lastRestocked: '2025-11-04', status: 'in-stock' as const },
+  { id: 'inv20', name: 'Plastic Lids', category: 'Packaging', currentStock: 150, reorderLevel: 300, unit: 'pcs', supplier: 'Package Pro', lastRestocked: '2025-10-28', status: 'low-stock' as const },
 ];
 
 // Orders - untuk Order page
@@ -493,4 +487,265 @@ export const calculatePriceWithVariants = (basePrice: number, selectedVariants: 
   });
   
   return total;
+};
+
+// ============================================
+// RECIPE SYSTEM & INVENTORY TRACKING
+// ============================================
+
+// Recipe Types
+export interface RecipeIngredient {
+  inventoryItemId: string
+  ingredientName: string
+  quantityNeeded: number
+  unit: string
+}
+
+export interface Recipe {
+  id: string
+  productId: string
+  productName: string
+  recipeType: 'base' | 'variant-specific'
+  variantCombination?: Record<string, string> // { 'vg1': 'size-large', 'vg3': 'temp-iced' }
+  ingredients: RecipeIngredient[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UsedIngredient {
+  inventoryItemId: string
+  ingredientName: string
+  quantityUsed: number
+  unit: string
+  previousStock: number
+  newStock: number
+}
+
+export interface UsageTransaction {
+  id: string
+  timestamp: string
+  type: 'sale' | 'restock' | 'adjustment' | 'waste'
+  productId?: string
+  productName?: string
+  quantitySold?: number
+  ingredients: UsedIngredient[]
+  performedBy: string
+  notes?: string
+}
+
+// Recipes Data
+export const recipes: Recipe[] = [
+  // Americano - Base Recipe
+  {
+    id: 'recipe-americano-base',
+    productId: 'p1',
+    productName: 'Americano',
+    recipeType: 'base',
+    ingredients: [
+      { inventoryItemId: 'inv1', ingredientName: 'Coffee Beans', quantityNeeded: 18, unit: 'gram' },
+      { inventoryItemId: 'inv2', ingredientName: 'Water', quantityNeeded: 200, unit: 'ml' },
+      { inventoryItemId: 'inv11', ingredientName: 'Cup Medium', quantityNeeded: 1, unit: 'pcs' }
+    ],
+    createdAt: '2025-01-01T00:00:00Z',
+    updatedAt: '2025-01-01T00:00:00Z'
+  },
+  // Americano - Iced Large
+  {
+    id: 'recipe-americano-iced-large',
+    productId: 'p1',
+    productName: 'Americano (Iced Large)',
+    recipeType: 'variant-specific',
+    variantCombination: { 'vg1': 'size-large', 'vg3': 'temp-iced' },
+    ingredients: [
+      { inventoryItemId: 'inv1', ingredientName: 'Coffee Beans', quantityNeeded: 22, unit: 'gram' },
+      { inventoryItemId: 'inv2', ingredientName: 'Water', quantityNeeded: 150, unit: 'ml' },
+      { inventoryItemId: 'inv3', ingredientName: 'Ice Cubes', quantityNeeded: 100, unit: 'gram' },
+      { inventoryItemId: 'inv12', ingredientName: 'Cup Large', quantityNeeded: 1, unit: 'pcs' }
+    ],
+    createdAt: '2025-01-02T00:00:00Z',
+    updatedAt: '2025-01-02T00:00:00Z'
+  },
+  // Americano - Hot Small
+  {
+    id: 'recipe-americano-hot-small',
+    productId: 'p1',
+    productName: 'Americano (Hot Small)',
+    recipeType: 'variant-specific',
+    variantCombination: { 'vg1': 'size-small', 'vg3': 'temp-hot' },
+    ingredients: [
+      { inventoryItemId: 'inv1', ingredientName: 'Coffee Beans', quantityNeeded: 14, unit: 'gram' },
+      { inventoryItemId: 'inv2', ingredientName: 'Water', quantityNeeded: 150, unit: 'ml' },
+      { inventoryItemId: 'inv10', ingredientName: 'Cup Small', quantityNeeded: 1, unit: 'pcs' }
+    ],
+    createdAt: '2025-01-03T00:00:00Z',
+    updatedAt: '2025-01-03T00:00:00Z'
+  },
+  // Caramel Macchiato - Base Recipe
+  {
+    id: 'recipe-macchiato-base',
+    productId: 'p2',
+    productName: 'Caramel Macchiato',
+    recipeType: 'base',
+    ingredients: [
+      { inventoryItemId: 'inv1', ingredientName: 'Coffee Beans', quantityNeeded: 18, unit: 'gram' },
+      { inventoryItemId: 'inv4', ingredientName: 'Milk', quantityNeeded: 150, unit: 'ml' },
+      { inventoryItemId: 'inv8', ingredientName: 'Caramel Syrup', quantityNeeded: 20, unit: 'ml' },
+      { inventoryItemId: 'inv11', ingredientName: 'Cup Medium', quantityNeeded: 1, unit: 'pcs' }
+    ],
+    createdAt: '2025-01-01T00:00:00Z',
+    updatedAt: '2025-01-01T00:00:00Z'
+  },
+  // Nasi Goreng - Base Recipe
+  {
+    id: 'recipe-nasigoreng-base',
+    productId: 'p3',
+    productName: 'Nasi Goreng',
+    recipeType: 'base',
+    ingredients: [
+      { inventoryItemId: 'inv13', ingredientName: 'Rice', quantityNeeded: 200, unit: 'gram' },
+      { inventoryItemId: 'inv14', ingredientName: 'Chicken', quantityNeeded: 100, unit: 'gram' },
+      { inventoryItemId: 'inv15', ingredientName: 'Vegetables', quantityNeeded: 50, unit: 'gram' },
+      { inventoryItemId: 'inv16', ingredientName: 'Cooking Oil', quantityNeeded: 20, unit: 'ml' },
+      { inventoryItemId: 'inv17', ingredientName: 'Spices', quantityNeeded: 10, unit: 'gram' }
+    ],
+    createdAt: '2025-01-01T00:00:00Z',
+    updatedAt: '2025-01-01T00:00:00Z'
+  }
+];
+
+// Usage Transactions (History)
+export const usageTransactions: UsageTransaction[] = [
+  {
+    id: 'usage-1',
+    timestamp: '2025-11-10T14:23:00Z',
+    type: 'sale',
+    productId: 'p1',
+    productName: 'Americano',
+    quantitySold: 3,
+    ingredients: [
+      {
+        inventoryItemId: 'inv1',
+        ingredientName: 'Coffee Beans',
+        quantityUsed: 54,
+        unit: 'gram',
+        previousStock: 5000,
+        newStock: 4946
+      },
+      {
+        inventoryItemId: 'inv2',
+        ingredientName: 'Water',
+        quantityUsed: 600,
+        unit: 'ml',
+        previousStock: 50000,
+        newStock: 49400
+      },
+      {
+        inventoryItemId: 'inv11',
+        ingredientName: 'Cup Medium',
+        quantityUsed: 3,
+        unit: 'pcs',
+        previousStock: 200,
+        newStock: 197
+      }
+    ],
+    performedBy: 'staff-1',
+    notes: 'Regular order'
+  },
+  {
+    id: 'usage-2',
+    timestamp: '2025-11-10T13:45:00Z',
+    type: 'restock',
+    ingredients: [
+      {
+        inventoryItemId: 'inv1',
+        ingredientName: 'Coffee Beans',
+        quantityUsed: -2000,
+        unit: 'gram',
+        previousStock: 3000,
+        newStock: 5000
+      }
+    ],
+    performedBy: 'manager-1',
+    notes: 'Weekly restock'
+  },
+  {
+    id: 'usage-3',
+    timestamp: '2025-11-10T12:15:00Z',
+    type: 'sale',
+    productId: 'p2',
+    productName: 'Caramel Macchiato',
+    quantitySold: 1,
+    ingredients: [
+      {
+        inventoryItemId: 'inv1',
+        ingredientName: 'Coffee Beans',
+        quantityUsed: 18,
+        unit: 'gram',
+        previousStock: 3018,
+        newStock: 3000
+      },
+      {
+        inventoryItemId: 'inv4',
+        ingredientName: 'Milk',
+        quantityUsed: 150,
+        unit: 'ml',
+        previousStock: 3500,
+        newStock: 3350
+      },
+      {
+        inventoryItemId: 'inv8',
+        ingredientName: 'Caramel Syrup',
+        quantityUsed: 20,
+        unit: 'ml',
+        previousStock: 500,
+        newStock: 480
+      },
+      {
+        inventoryItemId: 'inv11',
+        ingredientName: 'Cup Medium',
+        quantityUsed: 1,
+        unit: 'pcs',
+        previousStock: 201,
+        newStock: 200
+      }
+    ],
+    performedBy: 'staff-2',
+    notes: 'Morning rush'
+  }
+];
+
+// Helper: Find matching recipe for product + variants
+export const findMatchingRecipe = (productId: string, variantCombination?: Record<string, string>): Recipe | null => {
+  // 1. Try to find variant-specific recipe
+  if (variantCombination) {
+    const variantRecipe = recipes.find(r =>
+      r.productId === productId &&
+      r.recipeType === 'variant-specific' &&
+      JSON.stringify(r.variantCombination) === JSON.stringify(variantCombination)
+    );
+    if (variantRecipe) return variantRecipe;
+  }
+
+  // 2. Fallback to base recipe
+  const baseRecipe = recipes.find(r =>
+    r.productId === productId &&
+    r.recipeType === 'base'
+  );
+  
+  return baseRecipe || null;
+};
+
+// Helper: Calculate how many servings can be made
+export const calculateCanMake = (recipe: Recipe, inventoryItems: Array<{id: string, currentStock: number}>): number => {
+  let minServings = Infinity;
+
+  for (const ingredient of recipe.ingredients) {
+    const inventoryItem = inventoryItems.find((i: {id: string, currentStock: number}) => i.id === ingredient.inventoryItemId);
+    if (!inventoryItem) return 0;
+
+    const possibleServings = Math.floor(inventoryItem.currentStock / ingredient.quantityNeeded);
+    minServings = Math.min(minServings, possibleServings);
+  }
+
+  return minServings === Infinity ? 0 : minServings;
 };

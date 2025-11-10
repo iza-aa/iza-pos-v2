@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { variantGroups as mockVariantGroups } from '@/app/lib/mockData'
 import VariantGroupModal from './VariantGroupModal'
+import DeleteModal from '../ui/DeleteModal'
 
 interface VariantOption {
   id: string
@@ -29,7 +30,7 @@ export default function VariantsManager() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddGroupModal, setShowAddGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState<VariantGroup | null>(null)
-  const [editingOption, setEditingOption] = useState<{groupId: string, option: VariantOption} | null>(null)
+  const [deletingGroup, setDeletingGroup] = useState<VariantGroup | null>(null)
 
   useEffect(() => {
     // Use data from mockData
@@ -60,12 +61,6 @@ export default function VariantsManager() {
     console.log('Opening Add Variant Group modal')
   }
 
-  const handleAddOption = (groupId: string) => {
-    const group = variantGroups.find(g => g.id === groupId)
-    setEditingGroup(group || null)
-    console.log('Opening edit to add option to group:', group?.name)
-  }
-
   const handleEditGroup = (group: VariantGroup) => {
     setEditingGroup(group)
     console.log('Editing group:', group)
@@ -88,29 +83,13 @@ export default function VariantsManager() {
   }
 
   const handleDeleteGroup = (group: VariantGroup) => {
-    if (confirm(`Are you sure you want to delete variant group "${group.name}"?`)) {
-      setVariantGroups(prev => prev.filter(g => g.id !== group.id))
-      console.log('Group deleted:', group)
-    }
+    setDeletingGroup(group)
   }
 
-  const handleEditOption = (groupId: string, option: VariantOption) => {
-    setEditingOption({ groupId, option })
-    console.log('Editing option:', option.name)
-  }
-
-  const handleDeleteOption = (groupId: string, option: VariantOption) => {
-    if (confirm(`Are you sure you want to delete option "${option.name}"?`)) {
-      setVariantGroups(prev => prev.map(g => {
-        if (g.id === groupId) {
-          return {
-            ...g,
-            options: g.options.filter(opt => opt.id !== option.id)
-          }
-        }
-        return g
-      }))
-      console.log('Option deleted:', option)
+  const confirmDeleteGroup = () => {
+    if (deletingGroup) {
+      setVariantGroups(prev => prev.filter(g => g.id !== deletingGroup.id))
+      console.log('Group deleted:', deletingGroup)
     }
   }
 
@@ -226,13 +205,6 @@ export default function VariantsManager() {
                   {!viewAsOwner && (
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => handleAddOption(group.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                        title="Add Option"
-                      >
-                        <PlusIcon className="w-5 h-5 text-blue-600" />
-                      </button>
-                      <button 
                         onClick={() => handleEditGroup(group)}
                         className="p-2 hover:bg-gray-100 rounded-lg transition"
                         title="Edit Group"
@@ -264,31 +236,13 @@ export default function VariantsManager() {
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <span className="font-medium text-gray-800">{option.name}</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          {option.priceModifier !== 0 && (
-                            <span className={`text-sm font-semibold ${
-                              option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {option.priceModifier > 0 ? '+' : ''}{option.priceModifier > 0 ? '$' : '-$'}{Math.abs(option.priceModifier).toFixed(2)}
-                            </span>
-                          )}
-                          {!viewAsOwner && (
-                            <>
-                              <button 
-                                onClick={() => handleEditOption(group.id, option)}
-                                className="p-1 hover:bg-gray-100 rounded transition"
-                              >
-                                <PencilIcon className="w-4 h-4 text-gray-600" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteOption(group.id, option)}
-                                className="p-1 hover:bg-gray-100 rounded transition"
-                              >
-                                <TrashIcon className="w-4 h-4 text-red-600" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        {option.priceModifier !== 0 && (
+                          <span className={`text-sm font-semibold ${
+                            option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {option.priceModifier > 0 ? '+' : ''}{option.priceModifier > 0 ? '$' : '-$'}{Math.abs(option.priceModifier).toFixed(2)}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -309,6 +263,16 @@ export default function VariantsManager() {
         onSave={handleSaveNewGroup}
         onUpdate={handleUpdateGroup}
         editGroup={editingGroup}
+      />
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deletingGroup !== null}
+        onClose={() => setDeletingGroup(null)}
+        onConfirm={confirmDeleteGroup}
+        title="Delete Variant Group"
+        itemName={deletingGroup?.name || ''}
+        description="All options in this variant group will also be deleted."
       />
     </div>
   )
