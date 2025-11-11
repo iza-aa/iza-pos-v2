@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { PlusIcon, PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { variantGroups as mockVariantGroups } from '@/lib/mockData'
 import VariantGroupModal from '@/app/components/manager/variants/VariantGroupModal'
 import DeleteModal from '@/app/components/ui/DeleteModal'
@@ -26,7 +26,6 @@ export default function VariantsPage() {
   const viewAsOwner = searchParams.get('viewAs') === 'owner'
   
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddGroupModal, setShowAddGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState<VariantGroup | null>(null)
@@ -36,21 +35,7 @@ export default function VariantsPage() {
   useEffect(() => {
     // Use data from mockData
     setVariantGroups(mockVariantGroups)
-
-    // Collapse all by default (Improvement #4)
-    const collapsed: Record<string, boolean> = {};
-    mockVariantGroups.forEach(group => {
-      collapsed[group.id] = false;
-    });
-    setExpandedGroups(collapsed)
   }, [])
-
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }))
-  }
 
   const filteredGroups = variantGroups.filter(group =>
     group.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -97,7 +82,7 @@ export default function VariantsPage() {
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Section 1: Header (Fixed) */}
-      <section className="flex-shrink-0 p-6 pb-4 border-b border-gray-200 overflow-hidden">
+      <section className="flex-shrink-0 px-6 pt-6 border-b border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between mb-6">
           <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-bold text-gray-800">Manage Variants</h1>
@@ -134,17 +119,6 @@ export default function VariantsPage() {
                 className="pl-4 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
               />
             </div>
-
-            {/* Add New Variant Group */}
-            {!viewAsOwner && (
-              <button 
-                onClick={handleAddVariantGroup}
-                className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium"
-              >
-                <PlusIcon className="w-5 h-5" />
-                Add Variant Group
-              </button>
-            )}
           </div>
         </div>
 
@@ -178,94 +152,87 @@ export default function VariantsPage() {
       </section>
 
       {/* Section 2: Variant Groups List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto bg-gray-100 px-6  py-6">
-        <div className="space-y-4">
+      <section className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
+        <div className="grid grid-cols-4 gap-4">
+          {/* Add New Variant Group Card */}
+          {!viewAsOwner && (
+            <button
+              onClick={handleAddVariantGroup}
+              className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-blue-500 hover:bg-blue-50 transition flex flex-col items-center justify-center gap-3 min-h-[200px]"
+            >
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <PlusIcon className="w-6 h-6 text-white" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-gray-700">Add New Variant Group</p>
+                <p className="text-xs text-gray-500 mt-1">Create a new variant group</p>
+              </div>
+            </button>
+          )}
+
+          {/* Variant Group Cards */}
           {filteredGroups.map((group) => (
-            <div key={group.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div key={group.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
               {/* Group Header */}
               <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* Expand/Collapse Button */}
-                    <button
-                      onClick={() => toggleGroup(group.id)}
-                      className="p-1 hover:bg-gray-100 rounded-lg transition"
-                    >
-                      {expandedGroups[group.id] ? (
-                        <ChevronUpIcon className="w-5 h-5 text-gray-600" />
-                      ) : (
-                        <ChevronDownIcon className="w-5 h-5 text-gray-600" />
-                      )}
-                    </button>
-
-                    {/* Group Info */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-bold text-gray-800">{group.name}</h3>
-                        {group.required && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
-                            Required
-                          </span>
-                        )}
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                          group.type === 'single' 
-                            ? 'bg-blue-100 text-blue-600' 
-                            : 'bg-purple-100 text-purple-600'
-                        }`}>
-                          {group.type === 'single' ? 'Single Select' : 'Multiple Select'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">{group.options.length} options</p>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-lg font-bold text-gray-800">{group.name}</h3>
                   {!viewAsOwner && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <button 
                         onClick={() => handleEditGroup(group)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                        title="Edit Group"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition"
+                        title="Edit"
                       >
-                        <PencilIcon className="w-5 h-5 text-gray-600" />
+                        <PencilIcon className="w-4 h-4 text-blue-600" />
                       </button>
                       <button 
                         onClick={() => handleDeleteGroup(group)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                        title="Delete Group"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition"
+                        title="Delete"
                       >
-                        <TrashIcon className="w-5 h-5 text-red-600" />
+                        <TrashIcon className="w-4 h-4 text-red-600" />
                       </button>
                     </div>
                   )}
                 </div>
+                
+                <div className="flex items-center gap-2 mb-2">
+                  {group.required && (
+                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                      Required
+                    </span>
+                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                    group.type === 'single' 
+                      ? 'bg-blue-100 text-blue-600' 
+                      : 'bg-purple-100 text-purple-600'
+                  }`}>
+                    {group.type === 'single' ? 'Single' : 'Multiple'}
+                  </span>
+                </div>
+                
+                <p className="text-sm text-gray-500">{group.options.length} options</p>
               </div>
 
               {/* Options List */}
-              {expandedGroups[group.id] && (
-                <div className="p-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    {group.options.map((option) => (
-                      <div
-                        key={option.id}
-                        className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:border-blue-300 transition"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="font-medium text-gray-800">{option.name}</span>
-                        </div>
-                        {option.priceModifier !== 0 && (
-                          <span className={`text-sm font-semibold ${
-                            option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {option.priceModifier > 0 ? '+' : ''}{option.priceModifier > 0 ? '$' : '-$'}{Math.abs(option.priceModifier).toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+              <div className="p-4 space-y-2 flex-1">
+                {group.options.map((option) => (
+                  <div
+                    key={option.id}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                  >
+                    <span className="text-sm font-medium text-gray-700">{option.name}</span>
+                    {option.priceModifier !== 0 && (
+                      <span className={`text-xs font-semibold ${
+                        option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {option.priceModifier > 0 ? '+' : ''}{option.priceModifier > 0 ? '$' : '-$'}{Math.abs(option.priceModifier).toFixed(2)}
+                      </span>
+                    )}
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           ))}
         </div>

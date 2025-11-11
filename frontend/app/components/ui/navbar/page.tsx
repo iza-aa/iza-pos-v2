@@ -14,7 +14,7 @@ const roleMenus = {
     { label: "Settings", href: "/owner/settings" },
   ],
   manager: [
-    { label: "Products", href: "/manager/products" },
+
     { label: "Menu", href: "/manager/menu" },
     { label: "Variants", href: "/manager/variants" },
     { label: "Inventory", href: "/manager/inventory" },

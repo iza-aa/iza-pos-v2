@@ -128,55 +128,62 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-4">
+        <div className="flex-1 overflow-y-auto">
+          <div className="columns-4 gap-4 space-y-4">
           {filteredTransactions.map(transaction => (
-            <div key={transaction.id} className="bg-white rounded-xl border border-gray-200 p-6">
+            <div key={transaction.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
               {/* Transaction Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${getTypeColor(transaction.type)}`}>
+              <div className="p-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${getTypeColor(transaction.type)}`}>
                     {transaction.type}
                   </span>
-                  <div>
-                    <p className="text-sm text-gray-500">{formatDate(transaction.timestamp)} • {formatTime(transaction.timestamp)}</p>
-                  </div>
+                  <p className="text-xs text-gray-500">{formatTime(transaction.timestamp)}</p>
                 </div>
+                <p className="text-xs text-gray-500">{formatDate(transaction.timestamp)}</p>
               </div>
 
-              {/* Transaction Info */}
-              {transaction.productName && (
-                <div className="mb-3">
-                  <p className="text-base font-semibold text-gray-900">
-                    {transaction.quantitySold} × {transaction.productName}
-                  </p>
-                </div>
-              )}
-
-              {/* Ingredients Detail */}
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                {transaction.ingredients.map((ing, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{ing.ingredientName}</span>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-semibold ${ing.quantityUsed > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {ing.quantityUsed > 0 ? '+' : ''}{ing.quantityUsed} {ing.unit}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        ({ing.previousStock} → {ing.newStock} {ing.unit})
-                      </span>
-                    </div>
+              {/* Transaction Content */}
+              <div className="p-4 flex-1">
+                {/* Product Info */}
+                {transaction.productName && (
+                  <div className="mb-3">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {transaction.quantitySold} × {transaction.productName}
+                    </p>
                   </div>
-                ))}
-              </div>
+                )}
 
-              {/* Notes */}
-              {transaction.notes && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-sm text-gray-600">💬 {transaction.notes}</p>
+                {/* Ingredients Detail */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-gray-700 mb-2">Ingredients:</h4>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {transaction.ingredients.map((ing, idx) => (
+                      <div key={idx} className="text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-gray-700 truncate flex-1">{ing.ingredientName}</span>
+                          <span className={`font-semibold flex-shrink-0 ml-2 ${ing.quantityUsed > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {ing.quantityUsed > 0 ? '+' : ''}{ing.quantityUsed} {ing.unit}
+                          </span>
+                        </div>
+                        <div className="text-gray-400 text-xs">
+                          {ing.previousStock} → {ing.newStock} {ing.unit}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
+
+                {/* Notes */}
+                {transaction.notes && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs text-gray-600">💬 {transaction.notes}</p>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
+          </div>
 
           {filteredTransactions.length === 0 && (
             <div className="text-center py-12">

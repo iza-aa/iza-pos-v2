@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
+import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { recipes as initialRecipes, variantGroups, Recipe, inventoryItems, calculateCanMake } from '@/lib/mockData'
 
 // Simplified Recipe Variants Tab
@@ -217,7 +217,6 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
     optionName: string
   } | null>(null)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
-  const [expandedGroups, setExpandedGroups] = useState<string[]>([])
 
   const stats = {
     totalVariantGroups: variantGroups.length,
@@ -267,14 +266,6 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
     setShowModal(false)
     setSelectedVariant(null)
     setEditingRecipe(null)
-  }
-
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => 
-      prev.includes(groupId) 
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
-    )
   }
 
   const getRecipeForOption = (optionId: string) => {
@@ -354,94 +345,88 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
         )}
       </section>
 
-      {/* Section 2: Variant Groups (Scrollable) */}
+      {/* Section 2: Variant Options (Scrollable Grid) */}
       <section className="flex-1 overflow-y-auto px-6 py-6 bg-gray-100">
-        <div className="space-y-4">
-        {filteredGroups.map(vg => {
-          const isExpanded = expandedGroups.includes(vg.id)
-          const groupRecipeCount = vg.options.filter(opt => getRecipeForOption(opt.id)).length
+        <div className="columns-4 gap-4 space-y-4">
+        {filteredGroups.flatMap(vg => 
+          vg.options.map(option => {
+            const recipe = getRecipeForOption(option.id)
+            const hasRecipe = !!recipe
+            const canMake = hasRecipe && recipe ? calculateCanMake(recipe, inventoryItems) : 0
 
-          return (
-            <div key={vg.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Group Header */}
-              <div 
-                className="p-4 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
-                onClick={() => toggleGroup(vg.id)}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{vg.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      {vg.options.length} options • {groupRecipeCount} with recipe
+            return (
+              <div key={option.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-200 flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-bold text-gray-900 truncate">{option.name}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{vg.name}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                        hasRecipe ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                      }`}>
+                        {hasRecipe ? 'Has Recipe' : 'No Recipe'}
+                      </span>
+                      {hasRecipe && (
+                        <span className="text-xs font-medium text-gray-600">
+                          Can make: {canMake}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded mt-2 inline-block ${
+                      option.priceModifier >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {option.priceModifier >= 0 ? '+' : ''}{option.priceModifier.toFixed(2)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleSetRecipe(vg.id, vg.name, option.id, option.name)}
+                    className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-2"
+                    title={hasRecipe ? 'Edit Recipe' : 'Set Recipe'}
+                  >
+                    {hasRecipe ? (
+                      <PencilIcon className="h-5 w-5" />
+                    ) : (
+                      <PlusIcon className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Ingredients */}
+                <div className="p-4 flex-1">
+                  {hasRecipe && recipe ? (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-700">Ingredients:</h4>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {recipe.ingredients.map((ing, idx) => (
+                          <div key={idx} className="text-xs text-gray-600 flex justify-between items-center">
+                            <span className="truncate flex-1">{ing.ingredientName}</span>
+                            <span className="text-gray-500 flex-shrink-0 ml-2">
+                              {ing.quantityNeeded} {ing.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      No recipe set yet
+                    </p>
+                  )}
+                </div>
+
+                {/* Updated At */}
+                {hasRecipe && recipe && (
+                  <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                    <p className="text-xs text-gray-500">
+                      Updated: {new Date(recipe.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <svg 
-                    className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+                )}
               </div>
-
-              {/* Options List */}
-              {isExpanded && (
-                <div className="divide-y divide-gray-200">
-                  {vg.options.map(option => {
-                    const recipe = getRecipeForOption(option.id)
-                    const hasRecipe = !!recipe
-
-                    return (
-                      <div key={option.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <h4 className="font-medium text-gray-900">{option.name}</h4>
-                              <span className={`text-xs font-medium px-2 py-1 rounded ${
-                                option.priceModifier >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                              }`}>
-                                {option.priceModifier >= 0 ? '+' : ''}{option.priceModifier.toFixed(2)}
-                              </span>
-                            </div>
-                            {hasRecipe && recipe && (
-                              <div className="mt-2 space-y-1">
-                                <div className="text-sm text-green-600 font-medium">
-                                  ✓ Recipe set • Can make: {calculateCanMake(recipe, inventoryItems)} servings
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {recipe.ingredients.length} ingredients: {recipe.ingredients.slice(0, 2).map(i => i.ingredientName).join(', ')}
-                                  {recipe.ingredients.length > 2 && ` +${recipe.ingredients.length - 2} more`}
-                                </div>
-                              </div>
-                            )}
-                            {!hasRecipe && (
-                              <div className="mt-1 text-sm text-gray-400">
-                                No recipe set
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleSetRecipe(vg.id, vg.name, option.id, option.name)}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 ${
-                              hasRecipe
-                                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                            }`}
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                            {hasRecipe ? 'Edit' : 'Set Recipe'}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
+            )
+          })
+        )}
         </div>
       </section>
 

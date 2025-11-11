@@ -27,10 +27,10 @@ export default function InventoryFilters({
           className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
             selectedCategory === cat.id
               ? 'bg-blue-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
           }`}
         >
-          {cat.name} ({cat.count})
+          {cat.name}
         </button>
       ))}
     </div>

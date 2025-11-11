@@ -155,71 +155,70 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
 
       {/* Section 2: Products List (Scrollable) */}
       <section className="flex-1 overflow-y-auto px-6 py-6 bg-gray-100">
-        <div className="space-y-4">
+        <div className="columns-4 gap-4 space-y-4">
         {filteredProducts.map(({ product, baseRecipe, hasRecipe }) => (
-          <div key={product.id} className="bg-white rounded-xl border border-gray-200 p-6">
+          <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
             {/* Product Header */}
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
-                <p className="text-sm text-gray-500">{product.category}</p>
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-800">{product.name}</h3>
+                  <p className="text-xs text-gray-500 mt-1">{product.category}</p>
+                </div>
+                {!viewAsOwner && (
+                  <button
+                    onClick={() => hasRecipe && baseRecipe ? handleEditRecipe(baseRecipe) : handleSetRecipe(product)}
+                    className={`p-1.5 rounded-lg transition ${
+                      hasRecipe ? 'hover:bg-gray-100' : 'hover:bg-blue-50'
+                    }`}
+                    title={hasRecipe ? "Edit Recipe" : "Set Recipe"}
+                  >
+                    <PlusIcon className={`w-4 h-4 ${hasRecipe ? 'text-gray-600' : 'text-blue-600'}`} />
+                  </button>
+                )}
               </div>
-              {!hasRecipe ? (
-                <button
-                  onClick={() => handleSetRecipe(product)}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Set Recipe
-                </button>
-              ) : (
-                <button
-                  onClick={() => baseRecipe && handleEditRecipe(baseRecipe)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"
-                >
-                  Edit Recipe
-                </button>
-              )}
+              
+              {/* Status Badge */}
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                  hasRecipe 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-orange-100 text-orange-700'
+                }`}>
+                  {hasRecipe ? 'Has Recipe' : 'No Recipe'}
+                </span>
+                {baseRecipe && (
+                  <span className="text-xs text-gray-500">
+                    Can make: {calculateCanMake(baseRecipe, inventoryItems)}
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Base Recipe Display */}
-            {baseRecipe && (
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <div className="text-sm font-medium text-gray-700">Base Recipe</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Last updated: {new Date(baseRecipe.updatedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-green-600">
-                      Can make: {calculateCanMake(baseRecipe, inventoryItems)} servings
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ingredients */}
-                <div className="space-y-2">
+            {/* Recipe Info */}
+            <div className="p-4 flex-1">
+              {baseRecipe ? (
+                <div className="space-y-3">
                   <div className="text-xs font-medium text-gray-600 uppercase">Ingredients:</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
                     {baseRecipe.ingredients.map((ing, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-sm bg-white px-3 py-2 rounded border border-gray-200">
-                        <span className="text-gray-700">{ing.ingredientName}</span>
-                        <span className="font-medium text-gray-900">{ing.quantityNeeded} {ing.unit}</span>
+                      <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 px-2 py-2 rounded">
+                        <span className="text-gray-700 truncate flex-1">{ing.ingredientName}</span>
+                        <span className="font-medium text-gray-900 ml-2">{ing.quantityNeeded} {ing.unit}</span>
                       </div>
                     ))}
                   </div>
+                  <div className="text-xs text-gray-400 pt-2 border-t">
+                    Updated: {new Date(baseRecipe.updatedAt).toLocaleDateString()}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {!hasRecipe && (
-              <div className="text-center py-8 text-gray-400">
-                <div className="text-sm">No recipe set for this dish</div>
-                <div className="text-xs mt-1">Click &quot;Set Recipe&quot; to add ingredients</div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <div className="text-xs">No recipe set</div>
+                  <div className="text-xs mt-1">Click + to add</div>
+                </div>
+              )}
+            </div>
           </div>
         ))}
         </div>

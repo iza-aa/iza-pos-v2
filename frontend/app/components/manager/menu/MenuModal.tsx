@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { variantGroups } from '@/lib/mockData'
 
-interface Dish {
+interface MenuItem {
   id: string
   name: string
   category: string
@@ -16,16 +16,16 @@ interface Dish {
   variantGroups: string[]
 }
 
-interface DishModalProps {
+interface MenuModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (dish: Omit<Dish, 'id'>) => void
-  onUpdate?: (dish: Dish) => void
-  editDish?: Dish | null
+  onSave: (menu: Omit<MenuItem, 'id'>) => void
+  onUpdate?: (menu: MenuItem) => void
+  editMenu?: MenuItem | null
   categories: Array<{ id: string; name: string }>
 }
 
-export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish, categories }: DishModalProps) {
+export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu, categories }: MenuModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -40,18 +40,18 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (editDish) {
+    if (editMenu) {
       setFormData({
-        name: editDish.name,
-        category: editDish.category,
-        categoryId: editDish.categoryId,
-        price: editDish.price,
-        image: editDish.image,
-        available: editDish.available,
-        hasVariants: editDish.hasVariants || false,
-        variantGroups: editDish.variantGroups || [],
+        name: editMenu.name,
+        category: editMenu.category,
+        categoryId: editMenu.categoryId,
+        price: editMenu.price,
+        image: editMenu.image,
+        available: editMenu.available,
+        hasVariants: editMenu.hasVariants || false,
+        variantGroups: editMenu.variantGroups || [],
       })
-      setImagePreview(editDish.image)
+      setImagePreview(editMenu.image)
     } else if (categories.length > 0) {
       const firstCategory = categories[0]
       setFormData({
@@ -66,7 +66,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
       })
       setImagePreview('')
     }
-  }, [editDish, isOpen, categories])
+  }, [editMenu, isOpen, categories])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -125,8 +125,8 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (editDish && onUpdate) {
-      onUpdate({ ...formData, id: editDish.id })
+    if (editMenu && onUpdate) {
+      onUpdate({ ...formData, id: editMenu.id })
     } else {
       onSave(formData)
     }
@@ -141,7 +141,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-800">
-            {editDish ? 'Edit Dish' : 'Add Dish'}
+            {editMenu ? 'Edit Menu' : 'Add Menu'}
           </h2>
           <button
             onClick={onClose}
@@ -154,10 +154,10 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
         {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {/* Dish Name */}
+            {/* Menu Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dish Name
+                Menu Name
               </label>
               <input
                 type="text"
@@ -165,7 +165,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter dish name"
+                placeholder="Enter menu name"
               />
             </div>
 
@@ -209,7 +209,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dish Image
+                Menu Image
               </label>
               
               {/* Image Preview or Upload Area */}
@@ -217,7 +217,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
                 <div className="relative">
                   <img
                     src={imagePreview}
-                    alt="Dish preview"
+                    alt="Menu preview"
                     className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
                   />
                   <button
@@ -235,7 +235,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
                 >
                   <PhotoIcon className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                   <p className="text-sm text-gray-600 mb-1">
-                    Click to upload dish image
+                    Click to upload menu image
                   </p>
                   <p className="text-xs text-gray-500">
                     PNG, JPG up to 5MB
@@ -271,13 +271,13 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
-                id="hasVariantsDish"
+                id="hasVariantsMenu"
                 checked={formData.hasVariants}
                 onChange={(e) => setFormData({ ...formData, hasVariants: e.target.checked })}
                 className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
               />
-              <label htmlFor="hasVariantsDish" className="text-sm font-medium text-gray-700">
-                This dish has variants
+              <label htmlFor="hasVariantsMenu" className="text-sm font-medium text-gray-700">
+                This menu has variants
               </label>
             </div>
 
@@ -333,7 +333,7 @@ export default function DishModal({ isOpen, onClose, onSave, onUpdate, editDish,
               type="submit"
               className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium"
             >
-              {editDish ? 'Update' : 'Add'} Dish
+              {editMenu ? 'Update' : 'Add'} Menu
             </button>
           </div>
         </form>
