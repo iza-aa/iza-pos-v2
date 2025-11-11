@@ -82,22 +82,23 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-[calc(100vh-55px)] bg-gray-50 flex flex-col overflow-hidden">
       {/* Section 1: Header + Search (Fixed) */}
-      <section className="flex-shrink-0 p-8 pb-4 overflow-hidden">
+      <section className="flex-shrink-0  border-b border-gray-200 overflow-hidden">
         {/* Header dengan Title dan Search */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="rounded-xl pt-6 px-6 flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-bold text-gray-800">Kelola Produk</h1>
-            
+            <p className="text-sm text-gray-500">Lihat dan ubah detail produk yang tersedia!</p>
+          </div>
+
+          <div className="flex items-center gap-4">
             {viewAsOwner && (
               <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
                 👁️ Viewing as Owner
               </span>
             )}
-          </div>
-
-          <div className="flex items-center gap-4">
+            
             {/* Search */}
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -124,67 +125,76 @@ export default function ProductsPage() {
       </section>
 
       {/* Section 2: Table (Scrollable) */}
-      <section className="flex-1 overflow-y-auto px-8 pb-8">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Produk</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Harga</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stok</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-semibold text-gray-800">{product.name}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">{product.category}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-800">Rp {product.price.toLocaleString('id-ID')}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                      product.stock > 50 
-                        ? 'bg-green-100 text-green-700' 
-                        : product.stock > 20 
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {product.stock} unit
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {!viewAsOwner ? (
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => handleEditProduct(product)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                          title="Edit"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteProduct(product)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-sm">-</span>
-                    )}
-                  </td>
+      <section className="flex-1 overflow-hidden px-6 py-6 bg-gray-100">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col h-full">
+          {/* Table Header - Fixed */}
+          <div className="flex-shrink-0">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[30%]">Produk</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[20%]">Kategori</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[20%]">Harga</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[15%]">Stok</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[15%]">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+            </table>
+          </div>
+
+          {/* Table Body - Scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <table className="w-full ">
+              <tbody className="divide-y divide-gray-200 ">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50 transition ">
+                    <td className="px-6  whitespace-nowrap w-[30%]">
+                      <span className="text-sm font-semibold text-gray-800">{product.name}</span>
+                    </td>
+                    <td className="px-6 whitespace-nowrap w-[20%]">
+                      <span className="text-sm text-gray-600">{product.category}</span>
+                    </td>
+                    <td className="px-6  whitespace-nowrap w-[20%]">
+                      <span className="text-sm font-medium text-gray-800">Rp {product.price.toLocaleString('id-ID')}</span>
+                    </td>
+                    <td className="px-6  whitespace-nowrap w-[15%]">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                        product.stock > 50 
+                          ? 'bg-green-100 text-green-700' 
+                          : product.stock > 20 
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {product.stock} unit
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap w-[15%]">
+                      {!viewAsOwner ? (
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditProduct(product)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            title="Edit"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteProduct(product)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                            title="Delete"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

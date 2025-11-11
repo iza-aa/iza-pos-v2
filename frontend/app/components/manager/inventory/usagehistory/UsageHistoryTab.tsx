@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { usageTransactions } from '@/lib/mockData'
 
 interface UsageHistoryTabProps {
@@ -9,10 +10,15 @@ interface UsageHistoryTabProps {
 
 export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
   const [filterType, setFilterType] = useState<'all' | 'sale' | 'restock' | 'adjustment'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showStats, setShowStats] = useState(true)
 
-  const filteredTransactions = filterType === 'all' 
-    ? usageTransactions 
-    : usageTransactions.filter(t => t.type === filterType)
+  const filteredTransactions = usageTransactions
+    .filter(t => filterType === 'all' || t.type === filterType)
+    .filter(t => 
+      t.productName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.ingredients.some(ing => ing.ingredientName.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
 
   const stats = {
     totalTransactions: usageTransactions.length,
@@ -44,14 +50,45 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header + Stats */}
-      <section className="flex-shrink-0 p-8 pb-4">
+      <section className="flex-shrink-0 px-6 pt-6 bg-white border-b border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Stock Usage History</h2>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-gray-800">Stock Usage History</h2>
+            <p className="text-sm text-gray-500">Track all inventory movements and transactions</p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Toggle Stats Button */}
+            <button 
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              title={showStats ? "Hide Statistics" : "Show Statistics"}
+            >
+              {showStats ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+
+            {/* Search */}
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search transactions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        {showStats && (
+          <div className="grid grid-cols-4 pb-6 gap-4">
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <p className="text-sm text-gray-600 mb-1">Total Transactions</p>
             <p className="text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
@@ -69,14 +106,18 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
             <p className="text-2xl font-bold text-orange-600">{stats.adjustments}</p>
           </div>
         </div>
+        )}
+      </section>
 
-        {/* Filter */}
-        <div className="flex items-center gap-2">
+      {/* Timeline (Scrollable) */}
+      <section className="flex-1 overflow-hidden px-6 py-6 bg-gray-100 flex flex-col">
+        {/* Filter - Fixed at top */}
+        <div className="flex items-center gap-2 mb-4 flex-shrink-0">
           {['all', 'sale', 'restock', 'adjustment'].map(type => (
             <button
               key={type}
               onClick={() => setFilterType(type as any)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                 filterType === type
                   ? 'bg-blue-500 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -86,11 +127,8 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
             </button>
           ))}
         </div>
-      </section>
 
-      {/* Timeline (Scrollable) */}
-      <section className="flex-1 overflow-y-auto px-8 pb-8">
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4">
           {filteredTransactions.map(transaction => (
             <div key={transaction.id} className="bg-white rounded-xl border border-gray-200 p-6">
               {/* Transaction Header */}

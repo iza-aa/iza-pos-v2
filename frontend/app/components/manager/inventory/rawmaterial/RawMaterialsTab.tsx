@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlusIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import InventoryStats from './InventoryStats'
 import InventoryFilters from './InventoryFilters'
 import InventoryTable from './InventoryTable'
 import InventoryModal from './InventoryModal'
-import DeleteModal from '../../ui/DeleteModal'
+import DeleteModal from '../../../ui/DeleteModal'
 import { inventoryItems as mockInventoryItems } from '@/lib/mockData'
 
 interface InventoryItem {
@@ -134,21 +134,43 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header + Stats + Filters (Fixed) */}
-      <section className="flex-shrink-0 p-8 pb-4">
+      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
         {/* Header dengan Action Buttons */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Raw Materials & Ingredients</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-gray-800">Raw Materials & Ingredients</h2>
+            <p className="text-sm text-gray-500">Manage your inventory stock and supplies</p>
+          </div>
 
           <div className="flex items-center gap-4">
+            {/* Search */}
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
+
+            {/* Toggle Stats Button */}
+            <button 
+              onClick={handleToggleStats}
+              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              title={showStats ? "Hide Statistics" : "Show Statistics"}
+            >
+              {showStats ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+
             {!viewAsOwner && (
               <>
-                <button 
-                  onClick={handleRestock}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-                >
-                  <ArrowPathIcon className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-700">Restock</span>
-                </button>
+
                 <button 
                   onClick={handleAddNewItem}
                   className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition font-medium"
@@ -163,7 +185,7 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
 
         {/* Stats Cards */}
         {showStats && (
-          <div className="mb-6">
+          <div >
             <InventoryStats
               totalItems={stats.totalItems}
               inStock={stats.inStock}
@@ -172,28 +194,28 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
             />
           </div>
         )}
-
-        {/* Filters */}
-        <InventoryFilters
-          categories={categories}
-          selectedCategory={selectedCategory}
-          searchQuery={searchQuery}
-          showStats={showStats}
-          onCategoryChange={setSelectedCategory}
-          onSearchChange={setSearchQuery}
-          onToggleStats={handleToggleStats}
-        />
       </section>
 
       {/* Table List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto px-8 pb-8">
-        <InventoryTable 
-          items={filteredItems} 
-          viewAsOwner={viewAsOwner}
-          onRestock={handleRestockItem}
-          onEdit={handleEditItem}
-          onDelete={handleDeleteItem}
-        />
+      <section className="flex-1 overflow-hidden px-6 py-6 bg-gray-100 flex flex-col">
+        {/* Filters */}
+        <div className="mb-4 flex-shrink-0">
+          <InventoryFilters
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <InventoryTable 
+            items={filteredItems} 
+            viewAsOwner={viewAsOwner}
+            onRestock={handleRestockItem}
+            onEdit={handleEditItem}
+            onDelete={handleDeleteItem}
+          />
+        </div>
       </section>
 
       {/* Inventory Modal */}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { recipes as initialRecipes, variantGroups, Recipe, inventoryItems, calculateCanMake } from '@/lib/mockData'
 
 // Simplified Recipe Variants Tab
@@ -207,6 +207,8 @@ function VariantRecipeModal({ isOpen, onClose, onSave, variantGroupName, optionN
 
 export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProps) {
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showStats, setShowStats] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [selectedVariant, setSelectedVariant] = useState<{
     groupId: string
@@ -283,32 +285,84 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
     )
   }
 
-  return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-300px)]">
-      {/* Stats Cards */}
-      <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="text-sm text-gray-600">Variant Groups</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{stats.totalVariantGroups}</div>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="text-sm text-gray-600">Total Options</div>
-          <div className="text-2xl font-bold text-blue-600 mt-1">{stats.totalVariantOptions}</div>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="text-sm text-gray-600">Variant Recipes</div>
-          <div className="text-2xl font-bold text-green-600 mt-1">{stats.totalVariantRecipes}</div>
-        </div>
-      </div>
+  const filteredGroups = variantGroups.filter(vg =>
+    vg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    vg.options.some(opt => opt.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
 
-      {/* Variant Groups (Scrollable) */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-        {variantGroups.map(vg => {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Section 1: Header + Stats */}
+      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-gray-800">Variants (Variant-Specific Recipes)</h2>
+            <p className="text-sm text-gray-500">Manage recipes for variant options</p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Toggle Stats Button */}
+            <button 
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              title={showStats ? "Hide Statistics" : "Show Statistics"}
+            >
+              {showStats ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+
+            {/* Search */}
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search variant groups..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        {showStats && (
+          <div className="grid grid-cols-4 gap-4 pt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-600 mb-1">Variant Groups</div>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalVariantGroups}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-600 mb-1">Total Options</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.totalVariantOptions}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-600 mb-1">Variant Recipes</div>
+              <div className="text-2xl font-bold text-green-600">{stats.totalVariantRecipes}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="text-sm text-gray-600 mb-1">Coverage</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {stats.totalVariantOptions > 0 ? Math.round((stats.totalVariantRecipes / stats.totalVariantOptions) * 100) : 0}%
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Section 2: Variant Groups (Scrollable) */}
+      <section className="flex-1 overflow-y-auto px-6 py-6 bg-gray-100">
+        <div className="space-y-4">
+        {filteredGroups.map(vg => {
           const isExpanded = expandedGroups.includes(vg.id)
           const groupRecipeCount = vg.options.filter(opt => getRecipeForOption(opt.id)).length
 
           return (
-            <div key={vg.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div key={vg.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Group Header */}
               <div 
                 className="p-4 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
@@ -388,7 +442,8 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
             </div>
           )
         })}
-      </div>
+        </div>
+      </section>
 
       {/* Variant Recipe Modal */}
       {selectedVariant && (
@@ -406,5 +461,5 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
         />
       )}
     </div>
-  )
+  ) 
 }

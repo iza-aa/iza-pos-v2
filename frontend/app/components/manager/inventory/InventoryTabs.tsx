@@ -1,35 +1,80 @@
 'use client'
 
+import { useState } from 'react'
+
+type TabType = 'raw-materials' | 'recipes' | 'recipe-dishes' | 'recipe-variants' | 'usage-history'
+
 interface InventoryTabsProps {
-  activeTab: 'raw-materials' | 'recipes' | 'usage-history'
-  onTabChange: (tab: 'raw-materials' | 'recipes' | 'usage-history') => void
+  activeTab: TabType
+  onTabChange: (tab: TabType) => void
 }
 
 export default function InventoryTabs({ activeTab, onTabChange }: InventoryTabsProps) {
+  const [isRecipeExpanded, setIsRecipeExpanded] = useState(false)
+  
   const tabs = [
     { id: 'raw-materials' as const, label: 'Raw Materials', icon: '📦' },
-    { id: 'recipes' as const, label: 'Recipes', icon: '📋' },
+    { id: 'recipes' as const, label: 'Recipes', icon: '📋', hasSubmenu: true },
     { id: 'usage-history' as const, label: 'Usage History', icon: '📊' }
   ]
 
+  const recipeSubTabs = [
+    { id: 'recipe-dishes' as const, label: 'Dishes (Base Recipes)' },
+    { id: 'recipe-variants' as const, label: 'Variants (Variant-Specific Recipes)' }
+  ]
+
+  const isRecipeTabActive = activeTab === 'recipe-dishes' || activeTab === 'recipe-variants'
+
+  const handleTabClick = (tabId: TabType) => {
+    if (tabId === 'recipes') {
+      // Toggle dropdown instead of changing page
+      setIsRecipeExpanded(!isRecipeExpanded)
+    } else {
+      onTabChange(tabId)
+      setIsRecipeExpanded(false)
+    }
+  }
+
   return (
-    <div className="border-b border-gray-200 bg-white">
-      <div className="flex gap-1 px-8 pt-6">
+    <section className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col overflow-hidden">
+      <h2 className="text-lg font-bold text-gray-800 mb-4 flex-shrink-0">Inventory</h2>
+      
+      <div className="space-y-1 flex-1 overflow-y-auto">
         {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`flex items-center gap-2 px-6 py-3 font-medium text-sm rounded-t-xl transition ${
-              activeTab === tab.id
-                ? 'bg-gray-50 text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <span className="text-lg">{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
+          <div key={tab.id}>
+            <button
+              onClick={() => handleTabClick(tab.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                (tab.id === 'recipes' ? isRecipeTabActive : activeTab === tab.id)
+                  ? 'bg-blue-500 text-white'
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              <span className="text-xl">{tab.icon}</span>
+              <span className="text-sm font-medium">{tab.label}</span>
+            </button>
+            
+            {/* Submenu for Recipes */}
+            {tab.hasSubmenu && isRecipeExpanded && (
+              <div className="ml-8 mt-1 space-y-1">
+                {recipeSubTabs.map((subTab) => (
+                  <button
+                    key={subTab.id}
+                    onClick={() => onTabChange(subTab.id)}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
+                      activeTab === subTab.id
+                        ? 'bg-blue-50 text-blue-600 font-medium'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {subTab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

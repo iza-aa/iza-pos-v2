@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { PlusIcon, PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { variantGroups as mockVariantGroups } from '@/lib/mockData'
 import VariantGroupModal from '@/app/components/manager/variants/VariantGroupModal'
 import DeleteModal from '@/app/components/ui/DeleteModal'
@@ -31,6 +31,7 @@ export default function VariantsPage() {
   const [showAddGroupModal, setShowAddGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState<VariantGroup | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<VariantGroup | null>(null)
+  const [showInfoCards, setShowInfoCards] = useState(true)
 
   useEffect(() => {
     // Use data from mockData
@@ -94,20 +95,35 @@ export default function VariantsPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Section 1: Header (Fixed) */}
-      <section className="flex-shrink-0 p-8 pb-4 overflow-hidden">
+      <section className="flex-shrink-0 p-6 pb-4 border-b border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-bold text-gray-800">Manage Variants</h1>
+            <p className="text-sm text-gray-500">Manage variant groups and options for your menu items</p>
+          </div>
+
+          <div className="flex items-center gap-4">
             {viewAsOwner && (
               <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
                 👁️ Viewing as Owner
               </span>
             )}
-          </div>
+            
+            {/* Toggle Stats Button */}
+            <button 
+              onClick={() => setShowInfoCards(!showInfoCards)}
+              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              title={showInfoCards ? "Hide Statistics" : "Show Statistics"}
+            >
+              {showInfoCards ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
 
-          <div className="flex items-center gap-4">
             {/* Search */}
             <div className="relative">
               <input
@@ -133,34 +149,36 @@ export default function VariantsPage() {
         </div>
 
         {/* Info Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-sm text-gray-500 mb-1">Total Groups</div>
-            <div className="text-2xl font-bold text-gray-800">{variantGroups.length}</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-sm text-gray-500 mb-1">Required Groups</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {variantGroups.filter(g => g.required).length}
+        {showInfoCards && (
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <div className="text-sm text-gray-500 mb-1">Total Groups</div>
+              <div className="text-2xl font-bold text-gray-800">{variantGroups.length}</div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <div className="text-sm text-gray-500 mb-1">Required Groups</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {variantGroups.filter(g => g.required).length}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <div className="text-sm text-gray-500 mb-1">Optional Groups</div>
+              <div className="text-2xl font-bold text-green-600">
+                {variantGroups.filter(g => !g.required).length}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <div className="text-sm text-gray-500 mb-1">Total Options</div>
+              <div className="text-2xl font-bold text-gray-800">
+                {variantGroups.reduce((sum, g) => sum + g.options.length, 0)}
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-sm text-gray-500 mb-1">Optional Groups</div>
-            <div className="text-2xl font-bold text-green-600">
-              {variantGroups.filter(g => !g.required).length}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-sm text-gray-500 mb-1">Total Options</div>
-            <div className="text-2xl font-bold text-gray-800">
-              {variantGroups.reduce((sum, g) => sum + g.options.length, 0)}
-            </div>
-          </div>
-        </div>
+        )}
       </section>
 
       {/* Section 2: Variant Groups List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto px-8 pb-8">
+      <section className="flex-1 overflow-y-auto bg-gray-100 px-6  py-6">
         <div className="space-y-4">
           {filteredGroups.map((group) => (
             <div key={group.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">

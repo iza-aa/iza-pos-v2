@@ -11,7 +11,7 @@ interface InventoryStatsProps {
 
 export default function InventoryStats({ totalItems, inStock, lowStock, outOfStock }: InventoryStatsProps) {
   return (
-    <div className="grid grid-cols-4 gap-6">
+    <div className="grid grid-cols-4 gap-6 mt-6">
       <div className="bg-white rounded-2xl p-6 border border-gray-200">
         <div className="flex items-center justify-between">
           <div>
