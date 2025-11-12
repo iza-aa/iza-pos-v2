@@ -2,14 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import { 
-  MagnifyingGlassIcon, 
   EyeIcon, 
   EyeSlashIcon,
   FunnelIcon,
-  ArrowDownTrayIcon,
-  Squares2X2Icon,
-  TableCellsIcon,
-  CalendarIcon
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 import { activityLogs } from '@/lib/mockData'
 import { 
@@ -21,11 +17,14 @@ import {
   ActivityLogFilters,
   ActivityLogCard,
   ActivityLogTable,
-  ActivityLogDetail
+  ActivityLogDetail,
+  ActivityLogHeader,
+  DateFilterDropdown,
+  ActivityLogEmpty
 } from '@/app/components/owner/activitylog'
-
-type ViewMode = 'card' | 'table'
-type DateFilter = 'today' | 'week' | 'month' | 'custom' | 'all'
+import { SearchBar, ViewModeToggle } from '@/app/components/ui'
+import type { DateFilterType } from '@/app/components/owner/activitylog/DateFilterDropdown'
+import type { ViewMode } from '@/app/components/ui/ViewModeToggle'
 
 export default function ActivityLogPage() {
   const [logs] = useState<ActivityLog[]>(activityLogs)
@@ -34,8 +33,7 @@ export default function ActivityLogPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('card')
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
-  const [showDateDropdown, setShowDateDropdown] = useState(false)
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('all')
   const [customDateRange, setCustomDateRange] = useState({
     start: '',
     end: ''
@@ -147,26 +145,16 @@ export default function ActivityLogPage() {
 
   const hasActiveFilters = searchQuery || filters.severity || filters.category || filters.userRole || filters.action
 
-  const getDateFilterLabel = () => {
-    switch (dateFilter) {
-      case 'today': return 'Today'
-      case 'week': return 'This Week'
-      case 'month': return 'This Month'
-      case 'custom': return 'Custom Range'
-      default: return 'All Time'
-    }
-  }
-
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Header + Stats */}
       <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold text-gray-800">Activity Logs</h1>
-            <p className="text-sm text-gray-500">Track all system activities and user actions</p>
-          </div>
+          <ActivityLogHeader 
+            title="Activity Logs"
+            description="Track all system activities and user actions"
+          />
 
           <div className="flex items-center gap-3">
             {/* Toggle Stats */}
@@ -183,143 +171,18 @@ export default function ActivityLogPage() {
             </button>
 
             {/* Date Filter */}
-            <div className="relative">
-              <button
-                onClick={() => setShowDateDropdown(!showDateDropdown)}
-                className={`flex items-center gap-2 h-[42px] px-4 border rounded-xl transition ${
-                  dateFilter !== 'all'
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <CalendarIcon className="w-5 h-5" />
-                <span className="text-sm font-medium">{getDateFilterLabel()}</span>
-              </button>
-
-              {/* Date Dropdown */}
-              {showDateDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                  <div className="p-2">
-                    <button
-                      onClick={() => {
-                        setDateFilter('all')
-                        setShowDateDropdown(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
-                        dateFilter === 'all'
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      All Time
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDateFilter('today')
-                        setShowDateDropdown(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
-                        dateFilter === 'today'
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      Today
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDateFilter('week')
-                        setShowDateDropdown(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
-                        dateFilter === 'week'
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      This Week (Last 7 Days)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDateFilter('month')
-                        setShowDateDropdown(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
-                        dateFilter === 'month'
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      This Month (Last 30 Days)
-                    </button>
-                    
-                    <div className="border-t border-gray-200 my-2"></div>
-                    
-                    <div className="px-4 py-2">
-                      <label className="text-sm font-medium text-gray-700 block mb-2">Custom Range</label>
-                      <div className="space-y-2">
-                        <input
-                          type="date"
-                          value={customDateRange.start}
-                          onChange={(e) => {
-                            setCustomDateRange({ ...customDateRange, start: e.target.value })
-                            if (e.target.value && customDateRange.end) {
-                              setDateFilter('custom')
-                            }
-                          }}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <input
-                          type="date"
-                          value={customDateRange.end}
-                          onChange={(e) => {
-                            setCustomDateRange({ ...customDateRange, end: e.target.value })
-                            if (customDateRange.start && e.target.value) {
-                              setDateFilter('custom')
-                            }
-                          }}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        {customDateRange.start && customDateRange.end && (
-                          <button
-                            onClick={() => setShowDateDropdown(false)}
-                            className="w-full px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-                          >
-                            Apply
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <DateFilterDropdown
+              dateFilter={dateFilter}
+              onDateFilterChange={setDateFilter}
+              customDateRange={customDateRange}
+              onCustomDateRangeChange={setCustomDateRange}
+            />
 
             {/* View Mode Toggle */}
-            <div className="flex items-center h-[42px] border border-gray-300 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setViewMode('card')}
-                className={`h-full px-2 transition ${
-                  viewMode === 'card'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-                title="Card View"
-              >
-                <Squares2X2Icon className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`h-full px-2 transition ${
-                  viewMode === 'table'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-                title="Table View"
-              >
-                <TableCellsIcon className="w-5 h-5" />
-              </button>
-            </div>
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
 
             {/* Toggle Filters */}
             <button 
@@ -346,16 +209,12 @@ export default function ActivityLogPage() {
             </button>
 
             {/* Search */}
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search activities..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search activities..."
+              width="w-64"
+            />
           </div>
         </div>
 
@@ -393,17 +252,10 @@ export default function ActivityLogPage() {
 
         {/* Empty State */}
         {filteredLogs.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No activity logs found</p>
-            {hasActiveFilters && (
-              <button 
-                onClick={clearFilters}
-                className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          <ActivityLogEmpty
+            hasFilters={!!hasActiveFilters}
+            onClearFilters={clearFilters}
+          />
         )}
       </section>
 

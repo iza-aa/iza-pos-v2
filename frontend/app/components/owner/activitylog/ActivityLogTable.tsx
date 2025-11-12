@@ -20,7 +20,7 @@ function TimeAgoCell({ timestamp }: { timestamp: string }) {
   }, [timestamp])
 
   return (
-    <td className="px-4 py-3 whitespace-nowrap">
+    <td className="w-[14%] px-4 py-3 whitespace-nowrap">
       <div className="text-xs text-gray-900">{timeAgo || 'Loading...'}</div>
       <div className="text-xs text-gray-500">
         {new Date(timestamp).toLocaleTimeString('en-US', { 
@@ -35,41 +35,34 @@ function TimeAgoCell({ timestamp }: { timestamp: string }) {
 export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col h-full">
-      {/* Fixed Header */}
-      <div className="overflow-x-auto flex-shrink-0">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+      <div className="overflow-auto flex-1">
+        <table className="w-full min-w-[1200px] table-fixed">
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <tr className="border-b border-gray-200">
+              <th className="w-[12%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Severity
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="w-[12%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Category
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="w-[20%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Action
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="w-[12%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 User
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="w-[14%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Resource
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Changes
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="w-[14%] px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Time
               </th>
             </tr>
           </thead>
-        </table>
-      </div>
-      
-      {/* Scrollable Body */}
-      <div className="overflow-x-auto overflow-y-auto flex-1">
-        <table className="w-full">
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-200 bg-white">
             {logs.map((log) => (
               <tr 
                 key={log.id}
@@ -77,7 +70,7 @@ export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableP
                 className="hover:bg-gray-50 cursor-pointer transition"
               >
                 {/* Severity */}
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="w-[12%] px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{getSeverityIcon(log.severity)}</span>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getSeverityColor(log.severity)}`}>
@@ -87,14 +80,14 @@ export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableP
                 </td>
 
                 {/* Category */}
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="w-[12%] px-4 py-3 whitespace-nowrap">
                   <span className={`text-xs font-medium px-2 py-1 rounded ${getCategoryColor(log.actionCategory)}`}>
                     {log.actionCategory}
                   </span>
                 </td>
 
                 {/* Action */}
-                <td className="px-4 py-3">
+                <td className="w-[20%] px-4 py-3">
                   <div className="max-w-xs">
                     <div className="text-sm font-medium text-gray-900 truncate">{log.actionDescription}</div>
                     {log.notes && (
@@ -104,13 +97,13 @@ export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableP
                 </td>
 
                 {/* User */}
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="w-[12%] px-4 py-3 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{log.userName}</div>
                   <div className="text-xs text-gray-500 capitalize">{log.userRole}</div>
                 </td>
 
                 {/* Resource */}
-                <td className="px-4 py-3">
+                <td className="w-[14%] px-4 py-3">
                   <div className="max-w-xs">
                     {log.resourceName ? (
                       <>
@@ -124,7 +117,7 @@ export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableP
                 </td>
 
                 {/* Changes */}
-                <td className="px-4 py-3">
+                <td className="w-[16%] px-4 py-3">
                   <div className="max-w-xs">
                     {log.changesSummary && log.changesSummary.length > 0 ? (
                       <>
