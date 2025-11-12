@@ -749,3 +749,370 @@ export const calculateCanMake = (recipe: Recipe, inventoryItems: Array<{id: stri
 
   return minServings === Infinity ? 0 : minServings;
 };
+
+// ============================================
+// ACTIVITY LOGS
+// ============================================
+
+import { ActivityLog } from './activityTypes';
+
+export const activityLogs: ActivityLog[] = [
+  // Critical - Delete Menu Item
+  {
+    id: 'log-001',
+    timestamp: new Date(Date.now() - 2 * 60000).toISOString(), // 2 mins ago
+    userId: 'manager-1',
+    userName: 'John Doe',
+    userRole: 'manager',
+    userEmail: 'john@foodies.com',
+    action: 'DELETE',
+    actionCategory: 'MENU',
+    actionDescription: 'Deleted menu item "Nasi Goreng Special"',
+    resourceType: 'menu',
+    resourceId: 'menu-123',
+    resourceName: 'Nasi Goreng Special',
+    previousValue: {
+      name: 'Nasi Goreng Special',
+      price: 25000,
+      category: 'Main Course',
+      available: true
+    },
+    changesSummary: ['Item permanently deleted'],
+    ipAddress: '192.168.1.15',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-abc123',
+    severity: 'critical',
+    tags: ['menu', 'deletion', 'permanent'],
+    isReversible: false,
+    notes: 'Item discontinued due to ingredient shortage'
+  },
+  
+  // Warning - Price Change
+  {
+    id: 'log-002',
+    timestamp: new Date(Date.now() - 15 * 60000).toISOString(), // 15 mins ago
+    userId: 'manager-1',
+    userName: 'John Doe',
+    userRole: 'manager',
+    action: 'UPDATE',
+    actionCategory: 'MENU',
+    actionDescription: 'Updated menu item price',
+    resourceType: 'menu',
+    resourceId: 'menu-456',
+    resourceName: 'Cappuccino',
+    previousValue: { price: 15000 },
+    newValue: { price: 18000 },
+    changesSummary: ['price: Rp 15,000 → Rp 18,000'],
+    ipAddress: '192.168.1.15',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-abc123',
+    severity: 'warning',
+    tags: ['menu', 'price-change', 'financial'],
+    isReversible: true,
+    notes: 'Price adjustment due to inflation'
+  },
+  
+  // Warning - Large Stock Adjustment
+  {
+    id: 'log-003',
+    timestamp: new Date(Date.now() - 30 * 60000).toISOString(), // 30 mins ago
+    userId: 'staff-2',
+    userName: 'Sarah Wilson',
+    userRole: 'staff',
+    action: 'ADJUST',
+    actionCategory: 'INVENTORY',
+    actionDescription: 'Manual stock adjustment for Beef',
+    resourceType: 'inventory',
+    resourceId: 'inv-5',
+    resourceName: 'Beef',
+    previousValue: { stock: 100, unit: 'kg' },
+    newValue: { stock: 50, unit: 'kg' },
+    changesSummary: ['stock: 100kg → 50kg (-50kg)'],
+    ipAddress: '192.168.1.22',
+    deviceInfo: 'Firefox 119 / macOS',
+    sessionId: 'sess-xyz789',
+    severity: 'warning',
+    tags: ['inventory', 'adjustment', 'large-change'],
+    isReversible: true,
+    notes: 'Found expired stock during inventory check'
+  },
+  
+  // Info - Order Created
+  {
+    id: 'log-004',
+    timestamp: new Date(Date.now() - 1 * 3600000).toISOString(), // 1 hour ago
+    userId: 'staff-3',
+    userName: 'Mike Chen',
+    userRole: 'cashier',
+    action: 'CREATE',
+    actionCategory: 'SALES',
+    actionDescription: 'Created new order #4521',
+    resourceType: 'order',
+    resourceId: 'order-4521',
+    resourceName: 'Order #4521',
+    newValue: {
+      orderId: 'order-4521',
+      total: 150000,
+      items: 5,
+      table: 12,
+      status: 'pending'
+    },
+    changesSummary: ['Total: Rp 150,000', '5 items', 'Table 12'],
+    ipAddress: '192.168.1.30',
+    deviceInfo: 'Chrome 120 / Android 13',
+    sessionId: 'sess-mobile-001',
+    severity: 'info',
+    tags: ['sales', 'order', 'pos'],
+    isReversible: false
+  },
+  
+  // Critical - Void Transaction
+  {
+    id: 'log-005',
+    timestamp: new Date(Date.now() - 2 * 3600000).toISOString(), // 2 hours ago
+    userId: 'manager-1',
+    userName: 'John Doe',
+    userRole: 'manager',
+    action: 'VOID',
+    actionCategory: 'FINANCIAL',
+    actionDescription: 'Voided transaction #4515',
+    resourceType: 'order',
+    resourceId: 'order-4515',
+    resourceName: 'Order #4515',
+    previousValue: {
+      total: 275000,
+      status: 'completed',
+      paymentMethod: 'cash'
+    },
+    newValue: {
+      total: 275000,
+      status: 'voided',
+      voidReason: 'customer_complaint'
+    },
+    changesSummary: ['Status: completed → voided', 'Amount: Rp 275,000'],
+    ipAddress: '192.168.1.15',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-abc123',
+    severity: 'critical',
+    tags: ['financial', 'void', 'manager-override'],
+    isReversible: false,
+    notes: 'Customer complaint about food quality'
+  },
+  
+  // Critical - Failed Login Attempt
+  {
+    id: 'log-006',
+    timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), // 3 hours ago
+    userId: 'unknown',
+    userName: 'Unknown User',
+    userRole: 'staff',
+    action: 'LOGIN',
+    actionCategory: 'AUTH',
+    actionDescription: 'Failed login attempt',
+    resourceType: 'user',
+    resourceId: 'staff-5',
+    resourceName: 'admin@foodies.com',
+    changesSummary: ['Failed authentication', 'Invalid password'],
+    ipAddress: '203.45.67.89',
+    deviceInfo: 'Chrome 120 / Windows 10',
+    sessionId: 'sess-failed-001',
+    severity: 'critical',
+    tags: ['auth', 'security', 'failed-login'],
+    isReversible: false,
+    notes: '3rd failed attempt in 10 minutes'
+  },
+  
+  // Info - Successful Login
+  {
+    id: 'log-007',
+    timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), // 4 hours ago
+    userId: 'staff-2',
+    userName: 'Sarah Wilson',
+    userRole: 'staff',
+    action: 'LOGIN',
+    actionCategory: 'AUTH',
+    actionDescription: 'User logged in successfully',
+    resourceType: 'user',
+    resourceId: 'staff-2',
+    resourceName: 'sarah@foodies.com',
+    changesSummary: ['Session started'],
+    ipAddress: '192.168.1.22',
+    deviceInfo: 'Firefox 119 / macOS',
+    sessionId: 'sess-xyz789',
+    severity: 'info',
+    tags: ['auth', 'login'],
+    isReversible: false
+  },
+  
+  // Warning - Recipe Modified
+  {
+    id: 'log-008',
+    timestamp: new Date(Date.now() - 5 * 3600000).toISOString(), // 5 hours ago
+    userId: 'manager-1',
+    userName: 'John Doe',
+    userRole: 'manager',
+    action: 'UPDATE',
+    actionCategory: 'INVENTORY',
+    actionDescription: 'Modified recipe for Latte',
+    resourceType: 'recipe',
+    resourceId: 'recipe-789',
+    resourceName: 'Latte Recipe',
+    previousValue: {
+      ingredients: [
+        { name: 'Coffee Beans', quantity: 18, unit: 'g' },
+        { name: 'Milk', quantity: 200, unit: 'ml' }
+      ]
+    },
+    newValue: {
+      ingredients: [
+        { name: 'Coffee Beans', quantity: 20, unit: 'g' },
+        { name: 'Milk', quantity: 250, unit: 'ml' }
+      ]
+    },
+    changesSummary: [
+      'Coffee Beans: 18g → 20g',
+      'Milk: 200ml → 250ml'
+    ],
+    ipAddress: '192.168.1.15',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-abc123',
+    severity: 'warning',
+    tags: ['recipe', 'inventory', 'modification'],
+    isReversible: true,
+    notes: 'Recipe improvement based on customer feedback'
+  },
+  
+  // Info - Staff Created
+  {
+    id: 'log-009',
+    timestamp: new Date(Date.now() - 24 * 3600000).toISOString(), // 1 day ago
+    userId: 'owner-1',
+    userName: 'Owner Admin',
+    userRole: 'owner',
+    action: 'CREATE',
+    actionCategory: 'STAFF',
+    actionDescription: 'Created new staff account',
+    resourceType: 'user',
+    resourceId: 'staff-10',
+    resourceName: 'Emily Brown',
+    newValue: {
+      name: 'Emily Brown',
+      email: 'emily@foodies.com',
+      role: 'cashier',
+      status: 'active'
+    },
+    changesSummary: ['New staff member added', 'Role: Cashier'],
+    ipAddress: '192.168.1.10',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-owner-001',
+    severity: 'info',
+    tags: ['staff', 'onboarding', 'hr'],
+    isReversible: false
+  },
+  
+  // Critical - Permission Changed
+  {
+    id: 'log-010',
+    timestamp: new Date(Date.now() - 24 * 3600000).toISOString(), // 1 day ago
+    userId: 'owner-1',
+    userName: 'Owner Admin',
+    userRole: 'owner',
+    action: 'UPDATE',
+    actionCategory: 'STAFF',
+    actionDescription: 'Updated staff permissions',
+    resourceType: 'user',
+    resourceId: 'staff-2',
+    resourceName: 'Sarah Wilson',
+    previousValue: { role: 'staff', permissions: ['pos', 'inventory_view'] },
+    newValue: { role: 'manager', permissions: ['pos', 'inventory_view', 'inventory_edit', 'menu_edit'] },
+    changesSummary: [
+      'Role: staff → manager',
+      'Added: inventory_edit, menu_edit'
+    ],
+    ipAddress: '192.168.1.10',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-owner-001',
+    severity: 'critical',
+    tags: ['staff', 'permissions', 'promotion'],
+    isReversible: true,
+    notes: 'Promoted to manager position'
+  },
+  
+  // Info - Report Exported
+  {
+    id: 'log-011',
+    timestamp: new Date(Date.now() - 2 * 24 * 3600000).toISOString(), // 2 days ago
+    userId: 'owner-1',
+    userName: 'Owner Admin',
+    userRole: 'owner',
+    action: 'EXPORT',
+    actionCategory: 'REPORT',
+    actionDescription: 'Exported sales report',
+    resourceType: 'report',
+    resourceId: 'report-sales-nov',
+    resourceName: 'Sales Report November 2025',
+    newValue: {
+      reportType: 'sales',
+      period: 'November 2025',
+      format: 'PDF',
+      recordCount: 1547
+    },
+    changesSummary: ['1,547 transactions exported', 'Format: PDF'],
+    ipAddress: '192.168.1.10',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-owner-001',
+    severity: 'info',
+    tags: ['report', 'export', 'sales'],
+    isReversible: false
+  },
+  
+  // Warning - Bulk Menu Update
+  {
+    id: 'log-012',
+    timestamp: new Date(Date.now() - 3 * 24 * 3600000).toISOString(), // 3 days ago
+    userId: 'manager-1',
+    userName: 'John Doe',
+    userRole: 'manager',
+    action: 'UPDATE',
+    actionCategory: 'MENU',
+    actionDescription: 'Bulk menu availability update',
+    resourceType: 'menu',
+    resourceId: 'bulk-001',
+    resourceName: 'Multiple items (15)',
+    changesSummary: ['15 items set to unavailable', 'Reason: Out of ingredients'],
+    ipAddress: '192.168.1.15',
+    deviceInfo: 'Chrome 120 / Windows 11',
+    sessionId: 'sess-abc123',
+    severity: 'warning',
+    tags: ['menu', 'bulk-update', 'availability'],
+    isReversible: true,
+    notes: 'Temporary unavailability due to supply chain issues'
+  },
+  
+  // Info - System Backup
+  {
+    id: 'log-013',
+    timestamp: new Date(Date.now() - 7 * 24 * 3600000).toISOString(), // 1 week ago
+    userId: 'system',
+    userName: 'System',
+    userRole: 'owner',
+    action: 'CREATE',
+    actionCategory: 'SYSTEM',
+    actionDescription: 'Automatic database backup',
+    resourceType: 'backup',
+    resourceId: 'backup-20251105',
+    resourceName: 'Database Backup 2025-11-05',
+    newValue: {
+      size: '2.4GB',
+      tables: 25,
+      records: 156789
+    },
+    changesSummary: ['Backup completed successfully', 'Size: 2.4GB'],
+    ipAddress: '127.0.0.1',
+    deviceInfo: 'System Process',
+    sessionId: 'system-cron',
+    severity: 'info',
+    tags: ['system', 'backup', 'automated'],
+    isReversible: false
+  }
+];

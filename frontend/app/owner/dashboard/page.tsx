@@ -15,7 +15,7 @@ export default function OwnerDashboardPage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 pt-4 pb-6 flex  relative">
+    <main className="min-h-screen bg-gray-100 px-6 pt-4 pb-6 flex  relative">
       {/* Section 1: Analytics - 3/5 layar */}
       <section className="w-full pr-[36%] flex flex-col gap-6">
         
@@ -44,7 +44,7 @@ export default function OwnerDashboardPage() {
       </section>
 
       {/* Section 2: Chatbot - 2/5 layar */}
-      <section className="w-2/6 bg-white rounded-2xl shadow p-6 flex flex-col fixed top-20 right-6 bottom-6 border border-gray-100">
+      <section className="w-2/6 bg-white rounded-2xl p-6 flex flex-col fixed top-20 right-6 bottom-6 border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">AI Assistant</h3>
         <div className="flex-1 overflow-hidden">
           <Chatbot />

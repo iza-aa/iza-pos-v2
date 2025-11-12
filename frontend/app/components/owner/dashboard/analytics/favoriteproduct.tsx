@@ -24,7 +24,7 @@ export default function FavoriteProduct() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow p-6">
+    <div className="bg-white rounded-2xl p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -55,7 +55,7 @@ export default function FavoriteProduct() {
         {products.map((product, idx) => (
           <div
             key={idx}
-            className="grid grid-cols-2 gap-4 items-center p-3 hover:bg-gray-50 rounded-lg transition cursor-pointer border-b border-gray-100 last:border-b-0"
+            className="grid grid-cols-2 gap-4 items-center p-3 hover:bg-gray-50 rounded-lg transition cursor-pointer border-b border-gray-200 last:border-b-0"
           >
             <div className="flex items-center gap-3">
               <div className={`w-12 h-12 ${product.bgColor} rounded-xl flex items-center justify-center text-2xl`}>

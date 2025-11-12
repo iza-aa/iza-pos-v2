@@ -12,6 +12,7 @@ const roleMenus = {
     { label: "Staff Manager", href: "/owner/staff-manager" },
     { label: "Financial Reports", href: "/owner/reports" },
     { label: "Settings", href: "/owner/settings" },
+    { label: "Activity Log", href: "/owner/activitylog" },
   ],
   manager: [
 
@@ -236,7 +237,7 @@ export default function Navbar() {
         {/* Chevron Button - Absolute di bawah tengah navbar (hanya untuk Owner) */}
         <button
           onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-          className="hidden md:flex absolute left-1/2 -translate-x-1/2 -bottom-3 w-8 h-8 bg-white border border-gray-300 rounded-full items-center justify-center shadow-md hover:bg-gray-50 transition z-[60]"
+          className="hidden md:flex absolute left-1/2 -translate-x-1/2 -bottom-[8px] w-8 h-6 bg-white border border-gray-300 rounded-xl items-center justify-center hover:bg-gray-50 transition z-[60]"
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -252,13 +253,13 @@ export default function Navbar() {
 
         {/* Role Dropdown - 3 Cards Horizontal */}
         {showRoleDropdown && (
-          <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-full mt-2 z-[55]">
-            <div className="bg-white border border-gray-300 rounded-2xl shadow-lg p-3 flex gap-3">
+          <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-full z-[55]">
+            <div className="bg-white border border-gray-300 rounded-b-xl p-3 px-6 flex gap-3">
               {(Object.keys(roleMenus) as Array<keyof typeof roleMenus>).map((role) => (
                 <button
                   key={role}
                   onClick={() => handleRoleSwitch(role)}
-                  className={`px-6 py-3 rounded-lg text-sm font-medium transition min-w-[120px] ${
+                  className={`py-[7.6px] rounded-lg text-sm font-medium transition min-w-[101px] ${
                     selectedRole === role
                       ? 'bg-blue-500 text-white'
                       : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'

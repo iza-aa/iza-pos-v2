@@ -153,12 +153,12 @@ export default function VariantsPage() {
 
       {/* Section 2: Variant Groups List (Scrollable) */}
       <section className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="columns-4 gap-4 space-y-4">
           {/* Add New Variant Group Card */}
           {!viewAsOwner && (
             <button
               onClick={handleAddVariantGroup}
-              className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-blue-500 hover:bg-blue-50 transition flex flex-col items-center justify-center gap-3 min-h-[200px]"
+              className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-blue-500 hover:bg-blue-50 transition flex flex-col items-center justify-center gap-3 min-h-[200px] break-inside-avoid mb-4 w-full"
             >
               <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
                 <PlusIcon className="w-6 h-6 text-white" />
@@ -172,7 +172,7 @@ export default function VariantsPage() {
 
           {/* Variant Group Cards */}
           {filteredGroups.map((group) => (
-            <div key={group.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
+            <div key={group.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
               {/* Group Header */}
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-start justify-between mb-2">

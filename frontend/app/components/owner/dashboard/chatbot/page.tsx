@@ -66,7 +66,7 @@ export default function Chatbot() {
   return (
     <div className="flex flex-col h-full">
       {/* Chat Messages Area */}
-      <div className="flex-1 overflow-y-auto mb-4 px-2">
+      <div className="flex-1 overflow-y-auto mb-4 b px-2">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400">
             <span>Start a conversation...</span>

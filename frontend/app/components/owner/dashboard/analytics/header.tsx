@@ -20,12 +20,12 @@ export default function AnalyticsHeader({ showDatePicker, setShowDatePicker }: A
       <div className="flex items-center gap-3">
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-xl  text-gray-700 hover:bg-gray-50 transition"
         >
           <CalendarIcon className="h-5 w-5" />
           <span className="text-sm font-medium">Date Period</span>
         </button>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+        <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition">
           <ArrowDownTrayIcon className="h-5 w-5" />
           <span className="text-sm font-medium">Export Report</span>
         </button>
