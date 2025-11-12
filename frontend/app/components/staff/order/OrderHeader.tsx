@@ -1,27 +1,23 @@
 "use client";
-import { CalendarIcon } from "@heroicons/react/24/outline";
+import { ReactNode } from "react";
 
 interface OrderHeaderProps {
-	totalOrders: number;
-	date: string;
-	onAddOrder: () => void;
+	description: string;
+	children?: ReactNode;
 }
 
-export default function OrderHeader({ totalOrders, date, onAddOrder }: OrderHeaderProps) {
+export default function OrderHeader({ description, children }: OrderHeaderProps) {
 	return (
-		<div className="flex items-center justify-between mb-6">
-			<h1 className="text-2xl font-bold text-gray-800">Order ({totalOrders})</h1>
-			<div className="flex items-center gap-4">
-				<div className="flex items-center gap-2 text-gray-600">
-					<CalendarIcon className="w-5 h-5" />
-					<span className="text-sm">{date}</span>
+		<div className="bg-white px-6 py-4 border-b border-gray-200">
+			<div className="flex items-center justify-between">
+				<div>
+					<h1 className="text-2xl font-bold text-gray-800">Order Track</h1>
+					<p className="text-sm text-gray-500 mt-1">{description}</p>
 				</div>
-				<button
-					onClick={onAddOrder}
-					className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-medium transition"
-				>
-					+ Add New
-				</button>
+				
+				<div className="flex items-center gap-3">
+					{children}
+				</div>
 			</div>
 		</div>
 	);

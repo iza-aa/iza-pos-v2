@@ -15,10 +15,10 @@ import { products, categories, orders } from "@/lib/mockData";
 const mockOrders = orders.slice(0, 3).map(order => ({
 	id: order.id,
 	orderNumber: order.orderNumber,
-	table: order.table,
+	table: order.table || 'Counter',
 	itemCount: order.itemCount,
-	timeAgo: order.timeAgo,
-	status: order.status,
+	timeAgo: order.timeAgo || 'Just now',
+	status: order.status as "new" | "preparing" | "partially-served" | "served",
 }));
 
 // Transform categories for menu
@@ -95,14 +95,14 @@ export default function POSPage() {
 
 	const counts = {
 		all: mockOrders.length,
-		dineIn: mockOrders.filter((o) => o.status === "in-kitchen").length,
-		waitList: mockOrders.filter((o) => o.status === "wait-list").length,
+		dineIn: mockOrders.filter((o) => o.status === "preparing").length,
+		waitList: mockOrders.filter((o) => o.status === "new").length,
 		takeAway: 0,
-		served: mockOrders.filter((o) => o.status === "ready").length,
+		served: mockOrders.filter((o) => o.status === "served").length,
 	};
 
 	return (
-		<main className="h-[calc(100vh-64px)] bg-gray-50 flex overflow-hidden">
+		<main className="h-[calc(100vh-55px)] bg-gray-50 flex overflow-hidden">
 			{/* Section 1: Order Line & Menu - Left scrollable */}
 			<section className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
 				{/* Order Line */}

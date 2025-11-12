@@ -30,7 +30,7 @@ const mockOrders = orders.map(order => ({
 	table: order.table !== 'Counter' ? order.table : undefined,
 }));
 
-export default function OrderPage() {
+export default function ManagerOrderPage() {
 	const [orderList, setOrderList] = useState(mockOrders);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<ViewMode>("card");

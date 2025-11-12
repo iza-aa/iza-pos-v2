@@ -139,7 +139,7 @@ export default function MenuPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] bg-gray-50 flex overflow-hidden">
+    <div className="h-[calc(100vh-55px)] bg-gray-50 flex overflow-hidden">
       {/* Section 1: Sidebar Categories - Fixed, tidak bisa scroll */}
       <section className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col overflow-hidden">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex-shrink-0">Menu Category</h2>
