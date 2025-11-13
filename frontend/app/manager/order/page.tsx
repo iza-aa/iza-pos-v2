@@ -36,7 +36,7 @@ export default function ManagerOrderPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
 	const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-	const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | 'dine-in' | 'takeaway'>('all');
+	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served'>('all');
 
 	const handleMarkServed = (orderId: string, itemIds: string[]) => {
 		const now = new Date();
@@ -81,10 +81,19 @@ export default function ManagerOrderPage() {
 		const matchesSearch = order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase());
 		
-		// Order type filter
-		const matchesType = orderTypeFilter === 'all' || 
-			(orderTypeFilter === 'dine-in' && order.table) ||
-			(orderTypeFilter === 'takeaway' && !order.table);
+		// Combined order filter
+		let matchesFilter = true;
+		if (orderFilter === 'dine-in') {
+			matchesFilter = !!order.table;
+		} else if (orderFilter === 'takeaway') {
+			matchesFilter = !order.table;
+		} else if (orderFilter === 'new-preparing') {
+			matchesFilter = order.status === 'new' || order.status === 'preparing';
+		} else if (orderFilter === 'partially-served') {
+			matchesFilter = order.status === 'partially-served';
+		} else if (orderFilter === 'served') {
+			matchesFilter = order.status === 'served';
+		}
 
 		// Date filter
 		let matchesDate = true;
@@ -104,7 +113,7 @@ export default function ManagerOrderPage() {
 			}
 		}
 
-		return matchesSearch && matchesType && matchesDate;
+		return matchesSearch && matchesFilter && matchesDate;
 	});
 
 	return (
@@ -133,11 +142,11 @@ export default function ManagerOrderPage() {
 			<div className="flex-1 overflow-y-auto bg-gray-100">
 				{/* Filter Tabs - Inside gray area, above cards */}
 				<div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6 pb-4">
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2 flex-wrap">
 						<button
-							onClick={() => setOrderTypeFilter('all')}
+							onClick={() => setOrderFilter('all')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderTypeFilter === 'all'
+								orderFilter === 'all'
 									? 'bg-blue-500 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
@@ -145,9 +154,9 @@ export default function ManagerOrderPage() {
 							All Items
 						</button>
 						<button
-							onClick={() => setOrderTypeFilter('dine-in')}
+							onClick={() => setOrderFilter('dine-in')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderTypeFilter === 'dine-in'
+								orderFilter === 'dine-in'
 									? 'bg-blue-500 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
@@ -155,14 +164,45 @@ export default function ManagerOrderPage() {
 							Dine In
 						</button>
 						<button
-							onClick={() => setOrderTypeFilter('takeaway')}
+							onClick={() => setOrderFilter('takeaway')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderTypeFilter === 'takeaway'
+								orderFilter === 'takeaway'
 									? 'bg-blue-500 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
 						>
 							Takeaway
+						</button>
+
+						<button
+							onClick={() => setOrderFilter('new-preparing')}
+							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+								orderFilter === 'new-preparing'
+									? 'bg-blue-500 text-white shadow-md'
+									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+							}`}
+						>
+							New Order
+						</button>
+						<button
+							onClick={() => setOrderFilter('partially-served')}
+							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+								orderFilter === 'partially-served'
+									? 'bg-blue-500 text-white shadow-md'
+									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+							}`}
+						>
+							Partially Served
+						</button>
+						<button
+							onClick={() => setOrderFilter('served')}
+							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+								orderFilter === 'served'
+									? 'bg-blue-500 text-white shadow-md'
+									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+							}`}
+						>
+							Served
 						</button>
 					</div>
 				</div>

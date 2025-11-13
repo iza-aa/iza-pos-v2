@@ -118,7 +118,7 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
                   </td>
                   
                   <td className="w-[12%] px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-700">
+                    <div className={`text-sm text-gray-700 ${!order.table ? 'font-bold' : ''}`}>
                       {order.table || "Takeway"}
                     </div>
                   </td>

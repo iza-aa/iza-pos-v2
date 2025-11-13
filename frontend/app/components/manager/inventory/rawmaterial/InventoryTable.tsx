@@ -42,91 +42,91 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, 
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col h-full">
-      {/* Fixed Header */}
-      <div className="flex-shrink-0 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Item Name</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Category</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Current Stock</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Reorder Level</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Supplier</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Last Restocked</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+    <div className="flex flex-col h-full bg-white rounded-xl overflow-hidden ">
+      <div className="overflow-auto flex-1">
+        <table className="w-full min-w-[1000px] table-fixed">
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <tr className="border-b border-gray-200">
+              <th className="w-[14%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Item Name
+              </th>
+              <th className="w-[11%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Category
+              </th>
+              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Stock
+              </th>
+              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Reorder
+              </th>
+              <th className="w-[14%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Supplier
+              </th>
+              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Restocked
+              </th>
+              <th className="w-[11%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
               {!viewAsOwner && (
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                <th className="w-[14%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               )}
             </tr>
           </thead>
-        </table>
-      </div>
-
-      {/* Scrollable Body */}
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full">
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-200 bg-white">
             {items.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <p className="text-sm font-semibold text-gray-800">{item.name}</p>
+              <tr key={item.id} className="hover:bg-gray-50 transition">
+                <td className="px-6 py-4 whitespace-nowrap w-[14%]">
+                  <div className="text-sm font-medium text-gray-900">{item.name}</div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600">{item.category}</span>
+                <td className="px-6 py-4 whitespace-nowrap w-[11%]">
+                  <div className="text-sm text-gray-700">{item.category}</div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className={`text-sm font-semibold ${
-                    item.currentStock <= item.reorderLevel ? 'text-red-600' : 'text-gray-800'
+                <td className="px-6 py-4 whitespace-nowrap w-[12%]">
+                  <div className={`text-sm font-semibold ${
+                    item.currentStock <= item.reorderLevel ? 'text-red-600' : 'text-gray-900'
                   }`}>
                     {item.currentStock} {item.unit}
-                  </span>
+                  </div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600">{item.reorderLevel} {item.unit}</span>
+                <td className="px-6 py-4 whitespace-nowrap w-[12%]">
+                  <div className="text-sm text-gray-700">{item.reorderLevel} {item.unit}</div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600">{item.supplier}</span>
+                <td className="px-6 py-4 whitespace-nowrap w-[14%]">
+                  <div className="text-sm text-gray-700">{item.supplier}</div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600">
+                <td className="px-6 py-4 whitespace-nowrap w-[12%]">
+                  <div className="text-sm text-gray-700">
                     {new Date(item.lastRestocked).toLocaleDateString('id-ID', { 
                       day: '2-digit', 
                       month: 'short', 
                       year: 'numeric' 
                     })}
-                  </span>
+                  </div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}>
+                <td className="px-6 py-4 whitespace-nowrap w-[11%]">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}>
                     {getStatusText(item.status)}
                   </span>
                 </td>
                 {!viewAsOwner && (
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => onRestock?.(item)}
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        Restock
-                      </button>
-                      <span className="text-gray-300">|</span>
-                      <button 
-                        onClick={() => onEdit?.(item)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                        title="Edit"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => onDelete?.(item)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                        title="Delete"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap text-left w-[14%]">
+                    <button
+                      onClick={() => onEdit?.(item)}
+                      className="text-blue-600 hover:text-blue-700 font-medium mr-3"
+                      title="Edit"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete?.(item)}
+                      className="text-red-600 hover:text-red-700 font-medium"
+                      title="Delete"
+                    >
+                      Delete
+                    </button>
                   </td>
                 )}
               </tr>

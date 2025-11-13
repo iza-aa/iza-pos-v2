@@ -107,7 +107,7 @@ export default function OrderCard({ order, onMarkServed }: OrderCardProps) {
 						<div className="mb-3">
 							<p className="text-base font-bold text-gray-900">{order.customerName}</p>
 							<p className="text-sm text-gray-600">{order.orderNumber}</p>
-							<p className="text-xs text-gray-500 mt-1">
+							<p className={`text-xs text-gray-500 mt-1 ${!order.table ? 'font-bold' : ''}`}>
 								{order.table || 'Takeaway'}
 							</p>
 							{order.status === 'partially-served' && (

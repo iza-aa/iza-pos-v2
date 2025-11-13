@@ -2,7 +2,21 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, Squares2X2Icon, ListBulletIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import { 
+  MagnifyingGlassIcon, 
+  PlusIcon, 
+  Squares2X2Icon, 
+  ListBulletIcon, 
+  FunnelIcon
+} from '@heroicons/react/24/outline'
+import { 
+  LayoutGrid, 
+  Coffee, 
+  UtensilsCrossed, 
+  Cookie, 
+  Cake, 
+  Milk
+} from 'lucide-react'
 import { products, categories as mockCategories, recipes, inventoryItems, findMatchingRecipe, calculateCanMake } from '@/lib/mockData'
 import MenuModal from '@/app/components/manager/menu/MenuModal'
 import CategoryModal from '@/app/components/manager/menu/CategoryModal'
@@ -20,12 +34,21 @@ interface MenuItem {
   variantGroups: string[]
 }
 
+// Icon mapping for categories
+const categoryIcons: Record<string, any> = {
+  'all': LayoutGrid,              // All Menu - Grid layout
+  'cat-coffee': Coffee,            // Coffee - Coffee cup
+  'cat-food': UtensilsCrossed,     // Food - Fork & Knife crossed
+  'cat-snack': Cookie,             // Snack - Cookie
+  'cat-dessert': Cake,             // Dessert - Cake slice
+  'cat-non-coffee': Milk,          // Non Coffee - Milk/Beverage
+}
+
 const categories = [
-  { id: 'all', name: 'All Menu', icon: '🍽️', count: products.length },
+  { id: 'all', name: 'All Menu', count: products.length },
   ...mockCategories.map(cat => ({
     id: cat.id,
     name: cat.name,
-    icon: cat.icon,
     count: cat.count,
   }))
 ]
@@ -144,39 +167,41 @@ export default function MenuPage() {
       <section className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col overflow-hidden">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex-shrink-0">Menu Category</h2>
         
-        <div className="space-y-1 flex-1 overflow-y-auto">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition ${
-                selectedCategory === category.id
-                  ? 'bg-blue-500 text-white'
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">{category.icon}</span>
-                <span className="text-sm font-medium">{category.name}</span>
-              </div>
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                selectedCategory === category.id
-                  ? 'bg-white text-blue-500'
-                  : 'bg-gray-200 text-gray-600'
-              }`}>
-                {category.count}
-              </span>
-            </button>
-          ))}
+        <div className="space-y-1.5 flex-1 overflow-y-auto">
+          {categories.map((category) => {
+            const IconComponent = categoryIcons[category.id] || Cookie
+            return (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`w-full flex items-center px-2.5 py-2 rounded-lg transition group ${
+                  selectedCategory === category.id
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'hover:bg-gray-50 text-gray-600'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <IconComponent className={`w-5 h-5 transition ${
+                    selectedCategory === category.id
+                      ? 'text-blue-500'
+                      : 'text-gray-600'
+                  }`} strokeWidth={2} />
+                  <span className="text-sm font-medium">{category.name}</span>
+                </div>
+              </button>
+            )
+          })}
         </div>
 
-        <button 
-          onClick={handleAddNewCategory}
-          className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-xl hover:bg-blue-600 transition font-medium flex-shrink-0"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add New Category
-        </button>
+        {!viewAsOwner && (
+          <button 
+            onClick={handleAddNewCategory}
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-500 text-white px-3 py-2.5 rounded-lg hover:bg-blue-600 transition font-medium flex-shrink-0 text-sm"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add New Category
+          </button>
+        )}
       </section>
 
       {/* Section 2 & 3: Content Area */}

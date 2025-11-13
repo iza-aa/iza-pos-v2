@@ -2,30 +2,53 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
+import { 
+  Coffee, 
+  UtensilsCrossed, 
+  Cookie, 
+  Cake, 
+  Milk,
+  Pizza,
+  Sandwich,
+  Soup,
+  Salad,
+  IceCream
+} from 'lucide-react'
 
 interface CategoryModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (name: string, icon: string) => void
+  onSave: (name: string, iconName: string) => void
 }
 
-const categoryIcons = ['☕', '🍔', '🍟', '🍰', '🥤', '🍕', '🌮', '🍜', '🥗', '🍱']
+const categoryIcons = [
+  { name: 'Coffee', icon: Coffee },
+  { name: 'UtensilsCrossed', icon: UtensilsCrossed },
+  { name: 'Cookie', icon: Cookie },
+  { name: 'Cake', icon: Cake },
+  { name: 'Milk', icon: Milk },
+  { name: 'Pizza', icon: Pizza },
+  { name: 'Sandwich', icon: Sandwich },
+  { name: 'Soup', icon: Soup },
+  { name: 'Salad', icon: Salad },
+  { name: 'IceCream', icon: IceCream },
+]
 
 export default function CategoryModal({ isOpen, onClose, onSave }: CategoryModalProps) {
   const [name, setName] = useState('')
-  const [icon, setIcon] = useState('☕')
+  const [iconName, setIconName] = useState('Coffee')
 
   useEffect(() => {
     if (isOpen) {
       setName('')
-      setIcon('☕')
+      setIconName('Coffee')
     }
   }, [isOpen])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (name.trim()) {
-      onSave(name, icon)
+      onSave(name, iconName)
       onClose()
     }
   }
@@ -69,21 +92,29 @@ export default function CategoryModal({ isOpen, onClose, onSave }: CategoryModal
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category Icon
               </label>
-              <div className="grid grid-cols-5 gap-2">
-                {categoryIcons.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => setIcon(emoji)}
-                    className={`text-3xl p-3 rounded-xl border-2 transition ${
-                      icon === emoji
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+              <div className="grid grid-cols-5 gap-3">
+                {categoryIcons.map((item) => {
+                  const IconComponent = item.icon
+                  return (
+                    <button
+                      key={item.name}
+                      type="button"
+                      onClick={() => setIconName(item.name)}
+                      className={`aspect-square p-4 rounded-xl border-2 transition flex items-center justify-center ${
+                        iconName === item.name
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <IconComponent 
+                        className={`w-6 h-6 ${
+                          iconName === item.name ? 'text-blue-500' : 'text-gray-600'
+                        }`}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
