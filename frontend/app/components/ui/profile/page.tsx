@@ -35,9 +35,10 @@ export default function ProfilePopout({ onClose }: ProfilePopoutProps) {
       if (ownerId) {
         setIsOwner(true);
         supabase
-          .from("owner")
-          .select("id, name, email, role, phone, profile_photo, joined_at, password")
+          .from("staff")
+          .select("id, name, email, role, phone, profile_picture, created_at, password_hash")
           .eq("id", ownerId)
+          .eq("role", "owner")
           .single()
           .then(({ data, error }) => {
             console.log("Owner data:", data, "Error:", error);
@@ -47,8 +48,8 @@ export default function ProfilePopout({ onClose }: ProfilePopoutProps) {
               email: data?.email ?? "",
               role: data?.role ?? "",
               phone: data?.phone ?? "",
-              profile_photo: data?.profile_photo ?? "",
-              joined_at: data?.joined_at ?? "",
+              profile_photo: data?.profile_picture ?? "",
+              joined_at: data?.created_at ?? "",
               password: "",
             });
           });

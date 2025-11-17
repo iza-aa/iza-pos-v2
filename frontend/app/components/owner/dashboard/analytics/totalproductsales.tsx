@@ -10,24 +10,24 @@ export default function TotalProductSales() {
 					<div className="bg-purple-100 rounded-xl p-3">
 						<ShoppingBagIcon className="h-6 w-6 text-purple-500" />
 					</div>
-					<div className="flex-1">
-						<p className="text-sm text-gray-500 mb-1">Total Product Sales</p>
-						<div className="flex items-center gap-2">
-							<span className="text-2xl font-bold text-gray-900">2,456</span>
-							<span className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-md">
-								<ArrowTrendingUpIcon className="h-3 w-3 text-green-600" />
-								<span className="text-xs font-semibold text-green-600">8%</span>
-							</span>
-						</div>
-					</div>
+				<div className="flex-1">
+				<div className="flex items-center gap-2 mb-1">
+					<p className="text-sm text-gray-500">Product Sales</p>
+					<span className="flex items-center gap-1">
+						<ArrowTrendingUpIcon className="h-3 w-3 text-green-600" />
+						<span className="text-xs font-semibold text-green-600">8%</span>
+					</span>
+				</div>
+					<span className="text-2xl font-bold text-gray-900">2,456</span>
+				</div>
 				</div>
 			</div>
 
-			{/* Bottom Section - Gray Background */}
-			<div className="flex items-center justify-between px-1">
-				<span className="text-sm text-gray-600">+156 from last year</span>
-				<ArrowUpRightIcon className="h-4 w-4 text-gray-400" />
-			</div>
+		{/* Bottom Section - Gray Background */}
+		<div className="flex items-center justify-between px-1">
+			<span className="text-sm text-gray-600"><span className="font-semibold">+156</span> from last year</span>
+			<ArrowUpRightIcon className="h-4 w-4 text-gray-400" />
+		</div>
 		</div>
 	);
 }

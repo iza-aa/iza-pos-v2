@@ -10,9 +10,9 @@ export const variantGroups = [
     type: 'single' as const,
     required: true,
     options: [
-      { id: 'size-small', name: 'Small', priceModifier: -1.5 },
+      { id: 'size-small', name: 'Small', priceModifier: -5000 },
       { id: 'size-regular', name: 'Regular', priceModifier: 0 },
-      { id: 'size-large', name: 'Large', priceModifier: 2 },
+      { id: 'size-large', name: 'Large', priceModifier: 8000 },
     ]
   },
   {
@@ -24,7 +24,7 @@ export const variantGroups = [
       { id: 'sugar-none', name: 'No Sugar', priceModifier: 0 },
       { id: 'sugar-less', name: 'Less Sugar', priceModifier: 0 },
       { id: 'sugar-normal', name: 'Normal Sugar', priceModifier: 0 },
-      { id: 'sugar-extra', name: 'Extra Sugar', priceModifier: 0.5 },
+      { id: 'sugar-extra', name: 'Extra Sugar', priceModifier: 2000 },
     ]
   },
   {
@@ -34,7 +34,7 @@ export const variantGroups = [
     required: true,
     options: [
       { id: 'temp-hot', name: 'Hot', priceModifier: 0 },
-      { id: 'temp-iced', name: 'Iced', priceModifier: 0.5 },
+      { id: 'temp-iced', name: 'Iced', priceModifier: 3000 },
     ]
   },
   {
@@ -43,11 +43,11 @@ export const variantGroups = [
     type: 'multiple' as const,
     required: false,
     options: [
-      { id: 'addon-extra-shot', name: 'Extra Shot', priceModifier: 2 },
-      { id: 'addon-whipped-cream', name: 'Whipped Cream', priceModifier: 1 },
-      { id: 'addon-caramel-drizzle', name: 'Caramel Drizzle', priceModifier: 1.5 },
-      { id: 'addon-vanilla-syrup', name: 'Vanilla Syrup', priceModifier: 1 },
-      { id: 'addon-chocolate-syrup', name: 'Chocolate Syrup', priceModifier: 1 },
+      { id: 'addon-extra-shot', name: 'Extra Shot', priceModifier: 8000 },
+      { id: 'addon-whipped-cream', name: 'Whipped Cream', priceModifier: 5000 },
+      { id: 'addon-caramel-drizzle', name: 'Caramel Drizzle', priceModifier: 6000 },
+      { id: 'addon-vanilla-syrup', name: 'Vanilla Syrup', priceModifier: 5000 },
+      { id: 'addon-chocolate-syrup', name: 'Chocolate Syrup', priceModifier: 5000 },
     ]
   },
   {
@@ -57,9 +57,9 @@ export const variantGroups = [
     required: false,
     options: [
       { id: 'milk-regular', name: 'Regular Milk', priceModifier: 0 },
-      { id: 'milk-soy', name: 'Soy Milk', priceModifier: 1 },
-      { id: 'milk-almond', name: 'Almond Milk', priceModifier: 1.5 },
-      { id: 'milk-oat', name: 'Oat Milk', priceModifier: 1.5 },
+      { id: 'milk-soy', name: 'Soy Milk', priceModifier: 5000 },
+      { id: 'milk-almond', name: 'Almond Milk', priceModifier: 8000 },
+      { id: 'milk-oat', name: 'Oat Milk', priceModifier: 8000 },
     ]
   },
   {
@@ -69,8 +69,8 @@ export const variantGroups = [
     required: true,
     options: [
       { id: 'portion-regular', name: 'Regular', priceModifier: 0 },
-      { id: 'portion-large', name: 'Large', priceModifier: 3 },
-      { id: 'portion-jumbo', name: 'Jumbo', priceModifier: 5 },
+      { id: 'portion-large', name: 'Large', priceModifier: 10000 },
+      { id: 'portion-jumbo', name: 'Jumbo', priceModifier: 20000 },
     ]
   },
   {
@@ -79,10 +79,10 @@ export const variantGroups = [
     type: 'multiple' as const,
     required: false,
     options: [
-      { id: 'topping-cheese', name: 'Extra Cheese', priceModifier: 2 },
-      { id: 'topping-bacon', name: 'Bacon Bits', priceModifier: 3 },
-      { id: 'topping-mushroom', name: 'Sautéed Mushroom', priceModifier: 2.5 },
-      { id: 'topping-onion-rings', name: 'Onion Rings', priceModifier: 2 },
+      { id: 'topping-cheese', name: 'Extra Cheese', priceModifier: 8000 },
+      { id: 'topping-bacon', name: 'Bacon Bits', priceModifier: 12000 },
+      { id: 'topping-mushroom', name: 'Sautéed Mushroom', priceModifier: 10000 },
+      { id: 'topping-onion-rings', name: 'Onion Rings', priceModifier: 8000 },
     ]
   },
   {
@@ -91,10 +91,10 @@ export const variantGroups = [
     type: 'multiple' as const,
     required: false,
     options: [
-      { id: 'sauce-bbq', name: 'BBQ Sauce', priceModifier: 0.5 },
-      { id: 'sauce-mayo', name: 'Mayonnaise', priceModifier: 0.5 },
-      { id: 'sauce-chili', name: 'Chili Sauce', priceModifier: 0.5 },
-      { id: 'sauce-garlic', name: 'Garlic Aioli', priceModifier: 1 },
+      { id: 'sauce-bbq', name: 'BBQ Sauce', priceModifier: 2000 },
+      { id: 'sauce-mayo', name: 'Mayonnaise', priceModifier: 2000 },
+      { id: 'sauce-chili', name: 'Chili Sauce', priceModifier: 2000 },
+      { id: 'sauce-garlic', name: 'Garlic Aioli', priceModifier: 3000 },
     ]
   },
   {
@@ -105,8 +105,8 @@ export const variantGroups = [
     options: [
       { id: 'frost-vanilla', name: 'Vanilla Frosting', priceModifier: 0 },
       { id: 'frost-chocolate', name: 'Chocolate Frosting', priceModifier: 0 },
-      { id: 'frost-cream-cheese', name: 'Cream Cheese Frosting', priceModifier: 1 },
-      { id: 'frost-strawberry', name: 'Strawberry Frosting', priceModifier: 0.5 },
+      { id: 'frost-cream-cheese', name: 'Cream Cheese Frosting', priceModifier: 5000 },
+      { id: 'frost-strawberry', name: 'Strawberry Frosting', priceModifier: 3000 },
     ]
   },
   {
@@ -115,9 +115,9 @@ export const variantGroups = [
     type: 'multiple' as const,
     required: false,
     options: [
-      { id: 'sprinkle-rainbow', name: 'Rainbow Sprinkles', priceModifier: 0.5 },
-      { id: 'sprinkle-chocolate', name: 'Chocolate Chips', priceModifier: 1 },
-      { id: 'sprinkle-nuts', name: 'Crushed Nuts', priceModifier: 1.5 },
+      { id: 'sprinkle-rainbow', name: 'Rainbow Sprinkles', priceModifier: 2000 },
+      { id: 'sprinkle-chocolate', name: 'Chocolate Chips', priceModifier: 4000 },
+      { id: 'sprinkle-nuts', name: 'Crushed Nuts', priceModifier: 5000 },
     ]
   },
 ];
@@ -130,7 +130,7 @@ export const products = [
     name: 'Americano',
     category: 'Coffee',
     categoryId: 'cat-coffee',
-    price: 4.5,
+    price: 25000,
     image: '/products/americano.jpg',
     description: 'Classic espresso with hot water',
     stock: 100,
@@ -143,7 +143,7 @@ export const products = [
     name: 'Caramel Macchiato',
     category: 'Coffee',
     categoryId: 'cat-coffee',
-    price: 6.5,
+    price: 35000,
     image: '/products/caramel-macchiato.jpg',
     description: 'Espresso with vanilla and caramel',
     stock: 85,
@@ -158,7 +158,7 @@ export const products = [
     name: 'Nasi Goreng',
     category: 'Food',
     categoryId: 'cat-food',
-    price: 8.0,
+    price: 30000,
     image: '/products/nasi-goreng.jpg',
     description: 'Indonesian fried rice with chicken',
     stock: 50,
@@ -171,7 +171,7 @@ export const products = [
     name: 'Mie Goreng',
     category: 'Food',
     categoryId: 'cat-food',
-    price: 7.5,
+    price: 28000,
     image: '/products/mie-goreng.jpg',
     description: 'Indonesian fried noodles',
     stock: 45,
@@ -186,7 +186,7 @@ export const products = [
     name: 'French Fries',
     category: 'Snack',
     categoryId: 'cat-snack',
-    price: 5.0,
+    price: 20000,
     image: '/products/french-fries.jpg',
     description: 'Crispy golden french fries',
     stock: 120,
@@ -199,7 +199,7 @@ export const products = [
     name: 'Mix Platter',
     category: 'Snack',
     categoryId: 'cat-snack',
-    price: 12.0,
+    price: 45000,
     image: '/products/mix-platter.jpg',
     description: 'Assorted snacks platter',
     stock: 35,
@@ -214,7 +214,7 @@ export const products = [
     name: 'Donut',
     category: 'Dessert',
     categoryId: 'cat-dessert',
-    price: 3.5,
+    price: 15000,
     image: '/products/donut.jpg',
     description: 'Fresh glazed donut',
     stock: 80,
@@ -227,7 +227,7 @@ export const products = [
     name: 'Cake',
     category: 'Dessert',
     categoryId: 'cat-dessert',
-    price: 6.0,
+    price: 35000,
     image: '/products/cake.jpg',
     description: 'Slice of homemade cake',
     stock: 40,
@@ -242,7 +242,7 @@ export const products = [
     name: 'Matcha',
     category: 'Non Coffee',
     categoryId: 'cat-non-coffee',
-    price: 5.5,
+    price: 30000,
     image: '/products/matcha.jpg',
     description: 'Premium Japanese matcha latte',
     stock: 70,
@@ -255,7 +255,7 @@ export const products = [
     name: 'Red Velvet',
     category: 'Non Coffee',
     categoryId: 'cat-non-coffee',
-    price: 6.0,
+    price: 32000,
     image: '/products/red-velvet.jpg',
     description: 'Red velvet latte with cream',
     stock: 65,

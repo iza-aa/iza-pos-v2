@@ -10,6 +10,8 @@ interface OrderItem {
 	served: boolean;
 	servedAt?: string;
 	variants?: any;
+	kitchenStatus?: string; // 'pending', 'cooking', 'ready', 'not_required'
+	readyAt?: string;
 }
 
 interface Order {
@@ -127,10 +129,10 @@ export default function OrderCard({ order, onMarkServed }: OrderCardProps) {
 												<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
 											</svg>
 										)}
-										{item.quantity} × {item.name}
-									</span>
-									<span className="text-gray-900 font-medium">
-										${item.price.toFixed(2)}
+									{item.quantity} × {item.name}
+								</span>
+								<span className="text-gray-900 font-medium">
+									Rp {item.price.toLocaleString('id-ID')}
 									</span>
 								</div>
 							))}
@@ -189,35 +191,65 @@ export default function OrderCard({ order, onMarkServed }: OrderCardProps) {
 									Pending Items ({pendingItems.length})
 								</h4>
 								<div className="space-y-1.5">
-									{pendingItems.map((item) => (
-										<label
-											key={item.id}
-											className="flex items-center p-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-											onClick={(e) => e.stopPropagation()}
-										>
-											<input
-												type="checkbox"
-												checked={selectedItems.includes(item.id)}
-												onChange={() => handleCheckboxChange(item.id, item.served)}
-												className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 focus:ring-2"
-											/>
-											<div className="ml-2.5 flex-1">
-												<p className="text-sm font-medium text-gray-900">
-													{item.quantity} × {item.name}
-												</p>
-												{item.variants && (
-													<p className="text-xs text-gray-500 mt-0.5">
-														{Object.entries(item.variants)
-															.map(([key, value]) => value)
-															.join(", ")}
+									{pendingItems.map((item) => {
+										const isFood = item.kitchenStatus !== 'not_required';
+										const isReady = item.kitchenStatus === 'ready' || item.kitchenStatus === 'not_required';
+										const isPending = item.kitchenStatus === 'pending';
+										const isCooking = item.kitchenStatus === 'cooking';
+										
+										return (
+											<label
+												key={item.id}
+												className={`flex items-start p-2.5 rounded-lg transition-colors ${
+													isReady ? 'bg-gray-50 hover:bg-gray-100 cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+												}`}
+												onClick={(e) => e.stopPropagation()}
+											>
+												<input
+													type="checkbox"
+													checked={selectedItems.includes(item.id)}
+													onChange={() => handleCheckboxChange(item.id, item.served)}
+													disabled={!isReady}
+													className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+												/>
+												<div className="ml-2.5 flex-1">
+													<p className="text-sm font-medium text-gray-900">
+														{item.quantity} × {item.name}
 													</p>
-												)}
-											</div>
-											<span className="text-sm font-semibold text-gray-900">
-												${item.price.toFixed(2)}
-											</span>
-										</label>
-									))}
+													{item.variants && (
+														<p className="text-xs text-gray-500 mt-0.5">
+															{Object.entries(item.variants)
+																.map(([key, value]) => value)
+																.join(", ")}
+														</p>
+													)}
+													{/* Kitchen Status Badge */}
+													{isFood && (
+														<div className="mt-1">
+															{isPending && (
+																<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+																	⏳ Pending
+																</span>
+															)}
+															{isCooking && (
+																<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+																	🍳 In Cook
+																</span>
+															)}
+															{isReady && (
+																<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+																	✓ Ready
+																</span>
+															)}
+														</div>
+													)}
+												</div>
+												<span className="text-sm font-semibold text-gray-900">
+													Rp {item.price.toLocaleString('id-ID')}
+												</span>
+											</label>
+										);
+									})}
 								</div>
 							</div>
 						)}
@@ -245,9 +277,9 @@ export default function OrderCard({ order, onMarkServed }: OrderCardProps) {
 														Served at {item.servedAt}
 													</p>
 												)}
-											</div>
-											<span className="text-sm font-semibold text-gray-700">
-												${item.price.toFixed(2)}
+										</div>
+										<span className="text-sm font-semibold text-gray-700">
+											Rp {item.price.toLocaleString('id-ID')}
 											</span>
 										</div>
 									))}

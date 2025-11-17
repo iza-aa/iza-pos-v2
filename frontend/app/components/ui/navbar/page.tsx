@@ -10,9 +10,9 @@ const roleMenus = {
   owner: [
     { label: "Dashboard", href: "/owner/dashboard" },
     { label: "Staff Manager", href: "/owner/staff-manager" },
-    { label: "Financial Reports", href: "/owner/reports" },
-    { label: "Settings", href: "/owner/settings" },
+
     { label: "Activity Log", href: "/owner/activitylog" },
+        { label: "Settings", href: "/owner/settings" },
   ],
   manager: [
 
@@ -20,11 +20,13 @@ const roleMenus = {
     { label: "Variants", href: "/manager/variants" },
     { label: "Inventory", href: "/manager/inventory" },
     { label: "Table Manager", href: "/manager/table-manager" },
+    { label: "Order", href: "/manager/order" },
   ],
   staff: [
+    { label: "Dashboard", href: "/staff/dashboard" },
     { label: "POS", href: "/staff/pos" },
     { label: "Order", href: "/staff/order" },
-    { label: "My Shift", href: "/staff/shift" },
+
   ],
 };
 

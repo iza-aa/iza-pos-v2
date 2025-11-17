@@ -2,7 +2,7 @@
 
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
-import { getProductVariantGroups } from '@/lib/mockData';
+import { supabase } from '@/lib/supabaseClient';
 
 interface VariantOption {
 	id: string;
@@ -28,32 +28,118 @@ interface VariantSidebarProps {
 		price: number;
 		image: string;
 	};
-	onAddToOrder: (item: any, selectedVariants: any, totalPrice: number) => void;
+	onAddToOrder: (item: any, selectedVariants: any, totalPrice: number, quantity: number) => void;
 }
 
 export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: VariantSidebarProps) {
 	const [quantity, setQuantity] = useState(1);
-	const [selectedVariants, setSelectedVariants] = useState<Record<string, string[]>>({});
+	const [selectedVariants, setSelectedVariants] = useState<Record<string, string[]>>({}); // groupName -> optionNames[]
+	const [selectedVariantIds, setSelectedVariantIds] = useState<Record<string, string[]>>({}); // groupId -> optionIds[] for price calc
 	const [notes, setNotes] = useState('');
+	const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([]);
+	const [loading, setLoading] = useState(false);
 
-	// Get variant groups for this product from mockData
-	const variantGroups = getProductVariantGroups(item.id);
+	// Fetch variant groups for this product from database
+	useEffect(() => {
+		async function fetchVariantGroups() {
+			if (!isOpen || !item.id) return;
+			
+			setLoading(true);
+			try {
+				// Get variant group IDs for this product
+				const { data: productVariants, error: pvError } = await supabase
+					.from('product_variant_groups')
+					.select('variant_group_id')
+					.eq('product_id', item.id);
+
+				if (pvError) throw pvError;
+
+				if (!productVariants || productVariants.length === 0) {
+					setVariantGroups([]);
+					setLoading(false);
+					return;
+				}
+
+				const variantGroupIds = productVariants.map(pv => pv.variant_group_id);
+
+				// Fetch variant groups
+				const { data: groups, error: groupsError } = await supabase
+					.from('variant_groups')
+					.select('*')
+					.in('id', variantGroupIds);
+
+				if (groupsError) throw groupsError;
+
+				// Fetch variant options for each group
+				const formattedGroups: VariantGroup[] = await Promise.all(
+					(groups || []).map(async (group) => {
+						const { data: options, error: optionsError } = await supabase
+							.from('variant_options')
+							.select('id, name, price_modifier')
+							.eq('variant_group_id', group.id)
+							.order('sort_order', { ascending: true });
+
+						if (optionsError) {
+							console.error('Error fetching options for group:', group.id, optionsError);
+						}
+
+						return {
+							id: group.id,
+							name: group.name,
+							type: group.type as 'single' | 'multiple',
+							required: group.is_required,
+							options: (options || []).map((opt: any) => ({
+								id: opt.id,
+								name: opt.name,
+								priceModifier: opt.price_modifier
+							}))
+						};
+					})
+				);
+
+				setVariantGroups(formattedGroups);
+			} catch (error) {
+				console.error('Error fetching variant groups:', error);
+				setVariantGroups([]);
+			} finally {
+				setLoading(false);
+			}
+		}
+
+		fetchVariantGroups();
+	}, [isOpen, item.id]);
 
 	// Reset state when sidebar opens
 	useEffect(() => {
 		if (isOpen) {
 			setQuantity(1);
 			setSelectedVariants({});
+			setSelectedVariantIds({});
 			setNotes('');
 		}
 	}, [isOpen]);
 
-	const handleVariantSelect = (groupId: string, optionId: string, type: 'single' | 'multiple') => {
+	const handleVariantSelect = (groupId: string, groupName: string, optionId: string, optionName: string, type: 'single' | 'multiple') => {
+		// Update display names
 		setSelectedVariants(prev => {
+			const key = groupName;
+			
+			if (type === 'single') {
+				return { ...prev, [key]: [optionName] };
+			} else {
+				const current = prev[key] || [];
+				const newSelection = current.includes(optionName)
+					? current.filter(name => name !== optionName)
+					: [...current, optionName];
+				return { ...prev, [key]: newSelection };
+			}
+		});
+		
+		// Update IDs for price calculation
+		setSelectedVariantIds(prev => {
 			if (type === 'single') {
 				return { ...prev, [groupId]: [optionId] };
 			} else {
-				// Multiple selection
 				const current = prev[groupId] || [];
 				const newSelection = current.includes(optionId)
 					? current.filter(id => id !== optionId)
@@ -68,7 +154,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 		let total = item.price;
 		
 		variantGroups.forEach(group => {
-			const selected = selectedVariants[group.id] || [];
+			const selected = selectedVariantIds[group.id] || [];
 			selected.forEach(optionId => {
 				const option = group.options.find(opt => opt.id === optionId);
 				if (option) {
@@ -83,13 +169,13 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 	const canAddToOrder = () => {
 		return variantGroups
 			.filter(group => group.required)
-			.every(group => selectedVariants[group.id]?.length > 0);
+			.every(group => selectedVariantIds[group.id]?.length > 0);
 	};
 
 	const handleAddToOrder = () => {
 		if (!canAddToOrder()) return;
 		
-		onAddToOrder(item, selectedVariants, calculateTotalPrice());
+		onAddToOrder(item, selectedVariants, calculateTotalPrice(), quantity);
 		onClose();
 	};
 
@@ -135,12 +221,26 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 
 						{/* Base Price */}
 						<div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl">
-							<span className="text-sm font-medium text-gray-700">Base Price</span>
-							<span className="text-lg font-bold text-gray-900">${item.price.toFixed(2)}</span>
+						<span className="text-sm font-medium text-gray-700">Base Price</span>
+						<span className="text-lg font-bold text-gray-900">Rp {item.price.toLocaleString('id-ID')}</span>
 						</div>
 
+						{/* Loading State */}
+						{loading && (
+							<div className="text-center py-8">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+								<p className="text-sm text-gray-500 mt-2">Loading variants...</p>
+							</div>
+						)}
+
 						{/* Variant Groups */}
-						{variantGroups.map(group => (
+						{!loading && variantGroups.length === 0 && (
+							<div className="text-center py-8">
+								<p className="text-gray-500">No variants available for this product</p>
+							</div>
+						)}
+
+						{!loading && variantGroups.map(group => (
 							<div key={group.id} className="space-y-3">
 								<div className="flex items-center gap-2">
 									<h3 className="font-semibold text-gray-800">{group.name}</h3>
@@ -153,12 +253,12 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 
 								<div className="space-y-2">
 									{group.options.map(option => {
-										const isSelected = selectedVariants[group.id]?.includes(option.id);
+										const isSelected = selectedVariantIds[group.id]?.includes(option.id);
 										
 										return (
 											<button
 												key={option.id}
-												onClick={() => handleVariantSelect(group.id, option.id, group.type)}
+												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
 												className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition ${
 													isSelected 
 														? 'border-blue-500 bg-blue-50' 
@@ -178,10 +278,10 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 													<span className="font-medium text-gray-800">{option.name}</span>
 												</div>
 												{option.priceModifier !== 0 && (
-													<span className={`text-sm font-semibold ${
+													<span className={`text-xs font-semibold ml-auto ${
 														option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
 													}`}>
-														{option.priceModifier > 0 ? '+' : ''}{option.priceModifier > 0 ? '$' : '-$'}{Math.abs(option.priceModifier).toFixed(2)}
+														{option.priceModifier > 0 ? '+' : '-'}Rp {Math.abs(option.priceModifier).toLocaleString('id-ID')}
 													</span>
 												)}
 											</button>
@@ -236,7 +336,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 									: 'bg-gray-200 text-gray-400 cursor-not-allowed'
 							}`}
 						>
-							Add to Order - ${calculateTotalPrice().toFixed(2)}
+							Add to Order - Rp {calculateTotalPrice().toLocaleString('id-ID')}
 						</button>
 					</div>
 				</div>

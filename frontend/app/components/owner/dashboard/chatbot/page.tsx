@@ -133,42 +133,13 @@ export default function Chatbot() {
         />
 
         {/* Action Icons */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <CodeBracketIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <MapPinIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <BookOpenIcon className="h-5 w-5 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <GlobeAltIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <PhotoIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <PaperClipIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-700 rounded-lg transition">
-              <MicrophoneIcon className="h-5 w-5 text-gray-400" />
-            </button>
-            <button
-              onClick={handleSend}
-              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
-            >
-              <PaperAirplaneIcon className="h-5 w-5 text-gray-300" />
-            </button>
-          </div>
+        <div className="flex items-center justify-end">
+          <button
+            onClick={handleSend}
+            className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition"
+          >
+            <PaperAirplaneIcon className="h-5 w-5 text-white" />
+          </button>
         </div>
       </div>
     </div>

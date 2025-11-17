@@ -9,26 +9,35 @@ const supabase = createClient(
 export async function POST(req: Request) {
   const { email, password } = await req.json();
 
-  // Cari owner berdasarkan email
-  const { data: owner, error } = await supabase
-    .from("owner")
-    .select("id, name, email, password")
+  // Cari staff dengan role owner
+  const { data: staff, error } = await supabase
+    .from("staff")
+    .select("id, name, email, password_hash, role, status")
     .eq("email", email)
+    .eq("role", "owner")
+    .eq("status", "active")
     .single();
 
-  if (error || !owner) {
-    return NextResponse.json({ success: false, error: "Email tidak ditemukan." }, { status: 401 });
+  if (error || !staff) {
+    return NextResponse.json(
+      { success: false, error: "Email tidak ditemukan atau bukan Owner." },
+      { status: 401 }
+    );
   }
 
-  // Cek password (plain text, sebaiknya hash di produksi)
-  if (owner.password !== password) {
-    return NextResponse.json({ success: false, error: "Password salah." }, { status: 401 });
+  // Cek password (plain text untuk development, gunakan bcrypt di production)
+  if (staff.password_hash !== password) {
+    return NextResponse.json(
+      { success: false, error: "Password salah." },
+      { status: 401 }
+    );
   }
 
   // Login sukses
   return NextResponse.json({
     success: true,
-    owner_id: owner.id,
-    owner_name: owner.name,
+    user_id: staff.id,
+    user_name: staff.name,
+    user_role: staff.role,
   });
 }

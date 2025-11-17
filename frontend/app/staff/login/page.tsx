@@ -54,11 +54,14 @@ export default function LoginStaffPage() {
 
     if (res.ok && result.success) {
       // Simpan data staff ke localStorage
-      localStorage.setItem("staff_id", result.staff_id);
-      localStorage.setItem("staff_name", result.staff_name);
+      localStorage.setItem("user_id", result.user_id);
+      localStorage.setItem("user_name", result.user_name);
+      localStorage.setItem("user_role", "staff");
+      localStorage.setItem("staff_type", result.staff_type); // barista, kitchen, waiter, cashier
+      localStorage.setItem("staff_code", result.staff_code);
 
-      // Redirect ke shift page
-      window.location.href = "/staff/shift";
+      // Redirect ke dashboard
+      window.location.href = "/staff/dashboard";
     } else {
       setError(result.error || "ID Staff atau Password salah.");
     }

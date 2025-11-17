@@ -52,9 +52,10 @@ export default function OwnerLoginPage() {
 		setLoading(false);
 
 		if (res.ok && result.success) {
-			localStorage.setItem("owner_id", result.owner_id);
-			localStorage.setItem("owner_name", result.owner_name);
-			window.location.href = "/owner/staff-manager";
+			localStorage.setItem("user_id", result.user_id);
+			localStorage.setItem("user_name", result.user_name);
+			localStorage.setItem("user_role", "owner");
+			window.location.href = "/owner/dashboard";
 		} else {
 			setError(result.error || "Email atau Password salah.");
 		}

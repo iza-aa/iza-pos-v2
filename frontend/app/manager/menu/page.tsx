@@ -15,9 +15,14 @@ import {
   UtensilsCrossed, 
   Cookie, 
   Cake, 
-  Milk
+  Milk,
+  Pizza,
+  Sandwich,
+  Soup,
+  Salad,
+  IceCream
 } from 'lucide-react'
-import { products, categories as mockCategories, recipes, inventoryItems, findMatchingRecipe, calculateCanMake } from '@/lib/mockData'
+import { supabase } from '@/lib/supabaseClient'
 import MenuModal from '@/app/components/manager/menu/MenuModal'
 import CategoryModal from '@/app/components/manager/menu/CategoryModal'
 import DeleteModal from '@/app/components/ui/DeleteModal'
@@ -34,24 +39,29 @@ interface MenuItem {
   variantGroups: string[]
 }
 
-// Icon mapping for categories
-const categoryIcons: Record<string, any> = {
-  'all': LayoutGrid,              // All Menu - Grid layout
-  'cat-coffee': Coffee,            // Coffee - Coffee cup
-  'cat-food': UtensilsCrossed,     // Food - Fork & Knife crossed
-  'cat-snack': Cookie,             // Snack - Cookie
-  'cat-dessert': Cake,             // Dessert - Cake slice
-  'cat-non-coffee': Milk,          // Non Coffee - Milk/Beverage
+// Icon mapping for categories - maps icon name to Lucide components
+const iconNameToComponent: Record<string, any> = {
+  'Coffee': Coffee,
+  'UtensilsCrossed': UtensilsCrossed,
+  'Cookie': Cookie,
+  'Cake': Cake,
+  'Milk': Milk,
+  'Pizza': Pizza,
+  'Sandwich': Sandwich,
+  'Soup': Soup,
+  'Salad': Salad,
+  'IceCream': IceCream,
+  // Legacy emoji support (for existing data)
+  '☕': Coffee,
+  '🍽️': UtensilsCrossed,
+  '🍟': Cookie,
+  '🍰': Cake,
+  '🍵': Milk,
 }
 
-const categories = [
-  { id: 'all', name: 'All Menu', count: products.length },
-  ...mockCategories.map(cat => ({
-    id: cat.id,
-    name: cat.name,
-    count: cat.count,
-  }))
-]
+const categoryIcons: Record<string, any> = {
+  'all': LayoutGrid,
+}
 
 export default function MenuPage() {
   const searchParams = useSearchParams()
@@ -64,26 +74,93 @@ export default function MenuPage() {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [showAddMenuModal, setShowAddMenuModal] = useState(false)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<any>(null)
   const [editingMenu, setEditingMenu] = useState<MenuItem | null>(null)
   const [deletingMenu, setDeletingMenu] = useState<MenuItem | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState<any>(null)
+  const [categories, setCategories] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
+  // Fetch categories from Supabase
   useEffect(() => {
-    // Filter products by selected category
-    const filteredProducts = selectedCategory === 'all' 
-      ? products 
-      : products.filter(p => p.categoryId === selectedCategory);
+    async function fetchCategories() {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+      
+      if (data) {
+        // Get product counts for each category
+        const categoriesWithCount = await Promise.all(
+          data.map(async (cat) => {
+            const { count } = await supabase
+              .from('products')
+              .select('*', { count: 'exact', head: true })
+              .eq('category_id', cat.id)
+            
+            return {
+              id: cat.id,
+              name: cat.name,
+              icon: cat.icon,
+              count: count || 0
+            }
+          })
+        )
+        
+        // Get total products count
+        const { count: totalCount } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+        
+        setCategories([
+          { id: 'all', name: 'All Menu', count: totalCount || 0 },
+          ...categoriesWithCount
+        ])
+      }
+    }
     
-    setMenuItems(filteredProducts.map(p => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      categoryId: p.categoryId,
-      price: p.price,
-      image: p.image,
-      available: p.available,
-      hasVariants: p.hasVariants,
-      variantGroups: p.variantGroups || [],
-    })));
+    fetchCategories()
+  }, [])
+
+  // Fetch products from Supabase
+  useEffect(() => {
+    async function fetchProducts() {
+      setLoading(true)
+      
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          category:categories(name),
+          product_variant_groups(variant_group_id)
+        `)
+        .order('name', { ascending: true })
+      
+      if (selectedCategory !== 'all') {
+        query = query.eq('category_id', selectedCategory)
+      }
+      
+      const { data, error } = await query
+      
+      if (data) {
+        setMenuItems(data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category?.name || 'Unknown',
+          categoryId: p.category_id,
+          price: p.price,
+          image: p.image || '/picture/default-food.jpg',
+          available: p.available,
+          hasVariants: p.has_variants,
+          variantGroups: p.product_variant_groups?.map((pvg: any) => pvg.variant_group_id) || [],
+        })))
+      }
+      
+      setLoading(false)
+    }
+    
+    fetchProducts()
   }, [selectedCategory])
 
   const filteredMenuItems = menuItems.filter(menu =>
@@ -92,30 +169,69 @@ export default function MenuPage() {
 
   const currentCategory = categories.find(cat => cat.id === selectedCategory)
 
-  // Calculate estimated stock for a menu item
+  // Simplified stock calculation - can be enhanced later with recipe integration
   const getEstimatedStock = (menuId: string): { canMake: number; status: 'available' | 'low' | 'out' } => {
-    const recipe = findMatchingRecipe(menuId)
-    if (!recipe) {
-      // No recipe found - assume unlimited
-      return { canMake: 999, status: 'available' }
-    }
-    
-    const canMake = calculateCanMake(recipe, inventoryItems)
-    
-    if (canMake === 0) return { canMake: 0, status: 'out' }
-    if (canMake <= 10) return { canMake, status: 'low' }
-    return { canMake, status: 'available' }
+    // For now, return default values
+    // TODO: Integrate with recipes and inventory_items tables
+    return { canMake: 999, status: 'available' }
   }
 
   const handleAddNewCategory = () => {
+    setEditingCategory(null)
     setShowAddCategoryModal(true)
     console.log('Opening Add Category modal')
   }
 
-  const handleSaveNewCategory = (name: string, icon: string) => {
-    console.log('New category added:', name, icon)
-    // TODO: Add to categories array and update Supabase
-    setShowAddCategoryModal(false)
+  const handleSaveNewCategory = async (name: string, icon: string, type: string) => {
+    if (editingCategory) {
+      // Update existing category
+      const { data, error } = await supabase
+        .from('categories')
+        .update({
+          name: name,
+          icon: icon,
+          type: type
+        })
+        .eq('id', editingCategory.id)
+        .select()
+        .single()
+      
+      if (data) {
+        // Update local state
+        setCategories(prev => prev.map(cat => 
+          cat.id === editingCategory.id 
+            ? { ...cat, name: data.name, icon: data.icon, type: data.type }
+            : cat
+        ))
+        setShowAddCategoryModal(false)
+        setEditingCategory(null)
+      }
+    } else {
+      // Save new category to Supabase
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{
+          name: name,
+          icon: icon,
+          type: type,
+          sort_order: categories.length,
+          is_active: true
+        }])
+        .select()
+        .single()
+      
+      if (data) {
+        // Add to local state
+        setCategories(prev => [...prev, {
+          id: data.id,
+          name: data.name,
+          icon: data.icon,
+          type: data.type,
+          count: 0
+        }])
+        setShowAddCategoryModal(false)
+      }
+    }
   }
 
   const handleAddNewMenu = () => {
@@ -129,36 +245,146 @@ export default function MenuPage() {
     console.log('Editing menu:', menu)
   }
 
-  const handleSaveNewMenu = (newMenu: Omit<MenuItem, 'id'>) => {
-    const menu: MenuItem = {
-      ...newMenu,
-      id: `menu-${Date.now()}`,
+  const handleSaveNewMenu = async (newMenu: Omit<MenuItem, 'id'>) => {
+    const managerId = localStorage.getItem('user_id')
+    
+    const { data, error } = await supabase
+      .from('products')
+      .insert([{
+        name: newMenu.name,
+        category_id: newMenu.categoryId,
+        price: newMenu.price,
+        image: newMenu.image,
+        available: newMenu.available,
+        has_variants: newMenu.hasVariants,
+        created_by: managerId,
+        updated_by: managerId
+      }])
+      .select()
+      .single()
+    
+    if (data) {
+      // Save product variant groups relationship
+      if (newMenu.hasVariants && newMenu.variantGroups.length > 0) {
+        const variantGroupsData = newMenu.variantGroups.map(vgId => ({
+          product_id: data.id,
+          variant_group_id: vgId
+        }))
+        
+        await supabase
+          .from('product_variant_groups')
+          .insert(variantGroupsData)
+      }
+      
+      const { data: categoryData } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('id', data.category_id)
+        .single()
+      
+      const menu: MenuItem = {
+        id: data.id,
+        name: data.name,
+        category: categoryData?.name || 'Unknown',
+        categoryId: data.category_id,
+        price: data.price,
+        image: data.image,
+        available: data.available,
+        hasVariants: data.has_variants,
+        variantGroups: newMenu.variantGroups
+      }
+      
+      setMenuItems(prev => [...prev, menu])
+      setShowAddMenuModal(false)
     }
-    setMenuItems(prev => [...prev, menu])
-    setShowAddMenuModal(false)
-    console.log('Menu added:', menu)
   }
 
-  const handleUpdateMenu = (updatedMenu: MenuItem) => {
-    setMenuItems(prev => prev.map(m => m.id === updatedMenu.id ? updatedMenu : m))
-    setEditingMenu(null)
-    console.log('Menu updated:', updatedMenu)
+  const handleUpdateMenu = async (updatedMenu: MenuItem) => {
+    const managerId = localStorage.getItem('user_id')
+    
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name: updatedMenu.name,
+        category_id: updatedMenu.categoryId,
+        price: updatedMenu.price,
+        image: updatedMenu.image,
+        available: updatedMenu.available,
+        has_variants: updatedMenu.hasVariants,
+        updated_by: managerId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', updatedMenu.id)
+    
+    if (!error) {
+      // Update product variant groups
+      // First delete existing relationships
+      await supabase
+        .from('product_variant_groups')
+        .delete()
+        .eq('product_id', updatedMenu.id)
+      
+      // Then insert new ones if has variants
+      if (updatedMenu.hasVariants && updatedMenu.variantGroups.length > 0) {
+        const variantGroupsData = updatedMenu.variantGroups.map(vgId => ({
+          product_id: updatedMenu.id,
+          variant_group_id: vgId
+        }))
+        
+        await supabase
+          .from('product_variant_groups')
+          .insert(variantGroupsData)
+      }
+      
+      setMenuItems(prev => prev.map(m => m.id === updatedMenu.id ? updatedMenu : m))
+      setEditingMenu(null)
+    }
   }
 
   const handleDeleteMenu = (menu: MenuItem) => {
     setDeletingMenu(menu)
   }
 
-  const confirmDeleteMenu = () => {
+  const confirmDeleteMenu = async () => {
     if (deletingMenu) {
-      setMenuItems(prev => prev.filter(m => m.id !== deletingMenu.id))
-      console.log('Menu deleted:', deletingMenu)
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', deletingMenu.id)
+      
+      if (!error) {
+        setMenuItems(prev => prev.filter(m => m.id !== deletingMenu.id))
+        setDeletingMenu(null)
+      }
     }
   }
 
   const handleFilter = () => {
     setShowFilterModal(true)
     console.log('Opening filter modal')
+  }
+
+  const handleDeleteCategory = (category: any) => {
+    if (category.id === 'all') return // Cannot delete 'All Menu'
+    setDeletingCategory(category)
+  }
+
+  const confirmDeleteCategory = async () => {
+    if (deletingCategory) {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', deletingCategory.id)
+      
+      if (!error) {
+        setCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
+        // If deleted category was selected, switch to 'all'
+        if (selectedCategory === deletingCategory.id) {
+          setSelectedCategory('all')
+        }
+        setDeletingCategory(null)
+      }
+    }
   }
 
   return (
@@ -169,26 +395,64 @@ export default function MenuPage() {
         
         <div className="space-y-1.5 flex-1 overflow-y-auto">
           {categories.map((category) => {
-            const IconComponent = categoryIcons[category.id] || Cookie
+            // Map icon name/emoji to Lucide component
+            const IconComponent = category.id === 'all' 
+              ? categoryIcons['all']
+              : iconNameToComponent[category.icon] || Cookie
+            
+            const isSelected = selectedCategory === category.id
+            
             return (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`w-full flex items-center px-2.5 py-2 rounded-lg transition group ${
-                  selectedCategory === category.id
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'hover:bg-gray-50 text-gray-600'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <IconComponent className={`w-5 h-5 transition ${
-                    selectedCategory === category.id
-                      ? 'text-blue-500'
-                      : 'text-gray-600'
-                  }`} strokeWidth={2} />
-                  <span className="text-sm font-medium">{category.name}</span>
-                </div>
-              </button>
+              <div key={category.id} className="relative">
+                <button
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition ${
+                    isSelected
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'hover:bg-gray-50 text-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <IconComponent className={`w-5 h-5 transition ${
+                      isSelected
+                        ? 'text-blue-500'
+                        : 'text-gray-600'
+                    }`} strokeWidth={2} />
+                    <span className="text-sm font-medium">{category.name}</span>
+                  </div>
+                  
+                  {/* Edit and Delete buttons - only show when selected and not 'all' and not viewAsOwner */}
+                  {isSelected && category.id !== 'all' && !viewAsOwner && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingCategory(category)
+                          setShowAddCategoryModal(true)
+                        }}
+                        className="p-1 hover:bg-blue-50 rounded text-blue-600 transition-colors"
+                        title="Edit category"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteCategory(category)
+                        }}
+                        className="p-1 hover:bg-red-50 rounded text-red-600 transition-colors"
+                        title="Delete category"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </button>
+              </div>
             )
           })}
         </div>
@@ -329,10 +593,10 @@ export default function MenuPage() {
                     </div>
                   )}
                   
-                  <p className="font-bold text-gray-900 mb-4">${menu.price.toFixed(2)}</p>
-
-                  {/* Spacer to push buttons to bottom */}
+                  {/* Spacer to push content to bottom */}
                   <div className="flex-1"></div>
+                  
+                  <p className="font-bold text-gray-900 mb-3">Rp {menu.price.toLocaleString('id-ID')}</p>
 
                   {/* Actions */}
                   {!viewAsOwner && (
@@ -370,16 +634,21 @@ export default function MenuPage() {
         onUpdate={handleUpdateMenu}
         editMenu={editingMenu}
         categories={categories.filter(c => c.id !== 'all')}
+        defaultCategoryId={selectedCategory !== 'all' ? selectedCategory : undefined}
       />
 
       {/* Category Modal */}
       <CategoryModal
         isOpen={showAddCategoryModal}
-        onClose={() => setShowAddCategoryModal(false)}
+        onClose={() => {
+          setShowAddCategoryModal(false)
+          setEditingCategory(null)
+        }}
         onSave={handleSaveNewCategory}
+        category={editingCategory}
       />
 
-      {/* Delete Modal */}
+      {/* Delete Menu Modal */}
       <DeleteModal
         isOpen={deletingMenu !== null}
         onClose={() => setDeletingMenu(null)}
@@ -387,6 +656,16 @@ export default function MenuPage() {
         title="Delete Menu"
         itemName={deletingMenu?.name || ''}
         description="This menu will be permanently removed from the menu."
+      />
+
+      {/* Delete Category Modal */}
+      <DeleteModal
+        isOpen={deletingCategory !== null}
+        onClose={() => setDeletingCategory(null)}
+        onConfirm={confirmDeleteCategory}
+        title="Delete Category"
+        itemName={deletingCategory?.name || ''}
+        description="This category and all its associated products will be affected. Are you sure?"
       />
     </div>
   )

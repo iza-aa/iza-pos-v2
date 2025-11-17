@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/activityTypes'
+import { parseSupabaseTimestamp, formatJakartaTime } from '@/lib/dateUtils'
 
 interface ActivityLogTableProps {
   logs: ActivityLog[]
@@ -23,10 +24,7 @@ function TimeAgoCell({ timestamp }: { timestamp: string }) {
     <td className="w-[14%] px-4 py-3 whitespace-nowrap">
       <div className="text-xs text-gray-900">{timeAgo || 'Loading...'}</div>
       <div className="text-xs text-gray-500">
-        {new Date(timestamp).toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })}
+        {formatJakartaTime(parseSupabaseTimestamp(timestamp))}
       </div>
     </td>
   )

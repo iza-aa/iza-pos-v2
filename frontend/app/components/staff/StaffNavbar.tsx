@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import RoleSelector from './RoleSelector'
+import RoleSelector from '../ui/RoleSelector'
 
 type Role = 'Owner' | 'Staff' | 'Manager'
-type Tab = 'pos' | 'order' | 'shift'
+type Tab = 'pos' | 'order' | 'kitchen' | 'shift'
 
 export default function StaffNavbar() {
   const pathname = usePathname()
@@ -16,6 +16,7 @@ export default function StaffNavbar() {
   const getActiveTab = (): Tab => {
     if (pathname.includes('/pos')) return 'pos'
     if (pathname.includes('/order')) return 'order'
+    if (pathname.includes('/kitchen')) return 'kitchen'
     if (pathname.includes('/shift')) return 'shift'
     return 'pos' // default
   }
@@ -25,6 +26,7 @@ export default function StaffNavbar() {
   const tabs: { id: Tab; label: string; path: string }[] = [
     { id: 'pos', label: 'POS', path: '/staff/pos' },
     { id: 'order', label: 'Order', path: '/staff/order' },
+    { id: 'kitchen', label: 'Kitchen', path: '/staff/kitchen' },
     { id: 'shift', label: 'My Shift', path: '/staff/shift' },
   ]
 

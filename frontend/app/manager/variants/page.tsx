@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { variantGroups as mockVariantGroups } from '@/lib/mockData'
+import { supabase } from '@/lib/supabaseClient'
 import VariantGroupModal from '@/app/components/manager/variants/VariantGroupModal'
 import DeleteModal from '@/app/components/ui/DeleteModal'
 
@@ -31,10 +31,36 @@ export default function VariantsPage() {
   const [editingGroup, setEditingGroup] = useState<VariantGroup | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<VariantGroup | null>(null)
   const [showInfoCards, setShowInfoCards] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Use data from mockData
-    setVariantGroups(mockVariantGroups)
+    async function fetchVariantGroups() {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('variant_groups')
+        .select(`
+          *,
+          variant_options(*)
+        `)
+        .order('name', { ascending: true })
+      
+      if (data) {
+        setVariantGroups(data.map((vg: any) => ({
+          id: vg.id,
+          name: vg.name,
+          type: vg.type,
+          required: vg.required,
+          options: vg.variant_options.map((vo: any) => ({
+            id: vo.id,
+            name: vo.name,
+            priceModifier: vo.price_modifier
+          }))
+        })))
+      }
+      setLoading(false)
+    }
+    
+    fetchVariantGroups()
   }, [])
 
   const filteredGroups = variantGroups.filter(group =>
@@ -52,30 +78,99 @@ export default function VariantsPage() {
     console.log('Editing group:', group)
   }
 
-  const handleSaveNewGroup = (newGroup: Omit<VariantGroup, 'id'>) => {
-    const group: VariantGroup = {
-      ...newGroup,
-      id: `vg-${Date.now()}`,
+  const handleSaveNewGroup = async (newGroup: Omit<VariantGroup, 'id'>) => {
+    // Insert variant group
+    const { data: groupData, error: groupError } = await supabase
+      .from('variant_groups')
+      .insert([{
+        name: newGroup.name,
+        type: newGroup.type,
+        required: newGroup.required
+      }])
+      .select()
+      .single()
+    
+    if (groupData && newGroup.options.length > 0) {
+      // Insert variant options
+      const { data: optionsData } = await supabase
+        .from('variant_options')
+        .insert(
+          newGroup.options.map(opt => ({
+            variant_group_id: groupData.id,
+            name: opt.name,
+            price_modifier: opt.priceModifier
+          }))
+        )
+        .select()
+      
+      const group: VariantGroup = {
+        id: groupData.id,
+        name: groupData.name,
+        type: groupData.type,
+        required: groupData.required,
+        options: optionsData?.map(opt => ({
+          id: opt.id,
+          name: opt.name,
+          priceModifier: opt.price_modifier
+        })) || []
+      }
+      
+      setVariantGroups(prev => [...prev, group])
+      setShowAddGroupModal(false)
     }
-    setVariantGroups(prev => [...prev, group])
-    setShowAddGroupModal(false)
-    console.log('Variant group added:', group)
   }
 
-  const handleUpdateGroup = (updatedGroup: VariantGroup) => {
-    setVariantGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g))
-    setEditingGroup(null)
-    console.log('Variant group updated:', updatedGroup)
+  const handleUpdateGroup = async (updatedGroup: VariantGroup) => {
+    // Update variant group
+    const { error: groupError } = await supabase
+      .from('variant_groups')
+      .update({
+        name: updatedGroup.name,
+        type: updatedGroup.type,
+        required: updatedGroup.required
+      })
+      .eq('id', updatedGroup.id)
+    
+    if (!groupError) {
+      // Delete existing options
+      await supabase
+        .from('variant_options')
+        .delete()
+        .eq('variant_group_id', updatedGroup.id)
+      
+      // Insert new options
+      if (updatedGroup.options.length > 0) {
+        await supabase
+          .from('variant_options')
+          .insert(
+            updatedGroup.options.map(opt => ({
+              variant_group_id: updatedGroup.id,
+              name: opt.name,
+              price_modifier: opt.priceModifier
+            }))
+          )
+      }
+      
+      setVariantGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g))
+      setEditingGroup(null)
+    }
   }
 
   const handleDeleteGroup = (group: VariantGroup) => {
     setDeletingGroup(group)
   }
 
-  const confirmDeleteGroup = () => {
+  const confirmDeleteGroup = async () => {
     if (deletingGroup) {
-      setVariantGroups(prev => prev.filter(g => g.id !== deletingGroup.id))
-      console.log('Group deleted:', deletingGroup)
+      const { error } = await supabase
+        .from('variant_groups')
+        .delete()
+        .eq('id', deletingGroup.id)
+      
+      if (!error) {
+        setVariantGroups(prev => prev.filter(g => g.id !== deletingGroup.id))
+        setDeletingGroup(null)
+      }
     }
   }
 
@@ -227,7 +322,7 @@ export default function VariantsPage() {
                       <span className={`text-xs font-semibold ${
                         option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {option.priceModifier > 0 ? '+' : ''}{option.priceModifier > 0 ? '$' : '-$'}{Math.abs(option.priceModifier).toFixed(2)}
+                        {option.priceModifier > 0 ? '+' : '-'}Rp {Math.abs(option.priceModifier).toLocaleString('id-ID')}
                       </span>
                     )}
                   </div>

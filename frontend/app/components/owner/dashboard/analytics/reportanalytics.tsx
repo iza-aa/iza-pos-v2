@@ -97,7 +97,7 @@ export default function ReportAnalytics() {
                 borderRadius: '8px',
                 color: 'white',
               }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, 'Amount']}
+              formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Amount']}
             />
             <Bar
               dataKey="amount"
@@ -143,7 +143,7 @@ export default function ReportAnalytics() {
                           fontSize="12"
                           fontWeight="600"
                         >
-                          ${payload.amount.toLocaleString()}
+                          Rp {payload.amount.toLocaleString('id-ID')}
                         </text>
                         <circle
                           cx={x + width / 2}
@@ -165,11 +165,11 @@ export default function ReportAnalytics() {
       <div className="grid grid-cols-3 gap-4 ">
         <div className="bg-gray-100 border border-gray-200 rounded-xl p-4">
           <p className="text-xl text-gray-500 mb-1">Amount</p>
-          <p className="text-2xl font-bold text-gray-900">${totalAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-gray-900">Rp {totalAmount.toLocaleString('id-ID')}</p>
         </div>
         <div className="bg-gray-100 border border-gray-200 rounded-xl p-4">
           <p className="text-xl text-gray-500 mb-1">Growth</p>
-          <p className="text-2xl font-bold text-green-500">+${Math.abs(growth).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-500">+Rp {Math.abs(growth).toLocaleString('id-ID')}</p>
         </div>
         <div className="bg-gray-100 border border-gray-200 rounded-xl p-4">
           <p className="text-xl text-gray-500 mb-1">Growth Percentage</p>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { BiQr, BiKey } from "react-icons/bi";
+import StaffShiftTable from "../../components/staff/myshift/StaffShiftTable";
 import { useSearchParams } from "next/navigation";
 
 const supabase = createClient(
@@ -101,7 +102,7 @@ export default function ShiftPresensiPage() {
 
   return (
     <div className="w-full mx-auto py-8 px-4 relative">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="lg:text-2xl md:text-xl text-xl font-bold">
             Presensi Staff
@@ -196,57 +197,16 @@ export default function ShiftPresensiPage() {
           </div>
         </div>
       )}
-    <div className="border border-gray-200 rounded-xl px-3">
-      <table className="min-w-full bg-white mt-3 mb-3 overflow-hidden">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
-              ID Staff
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
-              Nama
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
-              Waktu Presensi
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {presensi.length > 0 ? presensi.map((p, idx) => (
-            <tr key={p.staff_id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-              <td className="px-6 py-3 border-b border-gray-200 text-sm text-gray-700">
-                {p.staff?.staff_code || p.staff_id}
-              </td>
-              <td className="px-6 py-3 border-b border-gray-200 text-sm text-gray-700">
-                {p.staff?.name || "-"}
-              </td>
-              <td className="px-6 py-3 border-b border-gray-200 text-sm text-gray-700">
-                {p.created_at
-                  ? (() => {
-                      const d = new Date(p.created_at);
-                      const month = String(d.getMonth() + 1).padStart(2, "0");
-                      const day = String(d.getDate()).padStart(2, "0");
-                      const year = d.getFullYear();
-                      let hour = d.getHours();
-                      const minute = String(d.getMinutes()).padStart(2, "0");
-                      const ampm = hour >= 12 ? "PM" : "AM";
-                      hour = hour % 12;
-                      hour = hour ? hour : 12;
-                      return `${month}/${day}/${year} - ${String(hour).padStart(2, "0")}.${minute} ${ampm}`;
-                    })()
-                  : "-"}
-              </td>
-            </tr>
-          )) : (
-            <tr>
-              <td colSpan={3} className="px-6 pt-3 text-center text-gray-400">
-                Belum ada staff yang presensi.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-     </div> 
+
+      {/* Staff Shift Table - Redesigned */}
+      <div className="">
+        <StaffShiftTable presensi={presensi.map(p => ({
+          staff_id: p.staff?.staff_id || p.staff_id,
+          staff_code: p.staff?.staff_code || p.staff_id,
+          name: p.staff?.name || '-',
+          created_at: p.created_at,
+        }))} />
+      </div>
     </div>
   );
 }

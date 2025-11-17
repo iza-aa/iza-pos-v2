@@ -1,73 +1,194 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
-import OrderCard from "@/app/components/staff/order/OrderCard";
+import ManagerOrderCard from "@/app/components/manager/order/ManagerOrderCard";
 import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
 import type { ViewMode } from "@/app/components/ui/ViewModeToggle";
-import { orders } from "@/lib/mockData";
+import { supabase } from "@/lib/supabaseClient";
+import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
 
-// Transform orders for display
-const mockOrders = orders.map(order => ({
-	id: order.id,
-	customerName: order.customerName,
-	orderNumber: order.orderNumber,
-	orderType: order.orderType,
-	items: order.items.map(item => ({
-		id: item.id,
-		name: item.name,
-		quantity: item.quantity,
-		price: item.price,
-		served: item.served,
-		servedAt: 'servedAt' in item ? item.servedAt : undefined,
-		variants: item.variants,
-	})),
-	total: order.total,
-	date: order.date,
-	time: order.time,
-	status: order.status,
-	table: order.table !== 'Counter' ? order.table : undefined,
-}));
+interface Order {
+	id: string;
+	customerName: string;
+	orderNumber: string;
+	orderType: string;
+	items: any[];
+	total: number;
+	date: string;
+	time: string;
+	status: "new" | "preparing" | "partially-served" | "served" | "completed";
+	table?: string;
+	createdAt: string;
+}
 
 export default function ManagerOrderPage() {
-	const [orderList, setOrderList] = useState(mockOrders);
+	const [orderList, setOrderList] = useState<Order[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
 	const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served'>('all');
 
-	const handleMarkServed = (orderId: string, itemIds: string[]) => {
-		const now = new Date();
-		const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+	useEffect(() => {
+		fetchOrders();
 
-		setOrderList(prevOrders => prevOrders.map(order => {
-			if (order.id === orderId) {
-				// Update served status for selected items
-				const updatedItems = order.items.map(item => {
-					if (itemIds.includes(item.id)) {
-						return { ...item, served: true, servedAt: currentTime };
-					}
-					return item;
-				});
+		// Set up real-time subscription
+		const channel = supabase
+			.channel('manager-orders-changes')
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+				fetchOrders();
+			})
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+				fetchOrders();
+			})
+			.subscribe();
 
-				// Calculate new order status
-				const servedCount = updatedItems.filter(item => item.served).length;
-				const totalCount = updatedItems.length;
+		// Auto-refresh every 60 seconds
+		const interval = setInterval(fetchOrders, 60000);
+
+		return () => {
+			supabase.removeChannel(channel);
+			clearInterval(interval);
+		};
+	}, []);
+
+	async function fetchOrders() {
+		setLoading(true);
+		try {
+			// Fetch orders with order items
+			const { data: ordersData, error } = await supabase
+				.from('orders')
+				.select(`
+					*,
+					order_items (
+						id,
+						product_id,
+						product_name,
+						quantity,
+						base_price,
+						total_price,
+						variants,
+						served,
+						served_at,
+						kitchen_status,
+						ready_at,
+						notes,
+						products (name, image)
+					)
+				`)
+				.order('created_at', { ascending: false });
+
+			if (error) {
+				console.error('Error fetching orders:', error);
+				return;
+			}
+
+			// Transform data to match component format
+			const transformedOrders = ordersData?.map(order => {
+				const servedCount = order.order_items.filter((item: any) => item.served).length;
+				const totalCount = order.order_items.length;
 				
-				let newStatus: any = order.status;
-				if (servedCount === totalCount) {
-					newStatus = 'served';
-				} else if (servedCount > 0 && servedCount < totalCount) {
-					newStatus = 'partially-served';
+				// Calculate time difference in minutes (Jakarta timezone)
+				const orderCreatedAt = parseSupabaseTimestamp(order.created_at);
+				const now = getJakartaNow();
+				const minutesSinceCreated = getMinutesDifference(now, orderCreatedAt);
+				
+				// Determine order status based on database status and time
+				let status = order.status;
+				
+				// Auto-update status from 'new' to 'preparing' after 2 minutes
+				if (order.status === 'new' && minutesSinceCreated >= 2) {
+					status = 'preparing';
+					// Update database in background (fire and forget)
+					supabase
+						.from('orders')
+						.update({ status: 'preparing' })
+						.eq('id', order.id)
+						.then(() => {})
+						.catch(err => console.error('Error auto-updating order status:', err));
+				}
+				
+				// Override with item-based status if applicable
+				if (servedCount > 0 && servedCount < totalCount) {
+					status = 'partially-served';
+				} else if (servedCount === totalCount && totalCount > 0) {
+					status = 'served';
 				}
 
-				return { ...order, items: updatedItems, status: newStatus };
+				return {
+					id: order.id,
+					customerName: order.customer_name || 'Guest',
+					orderNumber: order.order_number || `#${order.id.substring(0, 8).toUpperCase()}`,
+					orderType: order.order_type || 'Dine in',
+					items: order.order_items.map((item: any) => ({
+						id: item.id,
+						name: item.product_name || item.products?.name || 'Unknown Item',
+						quantity: item.quantity,
+						price: item.base_price,
+						served: item.served,
+						servedAt: item.served_at ? formatJakartaTime(parseSupabaseTimestamp(item.served_at)) : undefined,
+						variants: item.variants,
+						kitchenStatus: item.kitchen_status || 'not_required',
+						readyAt: item.ready_at,
+					})),
+					total: order.total || 0,
+					date: formatJakartaDate(orderCreatedAt),
+					time: formatJakartaTime(orderCreatedAt),
+					status,
+					table: order.table_number || undefined,
+					createdAt: order.created_at,
+				};
+			}) || [];
+
+			setOrderList(transformedOrders);
+		} catch (error) {
+			console.error('Error fetching orders:', error);
+		} finally {
+			setLoading(false);
+		}
+	}
+
+	async function handleDeleteOrder(orderId: string) {
+		if (!confirm('Apakah Anda yakin ingin menghapus order ini? Aksi ini tidak dapat dibatalkan.')) {
+			return;
+		}
+
+		try {
+			// First delete order_items manually to avoid constraint issues
+			const { error: itemsError } = await supabase
+				.from('order_items')
+				.delete()
+				.eq('order_id', orderId);
+
+			if (itemsError) {
+				console.error('Error deleting order items:', itemsError);
+				alert(`Gagal menghapus order items: ${itemsError.message}`);
+				return;
 			}
-			return order;
-		}));
-	};
+
+			// Then delete the order
+			const { error: orderError } = await supabase
+				.from('orders')
+				.delete()
+				.eq('id', orderId);
+
+			if (orderError) {
+				console.error('Error deleting order:', orderError);
+				alert(`Gagal menghapus order: ${orderError.message}`);
+				return;
+			}
+
+			// Update local state
+			setOrderList(prev => prev.filter(order => order.id !== orderId));
+			alert('Order berhasil dihapus.');
+		} catch (error) {
+			console.error('Error deleting order:', error);
+			alert('Gagal menghapus order. Silakan coba lagi.');
+		}
+	}
 
 	// Get current date for filtering
 	const now = new Date();
@@ -209,10 +330,19 @@ export default function ManagerOrderPage() {
 
 				{/* Content */}
 				<div className="px-6 pb-6">
-					{viewMode === "card" ? (
+					{loading ? (
+						<div className="flex items-center justify-center py-12">
+							<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+						</div>
+					) : viewMode === "card" ? (
 						<div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
 							{filteredOrders.map((order) => (
-								<OrderCard key={order.id} order={order} onMarkServed={handleMarkServed} />
+								<ManagerOrderCard 
+									key={order.id} 
+									order={order} 
+									onMarkServed={handleMarkServed}
+									onDelete={handleDeleteOrder}
+								/>
 							))}
 						</div>
 					) : (

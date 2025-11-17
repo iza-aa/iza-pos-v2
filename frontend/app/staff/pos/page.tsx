@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import OrderLineTabs from "@/app/components/staff/pos/OrderLineTabs";
 import OrderLineCard from "@/app/components/staff/pos/OrderLineCard";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
@@ -7,188 +7,460 @@ import MenuCategories from "@/app/components/staff/pos/MenuCategories";
 import FoodItemCard from "@/app/components/staff/pos/FoodItemCard";
 import VariantSidebar from "@/app/components/staff/pos/VariantSidebar";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
-import PaymentMethodSelector from "@/app/components/staff/pos/PaymentMethodSelector";
+import PaymentModal from "@/app/components/staff/pos/PaymentModal";
+import DeleteItemModal from "@/app/components/staff/pos/DeleteItemModal";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
-import { products, categories, orders } from "@/lib/mockData";
+import { supabase } from "@/lib/supabaseClient";
+import { LayoutGrid, Coffee, UtensilsCrossed, Cookie, Cake, Milk, Pizza, Sandwich, Soup, Salad, IceCream } from 'lucide-react';
 
-// Transform orders for display
-const mockOrders = orders.slice(0, 3).map(order => ({
-	id: order.id,
-	orderNumber: order.orderNumber,
-	table: order.table || 'Counter',
-	itemCount: order.itemCount,
-	timeAgo: order.timeAgo || 'Just now',
-	status: order.status as "new" | "preparing" | "partially-served" | "served",
-}));
-
-// Transform categories for menu
-const mockCategories = [
-	{ id: 'all', label: 'All Menu', icon: '🍽️', count: products.length },
-	...categories.map(cat => ({
-		id: cat.id,
-		label: cat.name,
-		icon: cat.icon,
-		count: cat.count,
-	}))
-];
-
-// Transform products for food items with quantity state
-const mockFoodItems = products.map(p => ({
-	id: p.id,
-	name: p.name,
-	category: p.category,
-	price: p.price,
-	image: p.image,
-	quantity: 0,
-	hasVariants: p.hasVariants,
-}));
+// Icon mapping for categories
+const iconNameToComponent: Record<string, any> = {
+  'Coffee': Coffee,
+  'UtensilsCrossed': UtensilsCrossed,
+  'Cookie': Cookie,
+  'Cake': Cake,
+  'Milk': Milk,
+  'Pizza': Pizza,
+  'Sandwich': Sandwich,
+  'Soup': Soup,
+  'Salad': Salad,
+  'IceCream': IceCream,
+  '☕': Coffee,
+  '🍽️': UtensilsCrossed,
+  '🍟': Cookie,
+  '🍰': Cake,
+  '🍵': Milk,
+};
 
 export default function POSPage() {
 	const [activeTab, setActiveTab] = useState("all");
 	const [activeCategory, setActiveCategory] = useState("all");
-	const [foodItems, setFoodItems] = useState(mockFoodItems);
-	const [selectedOrder, setSelectedOrder] = useState<any>(null);
-	const [paymentMethod, setPaymentMethod] = useState("card");
-	const [showOrderLine, setShowOrderLine] = useState(true);
+	const [categories, setCategories] = useState<any[]>([]);
+	const [foodItems, setFoodItems] = useState<any[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [variantSidebarOpen, setVariantSidebarOpen] = useState(false);
+	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [selectedItem, setSelectedItem] = useState<any>(null);
+	const [itemToDelete, setItemToDelete] = useState<any>(null);
+	const [cart, setCart] = useState<any[]>([]);
+
+	// Fetch categories from database
+	useEffect(() => {
+		async function fetchCategories() {
+			const { data, error } = await supabase
+				.from('categories')
+				.select('*')
+				.eq('is_active', true)
+				.order('sort_order', { ascending: true })
+			
+			if (data) {
+				// Get product counts for each category
+				const categoriesWithCount = await Promise.all(
+					data.map(async (cat) => {
+						const { count } = await supabase
+							.from('products')
+							.select('*', { count: 'exact', head: true })
+							.eq('category_id', cat.id)
+							.eq('available', true)
+						
+						const IconComponent = iconNameToComponent[cat.icon] || Cookie
+						
+						return {
+							id: cat.id,
+							label: cat.name,
+							icon: IconComponent,
+							count: count || 0
+						}
+					})
+				)
+				
+				// Get total products count
+				const { count: totalCount } = await supabase
+					.from('products')
+					.select('*', { count: 'exact', head: true })
+					.eq('available', true)
+				
+				setCategories([
+					{ id: 'all', label: 'All Menu', icon: LayoutGrid, count: totalCount || 0 },
+					...categoriesWithCount
+				])
+			}
+		}
+		
+		fetchCategories()
+	}, [])
+
+	// Fetch products from database
+	useEffect(() => {
+		async function fetchProducts() {
+			setLoading(true)
+			
+			let query = supabase
+				.from('products')
+				.select('*, category:categories(name)')
+				.eq('available', true)
+				.order('name', { ascending: true })
+			
+			if (activeCategory !== 'all') {
+				query = query.eq('category_id', activeCategory)
+			}
+			
+			const { data, error } = await query
+			
+			if (data) {
+				setFoodItems(data.map((p: any) => ({
+					id: p.id,
+					name: p.name,
+					category: p.category?.name || 'Unknown',
+					categoryId: p.category_id,
+					price: p.price,
+					image: p.image || '/picture/default-food.jpg',
+					hasVariants: p.has_variants,
+				})))
+			}
+			
+			setLoading(false)
+		}
+		
+		fetchProducts()
+	}, [activeCategory])
 
 	const handleQuantityChange = (id: string, delta: number) => {
-		setFoodItems((items) =>
-			items.map((item) =>
-				item.id === id ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item
-			)
-		);
+		const item = foodItems.find(i => i.id === id)
+		
+		if (item?.hasVariants) {
+			// For variant items, decrement the last added item
+			if (delta < 0) {
+				const variantCartItems = cart.filter(c => c.productId === id)
+				if (variantCartItems.length > 0) {
+					const lastItem = variantCartItems[variantCartItems.length - 1]
+					const newCart = [...cart]
+					const lastItemIndex = newCart.findIndex(c => c.id === lastItem.id)
+					
+					if (lastItemIndex >= 0) {
+						newCart[lastItemIndex].quantity = Math.max(0, newCart[lastItemIndex].quantity - 1)
+						
+						// Remove if quantity is 0
+						if (newCart[lastItemIndex].quantity === 0) {
+							newCart.splice(lastItemIndex, 1)
+						}
+						setCart(newCart)
+					}
+				}
+			}
+			// For increment, open variant modal
+			return
+		}
+		
+		// For non-variant items
+		const existingItemIndex = cart.findIndex(item => 
+			item.id === id && !item.productId
+		)
+		
+		if (existingItemIndex >= 0) {
+			const newCart = [...cart]
+			newCart[existingItemIndex].quantity = Math.max(0, newCart[existingItemIndex].quantity + delta)
+			
+			// Remove if quantity is 0
+			if (newCart[existingItemIndex].quantity === 0) {
+				newCart.splice(existingItemIndex, 1)
+			}
+			setCart(newCart)
+		} else if (delta > 0) {
+			// Add new item to cart
+			if (item && !item.hasVariants) {
+				setCart([...cart, { ...item, quantity: delta }])
+			}
+		}
 	};
 
 	const handleItemClick = (item: any) => {
-		setSelectedItem(item);
-		setVariantSidebarOpen(true);
+		if (item.hasVariants) {
+			setSelectedItem(item);
+			setVariantSidebarOpen(true);
+		} else {
+			// Add directly to cart for non-variant items
+			handleQuantityChange(item.id, 1)
+		}
 	};
 
-	const handleAddToOrder = (item: any, selectedVariants: any, totalPrice: number) => {
-		// Add item dengan variants ke order
-		setFoodItems((items) =>
-			items.map((i) =>
-				i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-			)
-		);
-		console.log('Added to order:', { item, selectedVariants, totalPrice });
+	const handleAddToOrder = (item: any, selectedVariants: any, totalPrice: number, quantity: number) => {
+		// Add item with variants to cart
+		const cartItem = {
+			id: `${item.id}-${Date.now()}`, // Unique ID for cart item
+			productId: item.id,
+			name: item.name,
+			price: totalPrice,
+			quantity: quantity,
+			hasVariants: true,
+			variants: selectedVariants,
+			image: item.image
+		}
+		
+		setCart([...cart, cartItem])
+		console.log('Added to cart:', cartItem);
 	};
+
+	// Handle delete item from cart
+	const handleDeleteItem = (item: any) => {
+		// Check if quantity > 1, show modal to select how many to delete
+		if (item.quantity > 1) {
+			setItemToDelete(item)
+			setDeleteModalOpen(true)
+		} else {
+			// For single quantity, delete directly
+			const newCart = cart.filter(c => c.id !== item.id)
+			setCart(newCart)
+		}
+	}
+
+	const confirmDeleteItem = (quantityToDelete: number) => {
+		if (itemToDelete) {
+			const itemIndex = cart.findIndex(c => c.id === itemToDelete.id)
+			if (itemIndex >= 0) {
+				const newCart = [...cart]
+				
+				if (quantityToDelete >= itemToDelete.quantity) {
+					// Remove completely
+					newCart.splice(itemIndex, 1)
+				} else {
+					// Reduce quantity
+					newCart[itemIndex].quantity -= quantityToDelete
+				}
+				
+				setCart(newCart)
+			}
+		}
+		setItemToDelete(null)
+	}
 
 	// Filter items by category and search
 	const filteredFoodItems = foodItems.filter(item => {
-		const matchesCategory = activeCategory === 'all' || item.category === categories.find(c => c.id === activeCategory)?.name;
 		const matchesSearch = searchQuery === '' || item.name.toLowerCase().includes(searchQuery.toLowerCase());
-		return matchesCategory && matchesSearch;
+		return matchesSearch;
 	});
 
-	const orderedItems = foodItems
-		.filter((item) => item.quantity > 0)
-		.map((item) => ({
-			id: item.id,
-			name: item.name,
-			quantity: item.quantity,
-			price: item.price,
-		}));
+	// Calculate total
+	const calculateTotal = () => {
+		return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+	}
 
-	const counts = {
-		all: mockOrders.length,
-		dineIn: mockOrders.filter((o) => o.status === "preparing").length,
-		waitList: mockOrders.filter((o) => o.status === "new").length,
-		takeAway: 0,
-		served: mockOrders.filter((o) => o.status === "served").length,
-	};
+	// Handle place order
+	const handlePlaceOrder = async (paymentData: any) => {
+		if (cart.length === 0) {
+			alert('Cart is empty!')
+			return
+		}
+
+		try {
+			const staffId = localStorage.getItem('user_id')
+			const total = calculateTotal()
+			
+			// Generate order number
+			const orderNumber = `ORD-${Date.now()}`
+
+			// 1. Create order
+			const { data: orderData, error: orderError } = await supabase
+				.from('orders')
+				.insert([{
+					order_number: orderNumber,
+					customer_name: paymentData.customerName || 'Guest',
+					table_number: paymentData.tableNumber || null,
+					order_type: paymentData.tableNumber ? 'Dine in' : 'Take Away',
+					status: 'new',
+					subtotal: total,
+					tax: 0,
+					discount: 0,
+					total: total,
+					payment_method: 'Cash',
+					payment_status: 'paid',
+					created_by: staffId
+				}])
+				.select()
+				.single()
+
+			if (orderError) {
+				console.error('Error creating order:', orderError)
+				throw orderError
+			}
+
+			// 2. Fetch products with categories to determine kitchen_status
+			const productIds = cart.map(item => item.productId || item.id)
+			const { data: productsData, error: productError } = await supabase
+				.from('products')
+				.select('id, name, category_id, categories(name, type)')
+				.in('id', productIds)
+
+			if (productError) {
+				console.error('Error fetching products:', productError)
+				throw productError
+			}
+
+			// 3. Create order items with kitchen_status
+			const orderItems = cart.map(item => {
+				const productId = item.productId || item.id
+				const product = productsData?.find(p => p.id === productId)
+				const categoryType = product?.categories?.type || 'food'
+				
+				// Determine kitchen_status based on category type
+				const isBeverage = categoryType === 'beverage'
+				
+				return {
+					order_id: orderData.id,
+					product_id: productId,
+					product_name: product?.name || item.name || 'Unknown Item',
+					quantity: item.quantity,
+					base_price: item.price,
+					variants: item.variants ? item.variants : null,
+					total_price: item.price * item.quantity,
+					kitchen_status: isBeverage ? 'not_required' : 'pending',
+					notes: null
+				}
+			})
+
+			const { error: itemsError } = await supabase
+				.from('order_items')
+				.insert(orderItems)
+
+			if (itemsError) {
+				console.error('Error inserting order items:', itemsError)
+				throw itemsError
+			}
+
+			// 4. Create payment transaction
+			const { error: paymentError } = await supabase
+				.from('payment_transactions')
+				.insert([{
+					order_id: orderData.id,
+					payment_method: 'Cash',
+					amount_paid: total,
+					amount_change: 0,
+					status: 'success',
+					created_by: staffId
+				}])
+
+			if (paymentError) {
+				console.error('Error creating payment:', paymentError)
+				throw paymentError
+			}
+
+			// 5. Log activity
+			await supabase
+				.from('activity_logs')
+				.insert([{
+					staff_id: staffId,
+					activity_type: 'order_created',
+					description: `Created order ${orderNumber} - ${cart.length} items - Rp ${total.toLocaleString('id-ID')}`,
+					metadata: {
+						order_id: orderData.id,
+						order_number: orderNumber,
+						total: total,
+						payment_method: 'Cash'
+					}
+				}])
+
+			// Success! Clear cart and close modal
+			alert(`Order ${orderNumber} placed successfully!`)
+			setCart([])
+			setPaymentModalOpen(false)
+
+		} catch (error: any) {
+			console.error('Error placing order:', error)
+			console.error('Error details:', {
+				message: error?.message,
+				details: error?.details,
+				hint: error?.hint,
+				code: error?.code
+			})
+			alert(`Failed to place order: ${error?.message || 'Unknown error'}`)
+		}
+	}
 
 	return (
 		<main className="h-[calc(100vh-55px)] bg-gray-50 flex overflow-hidden">
-			{/* Section 1: Order Line & Menu - Left scrollable */}
-			<section className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
-				{/* Order Line */}
-				<div>
-					<OrderLineTabs 
-						activeTab={activeTab} 
-						setActiveTab={setActiveTab} 
-						showOrderLine={showOrderLine}
-						counts={counts} 
-					/>
-					
-					{showOrderLine && (
-						<div className="flex items-center gap-4 mb-6">
-							<button className="p-2 rounded-full hover:bg-gray-200 transition">
-								<ChevronLeftIcon className="w-5 h-5 text-gray-600" />
-							</button>
-							<div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-								{mockOrders.map((order) => (
-									<OrderLineCard key={order.id} order={order} onClick={setSelectedOrder} />
-								))}
-							</div>
-							<button className="p-2 rounded-full hover:bg-gray-200 transition">
-								<ChevronRightIcon className="w-5 h-5 text-gray-600" />
-							</button>
-						</div>
-					)}
-				</div>
-
-				{/* Foodies Menu */}
-				<div>
-					{/* Foodies Menu Card: Title + Search + Hide Button */}
+			{/* Section 1: Menu - Left scrollable */}
+			<section className="flex-1 px-6 py-6 scrollbar-hide flex flex-col">
+				{/* Sticky Header & Filter */}
+				<div className="sticky top-0 z-10 bg-gray-50 pb-2">
 					<FoodiesMenuHeader
 						searchQuery={searchQuery}
 						onSearchChange={setSearchQuery}
-						showOrderLine={showOrderLine}
-						onToggleOrderLine={() => setShowOrderLine(!showOrderLine)}
 					/>
-
-					{/* Menu Categories - Outside Card */}
 					<MenuCategories
-						categories={mockCategories}
+						categories={categories}
 						activeCategory={activeCategory}
 						setActiveCategory={setActiveCategory}
 					/>
-
-					{/* Food Items Grid */}
-					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-						{filteredFoodItems.map((item) => (
-							<FoodItemCard 
-								key={item.id} 
-								item={item} 
-								onQuantityChange={handleQuantityChange}
-								onItemClick={handleItemClick}
-							/>
-						))}
-					</div>
+				</div>
+				{/* Scrollable Items Grid */}
+				<div className="flex-1 overflow-y-auto">
+					{loading ? (
+						<div className="flex items-center justify-center h-64">
+							<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+						</div>
+					) : (
+						<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+							{filteredFoodItems.map((item) => {
+								// Calculate total quantity in cart for this product
+								let quantity = 0
+								
+								if (item.hasVariants) {
+									// For variant items: sum all cart items with this productId
+									const variantCartItems = cart.filter(c => c.productId === item.id)
+									quantity = variantCartItems.reduce((sum, c) => sum + c.quantity, 0)
+								} else {
+									// For non-variant items: find direct match
+									const cartItem = cart.find(c => c.id === item.id && !c.productId)
+									quantity = cartItem ? cartItem.quantity : 0
+								}
+								
+								return (
+									<FoodItemCard 
+										key={item.id} 
+										item={{...item, quantity}} 
+										onQuantityChange={handleQuantityChange}
+										onItemClick={handleItemClick}
+									/>
+								)
+							})}
+						</div>
+					)}
 				</div>
 			</section>
-
 			{/* Section 2: Order Summary - Fixed Right Sidebar */}
 			<section className="w-[450px] flex-shrink-0 flex flex-col gap-2 py-6 pr-6 overflow-hidden">
 				<OrderSummary
 					tableNumber="Table No #04"
 					orderNumber="Order #FO030"
 					peopleCount={2}
-					items={orderedItems}
+					items={cart.map(item => ({
+						id: item.id,
+						name: item.name,
+						quantity: item.quantity,
+						price: item.price,
+						variants: item.variants,
+						productId: item.productId
+					}))}
 					onEditTable={() => console.log("Edit table")}
 					onDeleteTable={() => console.log("Delete table")}
+					onDeleteItem={handleDeleteItem}
 				/>
-				
-				<PaymentMethodSelector
-					selectedMethod={paymentMethod}
-					onMethodChange={setPaymentMethod}
-				/>
-
 				{/* Action Buttons */}
 				<div className="flex gap-3 mt-auto">
 					<button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition font-medium shadow-sm">
 						🖨️ Print
 					</button>
-					<button className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold transition shadow-md">
+					<button 
+						onClick={() => setPaymentModalOpen(true)}
+						disabled={cart.length === 0}
+						className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+					>
 						📦 Place Order
 					</button>
 				</div>
 			</section>
-
 			{/* Variant Sidebar */}
 			{selectedItem && (
 				<VariantSidebar
@@ -196,6 +468,27 @@ export default function POSPage() {
 					onClose={() => setVariantSidebarOpen(false)}
 					item={selectedItem}
 					onAddToOrder={handleAddToOrder}
+				/>
+			)}
+			{/* Payment Modal */}
+			<PaymentModal
+				isOpen={paymentModalOpen}
+				onClose={() => setPaymentModalOpen(false)}
+				onConfirm={handlePlaceOrder}
+				totalAmount={calculateTotal()}
+			/>
+			{/* Delete Item Modal */}
+			{itemToDelete && (
+				<DeleteItemModal
+					isOpen={deleteModalOpen}
+					onClose={() => {
+						setDeleteModalOpen(false)
+						setItemToDelete(null)
+					}}
+					onConfirm={confirmDeleteItem}
+					itemName={itemToDelete.name}
+					currentQuantity={itemToDelete.quantity}
+					price={itemToDelete.price}
 				/>
 			)}
 		</main>

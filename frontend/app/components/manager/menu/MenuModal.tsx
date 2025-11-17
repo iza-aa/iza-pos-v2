@@ -2,7 +2,21 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline'
-import { variantGroups } from '@/lib/mockData'
+import { supabase } from '@/lib/supabaseClient'
+
+interface VariantOption {
+  id: string
+  name: string
+  price_modifier: number
+}
+
+interface VariantGroup {
+  id: string
+  name: string
+  type: 'single' | 'multiple'
+  is_required: boolean
+  options: VariantOption[]
+}
 
 interface MenuItem {
   id: string
@@ -23,9 +37,10 @@ interface MenuModalProps {
   onUpdate?: (menu: MenuItem) => void
   editMenu?: MenuItem | null
   categories: Array<{ id: string; name: string }>
+  defaultCategoryId?: string
 }
 
-export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu, categories }: MenuModalProps) {
+export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu, categories, defaultCategoryId }: MenuModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -37,7 +52,68 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
     variantGroups: [] as string[],
   })
   const [imagePreview, setImagePreview] = useState<string>('')
+  const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
+  const [loadingVariants, setLoadingVariants] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch variant groups from database
+  useEffect(() => {
+    const fetchVariantGroups = async () => {
+      setLoadingVariants(true)
+      try {
+        // Fetch variant groups
+        const { data: groups, error: groupsError } = await supabase
+          .from('variant_groups')
+          .select('*')
+          .order('created_at', { ascending: true })
+
+        if (groupsError) {
+          console.error('Error fetching variant groups:', groupsError)
+          setVariantGroups([])
+          setLoadingVariants(false)
+          return
+        }
+
+        // Fetch variant options for each group
+        const formattedGroups: VariantGroup[] = await Promise.all(
+          (groups || []).map(async (group) => {
+            const { data: options, error: optionsError } = await supabase
+              .from('variant_options')
+              .select('id, name, price_modifier')
+              .eq('variant_group_id', group.id)
+              .order('sort_order', { ascending: true })
+
+            if (optionsError) {
+              console.error('Error fetching options for group:', group.id, optionsError)
+            }
+
+            return {
+              id: group.id,
+              name: group.name,
+              type: group.type as 'single' | 'multiple',
+              is_required: group.is_required,
+              options: (options || []).map((opt: any) => ({
+                id: opt.id,
+                name: opt.name,
+                price_modifier: opt.price_modifier
+              }))
+            }
+          })
+        )
+
+        setVariantGroups(formattedGroups)
+      } catch (error) {
+        console.error('Error fetching variant groups:', error)
+        setVariantGroups([])
+      } finally {
+        setLoadingVariants(false)
+      }
+    }
+
+    if (isOpen) {
+      fetchVariantGroups()
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (editMenu) {
@@ -53,11 +129,15 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
       })
       setImagePreview(editMenu.image)
     } else if (categories.length > 0) {
-      const firstCategory = categories[0]
+      // Use defaultCategoryId if provided, otherwise use first category
+      const selectedCategory = defaultCategoryId 
+        ? categories.find(c => c.id === defaultCategoryId) || categories[0]
+        : categories[0]
+      
       setFormData({
         name: '',
-        category: firstCategory.name,
-        categoryId: firstCategory.id,
+        category: selectedCategory.name,
+        categoryId: selectedCategory.id,
         price: 0,
         image: '',
         available: true,
@@ -191,8 +271,8 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
 
             {/* Price */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price ($)
+              <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
+                Price (Rp)
               </label>
               <input
                 type="number"
@@ -287,35 +367,50 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Variant Groups
                 </label>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {variantGroups.map((group) => (
-                    <div key={group.id} className="flex items-start gap-3 p-2 bg-white rounded-lg">
-                      <input
-                        type="checkbox"
-                        id={`variant-${group.id}`}
-                        checked={formData.variantGroups.includes(group.id)}
-                        onChange={() => handleToggleVariantGroup(group.id)}
-                        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                      />
-                      <div className="flex-1">
-                        <label 
-                          htmlFor={`variant-${group.id}`} 
-                          className="text-sm font-medium text-gray-700 cursor-pointer"
-                        >
-                          {group.name}
-                        </label>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {group.options.length} option{group.options.length !== 1 ? 's' : ''} • {group.type === 'single' ? 'Single select' : 'Multiple select'}
+                {loadingVariants ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="text-sm text-gray-500 mt-2">Loading variant groups...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {variantGroups.map((group) => (
+                      <div key={group.id} className="flex items-start gap-3 p-2 bg-white rounded-lg">
+                        <input
+                          type="checkbox"
+                          id={`variant-${group.id}`}
+                          checked={formData.variantGroups.includes(group.id)}
+                          onChange={() => handleToggleVariantGroup(group.id)}
+                          className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <label 
+                            htmlFor={`variant-${group.id}`} 
+                            className="text-sm font-medium text-gray-700 cursor-pointer"
+                          >
+                            {group.name}
+                            {group.is_required && (
+                              <span className="ml-1 text-red-500">*</span>
+                            )}
+                          </label>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {group.options.length} option{group.options.length !== 1 ? 's' : ''} • {group.type === 'single' ? 'Single select' : 'Multiple select'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {variantGroups.length === 0 && (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500 mb-2">
+                          No variant groups available
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Go to Variants page to create variant groups first
                         </p>
                       </div>
-                    </div>
-                  ))}
-                  {variantGroups.length === 0 && (
-                    <p className="text-sm text-gray-500 text-center py-4">
-                      No variant groups available. Create variant groups first.
-                    </p>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

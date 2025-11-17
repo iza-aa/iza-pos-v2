@@ -1,6 +1,8 @@
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor } from '@/lib/activityTypes'
 
+import { parseSupabaseTimestamp, formatJakartaDateTime } from "@/lib/dateUtils";
+
 interface ActivityLogDetailProps {
   log: ActivityLog | null
   onClose: () => void
@@ -50,7 +52,7 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
             </div>
             <div>
               <div className="text-sm font-medium text-gray-500">Timestamp</div>
-              <div className="text-sm text-gray-900">{new Date(log.timestamp).toLocaleString()}</div>
+              <div className="text-sm text-gray-900">{formatJakartaDateTime(parseSupabaseTimestamp(log.timestamp))}</div>
             </div>
             <div>
               <div className="text-sm font-medium text-gray-500">Action</div>

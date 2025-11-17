@@ -9,20 +9,40 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   const { staff_code, login_code } = await req.json();
 
+  // Cari staff berdasarkan staff_code dan login_code
   const { data: staff } = await supabase
     .from("staff")
     .select("*")
     .eq("staff_code", staff_code)
     .eq("login_code", login_code)
+    .eq("status", "active")
+    .eq("role", "staff")
     .maybeSingle();
 
   if (!staff) {
-    return NextResponse.json({ error: "ID Staff atau Password salah." }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "ID Staff atau Login Code salah." },
+      { status: 401 }
+    );
+  }
+
+  // Cek apakah login_code masih valid
+  if (staff.login_code_expires_at) {
+    const expiresAt = new Date(staff.login_code_expires_at);
+    if (expiresAt < new Date()) {
+      return NextResponse.json(
+        { success: false, error: "Login code sudah expired. Minta code baru ke Manager." },
+        { status: 401 }
+      );
+    }
   }
 
   return NextResponse.json({
     success: true,
-    staff_id: staff.id,
-    staff_name: staff.name, // pastikan ada ini!
+    user_id: staff.id,
+    user_name: staff.name,
+    user_role: staff.role,
+    staff_type: staff.staff_type, // barista, kitchen, waiter, cashier
+    staff_code: staff.staff_code,
   });
 }
