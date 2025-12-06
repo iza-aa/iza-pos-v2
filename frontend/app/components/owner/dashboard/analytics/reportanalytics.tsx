@@ -29,50 +29,57 @@ export default function ReportAnalytics() {
   const growthPercentage = avgAmount > 0 ? (growth / avgAmount) * 100 : 0;
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-300 hover:shadow-lg transition">
+    <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-100 rounded-full p-2">
-            <ChartBarIcon className="h-6 w-6 text-blue-500" />
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-gray-100 rounded-xl p-2">
+              <ChartBarIcon className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-800">Report Analytics</h3>
+              <p className="text-xs text-gray-500">Weekly revenue overview</p>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">Report Analytics</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
-            Weekly
-          </button>
-          <ArrowUpRightIcon className="h-5 w-5 text-gray-400" />
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition">
+              Weekly
+            </button>
+            <ArrowUpRightIcon className="h-4 w-4 text-gray-400" />
+          </div>
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {categories.map((category) => (
-          <button
-            key={category}
-            onClick={() => setActiveCategory(category)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-              activeCategory === category
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
+      {/* Content */}
+      <div className="p-4">
+        {/* Category Filter */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setActiveCategory(category)}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                activeCategory === category
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
 
-      {/* Chart */}
-      <div className="h-[337px] mb-6">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={weeklyData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+        {/* Chart */}
+        <div className="h-[180px] mb-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={weeklyData} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
             <defs>
               <pattern id="diagonalStripes" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
                 <line x1="0" y1="0" x2="0" y2="8" stroke="#d1d5db" strokeWidth="2" />
               </pattern>
-              <pattern id="diagonalStripesWhite" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                <rect width="8" height="8" fill="#3b82f6" />
+              <pattern id="diagonalStripesSelected" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill="#374151" />
                 <line x1="0" y1="0" x2="0" y2="8" stroke="white" strokeWidth="2" />
               </pattern>
             </defs>
@@ -88,9 +95,10 @@ export default function ReportAnalytics() {
               tickLine={false}
               tick={{ fill: '#9ca3af', fontSize: 12 }}
               tickFormatter={(value) => `${value / 1000}k`}
+              width={40}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+              cursor={{ fill: 'rgba(55, 65, 81, 0.1)' }}
               contentStyle={{
                 backgroundColor: '#1f2937',
                 border: 'none',
@@ -102,13 +110,13 @@ export default function ReportAnalytics() {
             <Bar
               dataKey="amount"
               fill="#e5e7eb"
-              radius={[20, 20, 20, 20]}
-              maxBarSize={60}
+              radius={[16, 16, 16, 16]}
+              maxBarSize={65}
               onClick={(data: any) => setSelectedDay(data.day)}
               shape={(props: any) => {
-                const { fill, x, y, width, height, payload } = props;
+                const { x, y, width, height, payload } = props;
                 const isSelected = payload.day === selectedDay;
-                const padding = 4; // padding untuk arsiran
+                const padding = 4;
                 return (
                   <g>
                     {/* Outline bar */}
@@ -118,10 +126,10 @@ export default function ReportAnalytics() {
                       width={width}
                       height={height}
                       fill="none"
-                      stroke={isSelected ? "#2563eb" : "#e0e0e0ff"}
+                      stroke={isSelected ? "#374151" : "#e0e0e0ff"}
                       strokeWidth="2"
-                      rx={20}
-                      ry={20}
+                      rx={16}
+                      ry={16}
                     />
                     {/* Arsiran dengan padding */}
                     <rect
@@ -129,9 +137,9 @@ export default function ReportAnalytics() {
                       y={y + padding}
                       width={width - padding * 2}
                       height={height - padding * 2}
-                      fill={isSelected ? "url(#diagonalStripesWhite)" : "url(#diagonalStripes)"}
-                      rx={18}
-                      ry={18}
+                      fill={isSelected ? "url(#diagonalStripesSelected)" : "url(#diagonalStripes)"}
+                      rx={14}
+                      ry={14}
                     />
                     {isSelected && (
                       <>
@@ -143,13 +151,13 @@ export default function ReportAnalytics() {
                           fontSize="12"
                           fontWeight="600"
                         >
-                          Rp {payload.amount.toLocaleString('id-ID')}
+                          Rp {(payload.amount / 1000).toFixed(0)}k
                         </text>
                         <circle
                           cx={x + width / 2}
                           cy={y + height / 2}
                           r={3}
-                          fill="#3b82f6"
+                          fill="#374151"
                         />
                       </>
                     )}
@@ -161,19 +169,48 @@ export default function ReportAnalytics() {
         </ResponsiveContainer>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4 ">
-        <div className="bg-gray-100 border border-gray-200 rounded-xl p-4">
-          <p className="text-xl text-gray-500 mb-1">Amount</p>
-          <p className="text-2xl font-bold text-gray-900">Rp {totalAmount.toLocaleString('id-ID')}</p>
-        </div>
-        <div className="bg-gray-100 border border-gray-200 rounded-xl p-4">
-          <p className="text-xl text-gray-500 mb-1">Growth</p>
-          <p className="text-2xl font-bold text-green-500">+Rp {Math.abs(growth).toLocaleString('id-ID')}</p>
-        </div>
-        <div className="bg-gray-100 border border-gray-200 rounded-xl p-4">
-          <p className="text-xl text-gray-500 mb-1">Growth Percentage</p>
-          <p className="text-2xl font-bold text-gray-900">{growthPercentage.toFixed(2)}%</p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm text-gray-500">Amount</p>
+            </div>
+            <p className="text-base font-bold text-gray-900">Rp {(totalAmount / 1000).toFixed(0)}k</p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm text-gray-500">Growth</p>
+              <span 
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ 
+                  backgroundColor: growth >= 0 ? '#B2FF5E' : '#FF6859',
+                  color: growth >= 0 ? '#166534' : '#7f1d1d'
+                }}
+              >
+                {growth >= 0 ? '+' : ''}{((growth / avgAmount) * 100).toFixed(0)}%
+              </span>
+            </div>
+            <p className="text-base font-bold text-gray-900">
+              {growth >= 0 ? '+' : '-'}Rp {(Math.abs(growth) / 1000).toFixed(0)}k
+            </p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm text-gray-500">Growth %</p>
+              <span 
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ 
+                  backgroundColor: growthPercentage >= 0 ? '#B2FF5E' : '#FF6859',
+                  color: growthPercentage >= 0 ? '#166534' : '#7f1d1d'
+                }}
+              >
+                {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(0)}%
+              </span>
+            </div>
+            <p className="text-base font-bold text-gray-900">
+              {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
+            </p>
+          </div>
         </div>
       </div>
     </div>

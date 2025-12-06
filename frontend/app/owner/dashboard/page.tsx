@@ -10,6 +10,7 @@ import FavoriteProduct from "@/app/components/owner/dashboard/analytics/favorite
 import PaymentMethod from "@/app/components/owner/dashboard/analytics/paymentmethod"
 import PeakPerformance from "@/app/components/owner/dashboard/analytics/peakperformance"
 import LowStockAlert from "@/app/components/owner/dashboard/analytics/lowstockalert"
+import LiveActivity from "@/app/components/owner/dashboard/analytics/liveactivity"
 import AnalyticsHeader from "@/app/components/owner/dashboard/analytics/header"
 import FloatingAIAssistant from "@/app/components/ui/FloatingAIAssistant"
 
@@ -49,17 +50,20 @@ export default function OwnerDashboardPage() {
           <AvgOrderValue />
         </div>
 
-        {/* Revenue Chart & Favorite Products - Side by Side */}
-        <div className="grid grid-cols-2 gap-4">
-          <ReportAnalytics />
+        {/* Revenue Chart, Favorite Products & Stock Level - Side by Side */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="col-span-2">
+            <ReportAnalytics />
+          </div>
           <FavoriteProduct />
+          <LowStockAlert />
         </div>
 
-        {/* Payment Method, Peak Performance & Low Stock Alert */}
+        {/* Payment Method, Peak Performance & Live Activity */}
         <div className="grid grid-cols-3 gap-4">
           <PaymentMethod />
           <PeakPerformance />
-          <LowStockAlert />
+          <LiveActivity />
         </div>
       </section>
 

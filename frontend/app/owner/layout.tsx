@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from "next/navigation";
-import OwnerNavbar from "../components/ui/navbar/owner/page";
+import Navbar from "../components/ui/navbar/Navbar";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -9,7 +9,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
 
   return (
     <div>
-      {!isLogin && <OwnerNavbar />}
+      {!isLogin && <Navbar role="owner" canSwitchRole={true} />}
       <main>{children}</main>
     </div>
   );

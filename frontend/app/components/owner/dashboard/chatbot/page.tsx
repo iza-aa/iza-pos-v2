@@ -81,13 +81,13 @@ export default function Chatbot() {
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                     msg.sender === 'user'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-gray-800 text-white'
                       : 'bg-gray-200 text-gray-800'
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
                   <span className={`text-xs mt-1 block ${
-                    msg.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
+                    msg.sender === 'user' ? 'text-gray-400' : 'text-gray-500'
                   }`}>
                     {msg.timestamp.toLocaleTimeString('id-ID', { 
                       hour: '2-digit', 
@@ -136,7 +136,7 @@ export default function Chatbot() {
         <div className="flex items-center justify-end">
           <button
             onClick={handleSend}
-            className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition"
+            className="p-2 bg-gray-800 hover:bg-gray-900 rounded-lg transition"
           >
             <PaperAirplaneIcon className="h-5 w-5 text-white" />
           </button>

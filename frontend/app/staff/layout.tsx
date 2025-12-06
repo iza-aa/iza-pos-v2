@@ -2,21 +2,21 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import OwnerNavbar from "../components/ui/navbar/owner/page";
-import CashierBaristaNavbar from "../components/ui/navbar/staff/cashier.barista/page";
-import KitchenNavbar from "../components/ui/navbar/staff/kitchen/page";
-import WaiterNavbar from "../components/ui/navbar/staff/waiters/page";
+import Navbar from "../components/ui/navbar/Navbar";
+
+type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter';
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [staffType, setStaffType] = useState<string | null>(null);
+  const [staffType, setStaffType] = useState<StaffType | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setUserRole(localStorage.getItem('user_role'));
-    setStaffType(localStorage.getItem('staff_type'));
+    const type = localStorage.getItem('staff_type') as StaffType | null;
+    setStaffType(type);
   }, []);
 
   const hideNavbar = pathname === "/staff/login";
@@ -26,27 +26,13 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return <main>{children}</main>;
   }
 
-  // Owner accessing staff routes → Use Owner Navbar with role selector
-  if (userRole === 'owner') {
-    return (
-      <div>
-        <OwnerNavbar />
-        <main>{children}</main>
-      </div>
-    );
-  }
-
-  // Staff → Use navbar based on staff_type
-  const renderStaffNavbar = () => {
-    if (staffType === 'kitchen') return <KitchenNavbar />;
-    if (staffType === 'cashier' || staffType === 'barista') return <CashierBaristaNavbar />;
-    if (staffType === 'waiter') return <WaiterNavbar />;
-    return null; // Fallback
-  };
-
   return (
     <div>
-      {renderStaffNavbar()}
+      <Navbar 
+        role="staff" 
+        staffType={staffType} 
+        canSwitchRole={userRole === 'owner'} 
+      />
       <main>{children}</main>
     </div>
   );

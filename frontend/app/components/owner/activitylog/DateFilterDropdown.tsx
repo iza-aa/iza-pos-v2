@@ -50,7 +50,7 @@ export default function DateFilterDropdown({
         onClick={() => setShowDropdown(!showDropdown)}
         className={`flex items-center gap-2 h-[42px] px-4 border rounded-xl transition ${
           dateFilter !== 'all'
-            ? 'bg-blue-50 border-blue-500 text-blue-700'
+            ? 'bg-gray-800 border-gray-800 text-white'
             : 'border-gray-300 hover:bg-gray-50'
         }`}
       >
@@ -66,7 +66,7 @@ export default function DateFilterDropdown({
               onClick={() => handleDateFilterSelect('all')}
               className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
                 dateFilter === 'all'
-                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  ? 'bg-gray-800 text-white font-medium'
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
@@ -76,7 +76,7 @@ export default function DateFilterDropdown({
               onClick={() => handleDateFilterSelect('today')}
               className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
                 dateFilter === 'today'
-                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  ? 'bg-gray-800 text-white font-medium'
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
@@ -86,7 +86,7 @@ export default function DateFilterDropdown({
               onClick={() => handleDateFilterSelect('week')}
               className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
                 dateFilter === 'week'
-                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  ? 'bg-gray-800 text-white font-medium'
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
@@ -96,7 +96,7 @@ export default function DateFilterDropdown({
               onClick={() => handleDateFilterSelect('month')}
               className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
                 dateFilter === 'month'
-                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  ? 'bg-gray-800 text-white font-medium'
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >

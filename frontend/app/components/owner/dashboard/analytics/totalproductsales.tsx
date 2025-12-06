@@ -7,15 +7,14 @@ export default function TotalProductSales() {
 			{/* Top Card - White Background */}
 			<div className="bg-white rounded-xl p-4 mb-3 border border-gray-300">
 				<div className="flex items-center gap-3">
-					<div className="bg-purple-100 rounded-xl p-3">
-						<ShoppingBagIcon className="h-6 w-6 text-purple-500" />
+					<div className="bg-gray-100 rounded-xl p-3">
+						<ShoppingBagIcon className="h-6 w-6 text-gray-700" />
 					</div>
 				<div className="flex-1">
 				<div className="flex items-center gap-2 mb-1">
 					<p className="text-sm text-gray-500">Product Sales</p>
 					<span className="flex items-center gap-1">
-						<ArrowTrendingUpIcon className="h-3 w-3 text-green-600" />
-						<span className="text-xs font-semibold text-green-600">8%</span>
+						<span className="text-xs font-semibold" style={{ color: '#166534', backgroundColor: '#B2FF5E', padding: '2px 6px', borderRadius: '6px' }}>+8%</span>
 					</span>
 				</div>
 					<span className="text-xl font-bold text-gray-900">2,456</span>

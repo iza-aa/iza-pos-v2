@@ -1,7 +1,7 @@
 "use client";
 
-import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon, CheckCircleIcon } from "@heroicons/react/24/solid";
+import { ArrowTopRightOnSquareIcon, CubeIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -71,101 +71,120 @@ export default function LowStockAlert() {
     }
   };
 
-  const getStockColor = (percentage: number) => {
-    if (percentage <= 20) return 'bg-red-500';
-    if (percentage <= 50) return 'bg-orange-400';
-    if (percentage <= 100) return 'bg-yellow-400';
-    return 'bg-green-500';
-  };
-
-  const getStockBgColor = (percentage: number) => {
-    if (percentage <= 20) return 'bg-red-100';
-    if (percentage <= 50) return 'bg-orange-100';
-    if (percentage <= 100) return 'bg-yellow-100';
-    return 'bg-green-100';
+  const getStockStatus = (percentage: number) => {
+    if (percentage <= 50) return { color: 'bg-gray-800', bgColor: 'bg-gray-100', label: 'Critical', textColor: 'text-gray-700' };
+    if (percentage <= 100) return { color: 'bg-gray-500', bgColor: 'bg-gray-100', label: 'Low', textColor: 'text-gray-600' };
+    return { color: 'bg-gray-300', bgColor: 'bg-gray-100', label: 'Good', textColor: 'text-gray-500' };
   };
 
   // Count items that actually need reorder
   const needsAttentionCount = lowStockItems.filter(item => item.percentage <= 100).length;
 
   return (
-    <div className="bg-white rounded-2xl p-5 w-full border border-gray-300 hover:shadow-lg transition">
+    <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`${needsAttentionCount > 0 ? 'bg-red-100' : 'bg-blue-100'} rounded-xl p-2.5`}>
-            <ExclamationTriangleIcon className={`h-5 w-5 ${needsAttentionCount > 0 ? 'text-red-500' : 'text-blue-500'}`} />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-gray-800">Stock Levels</h3>
-            {lowStockItems.length > 0 && (
-              <span className={`text-xs font-medium ${needsAttentionCount > 0 ? 'text-red-500' : 'text-gray-500'}`}>
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-gray-100 rounded-xl p-2">
+              {needsAttentionCount > 0 ? (
+                <ExclamationTriangleIcon className="h-5 w-5 text-gray-700" />
+              ) : (
+                <CheckCircleIcon className="h-5 w-5 text-gray-700" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-800">Stock Levels</h3>
+              <p className="text-xs font-medium text-gray-500">
                 {needsAttentionCount > 0 ? `${needsAttentionCount} items need reorder` : 'All stocks healthy'}
-              </span>
-            )}
+              </p>
+            </div>
           </div>
+          <a 
+            href="/manager/inventory" 
+            className="p-2 hover:bg-gray-100 rounded-xl transition group"
+            title="View Inventory"
+          >
+            <ArrowTopRightOnSquareIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
+          </a>
         </div>
-        <a 
-          href="/manager/inventory" 
-          className="p-2 hover:bg-gray-100 rounded-lg transition"
-          title="View Inventory"
-        >
-          <ArrowTopRightOnSquareIcon className="h-4 w-4 text-gray-400" />
-        </a>
       </div>
 
       {/* Stock List */}
-      <div className="space-y-3">
+      <div className="divide-y divide-gray-50">
         {isLoading ? (
           // Loading skeleton
-          Array.from({ length: 3 }).map((_, idx) => (
-            <div key={idx} className="animate-pulse">
-              <div className="flex justify-between mb-1">
-                <div className="h-4 bg-gray-200 rounded w-24"></div>
-                <div className="h-4 bg-gray-200 rounded w-16"></div>
+          Array.from({ length: 5 }).map((_, idx) => (
+            <div key={idx} className="px-4 py-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gray-100 rounded-xl"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-100 rounded w-24"></div>
+                </div>
+                <div className="text-right">
+                  <div className="h-3 bg-gray-100 rounded w-20 mb-1.5"></div>
+                  <div className="h-1.5 bg-gray-100 rounded-full w-16"></div>
+                </div>
+                <div className="h-6 bg-gray-100 rounded-lg w-14"></div>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full"></div>
             </div>
           ))
         ) : lowStockItems.length === 0 ? (
-          <div className="text-center py-4">
-            <div className="text-gray-400 text-2xl mb-2">📦</div>
-            <p className="text-sm text-gray-500">No inventory data</p>
+          <div className="text-center py-8">
+            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <CubeIcon className="h-6 w-6 text-gray-400" />
+            </div>
+            <p className="text-sm font-medium text-gray-500">No inventory data</p>
+            <p className="text-xs text-gray-400 mt-1">Add items to track stock levels</p>
           </div>
         ) : (
-          lowStockItems.map((item) => (
-            <div key={item.id}>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]">
-                  {item.name}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {item.current_stock.toLocaleString()} / {item.minimum_stock.toLocaleString()} {item.unit}
-                </span>
-              </div>
-              <div className={`h-2 ${getStockBgColor(item.percentage)} rounded-full overflow-hidden`}>
+          lowStockItems.map((item) => {
+            const status = getStockStatus(item.percentage);
+            return (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group">
+                {/* Icon */}
+                <div className={`w-9 h-9 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+                  <CubeIcon className="h-5 w-5 text-gray-600" />
+                </div>
+
+                {/* Item Name - same height as Top Product (2 lines) */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-800 text-sm truncate">{item.name}</p>
+                  <span className="inline-block text-[10px] px-2 py-0.5 rounded-full mt-1 text-gray-600 bg-gray-100 border border-gray-200">
+                    {item.unit}
+                  </span>
+                </div>
+
+                {/* Stock Info & Progress */}
+                <div className="text-right shrink-0">
+                  <div className="flex items-center gap-1.5 justify-end">
+                    <span className="text-sm font-semibold text-gray-800">{item.current_stock.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400">/ {item.minimum_stock.toLocaleString()} {item.unit}</span>
+                  </div>
+                  {/* Mini progress bar - same as Top Product */}
+                  <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-gray-400 to-gray-600 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(item.percentage, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Status Badge */}
                 <div 
-                  className={`h-full ${getStockColor(item.percentage)} rounded-full transition-all`}
-                  style={{ width: `${Math.min(item.percentage, 100)}%` }}
-                />
+                  className="text-xs font-semibold px-2 py-1 rounded-lg shrink-0"
+                  style={{ 
+                    backgroundColor: status.label === 'Good' ? '#B2FF5E' : '#FF6859',
+                    color: status.label === 'Good' ? '#166534' : '#7f1d1d'
+                  }}
+                >
+                  {status.label}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
-
-      {/* Footer */}
-      {lowStockItems.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-gray-100">
-          <a 
-            href="/manager/inventory"
-            className="text-sm text-blue-500 hover:text-blue-600 font-medium flex items-center gap-1"
-          >
-            Manage Inventory
-            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
-          </a>
-        </div>
-      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ export default function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeT
         onClick={() => onViewModeChange('card')}
         className={`h-full px-2 transition ${
           viewMode === 'card'
-            ? 'bg-blue-500 text-white'
+            ? 'bg-black text-white'
             : 'bg-white text-gray-600 hover:bg-gray-50'
         }`}
         title="Card View"
@@ -25,7 +25,7 @@ export default function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeT
         onClick={() => onViewModeChange('table')}
         className={`h-full px-2 transition ${
           viewMode === 'table'
-            ? 'bg-blue-500 text-white'
+            ? 'bg-black text-white'
             : 'bg-white text-gray-600 hover:bg-gray-50'
         }`}
         title="Table View"

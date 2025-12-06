@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import OwnerNavbar from "../components/ui/navbar/owner/page";
-import ManagerNavbar from "../components/ui/navbar/manager/page";
+import Navbar from "../components/ui/navbar/Navbar";
 
 export default function ManagerLayout({
   children,
@@ -28,9 +27,7 @@ export default function ManagerLayout({
   return (
     <div>
       {!isLoginPage && (
-        <>
-          {userRole === "owner" ? <OwnerNavbar /> : <ManagerNavbar />}
-        </>
+        <Navbar role="manager" canSwitchRole={userRole === "owner"} />
       )}
       <main>{children}</main>
     </div>

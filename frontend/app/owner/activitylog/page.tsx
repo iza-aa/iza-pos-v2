@@ -189,21 +189,21 @@ export default function ActivityLogPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 h-[42px] px-4 border rounded-xl transition ${
                 showFilters 
-                  ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                  ? 'bg-gray-800 border-gray-800 text-white' 
                   : 'border-gray-300 hover:bg-gray-50'
               }`}
             >
               <FunnelIcon className="w-5 h-5" />
               <span className="text-sm font-medium">Filters</span>
               {hasActiveFilters && (
-                <span className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="bg-white text-gray-800 text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
                   {[filters.severity, filters.category, filters.userRole, filters.action, searchQuery].filter(Boolean).length}
                 </span>
               )}
             </button>
 
             {/* Export Button */}
-            <button className="flex items-center gap-2 h-[42px] px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">
+            <button className="flex items-center gap-2 h-[42px] px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition">
               <ArrowDownTrayIcon className="w-5 h-5" />
               <span className="text-sm font-medium">Export</span>
             </button>

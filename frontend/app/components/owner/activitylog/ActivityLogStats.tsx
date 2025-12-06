@@ -13,15 +13,15 @@ export default function ActivityLogStats({ stats }: ActivityLogStatsProps) {
       </div>
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <div className="text-sm text-gray-600 mb-1">Today</div>
-        <div className="text-2xl font-bold text-blue-600">{stats.todayLogs}</div>
+        <div className="text-2xl font-bold text-gray-800">{stats.todayLogs}</div>
       </div>
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <div className="text-sm text-gray-600 mb-1">Critical</div>
-        <div className="text-2xl font-bold text-red-600">{stats.criticalActions}</div>
+        <div className="text-2xl font-bold text-gray-800">{stats.criticalActions}</div>
       </div>
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <div className="text-sm text-gray-600 mb-1">Active Users</div>
-        <div className="text-2xl font-bold text-purple-600">{stats.uniqueUsers}</div>
+        <div className="text-2xl font-bold text-gray-800">{stats.uniqueUsers}</div>
       </div>
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <div className="text-sm text-gray-600 mb-1">Top User</div>

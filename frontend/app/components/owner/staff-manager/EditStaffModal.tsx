@@ -81,7 +81,7 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
               placeholder="Masukkan nama staff"
             />
           </div>
@@ -95,7 +95,7 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
               {roleOptions.map((role) => (
                 <option key={role} value={role}>
@@ -128,7 +128,7 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
               {statusOptions.map((status) => (
                 <option key={status} value={status}>
@@ -149,7 +149,7 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition font-medium"
             >
               Simpan
             </button>

@@ -31,26 +31,38 @@ export default function StaffCard({
     new Date(staff.login_code_expires_at) > new Date()
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Aktif':
-        return 'bg-green-100 text-green-700 border-green-200'
-      case 'Cuti':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-      default:
-        return 'bg-red-100 text-red-700 border-red-200'
+    const statusLower = status.toLowerCase().trim()
+    if (statusLower === 'aktif' || statusLower === 'active') {
+      return ''
     }
+    if (statusLower === 'nonaktif' || statusLower === 'non-aktif' || statusLower === 'inactive') {
+      return ''
+    }
+    return 'bg-gray-500 text-white'
+  }
+
+  const getStatusStyle = (status: string) => {
+    const statusLower = status.toLowerCase().trim()
+    if (statusLower === 'aktif' || statusLower === 'active') {
+      return { backgroundColor: '#B2FF5E', color: '#166534' }
+    }
+    if (statusLower === 'nonaktif' || statusLower === 'non-aktif' || statusLower === 'inactive') {
+      return { backgroundColor: '#FF6859', color: '#7f1d1d' }
+    }
+    // Default fallback for Cuti or other status
+    return {}
   }
 
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'Manager':
-        return 'bg-purple-100 text-purple-700'
+        return 'bg-gray-800 text-white'
       case 'Barista':
-        return 'bg-blue-100 text-blue-700'
+        return 'bg-gray-600 text-white'
       case 'Kasir':
-        return 'bg-orange-100 text-orange-700'
+        return 'bg-gray-400 text-white'
       default:
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-gray-200 text-gray-700'
     }
   }
 
@@ -62,14 +74,14 @@ export default function StaffCard({
 
   const getAvatarColor = (name: string) => {
     const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-yellow-500',
-      'bg-indigo-500',
-      'bg-red-500',
-      'bg-orange-500'
+      'bg-gray-800',
+      'bg-gray-700',
+      'bg-gray-600',
+      'bg-gray-500',
+      'bg-gray-800',
+      'bg-gray-700',
+      'bg-gray-600',
+      'bg-gray-500'
     ]
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
@@ -78,12 +90,15 @@ export default function StaffCard({
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow break-inside-avoid mb-4">
       {/* Header with Avatar */}
-      <div className="relative p-4 pb-12 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+      <div className="relative p-4 pb-12 border-b border-gray-100 bg-gradient-to-r from-gray-100 to-white">
         <div className="flex items-start justify-between mb-8">
           <div className="flex-1">
             <p className="text-xs text-gray-500">ID: {staff.staff_code}</p>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(staff.status)}`}>
+          <span 
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(staff.status)}`}
+            style={getStatusStyle(staff.status)}
+          >
             {staff.status}
           </span>
         </div>
@@ -119,7 +134,7 @@ export default function StaffCard({
           {hasValidLoginCode ? (
             <button
               onClick={() => onCopyCode(staff.login_code!)}
-              className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+              className="font-mono text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline"
               title="Klik untuk copy"
             >
               {staff.login_code}
@@ -127,7 +142,7 @@ export default function StaffCard({
           ) : (
             <button
               onClick={onGeneratePass}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+              className="text-sm text-gray-700 hover:text-gray-900 font-medium hover:underline"
             >
               Generate Pass →
             </button>
@@ -139,13 +154,13 @@ export default function StaffCard({
       <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
         <button
           onClick={onEdit}
-          className="flex-1 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
         >
           Edit
         </button>
         <button
           onClick={onDelete}
-          className="flex-1 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition"
+          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition"
         >
           Hapus
         </button>

@@ -52,7 +52,7 @@ export default function AnalyticsHeader({ showDatePicker, setShowDatePicker }: A
           <CalendarIcon className="h-5 w-5" />
           <span className="text-sm font-medium">Date Period</span>
         </button>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition">
+        <button className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition">
           <ArrowDownTrayIcon className="h-5 w-5" />
           <span className="text-sm font-medium">Export Report</span>
         </button>

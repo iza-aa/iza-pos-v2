@@ -222,7 +222,7 @@ export default function StaffManagerPage() {
 
       <section className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
         {viewMode === 'card' && (
-          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             {filteredStaff.map((staff) => (
               <StaffCard
                 key={staff.id}

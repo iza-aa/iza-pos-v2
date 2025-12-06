@@ -20,7 +20,7 @@ export default function ActivityLogFilters({
         {hasActiveFilters && (
           <button 
             onClick={onClearFilters}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-gray-700 hover:text-gray-900 font-medium"
           >
             Clear All
           </button>
@@ -33,7 +33,7 @@ export default function ActivityLogFilters({
           <select 
             value={filters.severity || ''}
             onChange={(e) => onFilterChange({...filters, severity: e.target.value as any || undefined})}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             <option value="">All</option>
             <option value="critical">Critical</option>
@@ -48,7 +48,7 @@ export default function ActivityLogFilters({
           <select 
             value={filters.category || ''}
             onChange={(e) => onFilterChange({...filters, category: e.target.value as any || undefined})}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             <option value="">All</option>
             <option value="AUTH">Authentication</option>
@@ -68,7 +68,7 @@ export default function ActivityLogFilters({
           <select 
             value={filters.userRole || ''}
             onChange={(e) => onFilterChange({...filters, userRole: e.target.value as any || undefined})}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             <option value="">All</option>
             <option value="owner">Owner</option>
@@ -84,7 +84,7 @@ export default function ActivityLogFilters({
           <select 
             value={filters.action || ''}
             onChange={(e) => onFilterChange({...filters, action: e.target.value as any || undefined})}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             <option value="">All</option>
             <option value="CREATE">Create</option>
