@@ -56,12 +56,16 @@ export default function LoginStaffPage() {
       // Simpan data staff ke localStorage
       localStorage.setItem("user_id", result.user_id);
       localStorage.setItem("user_name", result.user_name);
-      localStorage.setItem("user_role", "staff");
-      localStorage.setItem("staff_type", result.staff_type); // barista, kitchen, waiter, cashier
+      localStorage.setItem("user_role", result.user_role); // 'staff' atau 'manager'
+      localStorage.setItem("staff_type", result.staff_type);
       localStorage.setItem("staff_code", result.staff_code);
 
-      // Redirect ke dashboard
-      window.location.href = "/staff/dashboard";
+      // Auto redirect berdasarkan role
+      if (result.user_role === "manager") {
+        window.location.href = "/manager/dashboard";
+      } else {
+        window.location.href = "/staff/dashboard";
+      }
     } else {
       setError(result.error || "ID Staff atau Password salah.");
     }
@@ -111,21 +115,27 @@ export default function LoginStaffPage() {
             <img src="/logo/IZALogo2.png" alt="Logo" className="w-20 mr-3" />
           </div>
           <div className="mb-8">
-            <p className="text-gray-700 text-2xl font-semibold mt-2">
-              Selamat datang kembali, siap mulai shift hari ini?
+            <h2 className="text-2xl font-bold text-gray-800">Staff Login</h2>
+            <p className="text-gray-500 text-sm mt-2">
+              Sign in to start your shift
             </p>
           </div>
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">
-                ID Staff
+                Staff ID
               </label>
               <input
                 type="text"
                 value={staffId}
                 onChange={(e) => setStaffId(e.target.value)}
-                className="w-full p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white-200 border border-gray-400"
-                placeholder="Masukkan ID Staff"
+                className="w-full p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 border border-gray-400"
+                placeholder="STF001"
                 required
               />
             </div>
@@ -137,7 +147,7 @@ export default function LoginStaffPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white-200 border border-gray-400"
+                className="w-full p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 border border-gray-400"
                 placeholder="Enter your password"
                 required
               />
@@ -147,21 +157,20 @@ export default function LoginStaffPage() {
                 <input type="checkbox" className="rounded border-gray-300" />
                 <span className="ml-2 text-sm text-gray-400">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-blue-400 hover:text-blue-200">
-                Forgot password?
-              </a>
             </div>
             <button
               type="submit"
-              className="w-full font-semibold bg-gradient-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full font-semibold bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               disabled={loading}
             >
-              {loading ? "Loading..." : "Sign In"}
+              {loading ? "Loading..." : "Sign In as Staff"}
             </button>
+            <div className="mt-4 text-center">
+              <a href="/manager/login" className="text-sm text-blue-600 hover:text-blue-700 hover:underline">
+                Login as Manager
+              </a>
+            </div>
           </form>
-          {error && (
-            <div className="text-red-600 text-sm text-center mb-2">{error}</div>
-          )}
         </div>
       </div>
     </div>

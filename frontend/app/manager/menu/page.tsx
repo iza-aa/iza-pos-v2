@@ -103,6 +103,7 @@ export default function MenuPage() {
               id: cat.id,
               name: cat.name,
               icon: cat.icon,
+              type: cat.type, // Include type field
               count: count || 0
             }
           })
@@ -404,9 +405,9 @@ export default function MenuPage() {
             
             return (
               <div key={category.id} className="relative">
-                <button
+                <div
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition ${
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition cursor-pointer ${
                     isSelected
                       ? 'bg-gray-100 text-gray-900'
                       : 'hover:bg-gray-50 text-gray-600'
@@ -451,7 +452,7 @@ export default function MenuPage() {
                       </button>
                     </div>
                   )}
-                </button>
+                </div>
               </div>
             )
           })}

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Package, ClipboardList, TrendingUp } from 'lucide-react'
 
-type TabType = 'raw-materials' | 'recipes' | 'recipe-dishes' | 'recipe-variants' | 'usage-history'
+type TabType = 'raw-materials' | 'recipes' | 'recipe-dishes' | 'recipe-variants' | 'default-modifiers' | 'product-overrides' | 'usage-history'
 
 interface InventoryTabsProps {
   activeTab: TabType
@@ -21,10 +21,12 @@ export default function InventoryTabs({ activeTab, onTabChange }: InventoryTabsP
 
   const recipeSubTabs = [
     { id: 'recipe-dishes' as const, label: 'Dishes (Base Recipes)' },
-    { id: 'recipe-variants' as const, label: 'Variants (Variant-Specific Recipes)' }
+    { id: 'recipe-variants' as const, label: 'Variants (Legacy)' },
+    { id: 'default-modifiers' as const, label: 'Default Modifiers' },
+    { id: 'product-overrides' as const, label: 'Product Overrides' }
   ]
 
-  const isRecipeTabActive = activeTab === 'recipe-dishes' || activeTab === 'recipe-variants'
+  const isRecipeTabActive = activeTab === 'recipe-dishes' || activeTab === 'recipe-variants' || activeTab === 'default-modifiers' || activeTab === 'product-overrides'
 
   const handleTabClick = (tabId: TabType) => {
     if (tabId === 'recipes') {

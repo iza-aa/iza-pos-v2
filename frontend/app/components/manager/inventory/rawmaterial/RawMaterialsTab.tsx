@@ -7,7 +7,7 @@ import InventoryFilters from './InventoryFilters'
 import InventoryTable from './InventoryTable'
 import InventoryModal from './InventoryModal'
 import DeleteModal from '../../../ui/DeleteModal'
-import { inventoryItems as mockInventoryItems } from '@/lib/mockData'
+import { supabase } from '@/lib/supabaseClient'
 
 interface InventoryItem {
   id: string
@@ -21,12 +21,6 @@ interface InventoryItem {
   status: 'in-stock' | 'low-stock' | 'out-of-stock'
 }
 
-const categories = [
-  { id: 'all', name: 'All Items', count: mockInventoryItems.length },
-  { id: 'ingredients', name: 'Ingredients', count: mockInventoryItems.filter(i => i.category === 'Ingredients').length },
-  { id: 'packaging', name: 'Packaging', count: mockInventoryItems.filter(i => i.category === 'Packaging').length },
-]
-
 interface RawMaterialsTabProps {
   viewAsOwner: boolean
 }
@@ -35,15 +29,63 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [items, setItems] = useState<InventoryItem[]>([])
+  const [categories, setCategories] = useState([
+    { id: 'all', name: 'All Items', count: 0 },
+    { id: 'ingredients', name: 'Ingredients', count: 0 },
+    { id: 'packaging', name: 'Packaging', count: 0 },
+  ])
   const [showStats, setShowStats] = useState(true)
   const [showAddItemModal, setShowAddItemModal] = useState(false)
   const [showRestockModal, setShowRestockModal] = useState(false)
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setItems(mockInventoryItems)
+    fetchInventoryItems()
   }, [])
+
+  async function fetchInventoryItems() {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .order('name')
+
+      if (error) throw error
+
+      const transformedItems: InventoryItem[] = (data || []).map(item => {
+        const status = item.current_stock === 0 ? 'out-of-stock' : 
+                      item.current_stock <= item.reorder_level ? 'low-stock' : 'in-stock'
+        
+        return {
+          id: item.id,
+          name: item.name,
+          category: item.category || 'Ingredients',
+          currentStock: item.current_stock,
+          reorderLevel: item.reorder_level,
+          unit: item.unit,
+          supplier: item.supplier || 'Unknown',
+          lastRestocked: item.last_restocked || new Date().toISOString(),
+          status: status as 'in-stock' | 'low-stock' | 'out-of-stock'
+        }
+      })
+
+      setItems(transformedItems)
+
+      // Update category counts
+      setCategories([
+        { id: 'all', name: 'All Items', count: transformedItems.length },
+        { id: 'ingredients', name: 'Ingredients', count: transformedItems.filter(i => i.category === 'Ingredients').length },
+        { id: 'packaging', name: 'Packaging', count: transformedItems.filter(i => i.category === 'Packaging').length },
+      ])
+    } catch (error) {
+      console.error('Error fetching inventory items:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -73,44 +115,80 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
     console.log('Opening Add New Item modal')
   }
 
-  const handleSaveNewItem = (newItem: Omit<InventoryItem, 'id' | 'lastRestocked' | 'status'>) => {
-    const status = newItem.currentStock === 0 ? 'out-of-stock' : 
-                  newItem.currentStock <= newItem.reorderLevel ? 'low-stock' : 'in-stock'
-    const item: InventoryItem = {
-      ...newItem,
-      id: `inv-${Date.now()}`,
-      lastRestocked: new Date().toISOString(),
-      status: status as 'in-stock' | 'low-stock' | 'out-of-stock',
+  const handleSaveNewItem = async (newItem: Omit<InventoryItem, 'id' | 'lastRestocked' | 'status'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .insert([{
+          name: newItem.name,
+          category: newItem.category,
+          current_stock: newItem.currentStock,
+          reorder_level: newItem.reorderLevel,
+          unit: newItem.unit,
+          supplier: newItem.supplier,
+          last_restocked: new Date().toISOString()
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      await fetchInventoryItems()
+      setShowAddItemModal(false)
+      console.log('Inventory item added:', data)
+    } catch (error) {
+      console.error('Error adding inventory item:', error)
+      alert('Failed to add inventory item')
     }
-    setItems(prev => [...prev, item])
-    setShowAddItemModal(false)
-    console.log('Inventory item added:', item)
   }
 
-  const handleUpdateItem = (updatedItem: InventoryItem) => {
-    setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i))
-    setEditingItem(null)
-    console.log('Inventory item updated:', updatedItem)
+  const handleUpdateItem = async (updatedItem: InventoryItem) => {
+    try {
+      const { error } = await supabase
+        .from('inventory_items')
+        .update({
+          name: updatedItem.name,
+          category: updatedItem.category,
+          current_stock: updatedItem.currentStock,
+          reorder_level: updatedItem.reorderLevel,
+          unit: updatedItem.unit,
+          supplier: updatedItem.supplier
+        })
+        .eq('id', updatedItem.id)
+
+      if (error) throw error
+
+      await fetchInventoryItems()
+      setEditingItem(null)
+      console.log('Inventory item updated:', updatedItem)
+    } catch (error) {
+      console.error('Error updating inventory item:', error)
+      alert('Failed to update inventory item')
+    }
   }
 
-  const handleRestockItem = (item: InventoryItem) => {
+  const handleRestockItem = async (item: InventoryItem) => {
     const quantity = prompt(`Restock ${item.name}. Enter quantity:`)
     if (quantity && !isNaN(Number(quantity))) {
-      setItems(prev => prev.map(i => {
-        if (i.id === item.id) {
-          const newStock = i.currentStock + Number(quantity)
-          const newStatus = newStock <= i.reorderLevel ? 'low-stock' : 
-                           newStock === 0 ? 'out-of-stock' : 'in-stock'
-          return {
-            ...i,
-            currentStock: newStock,
-            status: newStatus as 'in-stock' | 'low-stock' | 'out-of-stock',
-            lastRestocked: new Date().toISOString()
-          }
-        }
-        return i
-      }))
-      console.log(`Restocked ${item.name} with ${quantity} units`)
+      try {
+        const newStock = item.currentStock + Number(quantity)
+        
+        const { error } = await supabase
+          .from('inventory_items')
+          .update({
+            current_stock: newStock,
+            last_restocked: new Date().toISOString()
+          })
+          .eq('id', item.id)
+
+        if (error) throw error
+
+        await fetchInventoryItems()
+        console.log(`Restocked ${item.name} by ${quantity} ${item.unit}`)
+      } catch (error) {
+        console.error('Error restocking item:', error)
+        alert('Failed to restock item')
+      }
     }
   }
 
@@ -123,11 +201,23 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
     setDeletingItem(item)
   }
 
-  const confirmDeleteItem = () => {
+  const confirmDeleteItem = async () => {
     if (deletingItem) {
-      setItems(prev => prev.filter(i => i.id !== deletingItem.id))
-      console.log('Inventory item deleted:', deletingItem)
-      setDeletingItem(null)
+      try {
+        const { error } = await supabase
+          .from('inventory_items')
+          .delete()
+          .eq('id', deletingItem.id)
+
+        if (error) throw error
+
+        await fetchInventoryItems()
+        console.log('Inventory item deleted:', deletingItem)
+        setDeletingItem(null)
+      } catch (error) {
+        console.error('Error deleting inventory item:', error)
+        alert('Failed to delete inventory item')
+      }
     }
   }
 

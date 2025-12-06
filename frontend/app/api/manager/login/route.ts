@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   // Cari staff dengan role manager
   const { data: staff, error } = await supabase
     .from("staff")
-    .select("id, name, email, password_hash, role, status")
+    .select("*")
     .eq("email", email)
     .eq("role", "manager")
     .eq("status", "active")
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Cek password (plain text untuk development, gunakan bcrypt di production)
+  // Cek password menggunakan password_hash
   if (staff.password_hash !== password) {
     return NextResponse.json(
       { success: false, error: "Password salah." },
@@ -39,5 +39,7 @@ export async function POST(req: Request) {
     user_id: staff.id,
     user_name: staff.name,
     user_role: staff.role,
+    staff_code: staff.staff_code,
+    staff_type: staff.staff_type || "",
   });
 }

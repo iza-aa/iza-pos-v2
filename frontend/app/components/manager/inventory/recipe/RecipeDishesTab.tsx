@@ -1,9 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlusIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { recipes as initialRecipes, products, inventoryItems, calculateCanMake, Recipe } from '@/lib/mockData'
+import { supabase } from '@/lib/supabaseClient'
 import RecipeModal from './RecipeModal'
+
+interface RecipeIngredient {
+  inventory_item_id: string
+  ingredient_name: string
+  quantity_needed: number
+  unit: string
+}
+
+interface Recipe {
+  id: string
+  product_id: string
+  product_name: string
+  ingredients: RecipeIngredient[]
+  createdAt: string
+  updatedAt: string
+}
 
 interface RecipeDishesTabProps {
   viewAsOwner: boolean
@@ -12,19 +28,113 @@ interface RecipeDishesTabProps {
 export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showStats, setShowStats] = useState(true)
-  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes)
+  const [products, setProducts] = useState<any[]>([])
+  const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [loading, setLoading] = useState(true)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState<{ id: string, name: string, hasVariants: boolean, variantGroups: string[] } | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string, name: string } | null>(null)
 
-  // Group recipes by product (only base recipes)
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    setLoading(true)
+    try {
+      // Fetch products
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, category_id')
+        .order('name')
+
+      if (productsError) {
+        console.error('Products error:', productsError)
+        throw productsError
+      }
+
+      console.log('Products fetched:', productsData)
+      setProducts(productsData || [])
+
+      // Fetch recipes with ingredients - simplified query
+      const { data: recipesData, error: recipesError } = await supabase
+        .from('recipes')
+        .select('*')
+
+      if (recipesError) {
+        console.error('Recipes error:', recipesError)
+        throw recipesError
+      }
+
+      console.log('Recipes fetched:', recipesData)
+
+      // Fetch all recipe ingredients
+      const { data: ingredientsData, error: ingredientsError } = await supabase
+        .from('recipe_ingredients')
+        .select('*')
+
+      if (ingredientsError) {
+        console.error('Recipe ingredients error:', ingredientsError)
+        throw ingredientsError
+      }
+
+      console.log('Recipe ingredients fetched:', ingredientsData)
+
+      // Fetch inventory items for ingredient names
+      const { data: inventoryData, error: inventoryError } = await supabase
+        .from('inventory_items')
+        .select('id, name')
+
+      if (inventoryError) {
+        console.error('Inventory error:', inventoryError)
+        throw inventoryError
+      }
+
+      console.log('Inventory items fetched:', inventoryData)
+
+      // Transform data manually
+      const transformedRecipes: Recipe[] = (recipesData || []).map(recipe => {
+        const recipeIngredients = (ingredientsData || [])
+          .filter((ing: any) => ing.recipe_id === recipe.id)
+          .map((ing: any) => {
+            const inventoryItem = (inventoryData || []).find((inv: any) => inv.id === ing.inventory_item_id)
+            return {
+              inventory_item_id: ing.inventory_item_id,
+              ingredient_name: inventoryItem?.name || ing.ingredient_name || 'Unknown',
+              quantity_needed: ing.quantity_needed,
+              unit: ing.unit
+            }
+          })
+
+        const product = productsData?.find(p => p.id === recipe.product_id)
+
+        return {
+          id: recipe.id,
+          product_id: recipe.product_id,
+          product_name: product?.name || 'Unknown',
+          ingredients: recipeIngredients,
+          createdAt: recipe.created_at,
+          updatedAt: recipe.updated_at
+        }
+      })
+
+      console.log('Transformed recipes:', transformedRecipes)
+      setRecipes(transformedRecipes)
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Group products with their recipes
   const productRecipes = products.map(product => {
-    const baseRecipe = recipes.find(r => r.productId === product.id && r.recipeType === 'base')
+    const recipe = recipes.find(r => r.product_id === product.id)
     
     return {
       product,
-      baseRecipe,
-      hasRecipe: !!baseRecipe
+      baseRecipe: recipe,
+      hasRecipe: !!recipe
     }
   })
 
@@ -38,55 +148,128 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
     withoutRecipe: productRecipes.filter(pr => !pr.hasRecipe).length,
   }
 
-  const handleSetRecipe = (product: typeof products[0]) => {
+  const handleSetRecipe = (product: any) => {
     setSelectedProduct({
       id: product.id,
-      name: product.name,
-      hasVariants: false, // Force base recipe
-      variantGroups: []
+      name: product.name
     })
     setEditingRecipe(null)
     setShowRecipeModal(true)
   }
 
   const handleEditRecipe = (recipe: Recipe) => {
-    const product = products.find(p => p.id === recipe.productId)
+    const product = products.find(p => p.id === recipe.product_id)
     if (product) {
       setSelectedProduct({
         id: product.id,
-        name: product.name,
-        hasVariants: false,
-        variantGroups: []
+        name: product.name
       })
       setEditingRecipe(recipe)
       setShowRecipeModal(true)
     }
   }
 
-  const handleSaveRecipe = (newRecipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const recipeWithId: Recipe = {
-      ...newRecipe,
-      id: `recipe-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  const handleSaveRecipe = async (newRecipe: { product_id: string, ingredients: { inventory_item_id: string, quantity_needed: number, unit: string, ingredient_name: string }[] }) => {
+    try {
+      // Create recipe
+      const { data: recipeData, error: recipeError } = await supabase
+        .from('recipes')
+        .insert([{
+          product_id: newRecipe.product_id,
+          product_name: selectedProduct?.name || '',
+          recipe_type: 'base'
+        }])
+        .select()
+        .single()
+
+      if (recipeError) throw recipeError
+
+      // Create recipe ingredients
+      const ingredients = newRecipe.ingredients.map(ing => ({
+        recipe_id: recipeData.id,
+        inventory_item_id: ing.inventory_item_id,
+        ingredient_name: ing.ingredient_name,
+        quantity_needed: ing.quantity_needed,
+        unit: ing.unit
+      }))
+
+      const { error: ingredientsError } = await supabase
+        .from('recipe_ingredients')
+        .insert(ingredients)
+
+      if (ingredientsError) throw ingredientsError
+
+      await fetchData()
+      setShowRecipeModal(false)
+      setSelectedProduct(null)
+      setEditingRecipe(null)
+    } catch (error) {
+      console.error('Error saving recipe:', error)
+      alert('Failed to save recipe')
     }
-    setRecipes([...recipes, recipeWithId])
-    setShowRecipeModal(false)
-    setSelectedProduct(null)
-    setEditingRecipe(null)
   }
 
-  const handleUpdateRecipe = (updatedRecipe: Recipe) => {
-    setRecipes(recipes.map(r => r.id === updatedRecipe.id ? { ...updatedRecipe, updatedAt: new Date().toISOString() } : r))
-    setShowRecipeModal(false)
-    setSelectedProduct(null)
-    setEditingRecipe(null)
-  }
+  const handleUpdateRecipe = async (updatedRecipe: { id: string, product_id: string, ingredients: { inventory_item_id: string, quantity_needed: number, unit: string, ingredient_name: string }[] }) => {
+    console.log('=== handleUpdateRecipe called ===')
+    console.log('updatedRecipe:', updatedRecipe)
+    
+    try {
+      // Update recipe timestamp
+      console.log('Updating recipe timestamp for recipe_id:', updatedRecipe.id)
+      const { error: updateError } = await supabase
+        .from('recipes')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', updatedRecipe.id)
 
-  const getVariantLabel = (variantCombination?: Record<string, string>) => {
-    if (!variantCombination) return ''
-    // Convert variant IDs to readable labels (simplified)
-    return Object.values(variantCombination).map(v => v.split('-')[1]).join(' + ')
+      if (updateError) {
+        console.error('Update timestamp error:', updateError)
+        throw updateError
+      }
+      console.log('Recipe timestamp updated')
+
+      // Delete old ingredients
+      console.log('Deleting old ingredients for recipe_id:', updatedRecipe.id)
+      const { error: deleteError } = await supabase
+        .from('recipe_ingredients')
+        .delete()
+        .eq('recipe_id', updatedRecipe.id)
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError)
+        throw deleteError
+      }
+      console.log('Old ingredients deleted successfully')
+
+      // Insert new ingredients
+      const ingredients = updatedRecipe.ingredients.map(ing => ({
+        recipe_id: updatedRecipe.id,
+        inventory_item_id: ing.inventory_item_id,
+        ingredient_name: ing.ingredient_name,
+        quantity_needed: ing.quantity_needed,
+        unit: ing.unit
+      }))
+
+      console.log('Inserting new ingredients:', ingredients)
+      const { error: ingredientsError } = await supabase
+        .from('recipe_ingredients')
+        .insert(ingredients)
+
+      if (ingredientsError) {
+        console.error('Insert error:', ingredientsError)
+        throw ingredientsError
+      }
+      console.log('New ingredients inserted successfully')
+
+      await fetchData()
+      setShowRecipeModal(false)
+      setSelectedProduct(null)
+      setEditingRecipe(null)
+      console.log('Recipe updated successfully!')
+      alert('Recipe updated successfully!')
+    } catch (error) {
+      console.error('Error updating recipe:', error)
+      alert('Failed to update recipe: ' + (error as any).message)
+    }
   }
 
   return (
@@ -187,11 +370,6 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
                 }`}>
                   {hasRecipe ? 'Has Recipe' : 'No Recipe'}
                 </span>
-                {baseRecipe && (
-                  <span className="text-xs text-gray-500">
-                    Can make: {calculateCanMake(baseRecipe, inventoryItems)}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -203,8 +381,8 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {baseRecipe.ingredients.map((ing, idx) => (
                       <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 px-2 py-2 rounded">
-                        <span className="text-gray-700 truncate flex-1">{ing.ingredientName}</span>
-                        <span className="font-medium text-gray-900 ml-2">{ing.quantityNeeded} {ing.unit}</span>
+                        <span className="text-gray-700 truncate flex-1">{ing.ingredient_name}</span>
+                        <span className="font-medium text-gray-900 ml-2">{ing.quantity_needed} {ing.unit}</span>
                       </div>
                     ))}
                   </div>
@@ -238,8 +416,6 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
           editRecipe={editingRecipe}
           productId={selectedProduct.id}
           productName={selectedProduct.name}
-          hasVariants={selectedProduct.hasVariants}
-          variantGroupIds={selectedProduct.variantGroups}
         />
       )}
     </div>

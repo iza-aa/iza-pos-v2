@@ -1,5 +1,6 @@
 "use client";
 import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState } from "react";
 
 interface OrderItem {
 	id: string;
@@ -29,18 +30,32 @@ export default function OrderSummary({
 	onDeleteTable,
 	onDeleteItem,
 }: OrderSummaryProps) {
+	const [userRole, setUserRole] = useState("");
+
+	useEffect(() => {
+		// Get user role from localStorage
+		const role = localStorage.getItem('user_role') || 'staff';
+		const roleAbbr = role.toUpperCase().substring(0, 3); // STA, MAN, OWN
+		setUserRole(roleAbbr);
+	}, []);
+
 	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 	const tax = subtotal * 0.1; // 10% tax (PPN)
-	const donation = 1000;
-	const total = subtotal + tax + donation;
+	const total = subtotal + tax;
 
 	return (
-		<div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
+		<div className="bg-white rounded-xl border border-gray-200 mb-4 ">
 			{/* Header */}
 			<div className="flex justify-between items-start p-6 mb-6 rounded-t-xl bg-gray-50 border-b border-gray-200">
 				<div>
 					<div className="text-xl font-bold text-gray-800">{tableNumber}</div>
 					<div className="text-sm text-gray-500">{orderNumber}</div>
+					{userRole && (
+						<div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-semibold">
+							<span>as</span>
+							<span>{userRole}</span>
+						</div>
+					)}
 				</div>
 				<div className="flex items-center gap-2">
 					<button
@@ -117,10 +132,6 @@ export default function OrderSummary({
 				<div className="flex justify-between text-gray-600">
 					<span>Tax</span>
 					<span>Rp {tax.toLocaleString('id-ID')}</span>
-					</div>
-				<div className="flex justify-between text-gray-600">
-					<span>Donation for Palestine</span>
-					<span>Rp {donation.toLocaleString('id-ID')}</span>
 					</div>
 				<div className="flex justify-between text-lg font-bold text-gray-800 pt-4 border-t border-gray-200">
 					<span>Total Payable</span>

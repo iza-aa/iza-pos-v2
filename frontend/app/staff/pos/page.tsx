@@ -46,6 +46,17 @@ export default function POSPage() {
 	const [itemToDelete, setItemToDelete] = useState<any>(null);
 	const [cart, setCart] = useState<any[]>([]);
 
+	// Page protection - only for Owner, Cashier, Barista
+	useEffect(() => {
+		const userRole = localStorage.getItem('user_role');
+		const staffType = localStorage.getItem('staff_type');
+		
+		// Allow: Owner OR Cashier/Barista
+		if (userRole !== 'owner' && staffType !== 'cashier' && staffType !== 'barista') {
+			window.location.href = '/staff/dashboard';
+		}
+	}, []);
+
 	// Fetch categories from database
 	useEffect(() => {
 		async function fetchCategories() {
@@ -256,80 +267,92 @@ export default function POSPage() {
 
 		try {
 			const staffId = localStorage.getItem('user_id')
-			const total = calculateTotal()
+		const userRole = localStorage.getItem('user_role') || 'staff'
+		const staffCode = localStorage.getItem('staff_code') || 'UNKNOWN'
+		const staffName = localStorage.getItem('user_name') || 'Unknown Staff'
+		const total = calculateTotal()
+		
+		// Generate order number
+		const orderNumber = `ORD-${Date.now()}`
+
+	// 1. Create order with role tracking and staff code
+	const { data: orderData, error: orderError } = await supabase
+		.from('orders')
+		.insert([{
+			order_number: orderNumber,
+			customer_name: paymentData.customerName || 'Guest',
+			table_number: paymentData.tableNumber || null,
+			order_type: paymentData.tableNumber ? 'Dine in' : 'Take Away',
+			status: 'completed',
+			subtotal: total,
+			tax: 0,
+			discount: 0,
+			total: total,
+			payment_method: 'Cash',
+			payment_status: 'paid',
+			created_by: staffId,
+			created_by_role: userRole.toUpperCase().substring(0, 3), // 'STA', 'MAN', 'OWN'
+		created_by_staff_code: staffCode, // STF001, MAN001, etc.
+		created_by_staff_name: staffName, // Staff name
+		created_by_code: staffCode
+	}])
+	.select()
+	.single()
+	
+	if (orderError) {
+			console.error('Error creating order:', orderError)
+			throw orderError
+		}
+		
+		// 2. Fetch products with categories to determine kitchen_status
+		const productIds = cart.map(item => item.productId || item.id)
+		const { data: productsData, error: productError } = await supabase
+			.from('products')
+			.select('id, name, category_id, categories!inner(name, type)')
+			.in('id', productIds)
+
+		if (productError) {
+			console.error('Error fetching products:', productError)
+			throw productError
+		}
+
+		console.log('Products with categories:', productsData) // Debug log
+
+		// 3. Create order items with kitchen_status
+		const orderItems = cart.map(item => {
+			const productId = item.productId || item.id
+			const product = productsData?.find(p => p.id === productId)
 			
-			// Generate order number
-			const orderNumber = `ORD-${Date.now()}`
+			// Get category type - categories is a single object when using !inner
+			const category = product?.categories as any
+			const categoryType = category?.type || 'food'
+			
+			console.log(`Product: ${product?.name}, Category Type: ${categoryType}`) // Debug log
+			
+			// Determine kitchen_status based on category type
+		const isBeverage = categoryType === 'beverage'
+		
+		return {
+			order_id: orderData.id,
+			product_id: productId,
+			product_name: product?.name || item.name || 'Unknown Item',
+			quantity: item.quantity,
+			base_price: item.price,
+			variants: item.variants || {},
+			total_price: item.price * item.quantity,
+			kitchen_status: isBeverage ? 'not_required' : 'pending',
+			notes: null
+		}
+	})
 
-			// 1. Create order
-			const { data: orderData, error: orderError } = await supabase
-				.from('orders')
-				.insert([{
-					order_number: orderNumber,
-					customer_name: paymentData.customerName || 'Guest',
-					table_number: paymentData.tableNumber || null,
-					order_type: paymentData.tableNumber ? 'Dine in' : 'Take Away',
-					status: 'new',
-					subtotal: total,
-					tax: 0,
-					discount: 0,
-					total: total,
-					payment_method: 'Cash',
-					payment_status: 'paid',
-					created_by: staffId
-				}])
-				.select()
-				.single()
+	const { error: itemsError } = await supabase
+		.from('order_items')
+		.insert(orderItems)
 
-			if (orderError) {
-				console.error('Error creating order:', orderError)
-				throw orderError
-			}
-
-			// 2. Fetch products with categories to determine kitchen_status
-			const productIds = cart.map(item => item.productId || item.id)
-			const { data: productsData, error: productError } = await supabase
-				.from('products')
-				.select('id, name, category_id, categories(name, type)')
-				.in('id', productIds)
-
-			if (productError) {
-				console.error('Error fetching products:', productError)
-				throw productError
-			}
-
-			// 3. Create order items with kitchen_status
-			const orderItems = cart.map(item => {
-				const productId = item.productId || item.id
-				const product = productsData?.find(p => p.id === productId)
-				const categoryType = product?.categories?.type || 'food'
-				
-				// Determine kitchen_status based on category type
-				const isBeverage = categoryType === 'beverage'
-				
-				return {
-					order_id: orderData.id,
-					product_id: productId,
-					product_name: product?.name || item.name || 'Unknown Item',
-					quantity: item.quantity,
-					base_price: item.price,
-					variants: item.variants ? item.variants : null,
-					total_price: item.price * item.quantity,
-					kitchen_status: isBeverage ? 'not_required' : 'pending',
-					notes: null
-				}
-			})
-
-			const { error: itemsError } = await supabase
-				.from('order_items')
-				.insert(orderItems)
-
-			if (itemsError) {
-				console.error('Error inserting order items:', itemsError)
-				throw itemsError
-			}
-
-			// 4. Create payment transaction
+	if (itemsError) {
+		console.error('Error inserting order items:', itemsError)
+		throw itemsError
+	}			// 4. Create payment transaction
 			const { error: paymentError } = await supabase
 				.from('payment_transactions')
 				.insert([{
@@ -379,9 +402,9 @@ export default function POSPage() {
 	}
 
 	return (
-		<main className="h-[calc(100vh-55px)] bg-gray-50 flex overflow-hidden">
+		<main className="h-[calc(100vh-55px)] bg-gray-50 flex flex-col lg:flex-row overflow-hidden">
 			{/* Section 1: Menu - Left scrollable */}
-			<section className="flex-1 px-6 py-6 scrollbar-hide flex flex-col">
+			<section className="flex-1 px-4 md:px-6 py-4 md:py-6 scrollbar-hide flex flex-col overflow-hidden">
 				{/* Sticky Header & Filter */}
 				<div className="sticky top-0 z-10 bg-gray-50 pb-2">
 					<FoodiesMenuHeader
@@ -429,8 +452,8 @@ export default function POSPage() {
 					)}
 				</div>
 			</section>
-			{/* Section 2: Order Summary - Fixed Right Sidebar */}
-			<section className="w-[450px] flex-shrink-0 flex flex-col gap-2 py-6 pr-6 overflow-hidden">
+			{/* Section 2: Order Summary - Responsive Right Sidebar */}
+			<section className="w-full lg:w-[400px] xl:w-[450px] flex-shrink-0 flex flex-col gap-2 py-4 md:py-6 md:pr-6 overflow-hidden border-t lg:border-t-0">
 				<OrderSummary
 					tableNumber="Table No #04"
 					orderNumber="Order #FO030"

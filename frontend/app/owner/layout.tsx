@@ -1,8 +1,7 @@
 'use client'
 
-// filepath: d:\iza-pos-v2\frontend\app\owner\layout.tsx
 import { usePathname } from "next/navigation";
-import Navbar from "../components/ui/navbar/page";
+import OwnerNavbar from "../components/ui/navbar/owner/page";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -10,7 +9,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
 
   return (
     <div>
-      {!isLogin && <Navbar />}
+      {!isLogin && <OwnerNavbar />}
       <main>{children}</main>
     </div>
   );

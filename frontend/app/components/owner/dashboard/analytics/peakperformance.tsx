@@ -37,7 +37,7 @@ export default function PeakPerformance() {
   }, []);
 
   return (
-    <div className="bg-white rounded-2xl p-5 w-full border border-gray-200">
+    <div className="bg-white rounded-2xl p-5 w-full border border-gray-300 hover:shadow-lg transition">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-blue-100 rounded-xl p-2.5">

@@ -24,7 +24,7 @@ export default function FavoriteProduct() {
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6">
+    <div className="bg-white rounded-2xl p-6 border border-gray-300 hover:shadow-lg transition">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

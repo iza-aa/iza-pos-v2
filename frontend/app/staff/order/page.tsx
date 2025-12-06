@@ -18,6 +18,17 @@ export default function OrderPage() {
 	const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served'>('all');
 
+	// Page protection - only for Owner, Waiter
+	useEffect(() => {
+		const userRole = localStorage.getItem('user_role');
+		const staffType = localStorage.getItem('staff_type');
+		
+		// Allow: Owner OR Waiter
+		if (userRole !== 'owner' && staffType !== 'waiter') {
+			window.location.href = '/staff/dashboard';
+		}
+	}, []);
+
 	// Fetch orders from database
 	useEffect(() => {
 		fetchOrders();
@@ -131,6 +142,11 @@ export default function OrderPage() {
 				time: formatJakartaTime(orderCreatedAt),
 				status,
 				table: order.table_number || undefined,
+				createdByRole: order.created_by_role || undefined,
+				createdByStaffCode: order.created_by_staff_code || undefined,
+				createdByStaffName: order.created_by_staff_name || undefined,
+				servedByRoles: order.served_by_roles || [],
+				servedByStaffCodes: order.served_by_staff_codes || [],
 				createdAt: order.created_at, // Keep for countdown
 			};
 			}) || [];
@@ -146,7 +162,29 @@ export default function OrderPage() {
 	const handleMarkServed = async (orderId: string, itemIds: string[]) => {
 		try {
 			const staffId = localStorage.getItem('user_id');
+			const userRole = localStorage.getItem('user_role') || 'staff';
+			const staffCode = localStorage.getItem('staff_code') || 'UNKNOWN';
+			const staffName = localStorage.getItem('user_name') || 'Unknown Staff';
+			const roleAbbr = userRole.toUpperCase().substring(0, 3); // STA, MAN, OWN
 			const now = new Date().toISOString();
+
+			// Get existing served_by data from order
+			const { data: orderData } = await supabase
+				.from('orders')
+				.select('served_by_roles, served_by_staff_codes')
+				.eq('id', orderId)
+				.single();
+
+			const existingRoles = orderData?.served_by_roles || [];
+			const existingStaffCodes = orderData?.served_by_staff_codes || [];
+			
+			const updatedRoles = existingRoles.includes(roleAbbr) 
+				? existingRoles 
+				: [...existingRoles, roleAbbr];
+			
+			const updatedStaffCodes = existingStaffCodes.includes(staffCode)
+				? existingStaffCodes
+				: [...existingStaffCodes, staffCode];
 
 			// Update served status for selected items
 			const { error } = await supabase
@@ -154,11 +192,22 @@ export default function OrderPage() {
 				.update({ 
 					served: true, 
 					served_at: now,
-					served_by: staffId
+					served_by: staffId,
+					served_by_role: roleAbbr,
+					served_by_code: staffCode
 				})
 				.in('id', itemIds);
 
 			if (error) throw error;
+
+			// Update order's served_by arrays
+			await supabase
+				.from('orders')
+				.update({ 
+					served_by_roles: updatedRoles,
+					served_by_staff_codes: updatedStaffCodes
+				})
+				.eq('id', orderId);
 
 			// Refresh orders
 			await fetchOrders();
@@ -169,8 +218,8 @@ export default function OrderPage() {
 				.insert([{
 					staff_id: staffId,
 					activity_type: 'items_served',
-					description: `Marked ${itemIds.length} items as served`,
-					metadata: { order_id: orderId, item_ids: itemIds }
+					description: `Marked ${itemIds.length} items as served by ${staffCode} (${roleAbbr})`,
+					metadata: { order_id: orderId, item_ids: itemIds, role: roleAbbr }
 				}]);
 
 		} catch (error) {

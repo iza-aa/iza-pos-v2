@@ -25,6 +25,11 @@ interface Order {
 	time: string;
 	status: "new" | "preparing" | "partially-served" | "served" | "completed";
 	table?: string;
+	createdByRole?: string; // 'STA', 'MAN', 'OWN'
+	createdByStaffCode?: string; // 'STF001', 'MAN001', etc.
+	createdByStaffName?: string; // Staff name
+	servedByRoles?: string[]; // Array of roles who served items
+	servedByStaffCodes?: string[]; // Array of staff codes who served items
 }
 
 interface OrderCardProps {
@@ -112,11 +117,62 @@ export default function OrderCard({ order, onMarkServed }: OrderCardProps) {
 							<p className={`text-xs text-gray-500 mt-1 ${!order.table ? 'font-bold' : ''}`}>
 								{order.table || 'Takeaway'}
 							</p>
+						{/* Show who created the order */}
+						{(order.createdByStaffCode || order.createdByRole) && (
+							<div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-semibold">
+								<span>Created by:</span>
+								{order.createdByStaffCode ? (
+									<>
+										<span className="font-bold">{order.createdByStaffCode}</span>
+										{order.createdByStaffName && (
+											<span className="font-normal">({order.createdByStaffName})</span>
+										)}
+									</>
+								) : (
+									<span className="font-bold">
+										{order.createdByRole === 'STA' ? 'STAFF' : 
+										 order.createdByRole === 'MAN' ? 'MANAGER' : 
+										 order.createdByRole === 'OWN' ? 'OWNER' : order.createdByRole}
+									</span>
+								)}
+							</div>
+						)}
 							{order.status === 'partially-served' && (
 								<p className="text-xs font-semibold text-orange-600 mt-1">
 									{servedCount} of {totalCount} items served
 								</p>
 							)}
+						{/* Show who served (if multiple staff) */}
+						{((order.servedByStaffCodes && order.servedByStaffCodes.length > 0) || 
+						  (order.servedByRoles && order.servedByRoles.length > 0)) && (
+							<div className="mt-1.5 flex flex-wrap gap-1">
+								{order.servedByStaffCodes && order.servedByStaffCodes.length > 0 ? (
+									order.servedByStaffCodes.map((staffCode, idx) => (
+										<span
+											key={idx}
+											className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-md text-xs font-semibold"
+										>
+											<span>Served by:</span>
+											<span className="font-bold">{staffCode}</span>
+										</span>
+									))
+								) : (
+									order.servedByRoles?.map((role, idx) => (
+										<span
+											key={idx}
+											className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-md text-xs font-semibold"
+										>
+											<span>Served by:</span>
+											<span className="font-bold">
+												{role === 'STA' ? 'STAFF' : 
+												 role === 'MAN' ? 'MANAGER' : 
+												 role === 'OWN' ? 'OWNER' : role}
+											</span>
+										</span>
+									))
+								)}
+							</div>
+						)}
 						</div>
 
 						<div className="space-y-2">
@@ -147,7 +203,7 @@ export default function OrderCard({ order, onMarkServed }: OrderCardProps) {
 						<div className="mt-4 pt-3 border-t border-gray-200">
 							<div className="flex items-center justify-between">
 								<span className="text-sm font-semibold text-gray-700">Total</span>
-								<span className="text-lg font-bold text-green-600">${order.total.toFixed(2)}</span>
+								<span className="text-lg font-bold text-green-600">Rp {order.total.toLocaleString('id-ID')}</span>
 							</div>
 						</div>
 					</div>

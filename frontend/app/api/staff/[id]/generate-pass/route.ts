@@ -53,7 +53,7 @@ export async function POST(
     return code;
   }
   const login_code = generateLoginCode();
-  const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
 
   // 3. Update kode login ke Supabase
   const { error: updateErr } = await supabase

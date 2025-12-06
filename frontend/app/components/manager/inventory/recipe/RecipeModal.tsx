@@ -2,25 +2,36 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
-import { inventoryItems, Recipe, RecipeIngredient, variantGroups } from '@/lib/mockData'
+import { supabase } from '@/lib/supabaseClient'
+
+interface RecipeIngredient {
+  inventory_item_id: string
+  ingredient_name?: string
+  quantity_needed: number
+  unit: string
+}
+
+interface Recipe {
+  id: string
+  product_id: string
+  product_name?: string
+  ingredients: RecipeIngredient[]
+}
 
 interface RecipeModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => void
-  onUpdate?: (recipe: Recipe) => void
+  onSave: (recipe: { product_id: string, ingredients: { inventory_item_id: string, quantity_needed: number, unit: string, ingredient_name: string }[] }) => void
+  onUpdate?: (recipe: { id: string, product_id: string, ingredients: { inventory_item_id: string, quantity_needed: number, unit: string, ingredient_name: string }[] }) => void
   editRecipe?: Recipe | null
   productId: string
   productName: string
-  hasVariants: boolean
-  variantGroupIds?: string[]
-  preSelectedVariants?: Record<string, string>
 }
 
 interface IngredientInput {
-  inventoryItemId: string
-  ingredientName: string
-  quantityNeeded: number
+  inventory_item_id: string
+  ingredient_name: string
+  quantity_needed: number
   unit: string
 }
 
@@ -31,44 +42,49 @@ export default function RecipeModal({
   onUpdate,
   editRecipe,
   productId,
-  productName,
-  hasVariants,
-  variantGroupIds = [],
-  preSelectedVariants
+  productName
 }: RecipeModalProps) {
-  const [recipeType, setRecipeType] = useState<'base' | 'variant-specific'>('base')
-  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({})
   const [ingredients, setIngredients] = useState<IngredientInput[]>([])
+  const [availableIngredients, setAvailableIngredients] = useState<any[]>([])
 
   useEffect(() => {
     if (isOpen) {
+      fetchAvailableIngredients()
+      
       if (editRecipe) {
-        // Edit mode
-        setRecipeType(editRecipe.recipeType)
-        setSelectedVariants(editRecipe.variantCombination || {})
-        setIngredients(editRecipe.ingredients)
+        // Edit mode - load existing ingredients
+        setIngredients(editRecipe.ingredients.map(ing => ({
+          inventory_item_id: ing.inventory_item_id,
+          ingredient_name: ing.ingredient_name || '',
+          quantity_needed: ing.quantity_needed,
+          unit: ing.unit
+        })))
       } else {
         // Add mode - reset
-        setRecipeType(preSelectedVariants ? 'variant-specific' : 'base')
-        setSelectedVariants(preSelectedVariants || {})
         setIngredients([])
       }
     }
-  }, [isOpen, editRecipe, preSelectedVariants])
+  }, [isOpen, editRecipe])
 
-  const availableRawMaterials = inventoryItems.filter(item => 
-    item.category === 'Ingredients' || item.category === 'Packaging'
-  )
+  async function fetchAvailableIngredients() {
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('id, name, unit')
+        .order('name')
 
-  const productVariantGroups = variantGroupIds
-    .map(id => variantGroups.find(vg => vg.id === id))
-    .filter(Boolean)
+      if (error) throw error
+      setAvailableIngredients(data || [])
+    } catch (error) {
+      console.error('Error fetching ingredients:', error)
+    }
+  }
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, {
-      inventoryItemId: '',
-      ingredientName: '',
-      quantityNeeded: 0,
+      inventory_item_id: '',
+      ingredient_name: '',
+      quantity_needed: 0,
       unit: ''
     }])
   }
@@ -80,13 +96,13 @@ export default function RecipeModal({
   const handleIngredientChange = (index: number, field: keyof IngredientInput, value: any) => {
     const newIngredients = [...ingredients]
     
-    if (field === 'inventoryItemId') {
-      const selectedItem = availableRawMaterials.find(item => item.id === value)
+    if (field === 'inventory_item_id') {
+      const selectedItem = availableIngredients.find(item => item.id === value)
       if (selectedItem) {
         newIngredients[index] = {
-          inventoryItemId: selectedItem.id,
-          ingredientName: selectedItem.name,
-          quantityNeeded: newIngredients[index].quantityNeeded || 0,
+          inventory_item_id: selectedItem.id,
+          ingredient_name: selectedItem.name,
+          quantity_needed: newIngredients[index].quantity_needed || 0,
           unit: selectedItem.unit
         }
       }
@@ -100,14 +116,12 @@ export default function RecipeModal({
     setIngredients(newIngredients)
   }
 
-  const handleVariantChange = (groupId: string, optionId: string) => {
-    setSelectedVariants(prev => ({
-      ...prev,
-      [groupId]: optionId
-    }))
-  }
-
   const handleSubmit = () => {
+    console.log('=== RecipeModal handleSubmit ===')
+    console.log('editRecipe:', editRecipe)
+    console.log('onUpdate function exists:', !!onUpdate)
+    console.log('ingredients:', ingredients)
+    
     // Validation
     if (ingredients.length === 0) {
       alert('Please add at least one ingredient')
@@ -115,7 +129,7 @@ export default function RecipeModal({
     }
 
     const hasInvalidIngredient = ingredients.some(ing => 
-      !ing.inventoryItemId || ing.quantityNeeded <= 0
+      !ing.inventory_item_id || ing.quantity_needed <= 0
     )
 
     if (hasInvalidIngredient) {
@@ -123,49 +137,33 @@ export default function RecipeModal({
       return
     }
 
-    if (recipeType === 'variant-specific' && Object.keys(selectedVariants).length === 0) {
-      alert('Please select variant combination')
-      return
-    }
-
-    const recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'> = {
-      productId,
-      productName: recipeType === 'variant-specific' 
-        ? `${productName} (${getVariantLabel()})`
-        : productName,
-      recipeType,
-      variantCombination: recipeType === 'variant-specific' ? selectedVariants : undefined,
+    const recipeData = {
+      product_id: productId,
       ingredients: ingredients.map(ing => ({
-        inventoryItemId: ing.inventoryItemId,
-        ingredientName: ing.ingredientName,
-        quantityNeeded: ing.quantityNeeded,
+        inventory_item_id: ing.inventory_item_id,
+        ingredient_name: ing.ingredient_name,
+        quantity_needed: ing.quantity_needed,
         unit: ing.unit
       }))
     }
 
+    console.log('recipeData to submit:', recipeData)
+
     if (editRecipe && onUpdate) {
-      onUpdate({
-        ...recipeData,
+      console.log('Calling onUpdate with:', {
         id: editRecipe.id,
-        createdAt: editRecipe.createdAt,
-        updatedAt: new Date().toISOString()
+        ...recipeData
+      })
+      onUpdate({
+        id: editRecipe.id,
+        ...recipeData
       })
     } else {
+      console.log('Calling onSave with:', recipeData)
       onSave(recipeData)
     }
 
     onClose()
-  }
-
-  const getVariantLabel = () => {
-    return Object.entries(selectedVariants)
-      .map(([groupId, optionId]) => {
-        const group = variantGroups.find(vg => vg.id === groupId)
-        const option = group?.options.find(opt => opt.id === optionId)
-        return option?.name || ''
-      })
-      .filter(Boolean)
-      .join(' + ')
   }
 
   if (!isOpen) return null
@@ -185,70 +183,6 @@ export default function RecipeModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Recipe Type Selection */}
-          {hasVariants && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Recipe Type</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="base"
-                    checked={recipeType === 'base'}
-                    onChange={(e) => setRecipeType(e.target.value as 'base')}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-sm text-gray-700">Base Recipe (applies to all variants)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="variant-specific"
-                    checked={recipeType === 'variant-specific'}
-                    onChange={(e) => setRecipeType(e.target.value as 'variant-specific')}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-sm text-gray-700">Variant-Specific Recipe</span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Variant Selection */}
-          {recipeType === 'variant-specific' && hasVariants && (
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-              <label className="block text-sm font-semibold text-blue-900 mb-3">Select Variant Combination</label>
-              <div className="space-y-3">
-                {productVariantGroups.map((group: any) => (
-                  <div key={group.id}>
-                    <p className="text-sm font-medium text-gray-700 mb-2">{group.name}:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {group.options.map((option: any) => (
-                        <button
-                          key={option.id}
-                          onClick={() => handleVariantChange(group.id, option.id)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                            selectedVariants[group.id] === option.id
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {option.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {Object.keys(selectedVariants).length > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <p className="text-sm text-blue-800">
-                    <strong>Selected:</strong> {getVariantLabel()}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Ingredients */}
           <div>
@@ -282,12 +216,12 @@ export default function RecipeModal({
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">Ingredient</label>
                         <select
-                          value={ingredient.inventoryItemId}
-                          onChange={(e) => handleIngredientChange(index, 'inventoryItemId', e.target.value)}
+                          value={ingredient.inventory_item_id}
+                          onChange={(e) => handleIngredientChange(index, 'inventory_item_id', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select ingredient...</option>
-                          {availableRawMaterials.map(item => (
+                          {availableIngredients.map(item => (
                             <option key={item.id} value={item.id}>
                               {item.name} ({item.unit})
                             </option>
@@ -300,8 +234,8 @@ export default function RecipeModal({
                         <label className="block text-xs font-medium text-gray-600 mb-1">Quantity</label>
                         <input
                           type="number"
-                          value={ingredient.quantityNeeded || ''}
-                          onChange={(e) => handleIngredientChange(index, 'quantityNeeded', Number(e.target.value))}
+                          value={ingredient.quantity_needed || ''}
+                          onChange={(e) => handleIngredientChange(index, 'quantity_needed', Number(e.target.value))}
                           placeholder="0"
                           min="0"
                           step="0.01"

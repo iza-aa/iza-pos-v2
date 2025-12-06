@@ -31,7 +31,7 @@ export function formatJakartaDate(date: Date): string {
     timeZone: 'Asia/Jakarta'
   }).format(date);
 }
-
+  
 /**
  * Format time to Jakarta timezone string
  * Example: "14:30"

@@ -139,6 +139,8 @@ export default function ManagerOrderPage() {
 					time: formatJakartaTime(orderCreatedAt),
 					status,
 					table: order.table_number || undefined,
+					createdByRole: order.created_by_role || undefined,
+					servedByRoles: order.served_by_roles || [],
 					createdAt: order.created_at,
 				};
 			}) || [];
@@ -157,7 +159,19 @@ export default function ManagerOrderPage() {
 		}
 
 		try {
-			// First delete order_items manually to avoid constraint issues
+			// Step 1: Delete payment_transactions first (has FK to orders)
+			const { error: paymentError } = await supabase
+				.from('payment_transactions')
+				.delete()
+				.eq('order_id', orderId);
+
+			if (paymentError) {
+				console.error('Error deleting payment transactions:', paymentError);
+				alert(`Gagal menghapus payment transactions: ${paymentError.message}`);
+				return;
+			}
+
+			// Step 2: Delete order_items
 			const { error: itemsError } = await supabase
 				.from('order_items')
 				.delete()
@@ -169,7 +183,18 @@ export default function ManagerOrderPage() {
 				return;
 			}
 
-			// Then delete the order
+			// Step 3: Update tables if order is dine-in (remove current_order_id reference)
+			const { error: tableUpdateError } = await supabase
+				.from('tables')
+				.update({ current_order_id: null, status: 'available' })
+				.eq('current_order_id', orderId);
+
+			if (tableUpdateError) {
+				console.error('Error updating tables:', tableUpdateError);
+				// Continue anyway, this is not critical
+			}
+
+			// Step 4: Finally delete the order
 			const { error: orderError } = await supabase
 				.from('orders')
 				.delete()
@@ -340,7 +365,6 @@ export default function ManagerOrderPage() {
 								<ManagerOrderCard 
 									key={order.id} 
 									order={order} 
-									onMarkServed={handleMarkServed}
 									onDelete={handleDeleteOrder}
 								/>
 							))}

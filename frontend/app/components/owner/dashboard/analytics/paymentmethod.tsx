@@ -12,7 +12,7 @@ const paymentData = [
 
 export default function PaymentMethod() {
   return (
-    <div className="bg-gray-100 rounded-2xl p-[3px] w-full border border-gray-200">
+    <div className="bg-gray-100 rounded-2xl p-[3px] w-full border border-gray-300 hover:shadow-lg">
       {/* Header */}
       <div className="bg-white rounded-xl p-4 mb-3 border border-gray-200">
         <div className="flex items-center justify-between mb-6">
