@@ -2,15 +2,18 @@
 
 import { useState } from 'react'
 import { Package, ClipboardList, TrendingUp } from 'lucide-react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 
 type TabType = 'raw-materials' | 'recipes' | 'recipe-dishes' | 'recipe-variants' | 'default-modifiers' | 'product-overrides' | 'usage-history'
 
 interface InventoryTabsProps {
   activeTab: TabType
   onTabChange: (tab: TabType) => void
+  showSidebar?: boolean
+  onCloseSidebar?: () => void
 }
 
-export default function InventoryTabs({ activeTab, onTabChange }: InventoryTabsProps) {
+export default function InventoryTabs({ activeTab, onTabChange, showSidebar = true, onCloseSidebar }: InventoryTabsProps) {
   const [isRecipeExpanded, setIsRecipeExpanded] = useState(false)
   
   const tabs = [
@@ -35,11 +38,27 @@ export default function InventoryTabs({ activeTab, onTabChange }: InventoryTabsP
     } else {
       onTabChange(tabId)
       setIsRecipeExpanded(false)
+      if (onCloseSidebar) {
+        onCloseSidebar() // Close sidebar on mobile when tab is selected
+      }
     }
   }
 
   return (
-    <section className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden">
+    <section className={`w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden
+      lg:relative fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+      ${showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+    `}>
+      {/* Close button - Mobile Only */}
+      {onCloseSidebar && (
+        <button
+          onClick={onCloseSidebar}
+          className="lg:hidden absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <XMarkIcon className="w-6 h-6 text-gray-600" />
+        </button>
+      )}
+
       <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex-shrink-0">Inventory</h2>
       
       <div className="space-y-1.5 flex-1 overflow-y-auto">
@@ -74,7 +93,12 @@ export default function InventoryTabs({ activeTab, onTabChange }: InventoryTabsP
                   {recipeSubTabs.map((subTab) => (
                     <button
                       key={subTab.id}
-                      onClick={() => onTabChange(subTab.id)}
+                      onClick={() => {
+                        onTabChange(subTab.id)
+                        if (onCloseSidebar) {
+                          onCloseSidebar() // Close sidebar on mobile when sub-tab is selected
+                        }
+                      }}
                       className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
                         activeTab === subTab.id
                           ? 'bg-gray-100 text-gray-900 font-medium'

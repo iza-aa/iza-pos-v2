@@ -1,5 +1,7 @@
 "use client";
 
+import ProductImagePlaceholder from "@/app/components/ui/ProductImagePlaceholder";
+
 interface FoodItem {
 	id: string;
 	name: string;
@@ -46,16 +48,16 @@ export default function FoodItemCard({ item, onQuantityChange, onItemClick }: Fo
 				item.hasVariants ? 'cursor-pointer' : ''
 			} ${
 				item.quantity > 0
-					? "border-2 border-blue-400 bg-blue-50"
+					? "border-2 border-gray-900 bg-gray-50"
 					: "border-2 border-gray-200 bg-white hover:border-gray-300"
 			}`}
 		>
 			<div className="relative p-[3px]">
 				<div className="w-full h-24 bg-gray-200 rounded-xl overflow-hidden">
-					<img
-						src={item.image || "/placeholder.jpg"}
-						alt={item.name}
-						className="w-full h-full object-cover"
+					<ProductImagePlaceholder 
+						name={item.name}
+						imageUrl={item.image}
+						className="w-full h-full"
 					/>
 				</div>
 			</div>
@@ -80,10 +82,10 @@ export default function FoodItemCard({ item, onQuantityChange, onItemClick }: Fo
 							   −
 						   </button>
 					   )}
-					   <span className="min-w-[20px] text-center text-sm font-semibold text-blue-600">{item.quantity}</span>
+					   <span className="min-w-[20px] text-center text-sm font-semibold text-gray-900">{item.quantity}</span>
 					   <button
 						   onClick={handlePlusClick}
-						   className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center text-sm transition pb-[1.5px]"
+						   className="w-6 h-6 rounded-full bg-gray-900 hover:bg-black text-white flex items-center justify-center text-sm transition pb-[1.5px]"
 						   aria-label="Tambah"
 					   >
 						   +

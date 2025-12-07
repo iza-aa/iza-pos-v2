@@ -16,10 +16,10 @@ interface OrderLineCardProps {
 
 export default function OrderLineCard({ order, onClick }: OrderLineCardProps) {
 	const statusConfig = {
-		"new": { bg: "bg-purple-100", text: "text-purple-700", label: "New Order" },
-		"preparing": { bg: "bg-blue-100", text: "text-blue-700", label: "Preparing" },
-		"partially-served": { bg: "bg-orange-100", text: "text-orange-700", label: "Partially Served" },
-		"served": { bg: "bg-green-100", text: "text-green-700", label: "Served" },
+		"new": { bg: "bg-gray-100", text: "text-gray-900", label: "New Order" },
+		"preparing": { bg: "bg-gray-200", text: "text-gray-900", label: "Preparing" },
+		"partially-served": { bg: "bg-gray-100", text: "text-gray-900", label: "Partially Served" },
+		"served": { bg: "bg-gray-100", text: "text-gray-900", label: "Served" },
 	};
 
 	const config = statusConfig[order.status];

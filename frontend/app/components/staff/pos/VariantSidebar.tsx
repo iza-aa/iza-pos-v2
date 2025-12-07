@@ -29,9 +29,10 @@ interface VariantSidebarProps {
 		image: string;
 	};
 	onAddToOrder: (item: any, selectedVariants: any, totalPrice: number, quantity: number) => void;
+	isInline?: boolean; // New prop for inline mode
 }
 
-export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: VariantSidebarProps) {
+export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, isInline = false }: VariantSidebarProps) {
 	const [quantity, setQuantity] = useState(1);
 	const [selectedVariants, setSelectedVariants] = useState<Record<string, string[]>>({}); // groupName -> optionNames[]
 	const [selectedVariantIds, setSelectedVariantIds] = useState<Record<string, string[]>>({}); // groupId -> optionIds[] for price calc
@@ -181,6 +182,137 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 
 	if (!isOpen) return null;
 
+	// Touch handling for swipe down gesture
+	const [touchStart, setTouchStart] = useState(0);
+	const [touchEnd, setTouchEnd] = useState(0);
+
+	const handleTouchStart = (e: React.TouchEvent) => {
+		setTouchStart(e.targetTouches[0].clientY);
+	};
+
+	const handleTouchMove = (e: React.TouchEvent) => {
+		setTouchEnd(e.targetTouches[0].clientY);
+	};
+
+	const handleTouchEnd = () => {
+		if (touchStart - touchEnd < -50) {
+			// Swipe down detected (threshold 50px)
+			onClose();
+		}
+	};
+
+	// Inline mode: no backdrop, no fixed positioning
+	if (isInline) {
+		return (
+			<div className="h-full flex flex-col bg-white">
+				{/* Header with drag handle */}
+				<div 
+					onTouchStart={handleTouchStart}
+					onTouchMove={handleTouchMove}
+					onTouchEnd={handleTouchEnd}
+					className="flex items-center justify-between px-4 md:px-6 py-4 md:py-6 border-b border-gray-200 min-h-[88px] md:min-h-[104px] cursor-grab active:cursor-grabbing"
+				>
+					<div>
+						<h2 className="text-2xl font-bold text-gray-800">{item.name}</h2>
+						<p className="text-sm text-gray-500 mt-1">{item.category}</p>
+					</div>
+					<button 
+						onClick={onClose}
+						className="p-2 hover:bg-gray-100 rounded-full transition"
+					>
+						<XMarkIcon className="w-6 h-6 text-gray-600" />
+					</button>
+				</div>
+
+				{/* Content - Scrollable */}
+				<div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 space-y-6">
+					{/* Product Image */}
+					<div className="w-full h-48 bg-gray-200 rounded-2xl overflow-hidden">
+						<img 
+							src={item.image || "/placeholder.jpg"} 
+							alt={item.name}
+							className="w-full h-full object-cover"
+						/>
+					</div>
+
+					{/* Base Price */}
+					<div className="flex justify-between items-center">
+						<span className="text-gray-600 font-medium">Base Price</span>
+						<span className="text-xl font-bold text-gray-800">Rp {item.price.toLocaleString('id-ID')}</span>
+					</div>
+
+					{loading ? (
+						<div className="text-center py-8 text-gray-500">Loading variants...</div>
+					) : variantGroups.length === 0 ? (
+						<div className="text-center py-8 text-gray-500">No variants available</div>
+					) : (
+						variantGroups.map(group => (
+							<div key={group.id}>
+								<h3 className="text-lg font-semibold text-gray-800 mb-3">
+									{group.name}
+									{group.required && <span className="text-red-500 ml-1">*</span>}
+								</h3>
+								<div className="space-y-2">
+									{group.options.map(option => (
+										<button
+											key={option.id}
+											onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
+											className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition ${
+												selectedVariantIds[group.id]?.includes(option.id)
+													? 'border-gray-900 bg-gray-50'
+													: 'border-gray-200 hover:border-gray-300'
+											}`}
+										>
+											<span className="font-medium text-gray-800">{option.name}</span>
+											<span className={`text-sm font-semibold ${
+												option.priceModifier > 0 ? 'text-green-600' : option.priceModifier < 0 ? 'text-red-600' : 'text-gray-500'
+											}`}>
+												{option.priceModifier > 0 ? '+' : ''}{option.priceModifier !== 0 ? `Rp ${Math.abs(option.priceModifier).toLocaleString('id-ID')}` : 'No charge'}
+											</span>
+										</button>
+									))}
+								</div>
+							</div>
+						))
+					)}
+
+					{/* Quantity Selector */}
+					<div>
+						<h3 className="text-lg font-semibold text-gray-800 mb-3">Quantity</h3>
+						<div className="flex items-center gap-4">
+							<button
+								onClick={() => setQuantity(Math.max(1, quantity - 1))}
+								disabled={quantity <= 1}
+								className="w-12 h-12 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-2xl font-bold text-gray-700 transition"
+							>
+								−
+							</button>
+							<span className="text-3xl font-bold text-gray-800 w-16 text-center">{quantity}</span>
+							<button
+								onClick={() => setQuantity(quantity + 1)}
+								className="w-12 h-12 rounded-full bg-gray-900 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition"
+							>
+								+
+							</button>
+						</div>
+					</div>
+				</div>
+
+				{/* Footer - Sticky Bottom with safe area */}
+				<div className="border-t border-gray-200 p-4 md:p-6 pb-safe bg-white">
+					<button
+						onClick={handleAddToOrder}
+						disabled={!canAddToOrder()}
+						className="w-full py-4 mb-4 rounded-xl bg-gray-900 hover:bg-black text-white font-bold text-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						Add to Order - Rp {calculateTotalPrice().toLocaleString('id-ID')}
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// Overlay mode: original sidebar behavior
 	return (
 		<>
 			{/* Backdrop with blur */}
@@ -219,21 +351,19 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder }: 
 							/>
 						</div>
 
-						{/* Base Price */}
-						<div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl">
-						<span className="text-sm font-medium text-gray-700">Base Price</span>
-						<span className="text-lg font-bold text-gray-900">Rp {item.price.toLocaleString('id-ID')}</span>
+					{/* Base Price */}
+					<div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
+					<span className="text-sm font-medium text-gray-700">Base Price</span>
+					<span className="text-lg font-bold text-gray-900">Rp {item.price.toLocaleString('id-ID')}</span>
+					</div>
+
+					{/* Loading State */}
+					{loading && (
+						<div className="text-center py-8">
+							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+							<p className="text-sm text-gray-500 mt-2">Loading variants...</p>
 						</div>
-
-						{/* Loading State */}
-						{loading && (
-							<div className="text-center py-8">
-								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-								<p className="text-sm text-gray-500 mt-2">Loading variants...</p>
-							</div>
-						)}
-
-						{/* Variant Groups */}
+					)}						{/* Variant Groups */}
 						{!loading && variantGroups.length === 0 && (
 							<div className="text-center py-8">
 								<p className="text-gray-500">No variants available for this product</p>

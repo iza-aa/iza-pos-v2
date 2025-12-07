@@ -7,7 +7,9 @@ import {
   PlusIcon, 
   Squares2X2Icon, 
   ListBulletIcon, 
-  FunnelIcon
+  FunnelIcon,
+  Bars3Icon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import { 
   LayoutGrid, 
@@ -80,6 +82,7 @@ export default function MenuPage() {
   const [deletingCategory, setDeletingCategory] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCategorySidebar, setShowCategorySidebar] = useState(false)
 
   // Fetch categories from Supabase
   useEffect(() => {
@@ -390,8 +393,35 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-[calc(100vh-55px)] bg-white flex flex-col lg:flex-row h-[calc(100vh-55px)] overflow-hidden">
+      {/* Floating Category Button - Mobile Only */}
+      <button
+        onClick={() => setShowCategorySidebar(true)}
+        className="lg:hidden fixed bottom-6 left-6 w-14 h-14 bg-gray-900 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center text-white hover:scale-110 z-40"
+      >
+        <Bars3Icon className="w-6 h-6" />
+      </button>
+
+      {/* Backdrop - Mobile Only */}
+      {showCategorySidebar && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={() => setShowCategorySidebar(false)}
+        />
+      )}
+
       {/* Section 1: Sidebar Categories - Fixed height with scroll */}
-      <section className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden">
+      <section className={`w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden
+        lg:relative fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+        ${showCategorySidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Close button - Mobile Only */}
+        <button
+          onClick={() => setShowCategorySidebar(false)}
+          className="lg:hidden absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <XMarkIcon className="w-6 h-6 text-gray-600" />
+        </button>
+
         <h2 className="text-lg font-bold text-gray-900 mb-4 flex-shrink-0">Menu Category</h2>
         
         <div className="space-y-1.5 flex-1 overflow-y-auto">
@@ -406,7 +436,10 @@ export default function MenuPage() {
             return (
               <div key={category.id} className="relative">
                 <div
-                  onClick={() => setSelectedCategory(category.id)}
+                  onClick={() => {
+                    setSelectedCategory(category.id)
+                    setShowCategorySidebar(false) // Close sidebar on mobile when category is selected
+                  }}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition cursor-pointer ${
                     isSelected
                       ? 'bg-gray-900 text-white'

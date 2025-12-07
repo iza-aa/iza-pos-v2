@@ -69,14 +69,14 @@ export default function DeleteItemModal({
               className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
                 quantityToDelete <= 1
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-white border-2 border-gray-300 hover:border-blue-500 text-gray-700'
+                  : 'bg-white border-2 border-gray-300 hover:border-gray-900 text-gray-700'
               }`}
             >
               <ChevronLeftIcon className="w-6 h-6" />
             </button>
 
             <div className="text-center">
-              <div className="text-4xl font-bold text-blue-600">{quantityToDelete}</div>
+              <div className="text-4xl font-bold text-gray-900">{quantityToDelete}</div>
               <div className="text-sm text-gray-500 mt-1">of {currentQuantity}</div>
             </div>
 
@@ -86,7 +86,7 @@ export default function DeleteItemModal({
               className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
                 quantityToDelete >= currentQuantity
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-white border-2 border-gray-300 hover:border-blue-500 text-gray-700'
+                  : 'bg-white border-2 border-gray-300 hover:border-gray-900 text-gray-700'
               }`}
             >
               <ChevronRightIcon className="w-6 h-6" />
@@ -94,10 +94,10 @@ export default function DeleteItemModal({
           </div>
 
           {/* Price Info */}
-          <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-200">
+          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-300">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Amount to deduct:</span>
-              <span className="text-lg font-bold text-red-600">
+              <span className="text-lg font-bold" style={{ color: '#FF6859' }}>
                 Rp {(price * quantityToDelete).toLocaleString('id-ID')}
               </span>
             </div>
@@ -114,7 +114,8 @@ export default function DeleteItemModal({
           </button>
           <button
             onClick={handleConfirm}
-            className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition font-medium"
+            className="flex-1 px-4 py-3 text-white rounded-xl hover:opacity-90 transition font-medium"
+            style={{ backgroundColor: '#FF6859' }}
           >
             Remove {quantityToDelete === currentQuantity ? 'All' : quantityToDelete}
           </button>

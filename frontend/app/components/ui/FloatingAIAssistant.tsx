@@ -154,17 +154,17 @@ export default function FloatingAIAssistant() {
               </div>
 
               {/* Quick Actions - Grid */}
-              <div className="w-full max-w-4xl grid grid-cols-5 gap-3">
+              <div className="w-full max-w-4xl grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {quickActions.map((action, idx) => {
                   const IconComponent = action.icon;
                   return (
                     <button
                       key={idx}
                       onClick={() => handleQuickAction(action.prompt)}
-                      className="flex flex-col items-start gap-2 px-4 py-3 bg-gray-100 border border-gray-300 hover:border-gray-400 rounded-xl transition text-left"
+                      className="flex flex-col items-center justify-center gap-2 px-4 py-4 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-xl transition text-center min-h-[100px]"
                     >
-                      <IconComponent className="w-6 h-6 text-gray-700" />
-                      <span className="text-sm text-gray-700 leading-tight">{action.label}</span>
+                      <IconComponent className="w-7 h-7 text-gray-800" />
+                      <span className="text-sm text-gray-800 leading-tight font-medium">{action.label}</span>
                     </button>
                   );
                 })}

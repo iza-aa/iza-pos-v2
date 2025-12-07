@@ -30,55 +30,35 @@ export default function OrderSummary({
 	onDeleteTable,
 	onDeleteItem,
 }: OrderSummaryProps) {
-	const [userRole, setUserRole] = useState("");
-
-	useEffect(() => {
-		// Get user role from localStorage
-		const role = localStorage.getItem('user_role') || 'staff';
-		const roleAbbr = role.toUpperCase().substring(0, 3); // STA, MAN, OWN
-		setUserRole(roleAbbr);
-	}, []);
-
-	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-	const tax = subtotal * 0.1; // 10% tax (PPN)
-	const total = subtotal + tax;
-
 	return (
-		<div className="bg-white rounded-xl border border-gray-200 mb-4 ">
+		<div className="px-4 md:px-6 py-4 md:py-6">
 			{/* Header */}
-			<div className="flex justify-between items-start p-6 mb-6 rounded-t-xl bg-gray-50 border-b border-gray-200">
-				<div>
-					<div className="text-xl font-bold text-gray-800">{tableNumber}</div>
-					<div className="text-sm text-gray-500">{orderNumber}</div>
-					{userRole && (
-						<div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-semibold">
-							<span>as</span>
-							<span>{userRole}</span>
+			<div className="p-6 mb-6 rounded-xl bg-gray-50 border border-gray-300">
+				<div className="flex justify-between items-start mb-6">
+					<div>
+						<div className="text-xl font-bold text-gray-800">{tableNumber}</div>
+						<div className="text-sm text-gray-500">{orderNumber}</div>
+						<div className="text-xs text-gray-400 mt-1">
+							Waktu Pemesanan: {new Date().toLocaleString('id-ID', { 
+								hour: '2-digit', 
+								minute: '2-digit',
+								day: 'numeric',
+								month: 'long',
+								year: 'numeric',
+								timeZone: 'Asia/Jakarta'
+							})} WIB
 						</div>
-					)}
-				</div>
-				<div className="flex items-center gap-2">
-					<button
-						onClick={onEditTable}
-						className="p-2 hover:bg-gray-100 rounded-lg transition"
-						title="Edit Table"
-					>
-						<PencilIcon className="w-5 h-5 text-gray-600" />
-					</button>
-					<div className="text-right">
-						<div className="font-semibold text-gray-800">{peopleCount} People</div>
 					</div>
 				</div>
-			</div>
 
-			{/* Ordered Items */}
-			<div className="mb-6 px-6">
-				<div className="flex justify-between items-center ">
-					<h3 className="font-semibold text-gray-800">Ordered Items</h3>
-					<span className="text-sm text-gray-500">{items.length.toString().padStart(2, "0")}</span>
-				</div>
-				<div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
-					{items.map((item) => (
+				{/* Ordered Items */}
+				<div>
+					<div className="flex justify-between items-center mb-3">
+						<h3 className="font-semibold text-gray-800">Ordered Items</h3>
+						<span className="text-sm text-gray-500">{items.length.toString().padStart(2, "0")}</span>
+					</div>
+					<div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
+						{items.map((item) => (
 						<div key={item.id} className="group">
 							<div className="flex justify-between items-start">
 								<div className="flex-1">
@@ -118,24 +98,6 @@ export default function OrderSummary({
 							</div>
 						</div>
 					))}
-				</div>
-			</div>
-
-			{/* Payment Summary */}
-			<div className="border-t border-gray-200 p-6">
-				<h3 className="font-semibold text-gray-800 mb-3">Payment Summary</h3>
-				<div className="space-y-2">
-				<div className="flex justify-between text-gray-600">
-					<span>Subtotal</span>
-					<span>Rp {subtotal.toLocaleString('id-ID')}</span>
-					</div>
-				<div className="flex justify-between text-gray-600">
-					<span>Tax</span>
-					<span>Rp {tax.toLocaleString('id-ID')}</span>
-					</div>
-				<div className="flex justify-between text-lg font-bold text-gray-800 pt-4 border-t border-gray-200">
-					<span>Total Payable</span>
-					<span>Rp {total.toLocaleString('id-ID')}</span>
 					</div>
 				</div>
 			</div>

@@ -169,12 +169,10 @@ export default function ManagerOrderPage() {
 		if (order.status === 'new' && minutesSinceCreated >= 5) {
 			status = 'preparing';
 			// Update database in background (fire and forget)
-			supabase
+			void supabase
 				.from('orders')
 				.update({ status: 'preparing' })
-				.eq('id', order.id)
-				.then(() => {})
-				.catch(err => console.error('Error auto-updating order status:', err));
+				.eq('id', order.id);
 		}
 		
 		// Override with item-based status if applicable
@@ -182,41 +180,35 @@ export default function ManagerOrderPage() {
 			status = 'partially-served';
 			// Update database to reflect current state
 			if (order.status !== 'partially-served') {
-				supabase
+				void supabase
 					.from('orders')
 					.update({ status: 'partially-served' })
-					.eq('id', order.id)
-					.then(() => {})
-					.catch(err => console.error('Error updating to partially-served:', err));
+					.eq('id', order.id);
 			}
 		} else if (servedCount === totalCount && totalCount > 0) {
 			status = 'served';
 			// Update database to served if not already
 			if (order.status !== 'served' && order.status !== 'completed') {
-				supabase
+				void supabase
 					.from('orders')
 					.update({ status: 'served', updated_at: new Date().toISOString() })
-					.eq('id', order.id)
-					.then(() => {})
-					.catch(err => console.error('Error updating to served:', err));
+					.eq('id', order.id);
 			}
 			
 			// Auto-complete after 5 minutes of being served
 			// Check if order is fully served and 5 minutes have passed since last update
 			const orderUpdatedAt = parseSupabaseTimestamp(order.updated_at || order.created_at);
-			const minutesSinceServed = Math.floor((now - orderUpdatedAt) / (1000 * 60));
+			const minutesSinceServed = getMinutesDifference(now, orderUpdatedAt);
 			
 			if (order.status === 'served' && minutesSinceServed >= 5) {
 				status = 'completed';
-				supabase
+				void supabase
 					.from('orders')
 					.update({ 
 						status: 'completed',
 						completed_at: new Date().toISOString()
 					})
-					.eq('id', order.id)
-					.then(() => {})
-					.catch(err => console.error('Error auto-completing order:', err));
+					.eq('id', order.id);
 			}
 		}				// Get unique served_by staff from order_items
 				const servedByStaffIds = [...new Set(
@@ -384,6 +376,13 @@ export default function ManagerOrderPage() {
 			<div className="flex-shrink-0">
 				<OrderHeader
 					description="Track and manage all customer orders in real-time"
+					searchBar={
+						<SearchBar 
+							value={searchQuery}
+							onChange={setSearchQuery}
+							placeholder="Search orders..."
+						/>
+					}
 				>
 					<div className="flex items-center gap-3">
 						<DateFilterDropdown
@@ -391,11 +390,6 @@ export default function ManagerOrderPage() {
 							onDateFilterChange={setDateFilter}
 							customDateRange={customDateRange}
 							onCustomDateRangeChange={setCustomDateRange}
-						/>
-						<SearchBar 
-							value={searchQuery}
-							onChange={setSearchQuery}
-							placeholder="Search orders..."
 						/>
 						<ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
 					</div>

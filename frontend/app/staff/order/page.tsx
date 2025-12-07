@@ -333,6 +333,13 @@ export default function OrderPage() {
 			<div className="flex-shrink-0">
 				<OrderHeader
 					description="Track and manage all customer orders in real-time"
+					searchBar={
+						<SearchBar 
+							value={searchQuery}
+							onChange={setSearchQuery}
+							placeholder="Search orders..."
+						/>
+					}
 				>
 					<div className="flex items-center gap-3">
 						<DateFilterDropdown
@@ -340,11 +347,6 @@ export default function OrderPage() {
 							onDateFilterChange={setDateFilter}
 							customDateRange={customDateRange}
 							onCustomDateRangeChange={setCustomDateRange}
-						/>
-						<SearchBar 
-							value={searchQuery}
-							onChange={setSearchQuery}
-							placeholder="Search orders..."
 						/>
 						<ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
 					</div>
@@ -359,7 +361,7 @@ export default function OrderPage() {
 							onClick={() => setOrderFilter('all')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
 								orderFilter === 'all'
-									? 'bg-blue-500 text-white shadow-md'
+									? 'bg-gray-900 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
 						>
@@ -369,28 +371,26 @@ export default function OrderPage() {
 							onClick={() => setOrderFilter('dine-in')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
 								orderFilter === 'dine-in'
-									? 'bg-blue-500 text-white shadow-md'
+									? 'bg-gray-900 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
 						>
 							Dine In
 						</button>
-						<button
-							onClick={() => setOrderFilter('takeaway')}
-							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderFilter === 'takeaway'
-									? 'bg-blue-500 text-white shadow-md'
-									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-							}`}
-						>
-							Takeaway
-						</button>
-
-						<button
+					<button
+						onClick={() => setOrderFilter('takeaway')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+							orderFilter === 'takeaway'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						Takeaway
+					</button>						<button
 							onClick={() => setOrderFilter('new-preparing')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
 								orderFilter === 'new-preparing'
-									? 'bg-blue-500 text-white shadow-md'
+									? 'bg-gray-900 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
 						>
@@ -400,7 +400,7 @@ export default function OrderPage() {
 							onClick={() => setOrderFilter('partially-served')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
 								orderFilter === 'partially-served'
-									? 'bg-blue-500 text-white shadow-md'
+									? 'bg-gray-900 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
 						>
@@ -410,7 +410,7 @@ export default function OrderPage() {
 							onClick={() => setOrderFilter('served')}
 							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
 								orderFilter === 'served'
-									? 'bg-blue-500 text-white shadow-md'
+									? 'bg-gray-900 text-white shadow-md'
 									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 							}`}
 						>

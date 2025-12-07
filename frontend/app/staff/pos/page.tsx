@@ -9,7 +9,8 @@ import VariantSidebar from "@/app/components/staff/pos/VariantSidebar";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentModal from "@/app/components/staff/pos/PaymentModal";
 import DeleteItemModal from "@/app/components/staff/pos/DeleteItemModal";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import PaymentSummary from "@/app/components/staff/pos/PaymentSummary";
+import { ChevronLeftIcon, ChevronRightIcon, PrinterIcon, ShoppingCartIcon, MagnifyingGlassIcon, ChevronDoubleRightIcon, ChevronDoubleLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient";
 import { LayoutGrid, Coffee, UtensilsCrossed, Cookie, Cake, Milk, Pizza, Sandwich, Soup, Salad, IceCream } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export default function POSPage() {
 	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [selectedItem, setSelectedItem] = useState<any>(null);
+	const [orderDetailsOpen, setOrderDetailsOpen] = useState(true);
 	const [itemToDelete, setItemToDelete] = useState<any>(null);
 	const [cart, setCart] = useState<any[]>([]);
 
@@ -191,6 +193,7 @@ export default function POSPage() {
 		if (item.hasVariants) {
 			setSelectedItem(item);
 			setVariantSidebarOpen(true);
+			setOrderDetailsOpen(true); // Auto-open Order Details to show VariantSidebar
 		} else {
 			// Add directly to cart for non-variant items
 			handleQuantityChange(item.id, 1)
@@ -212,6 +215,9 @@ export default function POSPage() {
 		
 		setCart([...cart, cartItem])
 		console.log('Added to cart:', cartItem);
+		
+		// Auto-show Order Details after adding item
+		setOrderDetailsOpen(true);
 	};
 
 	// Handle delete item from cart
@@ -402,29 +408,36 @@ export default function POSPage() {
 	}
 
 	return (
-		<main className="h-[calc(100vh-55px)] bg-gray-50 flex flex-col lg:flex-row overflow-hidden">
+		<main className="h-[calc(100vh-55px)] bg-gray-100 flex flex-col lg:flex-row overflow-hidden relative">
 			{/* Section 1: Menu - Left scrollable */}
-			<section className="flex-1 px-4 md:px-6 py-4 md:py-6 scrollbar-hide flex flex-col overflow-hidden">
-				{/* Sticky Header & Filter */}
-				<div className="sticky top-0 z-10 bg-gray-50 pb-2">
-					<FoodiesMenuHeader
-						searchQuery={searchQuery}
-						onSearchChange={setSearchQuery}
-					/>
-					<MenuCategories
-						categories={categories}
-						activeCategory={activeCategory}
-						setActiveCategory={setActiveCategory}
-					/>
+			<section className="flex-1 flex flex-col overflow-hidden">
+				{/* Header dengan background putih */}
+				<div className="bg-white px-4 md:px-6 py-4 md:py-6 border-b border-gray-200 min-h-[88px] md:min-h-[104px] flex items-center">
+					<div className="w-full">
+						<FoodiesMenuHeader
+							searchQuery={searchQuery}
+							onSearchChange={setSearchQuery}
+						/>
+					</div>
 				</div>
-				{/* Scrollable Items Grid */}
-				<div className="flex-1 overflow-y-auto">
+				
+				{/* Scrollable Items Grid dengan background abu-abu */}
+				<div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 pb-20">
+					{/* Categories */}
+					<div className="mb-4">
+						<MenuCategories
+							categories={categories}
+							activeCategory={activeCategory}
+							setActiveCategory={setActiveCategory}
+						/>
+					</div>
+					
 					{loading ? (
 						<div className="flex items-center justify-center h-64">
 							<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
 						</div>
 					) : (
-						<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 							{filteredFoodItems.map((item) => {
 								// Calculate total quantity in cart for this product
 								let quantity = 0
@@ -451,48 +464,167 @@ export default function POSPage() {
 						</div>
 					)}
 				</div>
-			</section>
-			{/* Section 2: Order Summary - Responsive Right Sidebar */}
-			<section className="w-full lg:w-[400px] xl:w-[450px] flex-shrink-0 flex flex-col gap-2 py-4 md:py-6 md:pr-6 overflow-hidden border-t lg:border-t-0">
-				<OrderSummary
-					tableNumber="Table No #04"
-					orderNumber="Order #FO030"
-					peopleCount={2}
-					items={cart.map(item => ({
-						id: item.id,
-						name: item.name,
-						quantity: item.quantity,
-						price: item.price,
-						variants: item.variants,
-						productId: item.productId
-					}))}
-					onEditTable={() => console.log("Edit table")}
-					onDeleteTable={() => console.log("Delete table")}
-					onDeleteItem={handleDeleteItem}
-				/>
-				{/* Action Buttons */}
-				<div className="flex gap-3 mt-auto">
-					<button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition font-medium shadow-sm">
-						🖨️ Print
+		</section>
+		
+		{/* Floating Cart Button - Mobile Only (Left Side) */}
+		<button
+			onClick={() => setOrderDetailsOpen(true)}
+			className="lg:hidden fixed bottom-6 left-6 w-14 h-14 bg-gray-900 hover:bg-black text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center z-30 transition-all duration-300 hover:scale-110"
+		>
+			<div className="relative">
+				<ShoppingCartIcon className="w-6 h-6" />
+				{cart.length > 0 && (
+					<span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+						{cart.length}
+					</span>
+				)}
+			</div>
+		</button>
+
+		{/* Backdrop for mobile - Only show when Order Details open on mobile */}
+		{orderDetailsOpen && (
+			<div 
+				onClick={() => setOrderDetailsOpen(false)}
+				className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
+			/>
+		)}
+
+		{/* Section 2: Order Summary - Responsive */}
+		<section 
+			onTouchStart={(e) => {
+				const touch = e.touches[0];
+				(e.currentTarget as any).touchStartY = touch.clientY;
+			}}
+			onTouchMove={(e) => {
+				const touch = e.touches[0];
+				const startY = (e.currentTarget as any).touchStartY;
+				if (startY && touch.clientY - startY > 10) {
+					// Prevent scroll when dragging down
+					e.preventDefault();
+				}
+			}}
+			onTouchEnd={(e) => {
+				const startY = (e.currentTarget as any).touchStartY;
+				const endY = e.changedTouches[0].clientY;
+				if (endY - startY > 100) {
+					// Swipe down > 100px, close
+					setOrderDetailsOpen(false);
+				}
+				delete (e.currentTarget as any).touchStartY;
+			}}
+			className={`
+			/* Mobile: Bottom sheet */
+			fixed lg:relative
+			bottom-0 lg:bottom-auto
+			left-0 lg:left-auto
+			right-0 lg:right-auto
+			w-full
+			h-[85vh] lg:h-full
+			rounded-t-3xl lg:rounded-none
+			z-50 lg:z-auto
+			/* Desktop: Sidebar */
+			lg:flex-shrink-0
+			bg-white flex flex-col overflow-visible
+			border-t lg:border-t-0 lg:border-l border-gray-200
+			transition-all duration-300
+			/* Toggle behavior */
+			${orderDetailsOpen 
+				? 'translate-y-0 lg:translate-y-0 lg:w-[400px] xl:w-[450px]' 
+				: 'translate-y-full lg:translate-y-0 lg:w-0'
+			}
+		`}>
+			{/* Mobile: Drag handle */}
+			<div className="lg:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
+				<div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+			</div>
+			
+			{/* Desktop: Toggle Button */}
+			<button
+				onClick={() => setOrderDetailsOpen(!orderDetailsOpen)}
+				className={`hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 items-center justify-center w-8 h-8 rounded-full bg-white hover:bg-gray-50 transition-all duration-300 z-20 border border-gray-300 shadow-md ${
+					!orderDetailsOpen ? 'animate-pulse-horizontal hover:animate-none' : ''
+				}`}
+				title={orderDetailsOpen ? "Hide Order Details" : "Show Order Details"}
+			>
+				{orderDetailsOpen ? (
+					<ChevronDoubleRightIcon className="w-4 h-4 text-gray-700" />
+				) : (
+					<ChevronDoubleLeftIcon className="w-4 h-4 text-gray-700" />
+				)}
+			</button>
+
+			<div className={`flex flex-col h-full transition-opacity duration-300 ${orderDetailsOpen ? 'opacity-100' : 'lg:opacity-0 pointer-events-none lg:pointer-events-auto'}`}>
+				{variantSidebarOpen && selectedItem ? (
+					/* Variant Sidebar Content */
+					<div className="flex flex-col h-full">
+						<VariantSidebar
+							isOpen={true}
+							onClose={() => setVariantSidebarOpen(false)}
+							item={selectedItem}
+							onAddToOrder={handleAddToOrder}
+							isInline={true}
+						/>
+					</div>
+				) : (
+					/* Order Details Content */
+					<>
+						{/* Title Header with close button for mobile */}
+						<div className="px-4 md:px-6 py-3 md:py-4 lg:py-6 border-b border-gray-200 min-h-[60px] md:min-h-[88px] lg:min-h-[104px] flex items-center justify-between">
+							<h2 className="text-xl md:text-2xl font-bold text-gray-800">Order Details</h2>
+							<button
+								onClick={() => setOrderDetailsOpen(false)}
+								className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition"
+							>
+								<XMarkIcon className="w-6 h-6 text-gray-600" />
+							</button>
+						</div>
+						
+						{/* Order Summary Content - Scrollable */}
+						<div className="flex-1 overflow-y-auto">
+							<OrderSummary
+							tableNumber="Table No #04"
+							orderNumber="Order #FO030"
+							peopleCount={2}
+							items={cart.map(item => ({
+								id: item.id,
+								name: item.name,
+								quantity: item.quantity,
+								price: item.price,
+								variants: item.variants,
+								productId: item.productId
+							}))}
+							onEditTable={() => console.log("Edit table")}
+							onDeleteTable={() => console.log("Delete table")}
+							onDeleteItem={handleDeleteItem}
+						/>
+						</div>
+						
+						{/* Payment Summary - Sticky Bottom */}
+						<div className="border-t border-gray-200 bg-white">
+							<PaymentSummary items={cart} />
+						</div>
+					</>
+				)}
+				
+				{/* Action Buttons with safe area */}
+				<div className="flex gap-3 px-4 md:px-6 pb-6 md:pb-6 pt-4">
+					<button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition font-medium">
+						<PrinterIcon className="w-5 h-5" />
+						Print
 					</button>
 					<button 
 						onClick={() => setPaymentModalOpen(true)}
 						disabled={cart.length === 0}
-						className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+						className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-black text-white font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						📦 Place Order
+						<span className="flex items-center justify-center gap-2">
+							<ShoppingCartIcon className="w-5 h-5" />
+							Place Order
+						</span>
 					</button>
 				</div>
-			</section>
-			{/* Variant Sidebar */}
-			{selectedItem && (
-				<VariantSidebar
-					isOpen={variantSidebarOpen}
-					onClose={() => setVariantSidebarOpen(false)}
-					item={selectedItem}
-					onAddToOrder={handleAddToOrder}
-				/>
-			)}
+			</div>
+		</section>
 			{/* Payment Modal */}
 			<PaymentModal
 				isOpen={paymentModalOpen}

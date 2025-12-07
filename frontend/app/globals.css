@@ -30,6 +30,20 @@
   width: 8px;
 }
 
+/* Custom pulse animation kiri-kanan */
+@keyframes pulse-horizontal {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-4px);
+  }
+}
+
+.animate-pulse-horizontal {
+  animation: pulse-horizontal 1.5s ease-in-out infinite;
+}
+
 .scrollbar-show::-webkit-scrollbar-track {
   background: #f1f1f1;
 }
