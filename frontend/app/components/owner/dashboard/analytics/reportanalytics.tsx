@@ -31,35 +31,35 @@ export default function ReportAnalytics() {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-3 md:p-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="bg-gray-100 rounded-xl p-2">
-              <ChartBarIcon className="h-5 w-5 text-gray-700" />
+              <ChartBarIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-gray-800">Report Analytics</h3>
-              <p className="text-xs text-gray-500">Weekly revenue overview</p>
+              <h3 className="text-sm md:text-base font-semibold text-gray-800">Report Analytics</h3>
+              <p className="text-[10px] md:text-xs text-gray-500">Weekly revenue overview</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition">
+            <button className="px-2 md:px-3 py-1 md:py-1.5 bg-gray-100 text-gray-700 rounded-lg text-[10px] md:text-xs font-medium hover:bg-gray-200 transition">
               Weekly
             </button>
-            <ArrowUpRightIcon className="h-4 w-4 text-gray-400" />
+            <ArrowUpRightIcon className="h-3 md:h-4 w-3 md:w-4 text-gray-400" />
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-3 md:p-4">
         {/* Category Filter */}
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex gap-2 mb-3 md:mb-4 overflow-x-auto pb-1 scrollbar-hide">
           {categories.map((category) => (
             <button
               key={category}
               onClick={() => setActiveCategory(category)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition ${
                 activeCategory === category
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -71,7 +71,7 @@ export default function ReportAnalytics() {
         </div>
 
         {/* Chart */}
-        <div className="h-[180px] mb-4">
+        <div className="h-[150px] md:h-[180px] mb-3 md:mb-4">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weeklyData} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
             <defs>

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
-import OrderCard from "@/app/components/staff/order/OrderCard";
+import OrderCard from "@/app/components/shared/OrderCard";
 import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
@@ -96,32 +96,66 @@ export default function OrderPage() {
 				const now = getJakartaNow();
 				const minutesSinceCreated = getMinutesDifference(now, orderCreatedAt);
 				
-				// Debug: Log order status info
-				console.log(`Order ${order.order_number}: DB status="${order.status}", minutes=${minutesSinceCreated}, created=${order.created_at}`);
-				
-				// Determine order status based on database status and time
-				let status = order.status;
-				
-				// Auto-update status from 'new' to 'preparing' after 2 minutes
-				if (order.status === 'new' && minutesSinceCreated >= 2) {
-					status = 'preparing';
-					// Update database in background (fire and forget)
+			// Debug: Log order status info
+			console.log(`Order ${order.order_number}: DB status="${order.status}", minutes=${minutesSinceCreated}, created=${order.created_at}`);
+			
+			// Determine order status based on database status and time
+			let status = order.status;
+			
+			// Auto-update status from 'new' to 'preparing' after 5 minutes
+			if (order.status === 'new' && minutesSinceCreated >= 5) {
+				status = 'preparing';
+				// Update database in background (fire and forget)
+				supabase
+					.from('orders')
+					.update({ status: 'preparing' })
+					.eq('id', order.id)
+					.then(() => {})
+					.catch(err => console.error('Error auto-updating order status:', err));
+			}
+			
+			// Override with item-based status if applicable
+			if (servedCount > 0 && servedCount < totalCount) {
+				status = 'partially-served';
+				// Update database to reflect current state
+				if (order.status !== 'partially-served') {
 					supabase
 						.from('orders')
-						.update({ status: 'preparing' })
+						.update({ status: 'partially-served' })
 						.eq('id', order.id)
 						.then(() => {})
-						.catch(err => console.error('Error auto-updating order status:', err));
+						.catch(err => console.error('Error updating to partially-served:', err));
+				}
+			} else if (servedCount === totalCount && totalCount > 0) {
+				status = 'served';
+				// Update database to served if not already
+				if (order.status !== 'served' && order.status !== 'completed') {
+					supabase
+						.from('orders')
+						.update({ status: 'served', updated_at: new Date().toISOString() })
+						.eq('id', order.id)
+						.then(() => {})
+						.catch(err => console.error('Error updating to served:', err));
 				}
 				
-				// Override with item-based status if applicable
-				if (servedCount > 0 && servedCount < totalCount) {
-					status = 'partially-served';
-				} else if (servedCount === totalCount && totalCount > 0) {
-					status = 'served';
+				// Auto-complete after 5 minutes of being served
+				// Check if order is fully served and 5 minutes have passed since last update
+				const orderUpdatedAt = parseSupabaseTimestamp(order.updated_at || order.created_at);
+				const minutesSinceServed = Math.floor((now - orderUpdatedAt) / (1000 * 60));
+				
+				if (order.status === 'served' && minutesSinceServed >= 5) {
+					status = 'completed';
+					supabase
+						.from('orders')
+						.update({ 
+							status: 'completed',
+							completed_at: new Date().toISOString()
+						})
+						.eq('id', order.id)
+						.then(() => {})
+						.catch(err => console.error('Error auto-completing order:', err));
 				}
-
-				return {
+			}				return {
 					id: order.id,
 					customerName: order.customer_name || 'Guest',
 					orderNumber: order.order_number || `#${order.id.substring(0, 8).toUpperCase()}`,
@@ -227,6 +261,25 @@ export default function OrderPage() {
 			alert('Failed to mark items as served');
 		}
 	}
+
+	// Handler for serving single item
+	const handleServeItem = async (orderId: string, itemId: string) => {
+		await handleMarkServed(orderId, [itemId]);
+	};
+
+	// Handler for serving all items in order
+	const handleServeAll = async (orderId: string) => {
+		const order = orderList.find(o => o.id === orderId);
+		if (!order) return;
+		
+		const unservedItemIds = order.items
+			.filter((item: any) => !item.served)
+			.map((item: any) => item.id);
+		
+		if (unservedItemIds.length > 0) {
+			await handleMarkServed(orderId, unservedItemIds);
+		}
+	};
 
 	// Get current date for filtering
 	const now = new Date();
@@ -369,11 +422,16 @@ export default function OrderPage() {
 				{/* Content */}
 				<div className="px-6 pb-6">
 					{viewMode === "card" ? (
-						<div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-							{filteredOrders.map((order) => (
-								<OrderCard key={order.id} order={order} onMarkServed={handleMarkServed} />
-							))}
-						</div>
+					<div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
+						{filteredOrders.map((order) => (
+							<OrderCard 
+								key={order.id} 
+								order={order}
+								enableFlipCard={true}
+								onMarkServed={handleMarkServed}
+							/>
+						))}
+					</div>
 					) : (
 						<OrderTable orders={filteredOrders} onOrderClick={() => {}} />
 					)}

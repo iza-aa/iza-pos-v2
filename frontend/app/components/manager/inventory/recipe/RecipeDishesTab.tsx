@@ -275,15 +275,15 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Section 1: Header + Stats */}
-      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
+      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold text-gray-800">Dishes (Base Recipes)</h2>
-            <p className="text-sm text-gray-500">Manage base recipes for your menu dishes</p>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Dishes (Base Recipes)</h2>
+            <p className="text-xs md:text-sm text-gray-500">Manage base recipes for your menu dishes</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
             {/* Toggle Stats Button */}
             <button 
               onClick={() => setShowStats(!showStats)}
@@ -298,14 +298,14 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
             </button>
 
             {/* Search */}
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="relative flex-1 lg:flex-none">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search dishes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
               />
             </div>
           </div>
@@ -313,22 +313,22 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
 
         {/* Stats Cards */}
         {showStats && (
-          <div className="grid grid-cols-4 gap-4 pt-6 ">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Total Dishes</div>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalProducts}</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 pt-4 md:pt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Total Dishes</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalProducts}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">With Recipe</div>
-              <div className="text-2xl font-bold text-green-600">{stats.withRecipe}</div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">With Recipe</div>
+              <div className="text-xl md:text-2xl font-bold" style={{ color: '#B2FF5E' }}>{stats.withRecipe}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Without Recipe</div>
-              <div className="text-2xl font-bold text-orange-600">{stats.withoutRecipe}</div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Without Recipe</div>
+              <div className="text-xl md:text-2xl font-bold" style={{ color: '#FF6859' }}>{stats.withoutRecipe}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Coverage</div>
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Coverage</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">
                 {stats.totalProducts > 0 ? Math.round((stats.withRecipe / stats.totalProducts) * 100) : 0}%
               </div>
             </div>
@@ -337,44 +337,44 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
       </section>
 
       {/* Section 2: Products List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto px-6 py-6 bg-gray-100">
-        <div className="columns-4 gap-4 space-y-4">
+      <section className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 bg-gray-50">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 md:gap-4 space-y-3 md:space-y-4">
         {filteredProducts.map(({ product, baseRecipe, hasRecipe }) => (
-          <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
+          <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-3 md:mb-4">
             {/* Product Header */}
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-3 md:p-4 border-b border-gray-200">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-800">{product.name}</h3>
+                  <h3 className="text-base md:text-lg font-bold text-gray-900">{product.name}</h3>
                   <p className="text-xs text-gray-500 mt-1">{product.category}</p>
                 </div>
                 {!viewAsOwner && (
                   <button
                     onClick={() => hasRecipe && baseRecipe ? handleEditRecipe(baseRecipe) : handleSetRecipe(product)}
-                    className={`p-1.5 rounded-lg transition ${
-                      hasRecipe ? 'hover:bg-gray-100' : 'hover:bg-blue-50'
-                    }`}
+                    className="p-1.5 rounded-lg transition hover:bg-gray-100"
                     title={hasRecipe ? "Edit Recipe" : "Set Recipe"}
                   >
-                    <PlusIcon className={`w-4 h-4 ${hasRecipe ? 'text-gray-600' : 'text-blue-600'}`} />
+                    <PlusIcon className="w-4 h-4 text-gray-600" />
                   </button>
                 )}
               </div>
               
               {/* Status Badge */}
               <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                  hasRecipe 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-orange-100 text-orange-700'
-                }`}>
+                <span 
+                  className="text-xs px-2 py-1 rounded-full font-semibold"
+                  style={{
+                    backgroundColor: hasRecipe ? '#B2FF5E' : '#FF6859',
+                    color: hasRecipe ? '#000000' : '#FFFFFF'
+                  }}
+                >
                   {hasRecipe ? 'Has Recipe' : 'No Recipe'}
                 </span>
               </div>
             </div>
 
             {/* Recipe Info */}
-            <div className="p-4 flex-1">
+            <div className="p-3 md:p-4 flex-1">
               {baseRecipe ? (
                 <div className="space-y-3">
                   <div className="text-xs font-medium text-gray-600 uppercase">Ingredients:</div>

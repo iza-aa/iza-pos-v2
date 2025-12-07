@@ -278,45 +278,46 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold text-gray-800">Product Overrides</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg md:text-xl font-bold text-gray-800">Product Overrides</h2>
+            <p className="text-xs md:text-sm text-gray-500">
               Set exact ingredient quantities for specific product + variant combinations. Overrides take priority over default modifiers.
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="relative">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="relative flex-1 md:flex-initial">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search overrides..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full md:w-64"
               />
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition"
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-900 text-white rounded-xl hover:bg-gray-700 font-medium transition text-sm md:text-base whitespace-nowrap"
             >
               <PlusIcon className="w-5 h-5" />
-              Add Override
+              <span className="hidden sm:inline">Add Override</span>
+              <span className="sm:hidden">Add</span>
             </button>
           </div>
         </div>
 
         {/* Info Box */}
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="mt-4 p-3 md:p-4 rounded-xl border-2" style={{ backgroundColor: '#FFE5E2', borderColor: '#FF6859' }}>
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-              <span className="text-amber-600 font-bold text-sm">!</span>
+            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FF6859' }}>
+              <span className="text-white font-bold text-sm">!</span>
             </div>
             <div>
-              <h4 className="font-semibold text-amber-900">When to Use Overrides</h4>
-              <p className="text-sm text-amber-700 mt-1">
+              <h4 className="font-semibold text-sm md:text-base" style={{ color: '#FF6859' }}>When to Use Overrides</h4>
+              <p className="text-xs md:text-sm text-gray-900 mt-1">
                 Use overrides when a specific product needs <strong>different ingredients</strong> than the default modifier would calculate.<br/>
                 Example: Large Americano needs exactly 18g coffee (not 15g from +50% modifier).
               </p>
@@ -340,13 +341,13 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Product</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Variant</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ingredients</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Actions</th>
+                  <th className="w-1/4 px-4 md:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Product</th>
+                  <th className="w-1/6 px-4 md:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Variant</th>
+                  <th className="w-1/2 px-4 md:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ingredients</th>
+                  <th className="w-1/12 px-4 md:px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -355,22 +356,26 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                   
                   return (
                     <tr key={override.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <td className="px-4 md:px-6 py-4 text-xs md:text-sm font-medium text-gray-900">
                         {override.product_name}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      <td className="px-4 md:px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-900">
                           {override.variant_name}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 md:px-6 py-4">
                         <div className="space-y-2">
                           {!isExpanded ? (
                             <button
                               onClick={() => toggleOverride(override.id)}
-                              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                              className="flex items-center gap-2 text-xs md:text-sm text-gray-900 hover:text-gray-700"
                             >
-                              <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
+                              <span className="border text-gray-900 px-2 py-0.5 rounded-full text-xs"
+                                style={{
+                                  borderColor: override.ingredients.length > 0 ? '#B2FF5E' : '#FF6859',
+                                  backgroundColor: 'white'
+                                }}>
                                 {override.ingredients.length} ingredient{override.ingredients.length !== 1 ? 's' : ''}
                               </span>
                               <ChevronDownIcon className="w-4 h-4" />
@@ -379,7 +384,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                             <div className="space-y-2">
                               <button
                                 onClick={() => toggleOverride(override.id)}
-                                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                                className="flex items-center gap-1 text-xs md:text-sm text-gray-900 hover:text-gray-700"
                               >
                                 <ChevronUpIcon className="w-4 h-4" />
                                 <span>Hide</span>
@@ -391,13 +396,14 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                                 <div className="space-y-1">
                                   {override.ingredients.map((ing, idx) => (
                                     <div key={idx} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
-                                      <span className="text-sm">
+                                      <span className="text-xs md:text-sm">
                                         <strong>{ing.ingredient_name}</strong>
                                         <span className="text-gray-500 ml-2">{ing.quantity_needed} {ing.unit}</span>
                                       </span>
                                       <button
                                         onClick={() => handleRemoveIngredient(override.id, ing.inventory_item_id)}
-                                        className="text-red-500 hover:text-red-700"
+                                        className="p-1.5 bg-white border hover:bg-gray-50 rounded transition"
+                                        style={{ borderColor: '#FF6859', color: '#FF6859' }}
                                       >
                                         <TrashIcon className="w-4 h-4" />
                                       </button>
@@ -417,7 +423,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                                   }
                                   setShowIngredientModal(true)
                                 }}
-                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                className="flex items-center gap-1 text-xs text-white bg-gray-900 hover:bg-gray-700 font-medium px-3 py-1.5 rounded-lg transition"
                               >
                                 <PlusIcon className="w-4 h-4" />
                                 Add Ingredient
@@ -426,14 +432,22 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => handleDeleteOverride(override.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded transition"
-                          title="Delete override"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                      <td className="px-4 md:px-6 py-4">
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            className="text-xs md:text-sm font-medium text-gray-700 hover:text-gray-900 transition"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOverride(override.id)}
+                            className="text-xs md:text-sm font-medium transition"
+                            style={{ color: '#FF6859' }}
+                            title="Delete override"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -461,7 +475,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                 <select
                   value={newOverride.product_id}
                   onChange={(e) => setNewOverride({ ...newOverride, product_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
                   <option value="">-- Select Product --</option>
                   {products.map(product => (
@@ -475,7 +489,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                 <select
                   value={newOverride.variant_name}
                   onChange={(e) => setNewOverride({ ...newOverride, variant_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
                   <option value="">-- Select Variant --</option>
                   {variantOptions.map(option => (
@@ -497,7 +511,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
               <button
                 onClick={handleCreateOverride}
                 disabled={!newOverride.product_id || !newOverride.variant_name}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Create Override
               </button>
@@ -527,7 +541,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                 <select
                   value={newIngredient.inventory_item_id}
                   onChange={(e) => setNewIngredient({ ...newIngredient, inventory_item_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
                   {rawMaterials.map(item => (
                     <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
@@ -543,7 +557,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
                   step="0.01"
                   value={newIngredient.quantity_needed || ''}
                   onChange={(e) => setNewIngredient({ ...newIngredient, quantity_needed: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 />
               </div>
             </div>
@@ -558,7 +572,7 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
               <button
                 onClick={handleAddIngredient}
                 disabled={!newIngredient.inventory_item_id || newIngredient.quantity_needed <= 0}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Add Ingredient
               </button>

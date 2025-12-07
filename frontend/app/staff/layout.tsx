@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Navbar from "../components/ui/navbar/Navbar";
+import FloatingAIAssistant from "../components/ui/FloatingAIAssistant";
 
 type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter';
 
@@ -34,6 +35,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         canSwitchRole={userRole === 'owner'} 
       />
       <main>{children}</main>
+      {userRole === 'owner' && <FloatingAIAssistant />}
     </div>
   );
 }

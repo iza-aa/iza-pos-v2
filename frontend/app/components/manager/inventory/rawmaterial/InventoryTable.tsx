@@ -25,10 +25,18 @@ interface InventoryTableProps {
 export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, onDelete }: InventoryTableProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'in-stock': return 'bg-green-100 text-green-700'
+      case 'in-stock': return ''
       case 'low-stock': return 'bg-yellow-100 text-yellow-700'
-      case 'out-of-stock': return 'bg-red-100 text-red-700'
+      case 'out-of-stock': return ''
       default: return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'in-stock': return { backgroundColor: '#B2FF5E', color: '#000000' }
+      case 'out-of-stock': return { backgroundColor: '#FF6859', color: '#FFFFFF' }
+      default: return {}
     }
   }
 
@@ -85,9 +93,9 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, 
                   <div className="text-sm text-gray-700">{item.category}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap w-[12%]">
-                  <div className={`text-sm font-semibold ${
-                    item.currentStock <= item.reorderLevel ? 'text-red-600' : 'text-gray-900'
-                  }`}>
+                  <div className="text-sm font-semibold" style={{
+                    color: item.currentStock <= item.reorderLevel ? '#FF6859' : '#000000'
+                  }}>
                     {item.currentStock} {item.unit}
                   </div>
                 </td>
@@ -107,7 +115,10 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, 
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap w-[11%]">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}>
+                  <span 
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}
+                    style={getStatusStyle(item.status)}
+                  >
                     {getStatusText(item.status)}
                   </span>
                 </td>
@@ -115,14 +126,15 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, 
                   <td className="px-6 py-4 whitespace-nowrap text-left w-[14%]">
                     <button
                       onClick={() => onEdit?.(item)}
-                      className="text-blue-600 hover:text-blue-700 font-medium mr-3"
+                      className="text-gray-700 hover:text-gray-900 font-medium mr-3 text-sm"
                       title="Edit"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => onDelete?.(item)}
-                      className="text-red-600 hover:text-red-700 font-medium"
+                      className="hover:underline font-medium text-sm"
+                      style={{ color: '#FF6859' }}
                       title="Delete"
                     >
                       Delete

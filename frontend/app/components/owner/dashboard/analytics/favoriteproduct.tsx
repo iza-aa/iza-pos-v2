@@ -25,25 +25,14 @@ export default function FavoriteProduct() {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div className="p-3 md:p-4 border-b border-gray-100">
+        <div className="flex items-center gap-2 md:gap-3">
           <div className="bg-gray-100 rounded-xl p-2">
-            <StarIcon className="h-5 w-5 text-gray-700" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-gray-800">Top Products</h3>
-              <p className="text-xs text-gray-500">Best sellers this month</p>
-            </div>
+            <StarIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
           </div>
-          {/* Search Bar */}
-          <div className="relative">
-            <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white w-36 transition-all"
-            />
+          <div>
+            <h3 className="text-sm md:text-base font-semibold text-gray-800">Top Products</h3>
+            <p className="text-[10px] md:text-xs text-gray-500">Best sellers this month</p>
           </div>
         </div>
       </div>
@@ -53,10 +42,10 @@ export default function FavoriteProduct() {
         {products.map((product, idx) => (
           <div
             key={idx}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group"
+            className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group"
           >
             {/* Rank Badge */}
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+            <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 ${
               idx === 0 ? 'bg-gray-800 text-white' : 
               idx === 1 ? 'bg-gray-600 text-white' : 
               idx === 2 ? 'bg-gray-400 text-white' : 
@@ -66,26 +55,26 @@ export default function FavoriteProduct() {
             </div>
 
             {/* Product Icon */}
-            <div className={`w-9 h-9 bg-gradient-to-br ${getEmojiBackground()} rounded-xl flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform`}>
+            <div className={`w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br ${getEmojiBackground()} rounded-xl flex items-center justify-center text-base md:text-lg shrink-0 group-hover:scale-105 transition-transform`}>
               {product.emoji}
             </div>
 
             {/* Product Info */}
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-800 text-sm truncate">{product.name}</p>
-              <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full mt-1 ${getCategoryStyle()}`}>
+              <p className="font-medium text-gray-800 text-xs md:text-sm truncate">{product.name}</p>
+              <span className={`inline-block text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full mt-0.5 md:mt-1 ${getCategoryStyle()}`}>
                 {product.category}
               </span>
             </div>
 
             {/* Orders & Progress */}
             <div className="text-right shrink-0">
-              <div className="flex items-center gap-1.5 justify-end">
-                <span className="text-sm font-semibold text-gray-800">{product.orders}</span>
-                <span className="text-xs text-gray-400">orders</span>
+              <div className="flex items-center gap-1 md:gap-1.5 justify-end">
+                <span className="text-xs md:text-sm font-semibold text-gray-800">{product.orders}</span>
+                <span className="text-[10px] md:text-xs text-gray-400 hidden sm:inline">orders</span>
               </div>
               {/* Mini progress bar */}
-              <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+              <div className="w-12 md:w-16 h-1.5 bg-gray-100 rounded-full mt-1 md:mt-1.5 overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-gray-400 to-gray-600 rounded-full transition-all"
                   style={{ width: `${(product.orders / maxOrders) * 100}%` }}

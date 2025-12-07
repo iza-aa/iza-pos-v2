@@ -120,36 +120,36 @@ export default function DefaultModifiersTab({ viewAsOwner }: DefaultModifiersTab
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold text-gray-800">Default Modifiers</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg md:text-xl font-bold text-gray-800">Default Modifiers</h2>
+            <p className="text-xs md:text-sm text-gray-500">
               Set percentage modifiers that apply to ALL products. Example: Large = +50% means all Large items use 1.5× base ingredients.
             </p>
           </div>
 
-          <div className="relative">
+          <div className="relative flex-1 md:flex-initial">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search modifiers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full md:w-64"
             />
           </div>
         </div>
 
         {/* Info Box */}
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <div className="mt-4 p-3 md:p-4 rounded-xl border-2" style={{ backgroundColor: '#FFE5E2', borderColor: '#FF6859' }}>
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-bold text-sm">%</span>
+            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FF6859' }}>
+              <span className="text-white font-bold text-sm">%</span>
             </div>
             <div>
-              <h4 className="font-semibold text-blue-900">How Modifiers Work</h4>
-              <p className="text-sm text-blue-700 mt-1">
+              <h4 className="font-semibold text-sm md:text-base" style={{ color: '#FF6859' }}>How Modifiers Work</h4>
+              <p className="text-xs md:text-sm text-gray-900 mt-1">
                 <strong>+50%</strong> = Base recipe × 1.5 (e.g., 10g → 15g)<br/>
                 <strong>-20%</strong> = Base recipe × 0.8 (e.g., 10g → 8g)<br/>
                 <strong>0%</strong> = Same as base recipe
@@ -182,10 +182,10 @@ export default function DefaultModifiersTab({ viewAsOwner }: DefaultModifiersTab
                 <table className="w-full table-fixed">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="w-1/4 px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Option</th>
-                      <th className="w-1/4 px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Modifier %</th>
-                      <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Effect</th>
-                      <th className="w-1/6 px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Actions</th>
+                      <th className="w-1/4 px-4 md:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Option</th>
+                      <th className="w-1/4 px-4 md:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Modifier %</th>
+                      <th className="w-1/3 px-4 md:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Effect</th>
+                      <th className="w-1/6 px-4 md:px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -196,51 +196,53 @@ export default function DefaultModifiersTab({ viewAsOwner }: DefaultModifiersTab
                       
                       return (
                         <tr key={modifier.id} className="hover:bg-gray-50 h-14">
-                          <td className="w-1/4 px-6 py-4 text-sm font-medium text-gray-900">
+                          <td className="w-1/4 px-4 md:px-6 py-4 text-xs md:text-sm font-medium text-gray-900">
                             {optionName}
                           </td>
-                          <td className="w-1/4 px-6 py-4">
+                          <td className="w-1/4 px-4 md:px-6 py-4">
                             {isEditing ? (
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   value={editValue}
                                   onChange={(e) => setEditValue(parseFloat(e.target.value) || 0)}
-                                  className="w-24 px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-16 md:w-24 px-2 py-1 border border-gray-900 rounded focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
                                   autoFocus
                                 />
-                                <span className="text-gray-500">%</span>
+                                <span className="text-gray-500 text-sm">%</span>
                               </div>
                             ) : (
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                modifier.modifier_percentage > 0 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : modifier.modifier_percentage < 0 
-                                    ? 'bg-red-100 text-red-800' 
-                                    : 'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium text-gray-900"
+                                style={{
+                                  backgroundColor: modifier.modifier_percentage > 0 
+                                    ? '#B2FF5E' 
+                                    : modifier.modifier_percentage < 0 
+                                      ? '#FF6859' 
+                                      : '#e5e7eb'
+                                }}>
                                 {modifier.modifier_percentage >= 0 ? '+' : ''}{modifier.modifier_percentage}%
                               </span>
                             )}
                           </td>
-                          <td className="w-1/3 px-6 py-4 text-sm text-gray-600">
+                          <td className="w-1/3 px-4 md:px-6 py-4 text-xs md:text-sm text-gray-600 hidden sm:table-cell">
                             Base × {multiplier.toFixed(2)}
                             <span className="text-gray-400 ml-2">
                               (e.g., 10g → {(10 * multiplier).toFixed(1)}g)
                             </span>
                           </td>
-                          <td className="w-1/6 px-6 py-4 text-center">
+                          <td className="w-1/6 px-4 md:px-6 py-4 text-center">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => handleUpdateModifier(modifier.id, editValue)}
-                                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                  className="px-3 py-1 text-white text-xs md:text-sm rounded transition"
+                                  style={{ backgroundColor: '#B2FF5E', color: '#000000' }}
                                 >
                                   Save
                                 </button>
                                 <button
                                   onClick={() => setEditingId(null)}
-                                  className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                                  className="px-3 py-1 bg-gray-300 text-gray-700 text-xs md:text-sm rounded hover:bg-gray-400"
                                 >
                                   Cancel
                                 </button>
@@ -251,10 +253,10 @@ export default function DefaultModifiersTab({ viewAsOwner }: DefaultModifiersTab
                                   setEditingId(modifier.id)
                                   setEditValue(modifier.modifier_percentage)
                                 }}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition"
+                                className="text-xs md:text-sm font-medium text-gray-700 hover:text-gray-900 transition"
                                 title="Edit modifier"
                               >
-                                <PencilIcon className="w-4 h-4" />
+                                Edit
                               </button>
                             )}
                           </td>

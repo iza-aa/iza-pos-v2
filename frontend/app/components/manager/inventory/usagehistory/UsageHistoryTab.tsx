@@ -140,26 +140,34 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'sale': return 'bg-blue-100 text-blue-800'
-      case 'restock': return 'bg-green-100 text-green-800'
-      case 'adjustment': return 'bg-orange-100 text-orange-800'
-      case 'waste': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'sale': return 'bg-gray-100 text-gray-900'
+      case 'restock': return 'text-gray-900'
+      case 'adjustment': return 'bg-gray-100 text-gray-900'
+      case 'waste': return 'text-gray-900'
+      default: return 'bg-gray-100 text-gray-900'
+    }
+  }
+
+  const getTypeStyle = (type: string) => {
+    switch (type) {
+      case 'restock': return { backgroundColor: '#B2FF5E' }
+      case 'waste': return { backgroundColor: '#FF6859' }
+      default: return {}
     }
   }
 
   return (
     <div className="flex flex-col h-full">
       {/* Header + Stats */}
-      <section className="flex-shrink-0 px-6 pt-6 bg-white border-b border-gray-200">
+      <section className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 bg-white border-b border-gray-200">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold text-gray-800">Stock Usage History</h2>
-            <p className="text-sm text-gray-500">Track all inventory movements and transactions</p>
+            <h2 className="text-lg md:text-xl font-bold text-gray-800">Stock Usage History</h2>
+            <p className="text-xs md:text-sm text-gray-500">Track all inventory movements and transactions</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* Toggle Stats Button */}
             <button 
               onClick={() => setShowStats(!showStats)}
@@ -174,14 +182,14 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
             </button>
 
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 md:flex-initial">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search transactions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full md:w-64"
               />
             </div>
           </div>
@@ -189,38 +197,38 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
 
         {/* Stats Cards */}
         {showStats && (
-          <div className="grid grid-cols-4 pb-6 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Total Transactions</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 pb-4 md:pb-6 gap-3 md:gap-4">
+          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
+            <p className="text-xs md:text-sm text-gray-600 mb-1">Total Transactions</p>
+            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Sales</p>
-            <p className="text-2xl font-bold text-blue-600">{stats.sales}</p>
+          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
+            <p className="text-xs md:text-sm text-gray-600 mb-1">Sales</p>
+            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.sales}</p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Restocks</p>
-            <p className="text-2xl font-bold text-green-600">{stats.restocks}</p>
+          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
+            <p className="text-xs md:text-sm text-gray-600 mb-1">Restocks</p>
+            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.restocks}</p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Adjustments</p>
-            <p className="text-2xl font-bold text-orange-600">{stats.adjustments}</p>
+          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
+            <p className="text-xs md:text-sm text-gray-600 mb-1">Adjustments</p>
+            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.adjustments}</p>
           </div>
         </div>
         )}
       </section>
 
       {/* Timeline (Scrollable) */}
-      <section className="flex-1 overflow-hidden px-6 py-6 bg-gray-100 flex flex-col">
+      <section className="flex-1 overflow-hidden px-4 md:px-6 py-4 md:py-6 bg-gray-100 flex flex-col">
         {/* Filter - Fixed at top */}
-        <div className="flex items-center gap-2 mb-4 flex-shrink-0">
+        <div className="flex items-center gap-2 mb-4 flex-shrink-0 overflow-x-auto">
           {['all', 'sale', 'restock', 'adjustment'].map(type => (
             <button
               key={type}
               onClick={() => setFilterType(type as any)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+              className={`px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition whitespace-nowrap ${
                 filterType === type
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-gray-900 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -239,13 +247,14 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
               <p className="text-gray-500">No transactions found</p>
             </div>
           ) : (
-            <div className="columns-4 gap-4 space-y-4">
+            <div className="columns-1 sm:columns-2 lg:columns-4 gap-4 space-y-4">
               {filteredTransactions.map(transaction => (
                 <div key={transaction.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
                   {/* Transaction Header */}
                   <div className="p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${getTypeColor(transaction.type)}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${getTypeColor(transaction.type)}`}
+                        style={getTypeStyle(transaction.type)}>
                         {transaction.type}
                       </span>
                       <p className="text-xs text-gray-500">{formatTime(transaction.timestamp)}</p>
@@ -284,7 +293,7 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
                           <div key={idx} className="text-xs">
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-gray-700 truncate flex-1">{detail.ingredient_name}</span>
-                              <span className={`font-semibold flex-shrink-0 ml-2 ${transaction.type === 'restock' ? 'text-green-600' : 'text-red-600'}`}>
+                              <span className="font-semibold flex-shrink-0 ml-2 text-gray-900">
                                 {transaction.type === 'restock' ? '+' : '-'}{detail.quantity_used} {detail.unit}
                               </span>
                             </div>

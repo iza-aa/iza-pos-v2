@@ -83,19 +83,19 @@ export default function LowStockAlert() {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-3 md:p-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="bg-gray-100 rounded-xl p-2">
               {needsAttentionCount > 0 ? (
-                <ExclamationTriangleIcon className="h-5 w-5 text-gray-700" />
+                <ExclamationTriangleIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
               ) : (
-                <CheckCircleIcon className="h-5 w-5 text-gray-700" />
+                <CheckCircleIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
               )}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-gray-800">Stock Levels</h3>
-              <p className="text-xs font-medium text-gray-500">
+              <h3 className="text-sm md:text-base font-semibold text-gray-800">Stock Levels</h3>
+              <p className="text-[10px] md:text-xs font-medium text-gray-500">
                 {needsAttentionCount > 0 ? `${needsAttentionCount} items need reorder` : 'All stocks healthy'}
               </p>
             </div>
@@ -105,7 +105,7 @@ export default function LowStockAlert() {
             className="p-2 hover:bg-gray-100 rounded-xl transition group"
             title="View Inventory"
           >
-            <ArrowTopRightOnSquareIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
+            <ArrowTopRightOnSquareIcon className="h-3 md:h-4 w-3 md:w-4 text-gray-400 group-hover:text-gray-600" />
           </a>
         </div>
       </div>
@@ -141,28 +141,28 @@ export default function LowStockAlert() {
           lowStockItems.map((item) => {
             const status = getStockStatus(item.percentage);
             return (
-              <div key={item.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group">
+              <div key={item.id} className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group">
                 {/* Icon */}
-                <div className={`w-9 h-9 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
-                  <CubeIcon className="h-5 w-5 text-gray-600" />
+                <div className={`w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+                  <CubeIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-600" />
                 </div>
 
                 {/* Item Name - same height as Top Product (2 lines) */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">{item.name}</p>
-                  <span className="inline-block text-[10px] px-2 py-0.5 rounded-full mt-1 text-gray-600 bg-gray-100 border border-gray-200">
+                  <p className="font-medium text-gray-800 text-xs md:text-sm truncate">{item.name}</p>
+                  <span className="inline-block text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full mt-0.5 md:mt-1 text-gray-600 bg-gray-100 border border-gray-200">
                     {item.unit}
                   </span>
                 </div>
 
                 {/* Stock Info & Progress */}
-                <div className="text-right shrink-0">
-                  <div className="flex items-center gap-1.5 justify-end">
-                    <span className="text-sm font-semibold text-gray-800">{item.current_stock.toLocaleString()}</span>
-                    <span className="text-xs text-gray-400">/ {item.minimum_stock.toLocaleString()} {item.unit}</span>
+                <div className="text-right shrink-0 hidden sm:block">
+                  <div className="flex items-center gap-1 md:gap-1.5 justify-end">
+                    <span className="text-xs md:text-sm font-semibold text-gray-800">{item.current_stock.toLocaleString()}</span>
+                    <span className="text-[10px] md:text-xs text-gray-400">/ {item.minimum_stock.toLocaleString()}</span>
                   </div>
                   {/* Mini progress bar - same as Top Product */}
-                  <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                  <div className="w-12 md:w-16 h-1.5 bg-gray-100 rounded-full mt-1 md:mt-1.5 overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-gray-400 to-gray-600 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min(item.percentage, 100)}%` }}
@@ -172,7 +172,7 @@ export default function LowStockAlert() {
 
                 {/* Status Badge */}
                 <div 
-                  className="text-xs font-semibold px-2 py-1 rounded-lg shrink-0"
+                  className="text-[10px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 md:py-1 rounded-lg shrink-0"
                   style={{ 
                     backgroundColor: status.label === 'Good' ? '#B2FF5E' : '#FF6859',
                     color: status.label === 'Good' ? '#166534' : '#7f1d1d'

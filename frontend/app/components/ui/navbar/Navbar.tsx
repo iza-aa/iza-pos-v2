@@ -112,9 +112,12 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
   const [showRoleDropdown, setShowRoleDropdown] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role>(role)
+  const [userName, setUserName] = useState('User')
 
   useEffect(() => {
     setMounted(true)
+    const name = localStorage.getItem('user_name') || 'User'
+    setUserName(name)
   }, [])
 
   // Close dropdown when clicking outside
@@ -267,19 +270,23 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
               <BellIcon className="w-5 h-5" />
             </button>
 
-            {/* Avatar */}
+            {/* Avatar with Name & Role */}
             <button 
               onClick={() => setShowProfile(true)}
-              className="hidden md:block p-1"
+              className="hidden md:flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <img 
                 src="/avatar.jpg" 
                 alt="Avatar" 
-                className="w-8 h-8 rounded-full object-cover border-2 border-transparent hover:border-gray-300 transition-colors"
+                className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=User&background=e5e7eb&color=374151'
+                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e5e7eb&color=374151`
                 }}
               />
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-900">{userName}</p>
+                <p className="text-xs text-gray-500 capitalize">{selectedRole}</p>
+              </div>
             </button>
 
             {/* Mobile: Menu Button */}
@@ -300,9 +307,69 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
       {/* Mobile Menu */}
       {showMobileMenu && (
         <div className="md:hidden fixed inset-0 top-[57px] bg-white z-40 overflow-y-auto">
-          {/* Role Switcher for Mobile */}
+          {/* Owner/Profile Section - Moved to Top */}
+          <div className="px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <button className="p-2 rounded-lg hover:bg-gray-100">
+                <BellIcon className="w-5 h-5 text-gray-600" />
+              </button>
+              <button 
+                onClick={() => {
+                  setShowProfile(true)
+                  setShowMobileMenu(false)
+                }}
+                className="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-gray-100"
+              >
+                <img 
+                  src="/avatar.jpg" 
+                  alt="Avatar" 
+                  className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=User&background=f97316&color=fff'
+                  }}
+                />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-900">My Profile</p>
+                  <p className="text-xs text-gray-500">View & edit profile</p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Nav Items - Menu Section */}
+          <div className="px-4 py-3 border-b border-gray-200">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+              Menu
+            </p>
+            <div className="space-y-1">
+              {navItems.map((item, idx) => {
+                const Icon = activeTab === idx ? item.iconSolid : item.icon
+                const isActive = activeTab === idx
+                
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      router.push(item.path)
+                      setShowMobileMenu(false)
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      isActive
+                        ? 'bg-gray-900 text-white font-medium'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Role Switcher for Mobile - Moved to Bottom */}
           {canSwitchRole && (
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <div className="px-4 py-3 bg-gray-50">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
                 Switch Portal
               </p>
@@ -333,66 +400,6 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
               </div>
             </div>
           )}
-
-          {/* Nav Items */}
-          <div className="px-4 py-3">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-              Menu
-            </p>
-            <div className="space-y-1">
-              {navItems.map((item, idx) => {
-                const Icon = activeTab === idx ? item.iconSolid : item.icon
-                const isActive = activeTab === idx
-                
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      router.push(item.path)
-                      setShowMobileMenu(false)
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-gray-900 text-white font-medium'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Mobile Footer */}
-          <div className="px-4 py-3 border-t border-gray-200">
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-gray-100">
-                <BellIcon className="w-5 h-5 text-gray-600" />
-              </button>
-              <button 
-                onClick={() => {
-                  setShowProfile(true)
-                  setShowMobileMenu(false)
-                }}
-                className="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-gray-100"
-              >
-                <img 
-                  src="/avatar.jpg" 
-                  alt="Avatar" 
-                  className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=User&background=f97316&color=fff'
-                  }}
-                />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">My Profile</p>
-                  <p className="text-xs text-gray-500">View & edit profile</p>
-                </div>
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

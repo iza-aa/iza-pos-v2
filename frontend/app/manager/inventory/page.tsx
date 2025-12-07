@@ -19,7 +19,7 @@ export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<TabType>('raw-materials')
 
   return (
-    <div className="h-[calc(100vh-55px)] bg-gray-50 flex overflow-hidden">
+    <div className="min-h-[calc(100vh-55px)] bg-gray-50 flex flex-col lg:flex-row h-[calc(100vh-55px)] overflow-hidden">
       {/* Sidebar Navigation */}
       <InventoryTabs activeTab={activeTab} onTabChange={setActiveTab} />
 

@@ -279,13 +279,13 @@ export default function POSPage() {
 	const { data: orderData, error: orderError } = await supabase
 		.from('orders')
 		.insert([{
-			order_number: orderNumber,
-			customer_name: paymentData.customerName || 'Guest',
-			table_number: paymentData.tableNumber || null,
-			order_type: paymentData.tableNumber ? 'Dine in' : 'Take Away',
-			status: 'completed',
-			subtotal: total,
-			tax: 0,
+		order_number: orderNumber,
+		customer_name: paymentData.customerName || 'Guest',
+		table_number: paymentData.tableNumber || null,
+		order_type: paymentData.tableNumber ? 'Dine in' : 'Take Away',
+		status: 'new',
+		subtotal: total,
+		tax: 0,
 			discount: 0,
 			total: total,
 			payment_method: 'Cash',

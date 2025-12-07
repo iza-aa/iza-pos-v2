@@ -148,25 +148,25 @@ export default function ActivityLogPage() {
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Header + Stats */}
-      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
+      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <ActivityLogHeader 
             title="Activity Logs"
             description="Track all system activities and user actions"
           />
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             {/* Toggle Stats */}
             <button 
               onClick={() => setShowStats(!showStats)}
-              className="flex items-center justify-center h-[42px] w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              className="flex items-center justify-center h-[38px] md:h-[42px] w-9 md:w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
               title={showStats ? "Hide Statistics" : "Show Statistics"}
             >
               {showStats ? (
-                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+                <EyeSlashIcon className="w-4 md:w-5 h-4 md:h-5 text-gray-600" />
               ) : (
-                <EyeIcon className="w-5 h-5 text-gray-600" />
+                <EyeIcon className="w-4 md:w-5 h-4 md:h-5 text-gray-600" />
               )}
             </button>
 
@@ -187,25 +187,25 @@ export default function ActivityLogPage() {
             {/* Toggle Filters */}
             <button 
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 h-[42px] px-4 border rounded-xl transition ${
+              className={`flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 border rounded-xl transition ${
                 showFilters 
                   ? 'bg-gray-800 border-gray-800 text-white' 
                   : 'border-gray-300 hover:bg-gray-50'
               }`}
             >
-              <FunnelIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">Filters</span>
+              <FunnelIcon className="w-4 md:w-5 h-4 md:h-5" />
+              <span className="text-xs md:text-sm font-medium hidden sm:inline">Filters</span>
               {hasActiveFilters && (
-                <span className="bg-white text-gray-800 text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                <span className="bg-white text-gray-800 text-[10px] md:text-xs rounded-full w-4 md:w-5 h-4 md:h-5 flex items-center justify-center font-semibold">
                   {[filters.severity, filters.category, filters.userRole, filters.action, searchQuery].filter(Boolean).length}
                 </span>
               )}
             </button>
 
             {/* Export Button */}
-            <button className="flex items-center gap-2 h-[42px] px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition">
-              <ArrowDownTrayIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">Export</span>
+            <button className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition">
+              <ArrowDownTrayIcon className="w-4 md:w-5 h-4 md:h-5" />
+              <span className="text-xs md:text-sm font-medium hidden sm:inline">Export</span>
             </button>
 
             {/* Search */}
@@ -213,7 +213,7 @@ export default function ActivityLogPage() {
               value={searchQuery}
               onChange={setSearchQuery}
               placeholder="Search activities..."
-              width="w-64"
+              width="w-full sm:w-48 md:w-64"
             />
           </div>
         </div>
@@ -233,10 +233,10 @@ export default function ActivityLogPage() {
       </section>
 
       {/* Activity Logs List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
+      <section className="flex-1 overflow-y-auto bg-gray-100 px-4 md:px-6 py-4 md:py-6">
         {/* Card View */}
         {viewMode === 'card' && (
-          <div className="columns-4 gap-4 space-y-4">
+          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 md:gap-4 space-y-3 md:space-y-4">
             {filteredLogs.map((log) => (
               <ActivityLogCard key={log.id} log={log} onClick={setSelectedLog} />
             ))}

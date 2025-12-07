@@ -54,16 +54,27 @@ export default function StaffCard({
   }
 
   const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'Manager':
-        return 'bg-gray-800 text-white'
-      case 'Barista':
-        return 'bg-gray-600 text-white'
-      case 'Kasir':
-        return 'bg-gray-400 text-white'
-      default:
-        return 'bg-gray-200 text-gray-700'
+    const roleLower = role.toLowerCase()
+    if (roleLower === 'owner') {
+      return ''
     }
+    if (roleLower === 'manager') {
+      return ''
+    }
+    // Staff roles: Barista, Waiters, Kitchen, Kasir, etc
+    return ''
+  }
+
+  const getRoleStyle = (role: string) => {
+    const roleLower = role.toLowerCase()
+    if (roleLower === 'owner') {
+      return { backgroundColor: '#000000', color: '#FFFFFF' }
+    }
+    if (roleLower === 'manager') {
+      return { backgroundColor: '#F79A19', color: '#FFFFFF' }
+    }
+    // Staff roles: Barista, Waiters, Kitchen, Kasir, etc
+    return { backgroundColor: '#FFE52A', color: '#000000' }
   }
 
   const getInitials = (name: string) => {
@@ -88,9 +99,9 @@ export default function StaffCard({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow break-inside-avoid mb-4">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow break-inside-avoid">
       {/* Header with Avatar */}
-      <div className="relative p-4 pb-12 border-b border-gray-100 bg-gradient-to-r from-gray-100 to-white">
+      <div className="relative p-4 pb-12 border-b border-gray-100 bg-gradient-to-r from-gray-100 to-white rounded-t-xl">
         <div className="flex items-start justify-between mb-8">
           <div className="flex-1">
             <p className="text-xs text-gray-500">ID: {staff.staff_code}</p>
@@ -116,7 +127,10 @@ export default function StaffCard({
         {/* Name and Role */}
         <div className="text-center mb-3">
           <h3 className="text-lg font-bold text-gray-800 mb-1">{staff.name}</h3>
-          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getRoleColor(staff.role)}`}>
+          <span 
+            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getRoleColor(staff.role)}`}
+            style={getRoleStyle(staff.role)}
+          >
             {staff.role}
           </span>
         </div>
@@ -151,16 +165,17 @@ export default function StaffCard({
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
+      <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2 rounded-b-xl">
         <button
           onClick={onEdit}
-          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+          className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-xl transition"
         >
           Edit
         </button>
         <button
           onClick={onDelete}
-          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition"
+          className="flex-1 px-4 py-2.5 text-sm font-medium bg-white border hover:bg-red-50 rounded-xl transition"
+          style={{ color: '#FF6859', borderColor: '#FF6859' }}
         >
           Hapus
         </button>

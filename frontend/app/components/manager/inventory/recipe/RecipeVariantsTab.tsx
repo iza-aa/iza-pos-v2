@@ -477,20 +477,20 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
   return (
     <div className="flex flex-col h-full">
       {/* Header + Stats */}
-      <section className="flex-shrink-0 p-6 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold text-gray-800">Variants (Variant-Specific Recipes)</h2>
-            <p className="text-sm text-gray-500">Manage recipes for each variant option</p>
+            <h2 className="text-lg md:text-xl font-bold text-gray-800">Variants (Variant-Specific Recipes)</h2>
+            <p className="text-xs md:text-sm text-gray-500">Manage recipes for each variant option</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* View Mode Toggle */}
             <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden">
               <button
                 onClick={() => setViewMode('table')}
                 className={`flex items-center justify-center w-10 h-10 transition ${
-                  viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  viewMode === 'table' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
                 title="Table View"
               >
@@ -499,7 +499,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
               <button
                 onClick={() => setViewMode('card')}
                 className={`flex items-center justify-center w-10 h-10 transition ${
-                  viewMode === 'card' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  viewMode === 'card' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
                 title="Card View"
               >
@@ -514,36 +514,36 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
               {showStats ? <EyeSlashIcon className="w-5 h-5 text-gray-600" /> : <EyeIcon className="w-5 h-5 text-gray-600" />}
             </button>
 
-            <div className="relative">
+            <div className="relative flex-1 md:flex-initial">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search variants..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full md:w-64"
               />
             </div>
           </div>
         </div>
 
         {showStats && (
-          <div className="grid grid-cols-4 gap-4 pt-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Variant Groups</div>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalVariantGroups}</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 pt-4 md:pt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Variant Groups</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalVariantGroups}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Total Options</div>
-              <div className="text-2xl font-bold text-blue-600">{stats.totalVariantOptions}</div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Total Options</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalVariantOptions}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Variant Recipes</div>
-              <div className="text-2xl font-bold text-green-600">{stats.totalVariantRecipes}</div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Variant Recipes</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalVariantRecipes}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm text-gray-600 mb-1">Coverage</div>
-              <div className="text-2xl font-bold text-purple-600">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+              <div className="text-xs md:text-sm text-gray-600 mb-1">Coverage</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">
                 {stats.totalVariantOptions > 0 ? Math.round((stats.totalVariantRecipes / stats.totalVariantOptions) * 100) : 0}%
               </div>
             </div>
@@ -614,16 +614,19 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                         {option.name}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          option.price_modifier >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-gray-900"
+                          style={{
+                            backgroundColor: option.price_modifier >= 0 ? '#B2FF5E' : '#FF6859'
+                          }}>
                           {option.price_modifier >= 0 ? '+' : ''}{option.price_modifier.toLocaleString('id-ID')}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          hasRecipe && option.recipe!.ingredients.length > 0 ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                        }`}>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border text-gray-900"
+                          style={{
+                            borderColor: hasRecipe && option.recipe!.ingredients.length > 0 ? '#B2FF5E' : '#FF6859',
+                            backgroundColor: 'white'
+                          }}>
                           {hasRecipe && option.recipe!.ingredients.length > 0 
                             ? `${option.recipe!.ingredients.length} ingredient${option.recipe!.ingredients.length !== 1 ? 's' : ''}` 
                             : 'No Recipe'}
@@ -635,7 +638,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                           {!isExpanded && (
                             <button
                               onClick={() => toggleGroup(option.id)}
-                              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                              className="flex items-center gap-2 text-sm text-gray-900 hover:text-gray-700 font-medium"
                             >
                               <ChevronDownIcon className="w-5 h-5" />
                             </button>
@@ -649,14 +652,14 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                                   {/* Chevron Up - Top Right */}
                                   <button
                                     onClick={() => toggleGroup(option.id)}
-                                    className="absolute -top-2 -right-2 p-1 bg-white text-blue-600 hover:text-blue-700 rounded-full border border-gray-300 shadow-sm"
+                                    className="absolute -top-2 -right-2 p-1 bg-white text-gray-900 hover:text-gray-700 rounded-full border border-gray-300 shadow-sm"
                                   >
                                     <ChevronUpIcon className="w-4 h-4" />
                                   </button>
                                   <p className="text-xs text-gray-500 mb-2">No ingredients yet</p>
                                   <button
                                     onClick={() => handleOpenAddModal(option.groupId, option.id, option.name)}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                    className="text-xs text-gray-900 hover:text-gray-700 font-medium"
                                   >
                                     + Add first ingredient
                                   </button>
@@ -666,14 +669,14 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                                   {/* Chevron Up - Top Right of first ingredient card */}
                                   <button
                                     onClick={() => toggleGroup(option.id)}
-                                    className="absolute -top-2 -right-2 p-1 bg-white text-blue-600 hover:text-blue-700 rounded-full border border-gray-300 shadow-sm z-10"
+                                    className="absolute -top-2 -right-2 p-1 bg-white text-gray-900 hover:text-gray-700 rounded-full border border-gray-300 shadow-sm z-10"
                                   >
                                     <ChevronUpIcon className="w-4 h-4" />
                                   </button>
                                   
                                   <div className="space-y-2">
                                     {option.recipe!.ingredients.map((ing, idx) => (
-                                      <div key={idx} className="bg-white p-2.5 rounded-lg border border-gray-200 hover:border-blue-300 transition">
+                                      <div key={idx} className="bg-white p-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition">
                                         <div className="flex items-center justify-between gap-2">
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
@@ -688,14 +691,15 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                             <button
                                               onClick={() => handleOpenEditModal(option.id, idx, ing)}
-                                              className="p-1 text-blue-600 hover:bg-blue-50 rounded transition"
+                                              className="p-1.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded transition"
                                               title="Edit ingredient"
                                             >
                                               <PencilIcon className="w-4 h-4" />
                                             </button>
                                             <button
                                               onClick={() => handleRemoveIngredient(option.id, idx)}
-                                              className="p-1 text-red-600 hover:bg-red-50 rounded transition"
+                                              className="p-1.5 bg-white border hover:bg-gray-50 rounded transition"
+                                              style={{ borderColor: '#FF6859', color: '#FF6859' }}
                                               title="Delete ingredient"
                                             >
                                               <TrashIcon className="w-4 h-4" />
@@ -708,7 +712,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                                     {/* Add Ingredient Button */}
                                     <button
                                       onClick={() => handleOpenAddModal(option.groupId, option.id, option.name)}
-                                      className="w-full flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-lg transition"
+                                      className="w-full flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-700 rounded-lg transition"
                                     >
                                       <PlusIcon className="w-4 h-4" />
                                       Add Ingredient
@@ -761,7 +765,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                 <select
                   value={newIngredient.inventory_item_id}
                   onChange={(e) => setNewIngredient({ ...newIngredient, inventory_item_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
                   {rawMaterials.map(item => (
                     <option key={item.id} value={item.id}>
@@ -783,7 +787,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                   value={newIngredient.quantity_needed || ''}
                   onChange={(e) => setNewIngredient({ ...newIngredient, quantity_needed: parseFloat(e.target.value) || 0 })}
                   placeholder="Enter quantity"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 />
               </div>
 
@@ -812,7 +816,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
               <button
                 onClick={handleAddIngredient}
                 disabled={!newIngredient.inventory_item_id || newIngredient.quantity_needed <= 0}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Add Ingredient
               </button>
@@ -859,7 +863,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                       })
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
                   {rawMaterials.map(item => (
                     <option key={item.id} value={item.id}>
@@ -887,7 +891,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
                     }
                   })}
                   placeholder="Enter quantity"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 />
               </div>
 
@@ -916,7 +920,7 @@ export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProp
               <button
                 onClick={handleUpdateIngredient}
                 disabled={!editingIngredient.ingredient.inventory_item_id || editingIngredient.ingredient.quantity_needed <= 0}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 font-medium transition disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Update Ingredient
               </button>

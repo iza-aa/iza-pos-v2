@@ -5,6 +5,11 @@ import {
   XMarkIcon,
   PaperAirplaneIcon,
   SparklesIcon,
+  FireIcon,
+  ChartBarIcon,
+  CurrencyDollarIcon,
+  ExclamationTriangleIcon,
+  ChartPieIcon,
 } from "@heroicons/react/24/outline";
 import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/solid";
 
@@ -16,11 +21,11 @@ interface Message {
 }
 
 const quickActions = [
-  { icon: "🔥", label: "Ringkasan hari ini", prompt: "Berikan ringkasan penjualan hari ini" },
-  { icon: "📊", label: "Top products", prompt: "Apa produk terlaris minggu ini?" },
-  { icon: "💰", label: "Total revenue", prompt: "Berapa total pendapatan bulan ini?" },
-  { icon: "⚠️", label: "Cek low stock", prompt: "Produk apa saja yang stoknya hampir habis?" },
-  { icon: "📈", label: "Performa staff", prompt: "Bagaimana performa staff bulan ini?" },
+  { icon: FireIcon, label: "Ringkasan hari ini", prompt: "Berikan ringkasan penjualan hari ini" },
+  { icon: ChartBarIcon, label: "Top products", prompt: "Apa produk terlaris minggu ini?" },
+  { icon: CurrencyDollarIcon, label: "Total revenue", prompt: "Berapa total pendapatan bulan ini?" },
+  { icon: ExclamationTriangleIcon, label: "Cek low stock", prompt: "Produk apa saja yang stoknya hampir habis?" },
+  { icon: ChartPieIcon, label: "Performa staff", prompt: "Bagaimana performa staff bulan ini?" },
 ];
 
 export default function FloatingAIAssistant() {
@@ -81,7 +86,7 @@ export default function FloatingAIAssistant() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center text-white hover:scale-110 z-40 ${isOpen ? 'hidden' : ''}`}
+        className={`fixed bottom-6 right-6 w-14 h-14 bg-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center text-white hover:scale-110 z-40 ${isOpen ? 'hidden' : ''}`}
       >
         <ChatBubbleLeftRightIcon className="w-6 h-6" />
       </button>
@@ -95,78 +100,100 @@ export default function FloatingAIAssistant() {
       )}
 
       {/* Slide Drawer */}
-      <div className={`fixed top-0 right-0 h-full w-[400px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <SparklesIcon className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-800">AI Assistant</h3>
-              <p className="text-xs text-gray-500">Powered by AI</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
-          >
-            <XMarkIcon className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
+      <div className={`fixed top-[55px] right-0 h-[calc(100vh-55px)] w-full bg-white/95 backdrop-blur-xl shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        {/* Close Button - Top Right */}
+        <button
+          onClick={() => setIsOpen(false)}
+          className="absolute top-4 right-4 p-2 hover:bg-gray-200 rounded-lg transition"
+        >
+          <XMarkIcon className="w-6 h-6 text-gray-600" />
+        </button>
 
         {/* Chat Content */}
-        <div className="flex flex-col h-[calc(100%-72px)]">
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {messages.length === 0 ? (
-              /* Welcome Screen */
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mb-4">
-                  <SparklesIcon className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-1">
-                  Hi, {userName}
-                </h2>
-                <p className="text-lg font-medium text-gray-700 mb-2">
-                  Can I help you with anything?
-                </p>
-                <p className="text-sm text-gray-500 mb-6">
-                  Ready to assist you with anything you need, from answering questions to providing recommendations. Let's get started!
-                </p>
+        <div className="flex flex-col items-center justify-center h-full px-8">
+          {messages.length === 0 ? (
+            /* Welcome Screen */
+            <div className="flex flex-col items-center justify-center w-full max-w-4xl">
+              {/* Icon */}
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                <SparklesIcon className="w-8 h-8 text-white" />
+              </div>
 
-                {/* Quick Actions */}
-                <div className="w-full space-y-2">
-                  {quickActions.map((action, idx) => (
+              {/* Greeting */}
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                Hi, {userName}
+              </h2>
+              <p className="text-lg text-gray-700 mb-12">
+                Can I help you with anything?
+              </p>
+
+              {/* Input Area - Centered */}
+              <div className="w-full max-w-3xl mb-8">
+                <div className="flex items-center gap-3 bg-gray-100 border border-gray-300 rounded-2xl px-6 py-4 hover:border-gray-400 transition">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Ask anything. Type @ for mentions and / for shortcuts."
+                    className="flex-1 bg-transparent text-gray-800 placeholder-gray-500 outline-none text-base"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => handleSend()}
+                    disabled={!message.trim() || isLoading}
+                    className="p-2 hover:bg-gray-200 rounded-lg transition disabled:opacity-50"
+                  >
+                    <PaperAirplaneIcon className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Actions - Grid */}
+              <div className="w-full max-w-4xl grid grid-cols-5 gap-3">
+                {quickActions.map((action, idx) => {
+                  const IconComponent = action.icon;
+                  return (
                     <button
                       key={idx}
                       onClick={() => handleQuickAction(action.prompt)}
-                      className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition text-left"
+                      className="flex flex-col items-start gap-2 px-4 py-3 bg-gray-100 border border-gray-300 hover:border-gray-400 rounded-xl transition text-left"
                     >
-                      <span className="text-lg">{action.icon}</span>
-                      <span className="text-sm text-gray-700">{action.label}</span>
+                      <IconComponent className="w-6 h-6 text-gray-700" />
+                      <span className="text-sm text-gray-700 leading-tight">{action.label}</span>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            ) : (
-              /* Chat Messages */
-              <div className="space-y-4">
+
+              {/* Bottom Text */}
+              <p className="text-sm text-gray-600 mt-8">
+                Ready to assist you with anything you need, from answering questions to providing recommendations.
+              </p>
+            </div>
+          ) : (
+            /* Chat Messages - Scrollable */
+            <div className="w-full max-w-4xl h-full flex flex-col py-8">
+              <div className="flex-1 overflow-y-auto space-y-4 mb-6">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
                     className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                      className={`max-w-[70%] rounded-2xl px-5 py-4 ${
                         msg.sender === 'user'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-gray-800 text-white'
+                          : 'bg-gray-100 border border-gray-300 text-gray-800'
                       }`}
                     >
                       <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
                       <span className={`text-xs mt-1 block ${
-                        msg.sender === 'user' ? 'text-blue-100' : 'text-gray-400'
+                        msg.sender === 'user' ? 'text-gray-300' : 'text-gray-500'
                       }`}>
                         {msg.timestamp.toLocaleTimeString('id-ID', { 
                           hour: '2-digit', 
@@ -180,11 +207,11 @@ export default function FloatingAIAssistant() {
                 {/* Loading indicator */}
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 rounded-2xl px-4 py-3">
+                    <div className="bg-gray-100 border border-gray-300 rounded-2xl px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
                     </div>
                   </div>
@@ -192,40 +219,32 @@ export default function FloatingAIAssistant() {
                 
                 <div ref={messagesEndRef} />
               </div>
-            )}
-          </div>
 
-          {/* Input Area */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-end gap-2 bg-gray-100 rounded-2xl p-3">
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask me anything..."
-                className="flex-1 bg-transparent text-gray-800 placeholder-gray-500 resize-none outline-none text-sm"
-                rows={1}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                style={{ maxHeight: '100px' }}
-              />
-              <button
-                onClick={() => handleSend()}
-                disabled={!message.trim() || isLoading}
-                className="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 rounded-xl transition"
-              >
-                <PaperAirplaneIcon className="w-5 h-5 text-white" />
-              </button>
+              {/* Input Area - Bottom */}
+              <div className="flex items-center gap-3 bg-gray-100 border border-gray-300 rounded-2xl px-6 py-4">
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Ask anything..."
+                  className="flex-1 bg-transparent text-gray-800 placeholder-gray-500 outline-none text-base"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => handleSend()}
+                  disabled={!message.trim() || isLoading}
+                  className="p-2 hover:bg-gray-200 rounded-lg transition disabled:opacity-50"
+                >
+                  <PaperAirplaneIcon className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center justify-center gap-2 mt-2 text-xs text-gray-400">
-              <span>Press</span>
-              <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">Enter</kbd>
-              <span>to send</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </>

@@ -12,7 +12,6 @@ import PeakPerformance from "@/app/components/owner/dashboard/analytics/peakperf
 import LowStockAlert from "@/app/components/owner/dashboard/analytics/lowstockalert"
 import LiveActivity from "@/app/components/owner/dashboard/analytics/liveactivity"
 import AnalyticsHeader from "@/app/components/owner/dashboard/analytics/header"
-import FloatingAIAssistant from "@/app/components/ui/FloatingAIAssistant"
 
 export default function OwnerDashboardPage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -32,9 +31,9 @@ export default function OwnerDashboardPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-gray-100 px-6 pt-4 pb-6">
+    <main className="min-h-screen bg-gray-100 px-4 md:px-6 pt-4 pb-6">
       {/* Full Width Analytics Section */}
-      <section className="w-full flex flex-col gap-4">
+      <section className="w-full flex flex-col gap-3 md:gap-4">
         
         {/* Header with Greeting and Actions */}
         <AnalyticsHeader 
@@ -43,7 +42,7 @@ export default function OwnerDashboardPage() {
         />
 
         {/* Analytics Cards - 4 cards dalam grid */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <TotalSales />
           <TotalProductSales />
           <TotalCustomer />
@@ -51,8 +50,8 @@ export default function OwnerDashboardPage() {
         </div>
 
         {/* Revenue Chart, Favorite Products & Stock Level - Side by Side */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="lg:col-span-2">
             <ReportAnalytics />
           </div>
           <FavoriteProduct />
@@ -60,15 +59,12 @@ export default function OwnerDashboardPage() {
         </div>
 
         {/* Payment Method, Peak Performance & Live Activity */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
           <PaymentMethod />
           <PeakPerformance />
           <LiveActivity />
         </div>
       </section>
-
-      {/* Floating AI Assistant */}
-      <FloatingAIAssistant />
     </main>
   )
 }

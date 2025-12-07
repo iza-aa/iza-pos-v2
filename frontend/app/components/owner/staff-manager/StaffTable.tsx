@@ -51,28 +51,28 @@ export default function StaffTable({
   return (
     <div className="flex flex-col h-full bg-white rounded-xl overflow-hidden shadow-sm">
       <div className="overflow-auto flex-1">
-        <table className="w-full min-w-[1000px] table-fixed">
+        <table className="w-full min-w-[800px] md:min-w-[1000px] table-fixed">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr className="border-b border-gray-200">
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 ID Staff
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Nama
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Role
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 No WA
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Kode Login
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 md:px-6 py-3 md:py-4 text-left text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Aksi
               </th>
             </tr>
@@ -85,23 +85,23 @@ export default function StaffTable({
 
               return (
                 <tr key={staff.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 whitespace-nowrap w-[12%]">
-                    <div className="text-sm font-medium text-gray-900">{staff.staff_code}</div>
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap w-[12%]">
+                    <div className="text-xs md:text-sm font-medium text-gray-900">{staff.staff_code}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap w-[12%]">
-                    <div className="text-sm font-medium text-gray-900">{staff.name}</div>
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap w-[12%]">
+                    <div className="text-xs md:text-sm font-medium text-gray-900">{staff.name}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap w-[12%]">
-                    <div className="text-sm text-gray-700">{staff.role}</div>
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap w-[12%]">
+                    <div className="text-xs md:text-sm text-gray-700">{staff.role}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap w-[12%]">
-                    <div className="text-sm text-gray-700">{staff.phone || '-'}</div>
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap w-[12%]">
+                    <div className="text-xs md:text-sm text-gray-700">{staff.phone || '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap w-[12%]">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap w-[12%]">
                     {hasValidLoginCode ? (
                       <button
                         onClick={() => onCopyCode(staff.login_code!)}
-                        className="text-sm font-mono font-semibold text-gray-700 hover:text-gray-900 hover:underline"
+                        className="text-xs md:text-sm font-mono font-semibold text-gray-700 hover:text-gray-900 hover:underline"
                         title="Klik untuk copy"
                       >
                         {staff.login_code}
@@ -109,30 +109,30 @@ export default function StaffTable({
                     ) : (
                       <button
                         onClick={() => onGeneratePass(staff.id)}
-                        className="text-sm text-gray-700 hover:text-gray-900 font-medium hover:underline"
+                        className="text-xs md:text-sm text-gray-700 hover:text-gray-900 font-medium hover:underline"
                       >
                         Generate Pass
                       </button>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap w-[12%]">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap w-[12%]">
                     <span 
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(staff.status)}`}
+                      className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold ${getStatusColor(staff.status)}`}
                       style={getStatusStyle(staff.status)}
                     >
                       {staff.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-left w-[12%]">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-left w-[12%]">
                     <button
                       onClick={() => onEdit(staff.id)}
-                      className="text-gray-700 hover:text-gray-900 font-medium mr-3"
+                      className="text-xs md:text-sm text-gray-700 hover:text-gray-900 font-medium mr-2 md:mr-3"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => onDelete(staff.id)}
-                      className="text-gray-700 hover:text-gray-900 font-medium"
+                      className="text-xs md:text-sm text-gray-700 hover:text-gray-900 font-medium"
                     >
                       Hapus
                     </button>

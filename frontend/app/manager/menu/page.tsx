@@ -389,10 +389,10 @@ export default function MenuPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-55px)] bg-gray-50 flex overflow-hidden">
-      {/* Section 1: Sidebar Categories - Fixed, tidak bisa scroll */}
-      <section className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col overflow-hidden">
-        <h2 className="text-lg font-bold text-gray-800 mb-4 flex-shrink-0">Menu Category</h2>
+    <div className="min-h-[calc(100vh-55px)] bg-white flex flex-col lg:flex-row h-[calc(100vh-55px)] overflow-hidden">
+      {/* Section 1: Sidebar Categories - Fixed height with scroll */}
+      <section className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden">
+        <h2 className="text-lg font-bold text-gray-900 mb-4 flex-shrink-0">Menu Category</h2>
         
         <div className="space-y-1.5 flex-1 overflow-y-auto">
           {categories.map((category) => {
@@ -409,14 +409,14 @@ export default function MenuPage() {
                   onClick={() => setSelectedCategory(category.id)}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition cursor-pointer ${
                     isSelected
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'hover:bg-gray-50 text-gray-600'
+                      ? 'bg-gray-900 text-white'
+                      : 'hover:bg-gray-100 text-gray-600'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <IconComponent className={`w-5 h-5 transition ${
                       isSelected
-                        ? 'text-blue-500'
+                        ? 'text-white'
                         : 'text-gray-600'
                     }`} strokeWidth={2} />
                     <span className="text-sm font-medium">{category.name}</span>
@@ -431,7 +431,7 @@ export default function MenuPage() {
                           setEditingCategory(category)
                           setShowAddCategoryModal(true)
                         }}
-                        className="p-1 hover:bg-blue-50 rounded text-blue-600 transition-colors"
+                        className="p-1 hover:bg-gray-100 rounded text-gray-600 transition-colors"
                         title="Edit category"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,7 +461,7 @@ export default function MenuPage() {
         {!viewAsOwner && (
           <button 
             onClick={handleAddNewCategory}
-            className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-500 text-white px-3 py-2.5 rounded-lg hover:bg-blue-600 transition font-medium flex-shrink-0 text-sm"
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white px-3 py-2.5 rounded-lg hover:bg-gray-800 transition font-medium flex-shrink-0 text-sm"
           >
             <PlusIcon className="w-4 h-4" />
             Add New Category
@@ -472,30 +472,30 @@ export default function MenuPage() {
       {/* Section 2 & 3: Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Section 2: Header - Fixed, tidak bisa scroll */}
-        <section className="bg-white p-6 border-b border-gray-200 flex-shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between">
+        <section className="bg-white p-4 md:p-6 border-b border-gray-200 flex-shrink-0 overflow-hidden">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
                <div className="flex flex-col gap-1">
-                <h1 className="text-2xl font-bold text-gray-800">Manage Menu</h1>
-                <p className="text-sm text-gray-500">Lihat, tambahkan, edit, atau hapus menu dan detail produk yang tersedia.</p>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800">Manage Menu</h1>
+                <p className="text-xs md:text-sm text-gray-500">Lihat, tambahkan, edit, atau hapus menu dan detail produk yang tersedia.</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
                             {viewAsOwner && (
-                <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                <span className="inline-block text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
                   👁️ Viewing as Owner
                 </span>
               )}
               {/* Search */}
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="relative flex-1 lg:flex-none">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search menu"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                  className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
                 />
               </div>
 
@@ -504,7 +504,7 @@ export default function MenuPage() {
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-2 rounded-lg transition ${
-                    viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    viewMode === 'grid' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   <Squares2X2Icon className="w-5 h-5" />
@@ -512,7 +512,7 @@ export default function MenuPage() {
                 <button
                   onClick={() => setViewMode('list')}
                   className={`p-2 rounded-lg transition ${
-                    viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    viewMode === 'list' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   <ListBulletIcon className="w-5 h-5" />
@@ -524,18 +524,18 @@ export default function MenuPage() {
         </section>
 
         {/* Section 3: Menu List - HANYA INI yang bisa scroll */}
-        <section className="flex-1 overflow-y-auto p-6 bg-gray-100">
+        <section className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50">
 
           {/* Menu Grid */}
-          <div className="grid grid-cols-4 gap-4 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-8">
             {/* Add New Menu Card */}
             {!viewAsOwner && (
               <button 
                 onClick={handleAddNewMenu}
-                className="border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 hover:border-blue-500 hover:bg-blue-50 transition min-h-[250px]"
+                className="border-2 border-dashed border-gray-300 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center gap-2 md:gap-3 hover:border-gray-900 hover:bg-gray-100 transition min-h-[200px] md:min-h-[250px]"
               >
-                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center">
-                  <PlusIcon className="w-8 h-8 text-white" />
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-900 rounded-full flex items-center justify-center">
+                  <PlusIcon className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
                 <p className="text-sm font-semibold text-gray-700">Add New Menu to</p>
                 <p className="text-sm font-semibold text-gray-700">{currentCategory?.name}</p>
@@ -550,7 +550,7 @@ export default function MenuPage() {
               <div key={menu.id} className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition flex flex-col">
                 {/* Menu Image */}
                 <div className="relative p-[3px]">
-                  <div className="w-full h-24 bg-gray-200 rounded-xl overflow-hidden">
+                  <div className="w-full h-20 md:h-24 bg-gray-200 rounded-xl overflow-hidden">
                     <img
                       src={menu.image || "/placeholder.jpg"}
                       alt={menu.name}
@@ -560,36 +560,41 @@ export default function MenuPage() {
                 </div>
 
                 {/* Menu Info */}
-                <div className="p-4 flex flex-col flex-1">
-                  <p className="text-xs text-gray-500 mb-1">{menu.category}</p>
-                  <h3 className="font-semibold text-gray-800  truncate">{menu.name}</h3>
+                <div className="p-3 md:p-4 flex flex-col flex-1">
+                  <p className="text-[10px] md:text-xs text-gray-500 mb-1">{menu.category}</p>
+                  <h3 className="text-sm md:text-base font-semibold text-gray-800 truncate">{menu.name}</h3>
                   
                   {/* Availability Status */}
                   <div className="mb-2">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
                       menu.available 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
-                    }`}>
+                        ? 'text-black' 
+                        : 'text-white'
+                    }`}
+                    style={{
+                      backgroundColor: menu.available ? '#B2FF5E' : '#FF6859'
+                    }}>
                       {menu.available ? 'Available' : 'Not Available'}
                     </span>
                   </div>
                   
                   {/* Stock Status (Real-time from inventory) */}
-                  <div className="mb-2 text-xs">
+                  <div className="mb-2 text-[10px] md:text-xs">
                     <span className="font-medium text-gray-600">Est. Stock:</span>{' '}
-                    <span className={`font-semibold ${
-                      stockInfo.status === 'out' ? 'text-red-600' :
-                      stockInfo.status === 'low' ? 'text-yellow-600' :
-                      'text-green-600'
-                    }`}>
+                    <span 
+                      className="font-semibold" 
+                      style={{ color: '#7FCC2B' }}
+                    >
                       {stockInfo.canMake === 0 ? '0' : stockInfo.canMake >= 999 ? '999+' : stockInfo.canMake}
                     </span>
                   </div>
                   
                   {/* Has Variants Indicator */}
                   {menu.hasVariants && (
-                    <div className="mb-3 text-xs text-blue-600 font-medium">
+                    <div 
+                      className="mb-3 text-[10px] md:text-xs font-medium" 
+                      style={{ color: '#FF6859' }}
+                    >
                       This menu has variants
                     </div>
                   )}
@@ -597,20 +602,21 @@ export default function MenuPage() {
                   {/* Spacer to push content to bottom */}
                   <div className="flex-1"></div>
                   
-                  <p className="font-bold text-gray-900 mb-3">Rp {menu.price.toLocaleString('id-ID')}</p>
+                  <p className="text-sm md:text-base font-bold text-gray-900 mb-2 md:mb-3">Rp {menu.price.toLocaleString('id-ID')}</p>
 
                   {/* Actions */}
                   {!viewAsOwner && (
                     <div className="flex items-center gap-2 mt-auto">
                       <button 
                         onClick={() => handleEditMenu(menu)}
-                        className="flex-1 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition"
+                        className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition"
                       >
                         Edit
                       </button>
                       <button 
                         onClick={() => handleDeleteMenu(menu)}
-                        className="flex-1 px-3 py-2 text-xs font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition"
+                        className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium rounded-xl hover:bg-red-50 transition"
+                        style={{ color: '#FF6859', borderColor: '#FF6859', borderWidth: '1px', borderStyle: 'solid' }}
                       >
                         Delete
                       </button>

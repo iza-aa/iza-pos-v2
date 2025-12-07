@@ -12,19 +12,19 @@ const paymentData = [
 
 export default function PaymentMethod() {
   return (
-    <div className="bg-white rounded-2xl p-5 w-full border border-gray-200 hover:shadow-lg transition h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-3 md:p-5 w-full border border-gray-200 hover:shadow-lg transition h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-gray-100 rounded-xl p-2.5">
-            <CreditCardIcon className="h-5 w-5 text-gray-700" />
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="bg-gray-100 rounded-xl p-2 md:p-2.5">
+            <CreditCardIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Payment Method</p>
+            <p className="text-xs md:text-sm text-gray-500">Payment Method</p>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-gray-900">2,456</span>
+              <span className="text-lg md:text-xl font-bold text-gray-900">2,456</span>
               <span 
-                className="text-xs font-semibold px-2 py-0.5 rounded-md"
+                className="text-[10px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 rounded-md"
                 style={{ color: '#166534', backgroundColor: '#B2FF5E' }}
               >
                 +8%

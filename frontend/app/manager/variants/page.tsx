@@ -175,18 +175,18 @@ export default function VariantsPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
+    <div className="min-h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Section 1: Header (Fixed) */}
-      <section className="flex-shrink-0 px-6 pt-6 border-b border-gray-200 overflow-hidden">
-        <div className="flex items-center justify-between mb-6">
+      <section className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 border-b border-gray-200 overflow-hidden">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4 md:mb-6">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold text-gray-800">Manage Variants</h1>
-            <p className="text-sm text-gray-500">Manage variant groups and options for your menu items</p>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Manage Variants</h1>
+            <p className="text-xs md:text-sm text-gray-500">Manage variant groups and options for your menu items</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
             {viewAsOwner && (
-              <span className="inline-block text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+              <span className="inline-block text-xs md:text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
                 👁️ Viewing as Owner
               </span>
             )}
@@ -205,13 +205,13 @@ export default function VariantsPage() {
             </button>
 
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 lg:flex-none">
               <input
                 type="text"
                 placeholder="Search variant groups..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-4 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-4 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
               />
             </div>
           </div>
@@ -219,26 +219,26 @@ export default function VariantsPage() {
 
         {/* Info Cards */}
         {showInfoCards && (
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-4 border border-gray-200">
-              <div className="text-sm text-gray-500 mb-1">Total Groups</div>
-              <div className="text-2xl font-bold text-gray-800">{variantGroups.length}</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+            <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-200">
+              <div className="text-xs md:text-sm text-gray-500 mb-1">Total Groups</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{variantGroups.length}</div>
             </div>
-            <div className="bg-white rounded-xl p-4 border border-gray-200">
-              <div className="text-sm text-gray-500 mb-1">Required Groups</div>
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-200">
+              <div className="text-xs md:text-sm text-gray-500 mb-1">Required Groups</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">
                 {variantGroups.filter(g => g.required).length}
               </div>
             </div>
-            <div className="bg-white rounded-xl p-4 border border-gray-200">
-              <div className="text-sm text-gray-500 mb-1">Optional Groups</div>
-              <div className="text-2xl font-bold text-green-600">
+            <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-200">
+              <div className="text-xs md:text-sm text-gray-500 mb-1">Optional Groups</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">
                 {variantGroups.filter(g => !g.required).length}
               </div>
             </div>
-            <div className="bg-white rounded-xl p-4 border border-gray-200">
-              <div className="text-sm text-gray-500 mb-1">Total Options</div>
-              <div className="text-2xl font-bold text-gray-800">
+            <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-200">
+              <div className="text-xs md:text-sm text-gray-500 mb-1">Total Options</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">
                 {variantGroups.reduce((sum, g) => sum + g.options.length, 0)}
               </div>
             </div>
@@ -247,19 +247,19 @@ export default function VariantsPage() {
       </section>
 
       {/* Section 2: Variant Groups List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
-        <div className="columns-4 gap-4 space-y-4">
+      <section className="flex-1 overflow-y-auto bg-gray-50 px-4 md:px-6 py-4 md:py-6">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 md:gap-4 space-y-3 md:space-y-4">
           {/* Add New Variant Group Card */}
           {!viewAsOwner && (
             <button
               onClick={handleAddVariantGroup}
-              className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-blue-500 hover:bg-blue-50 transition flex flex-col items-center justify-center gap-3 min-h-[200px] break-inside-avoid mb-4 w-full"
+              className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-gray-900 hover:bg-gray-100 transition flex flex-col items-center justify-center gap-2 md:gap-3 min-h-[180px] md:min-h-[200px] break-inside-avoid mb-3 md:mb-4 w-full"
             >
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <PlusIcon className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-900 rounded-full flex items-center justify-center">
+                <PlusIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-gray-700">Add New Variant Group</p>
+                <p className="text-sm md:text-base font-semibold text-gray-700">Add New Variant Group</p>
                 <p className="text-xs text-gray-500 mt-1">Create a new variant group</p>
               </div>
             </button>
@@ -267,11 +267,11 @@ export default function VariantsPage() {
 
           {/* Variant Group Cards */}
           {filteredGroups.map((group) => (
-            <div key={group.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4">
+            <div key={group.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-3 md:mb-4">
               {/* Group Header */}
-              <div className="p-4 border-b border-gray-200">
+              <div className="p-3 md:p-4 border-b border-gray-200">
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-bold text-gray-800">{group.name}</h3>
+                  <h3 className="text-base md:text-lg font-bold text-gray-900">{group.name}</h3>
                   {!viewAsOwner && (
                     <div className="flex items-center gap-1">
                       <button 
@@ -279,14 +279,15 @@ export default function VariantsPage() {
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition"
                         title="Edit"
                       >
-                        <PencilIcon className="w-4 h-4 text-blue-600" />
+                        <PencilIcon className="w-4 h-4 text-gray-600" />
                       </button>
                       <button 
                         onClick={() => handleDeleteGroup(group)}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition"
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition"
                         title="Delete"
+                        style={{ color: '#FF6859' }}
                       >
-                        <TrashIcon className="w-4 h-4 text-red-600" />
+                        <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
                   )}
@@ -294,34 +295,28 @@ export default function VariantsPage() {
                 
                 <div className="flex items-center gap-2 mb-2">
                   {group.required && (
-                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                    <span className="text-xs text-white px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#FF6859' }}>
                       Required
                     </span>
                   )}
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                    group.type === 'single' 
-                      ? 'bg-blue-100 text-blue-600' 
-                      : 'bg-purple-100 text-purple-600'
-                  }`}>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-700">
                     {group.type === 'single' ? 'Single' : 'Multiple'}
                   </span>
                 </div>
                 
-                <p className="text-sm text-gray-500">{group.options.length} options</p>
+                <p className="text-xs md:text-sm text-gray-500">{group.options.length} options</p>
               </div>
 
               {/* Options List */}
-              <div className="p-4 space-y-2 flex-1">
+              <div className="p-3 md:p-4 space-y-2 flex-1">
                 {group.options.map((option) => (
                   <div
                     key={option.id}
                     className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
                   >
-                    <span className="text-sm font-medium text-gray-700">{option.name}</span>
+                    <span className="text-xs md:text-sm font-medium text-gray-700">{option.name}</span>
                     {option.priceModifier !== 0 && (
-                      <span className={`text-xs font-semibold ${
-                        option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className="text-xs font-semibold" style={{ color: option.priceModifier > 0 ? '#7FCC2B' : '#FF6859' }}>
                         {option.priceModifier > 0 ? '+' : '-'}Rp {Math.abs(option.priceModifier).toLocaleString('id-ID')}
                       </span>
                     )}

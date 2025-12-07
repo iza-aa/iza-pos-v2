@@ -415,13 +415,14 @@ export default function StaffManagerTable() {
 										) : (
 											<>
 												<button
-													className="text-blue-600 hover:underline mr-3"
+													className="text-gray-700 hover:underline mr-3"
 													onClick={() => handleEdit(idx)}
 												>
 													Edit
 												</button>
 												<button
-													className="text-red-600 hover:underline"
+													className="hover:underline"
+													style={{ color: '#FF6859' }}
 													onClick={() => handleDelete(staff.id)}
 												>
 													Hapus
@@ -554,13 +555,14 @@ export default function StaffManagerTable() {
 										) : (
 											<>
 												<button
-													className="text-blue-600 hover:underline mr-3"
+													className="text-gray-700 hover:underline mr-3"
 													onClick={() => handleEdit(idx)}
 												>
 													Edit
 												</button>
 												<button
-													className="text-red-600 hover:underline"
+													className="hover:underline"
+													style={{ color: '#FF6859' }}
 													onClick={() => handleDelete(staff.id)}
 												>
 													Hapus

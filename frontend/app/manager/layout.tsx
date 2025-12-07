@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Navbar from "../components/ui/navbar/Navbar";
+import FloatingAIAssistant from "../components/ui/FloatingAIAssistant";
 
 export default function ManagerLayout({
   children,
@@ -30,6 +31,7 @@ export default function ManagerLayout({
         <Navbar role="manager" canSwitchRole={userRole === "owner"} />
       )}
       <main>{children}</main>
+      {!isLoginPage && userRole === "owner" && <FloatingAIAssistant />}
     </div>
   );
 }

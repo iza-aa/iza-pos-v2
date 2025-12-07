@@ -200,7 +200,7 @@ export default function StaffManagerPage() {
 
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
-      <section className="flex-shrink-0 px-6 pt-6 bg-white border-b border-gray-200">
+      <section className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 bg-white border-b border-gray-200">
         <StaffManagerHeader
           title="Staff Manager"
           description="Kelola data staff, role, status, dan kode login."
@@ -215,14 +215,14 @@ export default function StaffManagerPage() {
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Cari nama, ID, atau role..."
-            width="w-64"
+            width="w-full sm:w-64"
           />
         </StaffManagerHeader>
       </section>
 
-      <section className="flex-1 overflow-y-auto bg-gray-100 px-6 py-6">
+      <section className="flex-1 overflow-y-auto bg-gray-100 px-4 md:px-6 py-4 md:py-6">
         {viewMode === 'card' && (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {filteredStaff.map((staff) => (
               <StaffCard
                 key={staff.id}
@@ -266,8 +266,8 @@ export default function StaffManagerPage() {
       </section>
 
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 flex flex-col items-center relative max-w-sm w-full">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-red-500 text-xl font-bold"
               onClick={() => setShowQrModal(false)}
@@ -276,14 +276,14 @@ export default function StaffManagerPage() {
               ×
             </button>
             <div className="mb-4">
-              <QRCodeSVG value={presenceCode} size={200} />
+              <QRCodeSVG value={presenceCode} size={180} className="md:w-[200px] md:h-[200px]" />
             </div>
-            <div className="text-lg font-bold tracking-widest mb-2">{presenceCode}</div>
-            <div className="text-gray-500 text-sm mb-2">
+            <div className="text-base md:text-lg font-bold tracking-widest mb-2">{presenceCode}</div>
+            <div className="text-gray-500 text-xs md:text-sm mb-2 text-center">
               Scan QR atau masukkan kode ini untuk presensi
             </div>
             {qrExpiresAt && (
-              <div className="text-red-600 font-semibold text-sm">
+              <div className="text-red-600 font-semibold text-xs md:text-sm">
                 Kode akan expired dalam: {Math.floor(qrTimer / 60)}:{String(qrTimer % 60).padStart(2, "0")}
               </div>
             )}
