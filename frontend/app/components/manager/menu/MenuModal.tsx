@@ -3,32 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/supabaseClient'
-
-interface VariantOption {
-  id: string
-  name: string
-  price_modifier: number
-}
-
-interface VariantGroup {
-  id: string
-  name: string
-  type: 'single' | 'multiple'
-  is_required: boolean
-  options: VariantOption[]
-}
-
-interface MenuItem {
-  id: string
-  name: string
-  category: string
-  categoryId: string
-  price: number
-  image: string
-  available: boolean
-  hasVariants?: boolean
-  variantGroups: string[]
-}
+import { showError } from '@/lib/errorHandling'
+import type { MenuItem, VariantOption, VariantGroup } from '@/lib/types'
 
 interface MenuModalProps {
   isOpen: boolean
@@ -153,13 +129,13 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file')
+        showError('Pilih file gambar yang valid')
         return
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB')
+        showError('Ukuran gambar harus kurang dari 5MB')
         return
       }
 

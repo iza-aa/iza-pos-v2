@@ -2,26 +2,17 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { useSessionValidation } from '@/lib/useSessionValidation'
 import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/supabaseClient'
+import { formatPriceModifier } from '@/lib/formatUtils'
 import VariantGroupModal from '@/app/components/manager/variants/VariantGroupModal'
-import DeleteModal from '@/app/components/ui/DeleteModal'
-
-interface VariantOption {
-  id: string
-  name: string
-  priceModifier: number
-}
-
-interface VariantGroup {
-  id: string
-  name: string
-  type: 'single' | 'multiple'
-  required: boolean
-  options: VariantOption[]
-}
+import { DeleteModal } from '@/app/components/ui'
+import type { VariantOption, VariantGroup } from '@/lib/types'
 
 export default function VariantsPage() {
+  useSessionValidation();
+  
   const searchParams = useSearchParams()
   const viewAsOwner = searchParams.get('viewAs') === 'owner'
   
@@ -317,7 +308,7 @@ export default function VariantsPage() {
                     <span className="text-xs md:text-sm font-medium text-gray-700">{option.name}</span>
                     {option.priceModifier !== 0 && (
                       <span className="text-xs font-semibold" style={{ color: option.priceModifier > 0 ? '#7FCC2B' : '#FF6859' }}>
-                        {option.priceModifier > 0 ? '+' : '-'}Rp {Math.abs(option.priceModifier).toLocaleString('id-ID')}
+                        {formatPriceModifier(option.priceModifier)}
                       </span>
                     )}
                   </div>

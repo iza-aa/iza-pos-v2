@@ -2,19 +2,22 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState } from 'react'
+import { useSessionValidation } from '@/lib/useSessionValidation'
 import { Bars3Icon } from '@heroicons/react/24/outline'
 import InventoryTabs from '@/app/components/manager/inventory/InventoryTabs'
 import RawMaterialsTab from '@/app/components/manager/inventory/rawmaterial/RawMaterialsTab'
 import RecipesTab from '@/app/components/manager/inventory/recipe/RecipesTab'
-import RecipeDishesTab from '@/app/components/manager/inventory/recipe/RecipeDishesTab'
-import RecipeVariantsTab from '@/app/components/manager/inventory/recipe/RecipeVariantsTab'
-import DefaultModifiersTab from '@/app/components/manager/inventory/recipe/DefaultModifiersTab'
-import ProductOverridesTab from '@/app/components/manager/inventory/recipe/ProductOverridesTab'
+import RecipeDishesTab from '@/app/components/manager/inventory/recipe/dishes'
+import RecipeVariantsTab from '@/app/components/manager/inventory/recipe/variants'
+import DefaultModifiersTab from '@/app/components/manager/inventory/recipe/modifiers'
+import ProductOverridesTab from '@/app/components/manager/inventory/recipe/overrides'
 import UsageHistoryTab from '@/app/components/manager/inventory/usagehistory/UsageHistoryTab'
 
 type TabType = 'raw-materials' | 'recipes' | 'recipe-dishes' | 'recipe-variants' | 'default-modifiers' | 'product-overrides' | 'usage-history'
 
 export default function InventoryPage() {
+  useSessionValidation();
+  
   const searchParams = useSearchParams()
   const viewAsOwner = searchParams.get('viewAs') === 'owner'
   const [activeTab, setActiveTab] = useState<TabType>('raw-materials')

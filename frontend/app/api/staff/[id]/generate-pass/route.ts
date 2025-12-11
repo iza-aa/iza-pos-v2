@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { generateRandomCode } from "@/lib/authUtils";
+import { EXPIRATION_TIMES } from "@/lib/timeConstants";
 
 // Helper kirim WhatsApp via Fonnte
 async function sendWhatsAppMessage(phone: string, code: string) {
@@ -43,17 +45,9 @@ export async function POST(
     return NextResponse.json({ error: "Staff/No WA tidak ditemukan" }, { status: 404 });
   }
 
-  // 2. Generate kode login & expired
-  function generateLoginCode() {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let code = "";
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  }
-  const login_code = generateLoginCode();
-  const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+  // 2. Generate kode login & expired menggunakan authUtils
+  const login_code = generateRandomCode(8, false); // 8 chars, mixed case
+  const expires_at = new Date(Date.now() + EXPIRATION_TIMES.TEMP_PASSWORD).toISOString(); // 24 hours
 
   // 3. Update kode login ke Supabase
   const { error: updateErr } = await supabase

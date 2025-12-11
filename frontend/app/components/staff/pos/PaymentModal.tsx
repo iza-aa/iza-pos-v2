@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
+import { formatCurrency } from '@/lib/numberConstants'
 
 interface PaymentModalProps {
   isOpen: boolean
@@ -182,14 +183,14 @@ export default function PaymentModal({ isOpen, onClose, onConfirm, totalAmount }
                 value={cashReceived}
                 onChange={(e) => setCashReceived(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={`Minimum Rp ${totalAmount.toLocaleString('id-ID')}`}
+                placeholder={`Minimum ${formatCurrency(totalAmount)}`}
               />
               {cashReceived && (
                 <div className="mt-2 p-3 bg-blue-50 rounded-lg">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Change:</span>
                     <span className="font-bold text-blue-600">
-                      Rp {calculateChange().toLocaleString('id-ID')}
+                      {formatCurrency(calculateChange())}
                     </span>
                   </div>
                 </div>
@@ -216,7 +217,7 @@ export default function PaymentModal({ isOpen, onClose, onConfirm, totalAmount }
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg font-medium text-gray-700">Total Amount:</span>
               <span className="text-2xl font-bold text-blue-600">
-                Rp {totalAmount.toLocaleString('id-ID')}
+                {formatCurrency(totalAmount)}
               </span>
             </div>
           </div>

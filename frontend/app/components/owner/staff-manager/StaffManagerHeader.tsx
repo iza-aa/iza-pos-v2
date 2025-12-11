@@ -1,10 +1,12 @@
 import { BiQr } from 'react-icons/bi'
+import { UserPlusIcon } from '@heroicons/react/24/outline'
 import { ReactNode } from 'react'
 
 interface StaffManagerHeaderProps {
   title: string
   description: string
   onGenerateQR: () => void
+  onAddStaff?: () => void
   children?: ReactNode
 }
 
@@ -12,6 +14,7 @@ export default function StaffManagerHeader({
   title, 
   description, 
   onGenerateQR,
+  onAddStaff,
   children
 }: StaffManagerHeaderProps) {
   return (
@@ -22,9 +25,20 @@ export default function StaffManagerHeader({
       </div>
 
       <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+        {onAddStaff && (
+          <button
+            onClick={onAddStaff}
+            className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition"
+            title="Add New Staff"
+          >
+            <UserPlusIcon className="w-4 md:w-5 h-4 md:h-5" />
+            <span className="text-xs md:text-sm font-medium">Add Staff</span>
+          </button>
+        )}
+        
         <button
           onClick={onGenerateQR}
-          className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition"
+          className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-100 text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-200 transition"
           title="Generate QR and Code"
         >
           <BiQr className="w-4 md:w-5 h-4 md:h-5" />

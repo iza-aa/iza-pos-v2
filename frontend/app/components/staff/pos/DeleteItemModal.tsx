@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { formatCurrency } from '@/lib/numberConstants'
 
 interface DeleteItemModalProps {
   isOpen: boolean
@@ -98,7 +99,7 @@ export default function DeleteItemModal({
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Amount to deduct:</span>
               <span className="text-lg font-bold" style={{ color: '#FF6859' }}>
-                Rp {(price * quantityToDelete).toLocaleString('id-ID')}
+                {formatCurrency(price * quantityToDelete)}
               </span>
             </div>
           </div>

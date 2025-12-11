@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSessionValidation } from "@/lib/useSessionValidation";
+import { getCurrentStaffInfo, getCurrentUser } from '@/lib/authUtils';
 import OrderLineTabs from "@/app/components/staff/pos/OrderLineTabs";
 import OrderLineCard from "@/app/components/staff/pos/OrderLineCard";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
@@ -8,11 +10,12 @@ import FoodItemCard from "@/app/components/staff/pos/FoodItemCard";
 import VariantSidebar from "@/app/components/staff/pos/VariantSidebar";
 import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentModal from "@/app/components/staff/pos/PaymentModal";
-import DeleteItemModal from "@/app/components/staff/pos/DeleteItemModal";
 import PaymentSummary from "@/app/components/staff/pos/PaymentSummary";
 import { ChevronLeftIcon, ChevronRightIcon, PrinterIcon, ShoppingCartIcon, MagnifyingGlassIcon, ChevronDoubleRightIcon, ChevronDoubleLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient";
+import { formatCurrency } from '@/lib/numberConstants';
 import { LayoutGrid, Coffee, UtensilsCrossed, Cookie, Cake, Milk, Pizza, Sandwich, Soup, Salad, IceCream } from 'lucide-react';
+import { showSuccess, showError, showWarning } from '@/lib/errorHandling';
 
 // Icon mapping for categories
 const iconNameToComponent: Record<string, any> = {
@@ -34,6 +37,8 @@ const iconNameToComponent: Record<string, any> = {
 };
 
 export default function POSPage() {
+	useSessionValidation();
+	
 	const [activeTab, setActiveTab] = useState("all");
 	const [activeCategory, setActiveCategory] = useState("all");
 	const [categories, setCategories] = useState<any[]>([]);
@@ -42,19 +47,17 @@ export default function POSPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [variantSidebarOpen, setVariantSidebarOpen] = useState(false);
 	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [selectedItem, setSelectedItem] = useState<any>(null);
 	const [orderDetailsOpen, setOrderDetailsOpen] = useState(true);
-	const [itemToDelete, setItemToDelete] = useState<any>(null);
 	const [cart, setCart] = useState<any[]>([]);
 
 	// Page protection - only for Owner, Cashier, Barista
 	useEffect(() => {
-		const userRole = localStorage.getItem('user_role');
+		const currentUser = getCurrentUser();
 		const staffType = localStorage.getItem('staff_type');
 		
 		// Allow: Owner OR Cashier/Barista
-		if (userRole !== 'owner' && staffType !== 'cashier' && staffType !== 'barista') {
+		if (currentUser?.role !== 'owner' && staffType !== 'cashier' && staffType !== 'barista') {
 			window.location.href = '/staff/dashboard';
 		}
 	}, []);
@@ -214,43 +217,26 @@ export default function POSPage() {
 		}
 		
 		setCart([...cart, cartItem])
-		console.log('Added to cart:', cartItem);
 		
 		// Auto-show Order Details after adding item
 		setOrderDetailsOpen(true);
 	};
 
-	// Handle delete item from cart
-	const handleDeleteItem = (item: any) => {
-		// Check if quantity > 1, show modal to select how many to delete
-		if (item.quantity > 1) {
-			setItemToDelete(item)
-			setDeleteModalOpen(true)
-		} else {
-			// For single quantity, delete directly
+	// Handle quantity change from OrderSummary
+	const handleOrderQuantityChange = (item: any, newQuantity: number) => {
+		if (newQuantity <= 0) {
+			// Remove item if quantity is 0 or less
 			const newCart = cart.filter(c => c.id !== item.id)
 			setCart(newCart)
-		}
-	}
-
-	const confirmDeleteItem = (quantityToDelete: number) => {
-		if (itemToDelete) {
-			const itemIndex = cart.findIndex(c => c.id === itemToDelete.id)
+		} else {
+			// Update quantity
+			const itemIndex = cart.findIndex(c => c.id === item.id)
 			if (itemIndex >= 0) {
 				const newCart = [...cart]
-				
-				if (quantityToDelete >= itemToDelete.quantity) {
-					// Remove completely
-					newCart.splice(itemIndex, 1)
-				} else {
-					// Reduce quantity
-					newCart[itemIndex].quantity -= quantityToDelete
-				}
-				
+				newCart[itemIndex].quantity = newQuantity
 				setCart(newCart)
 			}
 		}
-		setItemToDelete(null)
 	}
 
 	// Filter items by category and search
@@ -267,18 +253,21 @@ export default function POSPage() {
 	// Handle place order
 	const handlePlaceOrder = async (paymentData: any) => {
 		if (cart.length === 0) {
-			alert('Cart is empty!')
+			showError('Keranjang masih kosong!')
 			return
 		}
 
 		try {
-			const staffId = localStorage.getItem('user_id')
-		const userRole = localStorage.getItem('user_role') || 'staff'
-		const staffCode = localStorage.getItem('staff_code') || 'UNKNOWN'
-		const staffName = localStorage.getItem('user_name') || 'Unknown Staff'
-		const total = calculateTotal()
-		
-		// Generate order number
+			const staff = getCurrentStaffInfo();
+			if (!staff) {
+				showError('Anda belum login, silakan login kembali');
+				return;
+			}
+			
+			const { id: staffId, name: staffName, staffCode, roleAbbr } = staff;
+			const total = calculateTotal()
+			
+			// Generate order number
 		const orderNumber = `ORD-${Date.now()}`
 
 	// 1. Create order with role tracking and staff code
@@ -297,34 +286,26 @@ export default function POSPage() {
 			payment_method: 'Cash',
 			payment_status: 'paid',
 			created_by: staffId,
-			created_by_role: userRole.toUpperCase().substring(0, 3), // 'STA', 'MAN', 'OWN'
-		created_by_staff_code: staffCode, // STF001, MAN001, etc.
+			created_by_role: roleAbbr,
+			created_by_staff_code: staffCode,
 		created_by_staff_name: staffName, // Staff name
 		created_by_code: staffCode
 	}])
-	.select()
-	.single()
+		.select()
+		.single()
 	
 	if (orderError) {
-			console.error('Error creating order:', orderError)
 			throw orderError
-		}
-		
-		// 2. Fetch products with categories to determine kitchen_status
+		}		// 2. Fetch products with categories to determine kitchen_status
 		const productIds = cart.map(item => item.productId || item.id)
 		const { data: productsData, error: productError } = await supabase
 			.from('products')
-			.select('id, name, category_id, categories!inner(name, type)')
-			.in('id', productIds)
+		.select('id, name, category_id, categories!inner(name, type)')
+		.in('id', productIds)
 
-		if (productError) {
-			console.error('Error fetching products:', productError)
-			throw productError
-		}
-
-		console.log('Products with categories:', productsData) // Debug log
-
-		// 3. Create order items with kitchen_status
+	if (productError) {
+		throw productError
+	}		// 3. Create order items with kitchen_status
 		const orderItems = cart.map(item => {
 			const productId = item.productId || item.id
 			const product = productsData?.find(p => p.id === productId)
@@ -332,8 +313,6 @@ export default function POSPage() {
 			// Get category type - categories is a single object when using !inner
 			const category = product?.categories as any
 			const categoryType = category?.type || 'food'
-			
-			console.log(`Product: ${product?.name}, Category Type: ${categoryType}`) // Debug log
 			
 			// Determine kitchen_status based on category type
 		const isBeverage = categoryType === 'beverage'
@@ -356,7 +335,6 @@ export default function POSPage() {
 		.insert(orderItems)
 
 	if (itemsError) {
-		console.error('Error inserting order items:', itemsError)
 		throw itemsError
 	}			// 4. Create payment transaction
 			const { error: paymentError } = await supabase
@@ -381,7 +359,7 @@ export default function POSPage() {
 				.insert([{
 					staff_id: staffId,
 					activity_type: 'order_created',
-					description: `Created order ${orderNumber} - ${cart.length} items - Rp ${total.toLocaleString('id-ID')}`,
+					description: `Created order ${orderNumber} - ${cart.length} items - ${formatCurrency(total)}`,
 					metadata: {
 						order_id: orderData.id,
 						order_number: orderNumber,
@@ -396,13 +374,6 @@ export default function POSPage() {
 			setPaymentModalOpen(false)
 
 		} catch (error: any) {
-			console.error('Error placing order:', error)
-			console.error('Error details:', {
-				message: error?.message,
-				details: error?.details,
-				hint: error?.hint,
-				code: error?.code
-			})
 			alert(`Failed to place order: ${error?.message || 'Unknown error'}`)
 		}
 	}
@@ -437,7 +408,11 @@ export default function POSPage() {
 							<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
 						</div>
 					) : (
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+						<div className={`grid gap-4 transition-all duration-300 ${
+							orderDetailsOpen 
+								? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+								: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5'
+						}`}>
 							{filteredFoodItems.map((item) => {
 								// Calculate total quantity in cart for this product
 								let quantity = 0
@@ -456,7 +431,6 @@ export default function POSPage() {
 									<FoodItemCard 
 										key={item.id} 
 										item={{...item, quantity}} 
-										onQuantityChange={handleQuantityChange}
 										onItemClick={handleItemClick}
 									/>
 								)
@@ -593,29 +567,25 @@ export default function POSPage() {
 								variants: item.variants,
 								productId: item.productId
 							}))}
-							onEditTable={() => console.log("Edit table")}
-							onDeleteTable={() => console.log("Delete table")}
-							onDeleteItem={handleDeleteItem}
-						/>
+						onEditTable={() => {}}
+						onDeleteTable={() => {}}
+						onQuantityChange={handleOrderQuantityChange}
+					/>
 						</div>
 						
-						{/* Payment Summary - Sticky Bottom */}
-						<div className="border-t border-gray-200 bg-white">
+						{/* Payment Summary */}
+						<div className="bg-white">
 							<PaymentSummary items={cart} />
 						</div>
 					</>
 				)}
 				
-				{/* Action Buttons with safe area */}
-				<div className="flex gap-3 px-4 md:px-6 pb-6 md:pb-6 pt-4">
-					<button className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition font-medium">
-						<PrinterIcon className="w-5 h-5" />
-						Print
-					</button>
+				{/* Place Order Button - Outside border */}
+				<div className="px-4 md:px-6 pb-6 md:pb-6">
 					<button 
 						onClick={() => setPaymentModalOpen(true)}
 						disabled={cart.length === 0}
-						className="flex-1 py-3 rounded-xl bg-gray-900 hover:bg-black text-white font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+						className="w-full py-4 rounded-xl bg-gray-900 hover:bg-black text-white font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						<span className="flex items-center justify-center gap-2">
 							<ShoppingCartIcon className="w-5 h-5" />
@@ -632,20 +602,6 @@ export default function POSPage() {
 				onConfirm={handlePlaceOrder}
 				totalAmount={calculateTotal()}
 			/>
-			{/* Delete Item Modal */}
-			{itemToDelete && (
-				<DeleteItemModal
-					isOpen={deleteModalOpen}
-					onClose={() => {
-						setDeleteModalOpen(false)
-						setItemToDelete(null)
-					}}
-					onConfirm={confirmDeleteItem}
-					itemName={itemToDelete.name}
-					currentQuantity={itemToDelete.quantity}
-					price={itemToDelete.price}
-				/>
-			)}
 		</main>
 	);
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,8 +26,9 @@ export async function POST(req: Request) {
     );
   }
 
-  // Cek password (plain text untuk development, gunakan bcrypt di production)
-  if (staff.password_hash !== password) {
+  // Cek password dengan bcrypt
+  const isPasswordValid = await bcrypt.compare(password, staff.password_hash);
+  if (!isPasswordValid) {
     return NextResponse.json(
       { success: false, error: "Password salah." },
       { status: 401 }

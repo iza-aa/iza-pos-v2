@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { getCurrentUser } from "@/lib/authUtils"
 import TotalSales from "@/app/components/owner/dashboard/analytics/totalsales"
 import TotalProductSales from "@/app/components/owner/dashboard/analytics/totalproductsales"
 import TotalCustomer from "@/app/components/owner/dashboard/analytics/totalcustomer"
@@ -18,13 +19,17 @@ export default function OwnerDashboardPage() {
 
   useEffect(() => {
     // Check if user is actually an owner
-    const userRole = localStorage.getItem("user_role");
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      window.location.href = '/owner/login';
+      return;
+    }
     
     // If not owner, redirect to appropriate dashboard
-    if (userRole === "staff") {
+    if (currentUser.role === "staff") {
       window.location.href = "/staff/dashboard";
       return;
-    } else if (userRole === "manager") {
+    } else if (currentUser.role === "manager") {
       window.location.href = "/manager/dashboard";
       return;
     }
@@ -42,7 +47,7 @@ export default function OwnerDashboardPage() {
         />
 
         {/* Analytics Cards - 4 cards dalam grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
           <TotalSales />
           <TotalProductSales />
           <TotalCustomer />
@@ -50,8 +55,8 @@ export default function OwnerDashboardPage() {
         </div>
 
         {/* Revenue Chart, Favorite Products & Stock Level - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="xl:col-span-2">
             <ReportAnalytics />
           </div>
           <FavoriteProduct />
@@ -59,7 +64,7 @@ export default function OwnerDashboardPage() {
         </div>
 
         {/* Payment Method, Peak Performance & Live Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
           <PaymentMethod />
           <PeakPerformance />
           <LiveActivity />

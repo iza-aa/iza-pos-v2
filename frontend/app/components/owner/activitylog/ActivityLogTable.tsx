@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/activityTypes'
 import { parseSupabaseTimestamp, formatJakartaTime } from '@/lib/dateUtils'
+import { POLLING_INTERVALS } from '@/lib/timeConstants'
 
 interface ActivityLogTableProps {
   logs: ActivityLog[]
@@ -16,7 +17,7 @@ function TimeAgoCell({ timestamp }: { timestamp: string }) {
     setTimeAgo(formatTimeAgo(timestamp))
     const interval = setInterval(() => {
       setTimeAgo(formatTimeAgo(timestamp))
-    }, 60000)
+    }, POLLING_INTERVALS.SLOW)
     return () => clearInterval(interval)
   }, [timestamp])
 

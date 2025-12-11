@@ -1,35 +1,9 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-
-interface OrderItem {
-	id: string;
-	name: string;
-	quantity: number;
-	price: number;
-	served: boolean;
-	servedAt?: string;
-	variants?: any;
-	kitchenStatus?: string; // 'pending', 'cooking', 'ready', 'not_required'
-	readyAt?: string;
-}
-
-interface Order {
-	id: string;
-	customerName: string;
-	orderNumber: string;
-	orderType: string;
-	items: OrderItem[];
-	total: number;
-	date: string;
-	time: string;
-	status: "new" | "preparing" | "partially-served" | "served" | "completed";
-	table?: string;
-	createdByName?: string;
-	createdByRole?: string;
-	servedByNames?: string[];
-	servedByRoles?: string[];
-}
+import { getOrderStatusConfig, getKitchenStatusBadge } from "@/lib/orderConstants";
+import { formatCurrency } from "@/lib/numberConstants";
+import type { Order, OrderItem } from "@/lib/types";
 
 interface ManagerOrderCardProps {
 	order: Order;
@@ -37,46 +11,23 @@ interface ManagerOrderCardProps {
 }
 
 export default function ManagerOrderCard({ order, onDelete }: ManagerOrderCardProps) {
-	const getStatusConfig = (status: string) => {
-		switch (status) {
-			case 'new':
-				return { label: 'NEW ORDER', bg: 'bg-gray-100', text: 'text-gray-900' };
-			case 'preparing':
-				return { label: 'PREPARING', bg: 'bg-gray-100', text: 'text-gray-900' };
-			case 'partially-served':
-				return { label: 'PARTIALLY SERVED', bg: 'bg-gray-100', text: 'text-gray-900' };
-			case 'served':
-				return { label: 'SERVED', bg: 'bg-[#B2FF5E]', text: 'text-gray-900' };
-			case 'completed':
-				return { label: 'COMPLETED', bg: 'bg-black', text: 'text-white' };
-			default:
-				return { label: 'UNKNOWN', bg: 'bg-gray-100', text: 'text-gray-900' };
-		}
-	};
-
-	const getKitchenStatusBadge = (kitchenStatus?: string) => {
-		if (!kitchenStatus || kitchenStatus === 'not_required') return null;
-		
-		const isPending = kitchenStatus === 'pending';
-		const isCooking = kitchenStatus === 'cooking';
-		const isReady = kitchenStatus === 'ready';
-		
-		if (isPending) {
-			return <span className="text-xs bg-gray-100 text-gray-900 px-2 py-0.5 rounded">⏳ Pending</span>;
-		} else if (isCooking) {
-			return <span className="text-xs bg-gray-100 text-gray-900 px-2 py-0.5 rounded">🍳 In Cook</span>;
-		} else if (isReady) {
-			return <span className="text-xs bg-[#B2FF5E] text-gray-900 px-2 py-0.5 rounded">✓ Ready</span>;
-		}
-		return null;
-	};
-
-	const statusConfig = getStatusConfig(order.status);
-	const displayItems = order.items.slice(0, 3);
-	const hasMore = order.items.length > 3;
+	const statusConfig = getOrderStatusConfig(order.status);
 	
-	const servedCount = order.items.filter(item => item.served).length;
-	const totalCount = order.items.length;
+	const renderKitchenBadge = (kitchenStatus?: string) => {
+		const badge = getKitchenStatusBadge(kitchenStatus);
+		if (!badge) return null;
+		
+		return (
+			<span className={`text-xs ${badge.bgColor} ${badge.textColor} px-2 py-0.5 rounded`}>
+				{badge.icon} {badge.label}
+			</span>
+		);
+	};
+	const displayItems = (order.items || []).slice(0, 3);
+	const hasMore = (order.items || []).length > 3;
+	
+	const servedCount = (order.items || []).filter(item => item.served).length;
+	const totalCount = (order.items || []).length;
 
 	const handleDelete = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -127,7 +78,7 @@ export default function ManagerOrderCard({ order, onDelete }: ManagerOrderCardPr
 											<div
 												key={idx}
 												className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${
-													order.servedByRoles[idx] === 'Owner' ? 'bg-black text-white' :
+													order.servedByRoles?.[idx] === 'Owner' ? 'bg-black text-white' :
 													'bg-[#FFE52A] text-gray-900'
 												}`}
 											>
@@ -184,7 +135,7 @@ export default function ManagerOrderCard({ order, onDelete }: ManagerOrderCardPr
 										<span className={item.served ? "line-through text-gray-400" : "text-gray-700"}>
 											{item.quantity}x {item.name}
 										</span>
-										{getKitchenStatusBadge(item.kitchenStatus)}
+										{renderKitchenBadge(item.kitchenStatus)}
 									</div>
 									{item.variants && Object.keys(item.variants).length > 0 && (
 										<div className="text-xs text-gray-500 ml-6">
@@ -197,13 +148,13 @@ export default function ManagerOrderCard({ order, onDelete }: ManagerOrderCardPr
 									)}
 								</div>
 								<span className={item.served ? "line-through text-gray-400" : "text-gray-600"}>
-									Rp {item.price.toLocaleString()}
+									{formatCurrency(item.price)}
 								</span>
 							</div>
 						))}
 						{hasMore && (
 							<p className="text-xs text-gray-900 font-medium">
-								+{order.items.length - 3} more items
+								+{(order.items || []).length - 3} more items
 							</p>
 						)}
 					</div>
@@ -213,7 +164,7 @@ export default function ManagerOrderCard({ order, onDelete }: ManagerOrderCardPr
 						<div>
 							<p className="text-xs text-gray-500">Total</p>
 							<p className="text-lg sm:text-xl font-bold text-[#B2FF5E]">
-								Rp {order.total.toLocaleString()}
+								{formatCurrency(order.total || 0)}
 							</p>
 						</div>
 						<div className="text-sm text-gray-600">

@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSessionValidation } from "@/lib/useSessionValidation";
+import { getCurrentUser } from "@/lib/authUtils";
+import { COLORS } from "@/lib/themeConstants";
 import { supabase } from "@/lib/supabaseClient";
 import { ClockIcon, FireIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
@@ -22,17 +25,19 @@ interface KitchenOrder {
 }
 
 export default function KitchenPage() {
+  useSessionValidation();
+  
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'cooking'>('all');
 
   // Page protection - only for Owner, Kitchen staff
   useEffect(() => {
-    const userRole = localStorage.getItem('user_role');
+    const currentUser = getCurrentUser()
     const staffType = localStorage.getItem('staff_type');
     
     // Allow: Owner OR Kitchen
-    if (userRole !== 'owner' && staffType !== 'kitchen') {
+    if (currentUser?.role !== 'owner' && staffType !== 'kitchen') {
       window.location.href = '/staff/dashboard';
     }
   }, []);
@@ -254,9 +259,9 @@ export default function KitchenPage() {
                     <button
                       onClick={() => handleUpdateStatus(item.id, 'ready')}
                       className="flex-1 px-4 py-2.5 rounded-xl transition font-medium text-sm"
-                      style={{ backgroundColor: '#8FCC4A', color: 'white' }}
+                      style={{ backgroundColor: COLORS.PRIMARY, color: 'white' }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7AB839'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#8FCC4A'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = COLORS.PRIMARY}
                     >
                       Mark Ready
                     </button>

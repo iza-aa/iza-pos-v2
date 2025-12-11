@@ -3,20 +3,9 @@
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-
-interface VariantOption {
-	id: string;
-	name: string;
-	priceModifier: number; // +/- dari harga base
-}
-
-interface VariantGroup {
-	id: string;
-	name: string;
-	type: 'single' | 'multiple'; // single select atau multiple select
-	required: boolean;
-	options: VariantOption[];
-}
+import { ProductImagePlaceholder } from "@/app/components/ui";
+import { formatCurrency } from '@/lib/numberConstants';
+import type { VariantOption, VariantGroup } from '@/lib/types';
 
 interface VariantSidebarProps {
 	isOpen: boolean;
@@ -226,22 +215,20 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 
 				{/* Content - Scrollable */}
 				<div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 space-y-6">
-					{/* Product Image */}
-					<div className="w-full h-48 bg-gray-200 rounded-2xl overflow-hidden">
-						<img 
-							src={item.image || "/placeholder.jpg"} 
-							alt={item.name}
-							className="w-full h-full object-cover"
-						/>
-					</div>
+				{/* Product Image */}
+				<div className="w-full h-48 bg-gray-200 rounded-2xl overflow-hidden">
+					<ProductImagePlaceholder 
+						name={item.name}
+						imageUrl={item.image}
+						className="w-full h-full"
+					/>
+				</div>
 
-					{/* Base Price */}
-					<div className="flex justify-between items-center">
-						<span className="text-gray-600 font-medium">Base Price</span>
-						<span className="text-xl font-bold text-gray-800">Rp {item.price.toLocaleString('id-ID')}</span>
-					</div>
-
-					{loading ? (
+				{/* Base Price */}
+				<div className="flex justify-between items-center">
+					<span className="text-gray-600 font-medium">Base Price</span>
+				<span className="text-xl font-bold" style={{ color: '#8FCC4A' }}>{formatCurrency(item.price)}</span>
+				</div>					{loading ? (
 						<div className="text-center py-8 text-gray-500">Loading variants...</div>
 					) : variantGroups.length === 0 ? (
 						<div className="text-center py-8 text-gray-500">No variants available</div>
@@ -253,48 +240,57 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 									{group.required && <span className="text-red-500 ml-1">*</span>}
 								</h3>
 								<div className="space-y-2">
-									{group.options.map(option => (
-										<button
-											key={option.id}
-											onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
-											className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition ${
-												selectedVariantIds[group.id]?.includes(option.id)
-													? 'border-gray-900 bg-gray-50'
-													: 'border-gray-200 hover:border-gray-300'
-											}`}
-										>
+									{group.options.map(option => {
+										const isSelected = selectedVariantIds[group.id]?.includes(option.id);
+										return (
+											<button
+												key={option.id}
+												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
+												className={`w-full flex items-center justify-between p-4 rounded-2xl transition cursor-pointer ${
+													isSelected
+														? 'border-[1.5px] border-gray-700 bg-gray-50'
+														: 'border border-gray-300 bg-gray-100 hover:border-gray-400'
+												}`}
+											>
+												<div className="flex items-center gap-3">
+													<div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+														isSelected
+															? 'border-gray-700 bg-gray-700'
+															: 'border-gray-300'
+													}`}>
+														{isSelected && (
+															<div className="w-2 h-2 bg-white rounded-full" />
+														)}
+													</div>
 											<span className="font-medium text-gray-800">{option.name}</span>
-											<span className={`text-sm font-semibold ${
-												option.priceModifier > 0 ? 'text-green-600' : option.priceModifier < 0 ? 'text-red-600' : 'text-gray-500'
-											}`}>
-												{option.priceModifier > 0 ? '+' : ''}{option.priceModifier !== 0 ? `Rp ${Math.abs(option.priceModifier).toLocaleString('id-ID')}` : 'No charge'}
+										</div>
+										{option.priceModifier !== 0 && (
+											<span className="text-xs font-semibold ml-auto" style={{ color: option.priceModifier > 0 ? '#8FCC4A' : '#FF6859' }}>
+												{option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier)}
 											</span>
-										</button>
-									))}
-								</div>
-							</div>
-						))
-					)}
-
-					{/* Quantity Selector */}
-					<div>
-						<h3 className="text-lg font-semibold text-gray-800 mb-3">Quantity</h3>
-						<div className="flex items-center gap-4">
-							<button
-								onClick={() => setQuantity(Math.max(1, quantity - 1))}
-								disabled={quantity <= 1}
-								className="w-12 h-12 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-2xl font-bold text-gray-700 transition"
-							>
-								−
-							</button>
-							<span className="text-3xl font-bold text-gray-800 w-16 text-center">{quantity}</span>
-							<button
-								onClick={() => setQuantity(quantity + 1)}
-								className="w-12 h-12 rounded-full bg-gray-900 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition"
-							>
-								+
-							</button>
+										)}
+									</button>
+								);
+							})}
 						</div>
+					</div>
+				))
+			)}					{/* Quantity Selector */}
+					<div className="flex items-center justify-center gap-3">
+						<button
+							onClick={() => setQuantity(Math.max(1, quantity - 1))}
+							disabled={quantity <= 1}
+							className="w-10 h-10 rounded-full bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-xl font-bold text-gray-700 transition"
+						>
+							−
+						</button>
+						<span className="text-2xl font-bold text-gray-800 min-w-[60px] text-center">{quantity}</span>
+						<button
+							onClick={() => setQuantity(quantity + 1)}
+							className="w-10 h-10 rounded-full bg-gray-900 hover:bg-black text-white flex items-center justify-center text-xl font-bold transition"
+						>
+							+
+						</button>
 					</div>
 				</div>
 
@@ -305,7 +301,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 						disabled={!canAddToOrder()}
 						className="w-full py-4 mb-4 rounded-xl bg-gray-900 hover:bg-black text-white font-bold text-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						Add to Order - Rp {calculateTotalPrice().toLocaleString('id-ID')}
+						Add to Order - {formatCurrency(calculateTotalPrice())}
 					</button>
 				</div>
 			</div>
@@ -342,22 +338,20 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 
 					{/* Content - Scrollable */}
 					<div className="flex-1 overflow-y-auto p-6 space-y-6">
-						{/* Product Image */}
-						<div className="w-full h-48 bg-gray-200 rounded-2xl overflow-hidden">
-							<img 
-								src={item.image || "/placeholder.jpg"} 
-								alt={item.name}
-								className="w-full h-full object-cover"
-							/>
-						</div>
+					{/* Product Image */}
+					<div className="w-full h-48 bg-gray-200 rounded-2xl overflow-hidden">
+						<ProductImagePlaceholder 
+							name={item.name}
+							imageUrl={item.image}
+							className="w-full h-full"
+						/>
+					</div>
 
 					{/* Base Price */}
 					<div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
 					<span className="text-sm font-medium text-gray-700">Base Price</span>
-					<span className="text-lg font-bold text-gray-900">Rp {item.price.toLocaleString('id-ID')}</span>
-					</div>
-
-					{/* Loading State */}
+					<span className="text-lg font-bold" style={{ color: '#8FCC4A' }}>{formatCurrency(item.price)}</span>
+					</div>					{/* Loading State */}
 					{loading && (
 						<div className="text-center py-8">
 							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
@@ -389,16 +383,16 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 											<button
 												key={option.id}
 												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
-												className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition ${
+												className={`w-full flex items-center justify-between p-4 rounded-2xl transition cursor-pointer ${
 													isSelected 
-														? 'border-blue-500 bg-blue-50' 
-														: 'border-gray-200 hover:border-gray-300'
+														? 'border-[1.5px] border-gray-700 bg-gray-50' 
+														: 'border border-gray-300 bg-gray-100 hover:border-gray-400'
 												}`}
 											>
 												<div className="flex items-center gap-3">
 													<div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
 														isSelected 
-															? 'border-blue-500 bg-blue-500' 
+															? 'border-gray-700 bg-gray-700' 
 															: 'border-gray-300'
 													}`}>
 														{isSelected && (
@@ -407,13 +401,11 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 													</div>
 													<span className="font-medium text-gray-800">{option.name}</span>
 												</div>
-												{option.priceModifier !== 0 && (
-													<span className={`text-xs font-semibold ml-auto ${
-														option.priceModifier > 0 ? 'text-green-600' : 'text-red-600'
-													}`}>
-														{option.priceModifier > 0 ? '+' : '-'}Rp {Math.abs(option.priceModifier).toLocaleString('id-ID')}
-													</span>
-												)}
+											{option.priceModifier !== 0 && (
+												<span className="text-xs font-semibold ml-auto" style={{ color: option.priceModifier > 0 ? '#8FCC4A' : '#FF6859' }}>
+													{option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier)}
+												</span>
+											)}
 											</button>
 										);
 									})}
@@ -437,23 +429,21 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 					{/* Footer - Fixed */}
 					<div className="border-t border-gray-200 p-6 space-y-4">
 						{/* Quantity Selector */}
-						<div className="flex items-center justify-between">
-							<span className="font-semibold text-gray-800">Quantity</span>
-							<div className="flex items-center gap-3">
-								<button
-									onClick={() => setQuantity(Math.max(1, quantity - 1))}
-									className="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition"
-								>
-									<span className="text-xl font-bold">−</span>
-								</button>
-								<span className="w-12 text-center text-xl font-bold text-blue-600">{quantity}</span>
-								<button
-									onClick={() => setQuantity(quantity + 1)}
-									className="w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition"
-								>
-									<span className="text-xl font-bold">+</span>
-								</button>
-							</div>
+						<div className="flex items-center justify-center gap-3">
+							<button
+								onClick={() => setQuantity(Math.max(1, quantity - 1))}
+								disabled={quantity <= 1}
+								className="w-10 h-10 rounded-full bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-xl font-bold text-gray-700 transition"
+							>
+								−
+							</button>
+							<span className="text-2xl font-bold text-gray-800 min-w-[60px] text-center">{quantity}</span>
+							<button
+								onClick={() => setQuantity(quantity + 1)}
+								className="w-10 h-10 rounded-full bg-gray-900 hover:bg-black text-white flex items-center justify-center text-xl font-bold transition"
+							>
+								+
+							</button>
 						</div>
 
 						{/* Add to Order Button */}
@@ -466,7 +456,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 									: 'bg-gray-200 text-gray-400 cursor-not-allowed'
 							}`}
 						>
-							Add to Order - Rp {calculateTotalPrice().toLocaleString('id-ID')}
+							Add to Order - {formatCurrency(calculateTotalPrice())}
 						</button>
 					</div>
 				</div>

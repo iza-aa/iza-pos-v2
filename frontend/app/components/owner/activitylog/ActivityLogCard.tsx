@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/activityTypes'
+import { POLLING_INTERVALS } from '@/lib/timeConstants'
 
 interface ActivityLogCardProps {
   log: ActivityLog
@@ -18,7 +19,7 @@ export default function ActivityLogCard({ log, onClick }: ActivityLogCardProps) 
     // Update every minute
     const interval = setInterval(() => {
       setTimeAgo(formatTimeAgo(log.timestamp))
-    }, 60000)
+    }, POLLING_INTERVALS.SLOW)
 
     return () => clearInterval(interval)
   }, [log.timestamp])

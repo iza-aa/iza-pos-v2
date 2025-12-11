@@ -2,27 +2,21 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@supabase/supabase-js"
-import { QRCodeSVG } from "qrcode.react"
 import { SearchBar, ViewModeToggle, DeleteModal } from "@/app/components/ui"
-import { StaffCard, StaffTable, StaffManagerHeader, EditStaffModal } from "@/app/components/owner/staff-manager"
-import type { ViewMode } from "@/app/components/ui/ViewModeToggle"
+import { StaffCard, StaffTable, QRPresenceModal } from "@/app/components/shared"
+import { StaffManagerHeader, EditStaffModal, AddStaffModal } from "@/app/components/owner/staff-manager"
+import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle"
+import type { NewStaffData } from "@/app/components/owner/staff-manager/AddStaffModal"
+import bcrypt from "bcryptjs"
+import { generateRandomCode } from '@/lib/authUtils'
+import { TIME_UNITS, POLLING_INTERVALS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from '@/lib/timeConstants'
+import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
+import type { Staff } from '@/lib/types'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
-
-interface Staff {
-  id: string
-  staff_code: string
-  name: string
-  role: string
-  phone: string
-  status: string
-  login_code?: string
-  login_code_expires_at?: string
-  created_at?: string
-}
 
 export default function StaffManagerPage() {
   const [staffList, setStaffList] = useState<Staff[]>([])
@@ -37,6 +31,7 @@ export default function StaffManagerPage() {
   // Edit & Delete Modal States
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
 
   const filteredStaff = useMemo(() => {
@@ -64,21 +59,21 @@ export default function StaffManagerPage() {
   }, [])
 
   useEffect(() => {
-    const interval = setInterval(fetchStaff, 60 * 1000)
+    const interval = setInterval(fetchStaff, POLLING_INTERVALS.SLOW)
     return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
     if (!showQrModal || !qrExpiresAt) return
     const interval = setInterval(() => {
-      const sisa = Math.max(0, Math.floor((qrExpiresAt.getTime() - Date.now()) / 1000))
+      const sisa = Math.max(0, Math.floor((qrExpiresAt.getTime() - Date.now()) / TIME_UNITS.SECOND))
       setQrTimer(sisa)
       if (sisa <= 0) {
         setShowQrModal(false)
         setPresenceCode("")
         setQrExpiresAt(null)
       }
-    }, 1000)
+    }, TIME_UNITS.SECOND)
     return () => clearInterval(interval)
   }, [showQrModal, qrExpiresAt])
 
@@ -101,7 +96,7 @@ export default function StaffManagerPage() {
   const handleCopy = async (code: string) => {
     await navigator.clipboard.writeText(code)
     setCopyMsg("Kode berhasil disalin!")
-    setTimeout(() => setCopyMsg(""), 1500)
+    setTimeout(() => setCopyMsg(""), TIMEOUT_DURATIONS.SHORT)
   }
 
   const handleGeneratePass = async (id: string) => {
@@ -111,34 +106,27 @@ export default function StaffManagerPage() {
     const result = await res.json()
 
     if (!res.ok) {
-      alert(result.error || "Gagal generate kode")
+      showError(result.error || "Gagal generate kode")
       return
     }
 
     fetchStaff()
-    alert("Kode login berhasil dikirim ke WhatsApp staff!")
+    showSuccess("Kode login berhasil dikirim ke WhatsApp staff!")
   }
 
   const handleGenerateQrAndCode = async () => {
     if (!window.confirm("Generate QR and Code?")) return
 
-    function generatePresenceCode() {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-      let code = ""
-      for (let i = 0; i < 8; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length))
-      }
-      return code
-    }
-    const presence_code = generatePresenceCode()
-    const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+    // Generate presence code menggunakan authUtils
+    const presence_code = generateRandomCode(8, true) // 8 chars, uppercase
+    const expires_at = new Date(Date.now() + EXPIRATION_TIMES.QR_CODE).toISOString()
 
     const { error } = await supabase
       .from("presence_code")
       .insert([{ code: presence_code, expires_at }])
 
     if (error) {
-      alert("Gagal generate kode presensi: " + error.message)
+      showError("Gagal generate kode presensi: " + error.message)
       return
     }
 
@@ -161,13 +149,14 @@ export default function StaffManagerPage() {
     const { error } = await supabase.from("staff").delete().eq("id", selectedStaff.id)
 
     if (error) {
-      alert("Gagal menghapus staff: " + error.message)
+      showError("Gagal menghapus staff: " + error.message)
       return
     }
 
     fetchStaff()
     setShowDeleteModal(false)
     setSelectedStaff(null)
+    showSuccess("Staff berhasil dihapus")
   }
 
   const handleEdit = (id: string) => {
@@ -189,13 +178,49 @@ export default function StaffManagerPage() {
       .eq("id", updatedStaff.id)
 
     if (error) {
-      alert("Gagal update staff: " + error.message)
+      showError("Gagal update staff: " + error.message)
       return
     }
 
     fetchStaff()
     setShowEditModal(false)
     setSelectedStaff(null)
+    showSuccess("Data staff berhasil diupdate")
+  }
+
+  const handleAddStaff = async (staffData: NewStaffData) => {
+    // Generate staff code
+    const rolePrefix = staffData.role === 'manager' ? 'MGR' : 'STF'
+    const count = staffList.filter(s => s.role === staffData.role).length + 1
+    const staff_code = `${rolePrefix}${String(count).padStart(3, '0')}`
+    
+    // Prepare data
+    const newStaffData: any = {
+      staff_code,
+      name: staffData.name,
+      email: staffData.email || null,
+      phone: staffData.phone || null,
+      role: staffData.role,
+      staff_type: staffData.staff_type || null,
+      status: 'active',
+      hired_date: new Date().toISOString().split('T')[0]
+    }
+    
+    // Hash password for manager
+    if (staffData.role === 'manager' && staffData.password) {
+      const hashedPassword = await bcrypt.hash(staffData.password, 10)
+      newStaffData.password_hash = hashedPassword
+    }
+    
+    const { error } = await supabase
+      .from('staff')
+      .insert([newStaffData])
+    
+    if (error) {
+      throw new Error(error.message)
+    }
+    
+    fetchStaff()
   }
 
   return (
@@ -205,6 +230,7 @@ export default function StaffManagerPage() {
           title="Staff Manager"
           description="Kelola data staff, role, status, dan kode login."
           onGenerateQR={handleGenerateQrAndCode}
+          onAddStaff={() => setShowAddModal(true)}
         >
           <ViewModeToggle
             viewMode={viewMode}
@@ -265,31 +291,14 @@ export default function StaffManagerPage() {
         )}
       </section>
 
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 flex flex-col items-center relative max-w-sm w-full">
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-red-500 text-xl font-bold"
-              onClick={() => setShowQrModal(false)}
-              title="Tutup"
-            >
-              ×
-            </button>
-            <div className="mb-4">
-              <QRCodeSVG value={presenceCode} size={180} className="md:w-[200px] md:h-[200px]" />
-            </div>
-            <div className="text-base md:text-lg font-bold tracking-widest mb-2">{presenceCode}</div>
-            <div className="text-gray-500 text-xs md:text-sm mb-2 text-center">
-              Scan QR atau masukkan kode ini untuk presensi
-            </div>
-            {qrExpiresAt && (
-              <div className="text-red-600 font-semibold text-xs md:text-sm">
-                Kode akan expired dalam: {Math.floor(qrTimer / 60)}:{String(qrTimer % 60).padStart(2, "0")}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* QR Presence Modal */}
+      <QRPresenceModal
+        isOpen={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        presenceCode={presenceCode}
+        expiresAt={qrExpiresAt}
+        remainingSeconds={qrTimer}
+      />
 
       {copyMsg && (
         <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow z-50">
@@ -307,6 +316,14 @@ export default function StaffManagerPage() {
         }}
         onSave={handleSaveEdit}
       />
+
+      {/* Add Staff Modal */}
+      {showAddModal && (
+        <AddStaffModal
+          onClose={() => setShowAddModal(false)}
+          onSave={handleAddStaff}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       <DeleteModal

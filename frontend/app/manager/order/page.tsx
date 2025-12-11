@@ -1,13 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSessionValidation } from "@/lib/useSessionValidation";
+import { POLLING_INTERVALS, getWeeksAgo, getMonthsAgo } from "@/lib/timeConstants";
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
-import OrderCard from "@/app/components/shared/OrderCard";
+import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
-import type { ViewMode } from "@/app/components/ui/ViewModeToggle";
+import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
 import { supabase } from "@/lib/supabaseClient";
 import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
+import { showSuccess, showError } from '@/lib/errorHandling';
 
 interface Order {
 	id: string;
@@ -28,6 +31,8 @@ interface Order {
 }
 
 export default function ManagerOrderPage() {
+	useSessionValidation();
+	
 	const [orderList, setOrderList] = useState<Order[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -50,8 +55,8 @@ export default function ManagerOrderPage() {
 			})
 			.subscribe();
 
-		// Auto-refresh every 60 seconds
-		const interval = setInterval(fetchOrders, 60000);
+		// Auto-refresh every 1 minute
+		const interval = setInterval(fetchOrders, POLLING_INTERVALS.SLOW);
 
 		return () => {
 			supabase.removeChannel(channel);
@@ -85,19 +90,12 @@ export default function ManagerOrderPage() {
 				)
 			`)
 			.order('created_at', { ascending: false });		if (error) {
-			console.error('Error fetching orders:', error);
-			console.error('Error message:', error.message);
-			console.error('Error details:', error.details);
-			console.error('Error hint:', error.hint);
 			return;
 		}
 
 		if (!ordersData) {
-			console.log('No orders data received');
 			return;
 		}
-
-		console.log('Orders data sample:', ordersData[0]); // Debug: Check raw order data
 
 		// Get unique created_by IDs to fetch staff names
 		const createdByIds = [...new Set(ordersData?.map(o => o.created_by).filter(Boolean))];
@@ -112,9 +110,6 @@ export default function ManagerOrderPage() {
 		// Combine all staff IDs we need to fetch
 		const allStaffIds = [...new Set([...createdByIds, ...servedByIds])];
 		
-		console.log('Created by IDs:', createdByIds);
-		console.log('Served by IDs:', servedByIds);
-		
 		// Fetch staff names if there are any created_by IDs
 		let staffMap = new Map();
 		if (allStaffIds.length > 0) {
@@ -122,10 +117,8 @@ export default function ManagerOrderPage() {
 		const { data: staffData, error: staffError } = await supabase
 			.from('staff')
 			.select('id, name, staff_type, role');			if (staffError) {
-				console.error('Error fetching staff:', staffError);
+				// Error fetching staff
 			}
-			
-			console.log('Staff data:', staffData);
 			
 		if (staffData) {
 			// Filter only the staff we need (both created_by and served_by)
@@ -254,9 +247,9 @@ export default function ManagerOrderPage() {
 			};
 		}) || [];
 
-		console.log('Transformed orders sample:', transformedOrders[0]);		setOrderList(transformedOrders);
+		setOrderList(transformedOrders);
 		} catch (error) {
-			console.error('Error fetching orders:', error);
+			// Error fetching orders
 		} finally {
 			setLoading(false);
 		}
@@ -275,8 +268,7 @@ export default function ManagerOrderPage() {
 				.eq('order_id', orderId);
 
 			if (paymentError) {
-				console.error('Error deleting payment transactions:', paymentError);
-				alert(`Gagal menghapus payment transactions: ${paymentError.message}`);
+				showError(`Gagal menghapus payment transactions: ${paymentError.message}`);
 				return;
 			}
 
@@ -287,8 +279,7 @@ export default function ManagerOrderPage() {
 				.eq('order_id', orderId);
 
 			if (itemsError) {
-				console.error('Error deleting order items:', itemsError);
-				alert(`Gagal menghapus order items: ${itemsError.message}`);
+				showError(`Gagal menghapus order items: ${itemsError.message}`);
 				return;
 			}
 
@@ -299,7 +290,6 @@ export default function ManagerOrderPage() {
 				.eq('current_order_id', orderId);
 
 			if (tableUpdateError) {
-				console.error('Error updating tables:', tableUpdateError);
 				// Continue anyway, this is not critical
 			}
 
@@ -310,25 +300,23 @@ export default function ManagerOrderPage() {
 				.eq('id', orderId);
 
 			if (orderError) {
-				console.error('Error deleting order:', orderError);
-				alert(`Gagal menghapus order: ${orderError.message}`);
+				showError(`Gagal menghapus order: ${orderError.message}`);
 				return;
 			}
 
 			// Update local state
 			setOrderList(prev => prev.filter(order => order.id !== orderId));
-			alert('Order berhasil dihapus.');
+			showSuccess('Order berhasil dihapus');
 		} catch (error) {
-			console.error('Error deleting order:', error);
-			alert('Gagal menghapus order. Silakan coba lagi.');
+			showError('Gagal menghapus order. Silakan coba lagi.');
 		}
 	}
 
 	// Get current date for filtering
 	const now = new Date();
 	const today = now.toDateString();
-	const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-	const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+	const weekAgo = getWeeksAgo(1);
+	const monthAgo = getMonthsAgo(1);
 
 	// Filter orders
 	const filteredOrders = orderList.filter(order => {

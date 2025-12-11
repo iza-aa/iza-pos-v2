@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { getCurrentUser } from "@/lib/authUtils";
 import { 
   ChartBarIcon, 
   ShoppingBagIcon, 
@@ -15,31 +17,55 @@ export default function ManagerDashboardPage() {
   const [greeting, setGreeting] = useState("");
 
   useEffect(() => {
-    // Check if user is actually a manager
-    const userRole = localStorage.getItem("user_role");
+    const initializePage = async () => {
+      // Check if user is actually a manager
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        window.location.href = '/manager/login';
+        return;
+      }
+      
+      // If not manager, redirect to appropriate dashboard
+      if (currentUser.role === "staff") {
+        window.location.href = "/staff/dashboard";
+        return;
+      } else if (currentUser.role === "owner") {
+        window.location.href = "/owner/dashboard";
+        return;
+      }
+
+      // Verify manager still exists in database
+      if (currentUser.id && currentUser.role === "manager") {
+        const { data, error } = await supabase
+          .from('staff')
+          .select('id, name, status, role')
+          .eq('id', currentUser.id)
+          .eq('role', 'manager')
+          .maybeSingle();
+        
+        // If manager not found or inactive, logout
+        if (error || !data || data.status !== 'active') {
+          localStorage.clear();
+          window.location.href = '/manager/login';
+          return;
+        }
+      }
+
+      // Get user name from auth helper
+      setUserName(currentUser.name);
+
+      // Set greeting based on time
+      const hour = new Date().getHours();
+      if (hour < 12) {
+        setGreeting("Good Morning");
+      } else if (hour < 18) {
+        setGreeting("Good Afternoon");
+      } else {
+        setGreeting("Good Evening");
+      }
+    };
     
-    // If not manager, redirect to appropriate dashboard
-    if (userRole === "staff") {
-      window.location.href = "/staff/dashboard";
-      return;
-    } else if (userRole === "owner") {
-      window.location.href = "/owner/dashboard";
-      return;
-    }
-
-    // Get user name from localStorage
-    const name = localStorage.getItem("user_name") || "Manager";
-    setUserName(name);
-
-    // Set greeting based on time
-    const hour = new Date().getHours();
-    if (hour < 12) {
-      setGreeting("Good Morning");
-    } else if (hour < 18) {
-      setGreeting("Good Afternoon");
-    } else {
-      setGreeting("Good Evening");
-    }
+    initializePage();
   }, []);
 
   const quickActions = [

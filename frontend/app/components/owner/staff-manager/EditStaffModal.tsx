@@ -1,16 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-
-interface Staff {
-  id: string
-  staff_code: string
-  name: string
-  role: string
-  phone: string
-  status: string
-}
+import { roleOptions, statusOptions } from '@/lib/staffConstants'
+import type { Staff } from '@/lib/types'
 
 interface EditStaffModalProps {
   isOpen: boolean
@@ -19,20 +12,22 @@ interface EditStaffModalProps {
   onSave: (staff: Staff) => void
 }
 
-const roleOptions = ['Kasir', 'Barista', 'Manager']
-const statusOptions = ['Aktif', 'Cuti', 'Nonaktif']
-
 export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditStaffModalProps) {
-  const [formData, setFormData] = useState<Staff>(
-    staff || {
-      id: '',
-      staff_code: '',
-      name: '',
-      role: 'Kasir',
-      phone: '',
-      status: 'Aktif'
+  const [formData, setFormData] = useState<Staff>({
+    id: '',
+    staff_code: '',
+    name: '',
+    role: 'Kasir',
+    phone: '',
+    status: 'active'
+  })
+
+  // Update formData when staff prop changes
+  useEffect(() => {
+    if (staff) {
+      setFormData(staff)
     }
-  )
+  }, [staff])
 
   if (!isOpen || !staff) return null
 
@@ -131,8 +126,8 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
               {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
+                <option key={status.value} value={status.value}>
+                  {status.label}
                 </option>
               ))}
             </select>

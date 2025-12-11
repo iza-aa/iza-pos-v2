@@ -2,20 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
-
-interface VariantOption {
-  id: string
-  name: string
-  priceModifier: number
-}
-
-interface VariantGroup {
-  id: string
-  name: string
-  type: 'single' | 'multiple'
-  required: boolean
-  options: VariantOption[]
-}
+import type { VariantOption, VariantGroup } from '@/lib/types'
 
 interface VariantGroupModalProps {
   isOpen: boolean

@@ -1,6 +1,6 @@
 'use client'
 
-import RecipeDishesTab from './RecipeDishesTab'
+import RecipeDishesTab from './dishes'
 
 interface RecipesTabProps {
   viewAsOwner: boolean

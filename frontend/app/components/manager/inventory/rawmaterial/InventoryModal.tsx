@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { XMarkIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, PlusCircleIcon, PencilIcon } from '@heroicons/react/24/outline'
 
 interface InventoryItem {
   id: string
@@ -78,13 +78,27 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-800">
-            {editItem ? 'Edit Inventory Item' : 'Add New Item'}
-          </h2>
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              {editItem ? (
+                <PencilIcon className="w-6 h-6 text-gray-700" />
+              ) : (
+                <PlusCircleIcon className="w-6 h-6 text-gray-700" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                {editItem ? 'Edit Item Details' : 'Add New Item'}
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                {editItem ? 'Update item information' : 'Create a new inventory item'}
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -94,7 +108,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-4">
             {/* Item Name */}
             <div>
@@ -106,7 +120,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900"
                 placeholder="Enter item name"
               />
             </div>
@@ -127,21 +141,41 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
               </select>
             </div>
 
-            {/* Current Stock & Unit */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Stock
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={formData.currentStock}
-                  onChange={(e) => setFormData({ ...formData, currentStock: Number(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            {/* Current Stock & Unit - Only shown when adding new item */}
+            {!editItem && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Initial Stock
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={formData.currentStock}
+                    onChange={(e) => setFormData({ ...formData, currentStock: Number(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Unit
+                  </label>
+                  <select
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  >
+                    {units.map((unit) => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+            )}
+
+            {/* Unit only - shown when editing */}
+            {editItem && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Unit
@@ -149,14 +183,14 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
                 <select
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
                   {units.map((unit) => (
                     <option key={unit} value={unit}>{unit}</option>
                   ))}
                 </select>
               </div>
-            </div>
+            )}
 
             {/* Reorder Level */}
             <div>
@@ -169,7 +203,7 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
                 min="0"
                 value={formData.reorderLevel}
                 onChange={(e) => setFormData({ ...formData, reorderLevel: Number(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900"
                 placeholder="Minimum stock before reorder"
               />
             </div>
@@ -184,26 +218,26 @@ export default function InventoryModal({ isOpen, onClose, onSave, onUpdate, edit
                 required
                 value={formData.supplier}
                 onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900"
                 placeholder="Enter supplier name"
               />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3 mt-6">
+          <div className="flex gap-3 mt-6">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition font-medium"
+              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium"
+              className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition font-medium"
             >
-              {editItem ? 'Update' : 'Add'} Item
+              {editItem ? 'Update Details' : 'Add Item'}
             </button>
           </div>
         </form>

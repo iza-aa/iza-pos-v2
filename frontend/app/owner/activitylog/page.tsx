@@ -24,7 +24,7 @@ import {
 } from '@/app/components/owner/activitylog'
 import { SearchBar, ViewModeToggle } from '@/app/components/ui'
 import type { DateFilterType } from '@/app/components/owner/activitylog/DateFilterDropdown'
-import type { ViewMode } from '@/app/components/ui/ViewModeToggle'
+import type { ViewMode } from '@/app/components/ui/Form/ViewModeToggle'
 
 export default function ActivityLogPage() {
   const [logs] = useState<ActivityLog[]>(activityLogs)
@@ -149,18 +149,19 @@ export default function ActivityLogPage() {
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Header + Stats */}
       <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
-        {/* Header */}
+      {/* Header */}
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <ActivityLogHeader 
             title="Activity Logs"
             description="Track all system activities and user actions"
           />
 
-          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 md:gap-3 justify-start lg:justify-end">
             {/* Toggle Stats */}
             <button 
               onClick={() => setShowStats(!showStats)}
-              className="flex items-center justify-center h-[38px] md:h-[42px] w-9 md:w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              className="flex items-center justify-center h-[38px] md:h-[42px] w-9 md:w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition flex-shrink-0"
               title={showStats ? "Hide Statistics" : "Show Statistics"}
             >
               {showStats ? (
@@ -187,7 +188,7 @@ export default function ActivityLogPage() {
             {/* Toggle Filters */}
             <button 
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 border rounded-xl transition ${
+              className={`flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 border rounded-xl transition flex-shrink-0 ${
                 showFilters 
                   ? 'bg-gray-800 border-gray-800 text-white' 
                   : 'border-gray-300 hover:bg-gray-50'
@@ -203,22 +204,23 @@ export default function ActivityLogPage() {
             </button>
 
             {/* Export Button */}
-            <button className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition">
+            <button className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition flex-shrink-0">
               <ArrowDownTrayIcon className="w-4 md:w-5 h-4 md:h-5" />
               <span className="text-xs md:text-sm font-medium hidden sm:inline">Export</span>
             </button>
-
-            {/* Search */}
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search activities..."
-              width="w-full sm:w-48 md:w-64"
-            />
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Search Bar - Left aligned on mobile, right aligned on tablet+ */}
+        <div className="flex justify-start lg:justify-end lg:hidden">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search activities..."
+            width="w-full sm:w-auto"
+          />
+        </div>
+      </div>        {/* Stats Cards */}
         {showStats && <ActivityLogStats stats={stats} />}
 
         {/* Filters Panel */}

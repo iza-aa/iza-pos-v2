@@ -170,18 +170,18 @@ export default function ReportAnalytics() {
       </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm text-gray-500">Amount</p>
+        <div className="grid grid-cols-3 gap-2 md:gap-3">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 md:p-3">
+            <div className="flex items-center gap-1 md:gap-2 mb-1">
+              <p className="text-xs md:text-sm text-gray-500">Amount</p>
             </div>
-            <p className="text-base font-bold text-gray-900">Rp {(totalAmount / 1000).toFixed(0)}k</p>
+            <p className="text-sm md:text-base font-bold text-gray-900">Rp {(totalAmount / 1000).toFixed(0)}k</p>
           </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm text-gray-500">Growth</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 md:p-3">
+            <div className="flex items-center gap-1 md:gap-2 mb-1 flex-wrap">
+              <p className="text-xs md:text-sm text-gray-500">Growth</p>
               <span 
-                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                className="text-[10px] md:text-xs font-semibold px-1.5 py-0.5 rounded"
                 style={{ 
                   backgroundColor: growth >= 0 ? '#B2FF5E' : '#FF6859',
                   color: growth >= 0 ? '#166534' : '#7f1d1d'
@@ -190,15 +190,15 @@ export default function ReportAnalytics() {
                 {growth >= 0 ? '+' : ''}{((growth / avgAmount) * 100).toFixed(0)}%
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900">
+            <p className="text-sm md:text-base font-bold text-gray-900">
               {growth >= 0 ? '+' : '-'}Rp {(Math.abs(growth) / 1000).toFixed(0)}k
             </p>
           </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm text-gray-500">Growth %</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 md:p-3">
+            <div className="flex items-center gap-1 md:gap-2 mb-1 flex-wrap">
+              <p className="text-xs md:text-sm text-gray-500">Growth %</p>
               <span 
-                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                className="text-[10px] md:text-xs font-semibold px-1.5 py-0.5 rounded"
                 style={{ 
                   backgroundColor: growthPercentage >= 0 ? '#B2FF5E' : '#FF6859',
                   color: growthPercentage >= 0 ? '#166534' : '#7f1d1d'
@@ -207,7 +207,7 @@ export default function ReportAnalytics() {
                 {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(0)}%
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900">
+            <p className="text-sm md:text-base font-bold text-gray-900">
               {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
             </p>
           </div>

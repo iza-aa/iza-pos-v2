@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import Navbar from "../components/ui/navbar/Navbar";
-import FloatingAIAssistant from "../components/ui/FloatingAIAssistant";
+import { getCurrentUser } from "@/lib/authUtils";
+import { Navbar, FloatingAIAssistant, Toast as ToastContainer } from "../components/ui";
+import { setupNetworkMonitoring } from '@/lib/errorHandling';
 
 export default function ManagerLayout({
   children,
@@ -16,9 +17,10 @@ export default function ManagerLayout({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    setUserRole(role);
+    const currentUser = getCurrentUser();
+    setUserRole(currentUser?.role || null);
     setMounted(true);
+    setupNetworkMonitoring();
   }, []);
 
   if (!mounted) {

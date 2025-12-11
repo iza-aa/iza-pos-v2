@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { getCurrentUser } from '@/lib/authUtils'
+import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
+import { validateInventoryItem, validateStockAdjustment } from '@/lib/validation'
+import { getStockStatus } from '@/lib/numberConstants'
 import InventoryStats from './InventoryStats'
 import InventoryFilters from './InventoryFilters'
 import InventoryTable from './InventoryTable'
 import InventoryModal from './InventoryModal'
-import DeleteModal from '../../../ui/DeleteModal'
+import RestockModal from './RestockModal'
+import AdjustmentModal from './AdjustmentModal'
+import { DeleteModal } from '@/app/components/ui'
 import { supabase } from '@/lib/supabaseClient'
 
 interface InventoryItem {
@@ -36,8 +42,9 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
   ])
   const [showStats, setShowStats] = useState(true)
   const [showAddItemModal, setShowAddItemModal] = useState(false)
-  const [showRestockModal, setShowRestockModal] = useState(false)
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
+  const [restockingItem, setRestockingItem] = useState<InventoryItem | null>(null)
+  const [adjustingItem, setAdjustingItem] = useState<InventoryItem | null>(null)
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -56,8 +63,7 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
       if (error) throw error
 
       const transformedItems: InventoryItem[] = (data || []).map(item => {
-        const status = item.current_stock === 0 ? 'out-of-stock' : 
-                      item.current_stock <= item.reorder_level ? 'low-stock' : 'in-stock'
+        const status = getStockStatus(item.current_stock, item.reorder_level)
         
         return {
           id: item.id,
@@ -81,7 +87,7 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
         { id: 'packaging', name: 'Packaging', count: transformedItems.filter(i => i.category === 'Packaging').length },
       ])
     } catch (error) {
-      console.error('Error fetching inventory items:', error)
+      // Error fetching inventory items
     } finally {
       setLoading(false)
     }
@@ -104,15 +110,9 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
     setShowStats(!showStats)
   }
 
-  const handleRestock = () => {
-    setShowRestockModal(true)
-    console.log('Opening Restock modal')
-  }
-
   const handleAddNewItem = () => {
     setShowAddItemModal(true)
     setEditingItem(null)
-    console.log('Opening Add New Item modal')
   }
 
   const handleSaveNewItem = async (newItem: Omit<InventoryItem, 'id' | 'lastRestocked' | 'status'>) => {
@@ -135,21 +135,20 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
 
       await fetchInventoryItems()
       setShowAddItemModal(false)
-      console.log('Inventory item added:', data)
+      showSuccess('Item inventory berhasil ditambahkan')
     } catch (error) {
-      console.error('Error adding inventory item:', error)
-      alert('Failed to add inventory item')
+      showError('Gagal menambahkan item inventory')
     }
   }
 
   const handleUpdateItem = async (updatedItem: InventoryItem) => {
     try {
+      // Update inventory item (stock is disabled in edit mode, so no adjustment needed)
       const { error } = await supabase
         .from('inventory_items')
         .update({
           name: updatedItem.name,
           category: updatedItem.category,
-          current_stock: updatedItem.currentStock,
           reorder_level: updatedItem.reorderLevel,
           unit: updatedItem.unit,
           supplier: updatedItem.supplier
@@ -160,41 +159,171 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
 
       await fetchInventoryItems()
       setEditingItem(null)
-      console.log('Inventory item updated:', updatedItem)
+      showSuccess('Item inventory berhasil diupdate')
     } catch (error) {
-      console.error('Error updating inventory item:', error)
-      alert('Failed to update inventory item')
+      showError('Gagal mengupdate item inventory')
     }
   }
 
-  const handleRestockItem = async (item: InventoryItem) => {
-    const quantity = prompt(`Restock ${item.name}. Enter quantity:`)
-    if (quantity && !isNaN(Number(quantity))) {
-      try {
-        const newStock = item.currentStock + Number(quantity)
-        
-        const { error } = await supabase
-          .from('inventory_items')
-          .update({
-            current_stock: newStock,
-            last_restocked: new Date().toISOString()
-          })
-          .eq('id', item.id)
+  const handleRestockItem = (item: InventoryItem) => {
+    setRestockingItem(item)
+  }
 
-        if (error) throw error
+  const confirmRestock = async (itemId: string, quantity: number, notes: string, cost?: number) => {
+    const item = items.find(i => i.id === itemId)
+    if (!item) return
 
-        await fetchInventoryItems()
-        console.log(`Restocked ${item.name} by ${quantity} ${item.unit}`)
-      } catch (error) {
-        console.error('Error restocking item:', error)
-        alert('Failed to restock item')
+    try {
+      const previousStock = item.currentStock
+      const newStock = previousStock + quantity
+      
+      // Get user information from auth helper
+      const currentUser = getCurrentUser()
+      if (!currentUser) return
+      
+      const userName = currentUser.name
+      const userRole = currentUser.role
+      
+      const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1)
+      const fullUserName = `${userName} - ${roleLabel}`
+      
+      // Update inventory stock
+      const { error: updateError } = await supabase
+        .from('inventory_items')
+        .update({
+          current_stock: newStock,
+          last_restocked: new Date().toISOString()
+        })
+        .eq('id', itemId)
+
+      if (updateError) {
+        console.error('Update inventory error:', updateError)
+        throw updateError
       }
+
+      // Create usage transaction for restock
+      const costNote = cost ? ` (Cost: Rp ${(cost * quantity).toFixed(2)})` : ''
+      const fullNotes = notes || `Restocked ${item.name}`
+      
+      const { data: transaction, error: transactionError } = await supabase
+        .from('usage_transactions')
+        .insert({
+          transaction_type: 'restock',
+          notes: fullNotes + costNote,
+          performed_by: null, // Null for non-staff users
+          performed_by_name: fullUserName, // Store name directly
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (transactionError) throw transactionError
+
+      // Create transaction detail
+      const { error: detailError } = await supabase
+        .from('usage_transaction_details')
+        .insert({
+          usage_transaction_id: transaction.id,
+          inventory_item_id: itemId,
+          ingredient_name: item.name,
+          quantity_used: quantity,
+          unit: item.unit,
+          previous_stock: previousStock,
+          new_stock: newStock
+        })
+
+      if (detailError) throw detailError
+
+      await fetchInventoryItems()
+      showSuccess(`Berhasil restock ${item.name}`)
+    } catch (error) {
+      showError('Gagal melakukan restock')
+      throw error
+    }
+  }
+
+  const handleAdjustItem = (item: InventoryItem) => {
+    setAdjustingItem(item)
+  }
+
+  const confirmAdjustment = async (itemId: string, newStock: number, reason: string, notes: string) => {
+    const item = items.find(i => i.id === itemId)
+    if (!item) return
+
+    try {
+      const previousStock = item.currentStock
+      const difference = newStock - previousStock
+      
+      // Get user from Supabase Auth metadata (fallback to localStorage)
+      // Get user information from auth helper
+      const currentUser = getCurrentUser()
+      if (!currentUser) return
+      
+      const userName = currentUser.name
+      const userRole = currentUser.role
+      
+      const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1)
+      const fullUserName = `${userName} - ${roleLabel}`
+      
+      // Update inventory stock
+      const { error: updateError } = await supabase
+        .from('inventory_items')
+        .update({
+          current_stock: newStock
+        })
+        .eq('id', itemId)
+
+      if (updateError) {
+        throw updateError
+      }
+
+      // Create usage transaction for adjustment
+      
+      const transactionData = {
+        transaction_type: 'adjustment',
+        notes: reason,
+        performed_by: null, // Null for non-staff users
+        performed_by_name: fullUserName, // Store name directly
+        created_at: new Date().toISOString()
+      }
+      
+      const { data: transaction, error: transactionError } = await supabase
+        .from('usage_transactions')
+        .insert(transactionData)
+        .select()
+        .single()
+
+      if (transactionError) {
+        throw transactionError
+      }
+
+      // Create transaction detail
+      const { error: detailError } = await supabase
+        .from('usage_transaction_details')
+        .insert({
+          usage_transaction_id: transaction.id,
+          inventory_item_id: itemId,
+          ingredient_name: item.name,
+          quantity_used: Math.abs(difference),
+          unit: item.unit,
+          previous_stock: previousStock,
+          new_stock: newStock
+        })
+
+      if (detailError) {
+        throw detailError
+      }
+
+      await fetchInventoryItems()
+      showSuccess(`Stok ${item.name} berhasil disesuaikan: ${previousStock} → ${newStock}`)
+    } catch (error) {
+      showError('Gagal melakukan adjustment stok')
+      throw error
     }
   }
 
   const handleEditItem = (item: InventoryItem) => {
     setEditingItem(item)
-    console.log('Editing item:', item)
   }
 
   const handleDeleteItem = (item: InventoryItem) => {
@@ -204,19 +333,68 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
   const confirmDeleteItem = async () => {
     if (deletingItem) {
       try {
+        // Get user information from auth helper
+        const currentUser = getCurrentUser()
+        if (!currentUser) return
+        
+        const userName = currentUser.name
+        const userRole = currentUser.role
+        
+        const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1)
+        const fullUserName = `${userName} - ${roleLabel}`
+        
+        // Always create adjustment transaction when deleting
+        const stockNote = deletingItem.currentStock > 0 
+          ? ` (had ${deletingItem.currentStock} ${deletingItem.unit} in stock)`
+          : ' (stock was 0)'
+        
+        // Create usage transaction
+        const { data: transaction, error: transactionError } = await supabase
+          .from('usage_transactions')
+          .insert({
+            transaction_type: 'adjustment',
+            notes: `DELETED: ${deletingItem.name}${stockNote}`,
+            performed_by: null, // Null for non-staff users
+            performed_by_name: fullUserName, // Store name directly
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (transactionError) throw transactionError
+
+        // Create transaction detail
+        const { error: detailError } = await supabase
+          .from('usage_transaction_details')
+          .insert({
+            usage_transaction_id: transaction.id,
+            inventory_item_id: deletingItem.id,
+            ingredient_name: deletingItem.name,
+            quantity_used: deletingItem.currentStock,
+            unit: deletingItem.unit,
+            previous_stock: deletingItem.currentStock,
+            new_stock: 0
+          })
+
+        if (detailError) throw detailError
+        
+        // Delete the inventory item
         const { error } = await supabase
           .from('inventory_items')
           .delete()
           .eq('id', deletingItem.id)
 
-        if (error) throw error
+        if (error) {
+          showError(`Gagal menghapus ${deletingItem.name}: ${error.message}`)
+          setDeletingItem(null)
+          return
+        }
 
         await fetchInventoryItems()
-        console.log('Inventory item deleted:', deletingItem)
+        showSuccess(`Item ${deletingItem.name} berhasil dihapus`)
         setDeletingItem(null)
       } catch (error) {
-        console.error('Error deleting inventory item:', error)
-        alert('Failed to delete inventory item')
+        showError('Gagal menghapus item inventory. Mungkin masih digunakan di recipe atau transaksi.')
       }
     }
   }
@@ -302,6 +480,7 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
             items={filteredItems} 
             viewAsOwner={viewAsOwner}
             onRestock={handleRestockItem}
+            onAdjust={handleAdjustItem}
             onEdit={handleEditItem}
             onDelete={handleDeleteItem}
           />
@@ -318,6 +497,22 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
         onSave={handleSaveNewItem}
         onUpdate={handleUpdateItem}
         editItem={editingItem}
+      />
+
+      {/* Restock Modal */}
+      <RestockModal
+        isOpen={restockingItem !== null}
+        onClose={() => setRestockingItem(null)}
+        onRestock={confirmRestock}
+        item={restockingItem}
+      />
+
+      {/* Adjustment Modal */}
+      <AdjustmentModal
+        isOpen={adjustingItem !== null}
+        onClose={() => setAdjustingItem(null)}
+        onAdjust={(itemId, newStock, reason) => confirmAdjustment(itemId, newStock, reason, '')}
+        item={adjustingItem}
       />
 
       {/* Delete Modal */}

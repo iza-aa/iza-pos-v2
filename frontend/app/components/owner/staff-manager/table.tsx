@@ -4,7 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { QRCodeSVG } from "qrcode.react";
 import { FiSearch } from "react-icons/fi";
 import { BiQr } from "react-icons/bi";
-import CostumDropdown from "@/app/components/ui/costumdropdown/page";
+import { CustomDropdown } from "@/app/components/ui";
+import { roleOptions } from '@/lib/staffConstants';
+import { generateRandomCode } from '@/lib/authUtils';
+import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from '@/lib/timeConstants';
+import { showSuccess, showError } from '@/lib/errorHandling';
 
 const supabase = createClient(
 	process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,8 +16,6 @@ const supabase = createClient(
 );
 
 const initialStaffList: any[] = [];
-
-const roleOptions = ["Kasir", "Barista", "Manager"];
 
 export default function StaffManagerTable() {
 	const [search, setSearch] = useState("");
@@ -61,16 +63,8 @@ export default function StaffManagerTable() {
 
 	// Tambah staff baru
 	const handleSaveNew = async () => {
-		// Generate kode login acak
-		function generateLoginCode() {
-			const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-			let code = "";
-			for (let i = 0; i < 8; i++) {
-				code += chars.charAt(Math.floor(Math.random() * chars.length));
-			}
-			return code;
-		}
-		const login_code = generateLoginCode();
+		// Generate kode login acak menggunakan authUtils
+		const login_code = generateRandomCode(8, false); // 8 chars, mixed case
 
 		const newStaff = {
 			staff_code: getNextStaffId(),
@@ -99,7 +93,7 @@ export default function StaffManagerTable() {
 			setNewRole(roleOptions[0]);
 			setNewPhone("");
 		} else {
-			alert(result.error || "Gagal menambah staff");
+			showError(result.error || "Gagal menambah staff");
 		}
 	};
 
@@ -130,7 +124,7 @@ export default function StaffManagerTable() {
 	const handleCopy = async (code: string) => {
 		await navigator.clipboard.writeText(code);
 		setCopyMsg("Kode berhasil disalin!");
-		setTimeout(() => setCopyMsg(""), 1500);
+		setTimeout(() => setCopyMsg(""), TIMEOUT_DURATIONS.SHORT);
 	};
 
 	// Hapus staff
@@ -141,13 +135,14 @@ export default function StaffManagerTable() {
 		const { error } = await supabase.from("staff").delete().eq("id", id);
 
 		if (error) {
-			alert("Gagal menghapus staff: " + error.message);
+			showError("Gagal menghapus staff: " + error.message);
 			return;
 		}
 
 		// Fetch ulang data staff
 		const { data } = await supabase.from("staff").select("*").order("created_at", { ascending: true });
 		setStaffList(data || []);
+		showSuccess('Staff berhasil dihapus');
 	};
 
 	// Generate password
@@ -158,26 +153,19 @@ export default function StaffManagerTable() {
 		const result = await res.json();
 
 		if (!res.ok) {
-			alert(result.error || "Gagal generate kode");
+			showError(result.error || "Gagal generate kode");
 			return;
 		}
 
 		// Fetch ulang data staff
 		fetchStaff();
-		alert("Kode login berhasil dikirim ke WhatsApp staff!");
+		showSuccess("Kode login berhasil dikirim ke WhatsApp staff!");
 	};
 
 	// Generate kode presensi dan QR
 	const handleGenerateQrAndCode = async () => {
-		function generatePresenceCode() {
-			const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-			let code = "";
-			for (let i = 0; i < 8; i++) {
-				code += chars.charAt(Math.floor(Math.random() * chars.length));
-			}
-			return code;
-		}
-		const presence_code = generatePresenceCode();
+		// Generate presence code menggunakan authUtils
+		const presence_code = generateRandomCode(8, true); // 8 chars, uppercase
 		const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 menit dari sekarang
 
 		const { error } = await supabase
@@ -185,7 +173,7 @@ export default function StaffManagerTable() {
 			.insert([{ code: presence_code, expires_at }]);
 
 		if (error) {
-			alert("Gagal generate kode presensi: " + error.message);
+			showError("Gagal generate kode presensi: " + error.message);
 			return;
 		}
 
@@ -326,7 +314,7 @@ export default function StaffManagerTable() {
 									<span className="font-semibold text-gray-500">Role: </span>
 									<span>
 										{editingIdx === idx ? (
-											<CostumDropdown
+											<CustomDropdown
 												value={editRole}
 												onChange={setEditRole}
 												options={roleOptions}
@@ -375,7 +363,7 @@ export default function StaffManagerTable() {
 									<span className="font-semibold text-gray-500">Status: </span>
 									<span>
 										{editingIdx === idx ? (
-											<CostumDropdown
+											<CustomDropdown
 												value={editStatus}
 												onChange={setEditStatus}
 											/>
@@ -478,7 +466,7 @@ export default function StaffManagerTable() {
 									</td>
 									<td className="px-4 md:px-6 lg:px-8 py-4 text-center text-xs md:text-sm lg:text-base text-gray-500">
 										{editingIdx === idx ? (
-											<CostumDropdown
+											<CustomDropdown
 												value={editRole}
 												onChange={setEditRole}
 												options={roleOptions}
@@ -518,7 +506,7 @@ export default function StaffManagerTable() {
 									</td>
 									<td className="px-4 md:px-6 lg:px-8 py-4 text-center text-xs md:text-sm lg:text-base font-semibold text-gray-500">
 										{editingIdx === idx ? (
-											<CostumDropdown
+											<CustomDropdown
 												value={editStatus}
 												onChange={setEditStatus}
 											/>

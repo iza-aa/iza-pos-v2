@@ -1,4 +1,6 @@
 "use client";
+import { formatCurrency } from '@/lib/numberConstants';
+import { COLORS } from '@/lib/themeConstants';
 
 interface CartItem {
 	id: string;
@@ -19,20 +21,23 @@ export default function PaymentSummary({ items }: PaymentSummaryProps) {
 	const total = subtotal + tax;
 
 	return (
-		<div className="p-4 md:p-6">
-			<h3 className="font-semibold text-gray-800 mb-3">Payment Summary</h3>
-			<div className="space-y-2">
-				<div className="flex justify-between text-gray-600">
-					<span>Subtotal</span>
-					<span>Rp {subtotal.toLocaleString('id-ID')}</span>
-				</div>
-				<div className="flex justify-between text-gray-600">
-					<span>Tax</span>
-					<span>Rp {tax.toLocaleString('id-ID')}</span>
-				</div>
-				<div className="flex justify-between text-lg font-bold pt-4 border-t border-gray-200">
-					<span style={{ color: '#8FCC4A' }}>Total Payable</span>
-					<span style={{ color: '#8FCC4A' }}>Rp {total.toLocaleString('id-ID')}</span>
+		<div className="p-4 md:p-6 space-y-4">
+			{/* Payment Summary Card */}
+			<div className="bg-gray-50 border border-gray-300 rounded-2xl p-4">
+				<h3 className="font-semibold text-gray-800 mb-3">Payment Summary</h3>
+				<div className="space-y-3">
+					<div className="flex justify-between text-gray-600">
+						<span>Subtotal</span>
+						<span>{formatCurrency(subtotal)}</span>
+					</div>
+					<div className="flex justify-between text-gray-600">
+						<span>Tax</span>
+						<span>{formatCurrency(tax)}</span>
+					</div>
+					<div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
+						<span style={{ color: COLORS.PRIMARY }}>Total Payable</span>
+						<span style={{ color: COLORS.PRIMARY }}>{formatCurrency(total)}</span>
+					</div>
 				</div>
 			</div>
 		</div>

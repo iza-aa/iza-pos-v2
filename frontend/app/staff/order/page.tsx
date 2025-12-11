@@ -1,15 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSessionValidation } from "@/lib/useSessionValidation";
+import { getCurrentStaffInfo, getCurrentUser } from '@/lib/authUtils';
+import { ORDER_TIMINGS, TABLES } from '@/lib/orderConstants';
+import { POLLING_INTERVALS, TIME_UNITS, getWeeksAgo, getMonthsAgo } from '@/lib/timeConstants';
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
-import OrderCard from "@/app/components/shared/OrderCard";
+import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
-import type { ViewMode } from "@/app/components/ui/ViewModeToggle";
+import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
 import { supabase } from "@/lib/supabaseClient";
 import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
 
 export default function OrderPage() {
+	useSessionValidation();
+	
 	const [orderList, setOrderList] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -36,10 +42,10 @@ export default function OrderPage() {
 		// Set up real-time subscription
 		const subscription = supabase
 			.channel('orders-changes')
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+			.on('postgres_changes', { event: '*', schema: 'public', table: TABLES.ORDERS }, () => {
 				fetchOrders();
 			})
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+			.on('postgres_changes', { event: '*', schema: 'public', table: TABLES.ORDER_ITEMS }, () => {
 				fetchOrders();
 			})
 			.subscribe();
@@ -47,7 +53,7 @@ export default function OrderPage() {
 		// Auto-refresh every minute to check for status updates
 		const refreshInterval = setInterval(() => {
 			fetchOrders();
-		}, 60000); // 60 seconds
+		}, ORDER_TIMINGS.AUTO_REFRESH_INTERVAL);
 
 		return () => {
 			subscription.unsubscribe();
@@ -82,7 +88,6 @@ export default function OrderPage() {
 				.order('created_at', { ascending: false });
 
 			if (error) {
-				console.error('Supabase error:', error);
 				throw error;
 			}
 
@@ -96,9 +101,6 @@ export default function OrderPage() {
 				const now = getJakartaNow();
 				const minutesSinceCreated = getMinutesDifference(now, orderCreatedAt);
 				
-			// Debug: Log order status info
-			console.log(`Order ${order.order_number}: DB status="${order.status}", minutes=${minutesSinceCreated}, created=${order.created_at}`);
-			
 			// Determine order status based on database status and time
 			let status = order.status;
 			
@@ -111,7 +113,7 @@ export default function OrderPage() {
 					.update({ status: 'preparing' })
 					.eq('id', order.id)
 					.then(() => {})
-					.catch(err => console.error('Error auto-updating order status:', err));
+					.catch(err => {});
 			}
 			
 			// Override with item-based status if applicable
@@ -141,7 +143,7 @@ export default function OrderPage() {
 				// Auto-complete after 5 minutes of being served
 				// Check if order is fully served and 5 minutes have passed since last update
 				const orderUpdatedAt = parseSupabaseTimestamp(order.updated_at || order.created_at);
-				const minutesSinceServed = Math.floor((now - orderUpdatedAt) / (1000 * 60));
+				const minutesSinceServed = Math.floor((now - orderUpdatedAt) / TIME_UNITS.MINUTE);
 				
 				if (order.status === 'served' && minutesSinceServed >= 5) {
 					status = 'completed';
@@ -185,9 +187,9 @@ export default function OrderPage() {
 			};
 			}) || [];
 
-			setOrderList(transformedOrders);
+			setOrders(transformedOrders);
 		} catch (error) {
-			console.error('Error fetching orders:', error);
+			// Error fetching orders
 		} finally {
 			setLoading(false);
 		}
@@ -195,11 +197,11 @@ export default function OrderPage() {
 
 	const handleMarkServed = async (orderId: string, itemIds: string[]) => {
 		try {
-			const staffId = localStorage.getItem('user_id');
-			const userRole = localStorage.getItem('user_role') || 'staff';
-			const staffCode = localStorage.getItem('staff_code') || 'UNKNOWN';
-			const staffName = localStorage.getItem('user_name') || 'Unknown Staff';
-			const roleAbbr = userRole.toUpperCase().substring(0, 3); // STA, MAN, OWN
+		const staff = getCurrentStaffInfo();
+		if (!staff) {
+			showError('Anda belum login, silakan login kembali');
+			return;
+		}			const { id: staffId, name: staffName, staffCode, roleAbbr } = staff;
 			const now = new Date().toISOString();
 
 			// Get existing served_by data from order
@@ -257,8 +259,7 @@ export default function OrderPage() {
 				}]);
 
 		} catch (error) {
-			console.error('Error marking items as served:', error);
-			alert('Failed to mark items as served');
+			showError('Gagal menandai item sebagai served');
 		}
 	}
 
@@ -284,8 +285,8 @@ export default function OrderPage() {
 	// Get current date for filtering
 	const now = new Date();
 	const today = now.toDateString();
-	const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-	const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+	const weekAgo = getWeeksAgo(1);
+	const monthAgo = getMonthsAgo(1);
 
 	// Filter orders
 	const filteredOrders = orderList.filter(order => {
@@ -353,73 +354,71 @@ export default function OrderPage() {
 				</OrderHeader>
 			</div>
 
-			<div className="flex-1 overflow-y-auto bg-gray-100">
-				{/* Filter Tabs - Inside gray area, above cards */}
-				<div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6 pb-4">
-					<div className="flex items-center gap-2 flex-wrap">
-						<button
-							onClick={() => setOrderFilter('all')}
-							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderFilter === 'all'
-									? 'bg-gray-900 text-white shadow-md'
-									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-							}`}
-						>
-							All Items
-						</button>
-						<button
-							onClick={() => setOrderFilter('dine-in')}
-							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderFilter === 'dine-in'
-									? 'bg-gray-900 text-white shadow-md'
-									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-							}`}
-						>
-							Dine In
-						</button>
+		<div className="flex-1 overflow-y-auto bg-gray-100">
+			{/* Filter Tabs - Inside gray area, above cards */}
+			<div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6 pb-4">
+				<div className="flex items-center gap-2 overflow-x-auto pb-2">
 					<button
-						onClick={() => setOrderFilter('takeaway')}
-						className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-							orderFilter === 'takeaway'
+						onClick={() => setOrderFilter('all')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'all'
 								? 'bg-gray-900 text-white shadow-md'
 								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
 						}`}
 					>
-						Takeaway
-					</button>						<button
-							onClick={() => setOrderFilter('new-preparing')}
-							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderFilter === 'new-preparing'
-									? 'bg-gray-900 text-white shadow-md'
-									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-							}`}
-						>
-							New Order
-						</button>
-						<button
-							onClick={() => setOrderFilter('partially-served')}
-							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderFilter === 'partially-served'
-									? 'bg-gray-900 text-white shadow-md'
-									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-							}`}
-						>
-							Partially Served
-						</button>
-						<button
-							onClick={() => setOrderFilter('served')}
-							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-								orderFilter === 'served'
-									? 'bg-gray-900 text-white shadow-md'
-									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-							}`}
-						>
-							Served
-						</button>
-					</div>
+						All Items
+					</button>
+					<button
+						onClick={() => setOrderFilter('dine-in')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'dine-in'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						Dine In
+					</button>
+				<button
+					onClick={() => setOrderFilter('takeaway')}
+					className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+						orderFilter === 'takeaway'
+							? 'bg-gray-900 text-white shadow-md'
+							: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+					}`}
+				>
+					Takeaway
+				</button>						<button
+						onClick={() => setOrderFilter('new-preparing')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'new-preparing'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						New Order
+					</button>
+					<button
+						onClick={() => setOrderFilter('partially-served')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'partially-served'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						Partially Served
+					</button>
+					<button
+						onClick={() => setOrderFilter('served')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'served'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						Served
+					</button>
 				</div>
-
-				{/* Content */}
+			</div>				{/* Content */}
 				<div className="px-6 pb-6">
 					{viewMode === "card" ? (
 					<div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">

@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { getCurrentUser } from '@/lib/authUtils';
 
 export default function UserBadge() {
 	const [userName, setUserName] = useState("");
 	const [userRole, setUserRole] = useState("");
 
 	useEffect(() => {
-		const name = localStorage.getItem('user_name') || 'Unknown';
-		const role = localStorage.getItem('user_role') || 'staff';
-		setUserName(name);
-		setUserRole(role);
+		const user = getCurrentUser();
+		setUserName(user?.name || 'Unknown');
+		setUserRole(user?.role || 'staff');
 	}, []);
 
 	const getBadgeColor = () => {

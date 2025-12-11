@@ -2,36 +2,10 @@
 
 import { Trash2, CheckCircle } from "lucide-react";
 import { ReactNode, useState } from "react";
-
-interface OrderItem {
-	id: string;
-	name: string;
-	quantity: number;
-	price: number;
-	served: boolean;
-	servedAt?: string;
-	variants?: any;
-	kitchenStatus?: string;
-	readyAt?: string;
-}
-
-interface Order {
-	id: string;
-	customerName: string;
-	orderNumber: string;
-	orderType: string;
-	items: OrderItem[];
-	total: number;
-	date: string;
-	time: string;
-	status: "new" | "preparing" | "partially-served" | "served" | "completed";
-	table?: string;
-	createdByName?: string;
-	createdByRole?: string;
-	servedByNames?: string[];
-	servedByRoles?: string[];
-	createdAt?: string;
-}
+import { getOrderStatusConfig, getKitchenStatusBadge } from "@/lib/orderConstants";
+import { formatCurrency } from "@/lib/numberConstants";
+import { COLORS } from "@/lib/themeConstants";
+import type { Order, OrderItem } from "@/lib/types";
 
 interface OrderCardProps {
 	order: Order;
@@ -59,50 +33,27 @@ export default function OrderCard({
 	const [isFlipped, setIsFlipped] = useState(false);
 	const [selectedItems, setSelectedItems] = useState<string[]>([]);
 	
-	const getStatusConfig = (status: string) => {
-		switch (status) {
-			case 'new':
-				return { label: 'NEW ORDER', bg: 'bg-gray-100', text: 'text-gray-900' };
-			case 'preparing':
-				return { label: 'PREPARING', bg: 'bg-gray-100', text: 'text-gray-900' };
-			case 'partially-served':
-				return { label: 'PARTIALLY SERVED', bg: 'bg-gray-100', text: 'text-gray-900' };
-			case 'served':
-				return { label: 'SERVED', bg: 'bg-[#B2FF5E]', text: 'text-gray-900' };
-			case 'completed':
-				return { label: 'COMPLETED', bg: 'bg-black', text: 'text-white' };
-			default:
-				return { label: 'UNKNOWN', bg: 'bg-gray-100', text: 'text-gray-900' };
-		}
-	};
-
-	const getKitchenStatusBadge = (kitchenStatus?: string) => {
-		if (!kitchenStatus || kitchenStatus === 'not_required') return null;
-		
-		const isPending = kitchenStatus === 'pending';
-		const isCooking = kitchenStatus === 'cooking';
-		const isReady = kitchenStatus === 'ready';
-		
-		if (isPending) {
-			return <span className="text-xs bg-gray-100 text-gray-900 px-2 py-0.5 rounded">⏳ Pending</span>;
-		} else if (isCooking) {
-			return <span className="text-xs bg-gray-100 text-gray-900 px-2 py-0.5 rounded">🍳 In Cook</span>;
-		} else if (isReady) {
-			return <span className="text-xs bg-[#B2FF5E] text-gray-900 px-2 py-0.5 rounded">✓ Ready</span>;
-		}
-		return null;
-	};
-
-	const statusConfig = getStatusConfig(order.status);
-	const displayItems = order.items.slice(0, 3);
-	const hasMore = order.items.length > 3;
+	const statusConfig = getOrderStatusConfig(order.status);
 	
-	const servedCount = order.items.filter(item => item.served).length;
-	const totalCount = order.items.length;
+	const renderKitchenBadge = (kitchenStatus?: string) => {
+		const badge = getKitchenStatusBadge(kitchenStatus);
+		if (!badge) return null;
+		
+		return (
+			<span className={`text-xs ${badge.bgColor} ${badge.textColor} px-2 py-0.5 rounded`}>
+				{badge.icon} {badge.label}
+			</span>
+		);
+	};
+	const displayItems = (order.items || []).slice(0, 3);
+	const hasMore = (order.items || []).length > 3;
+	
+	const servedCount = (order.items || []).filter(item => item.served).length;
+	const totalCount = (order.items || []).length;
 	const allServed = servedCount === totalCount && totalCount > 0;
 
-	const pendingItems = order.items.filter((item) => !item.served);
-	const servedItems = order.items.filter((item) => item.served);
+	const pendingItems = (order.items || []).filter((item) => !item.served);
+	const servedItems = (order.items || []).filter((item) => item.served);
 
 	const handleDelete = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -241,7 +192,7 @@ export default function OrderCard({
 												<span className={item.served ? "line-through text-gray-400" : "text-gray-700"}>
 													{item.quantity}x {item.name}
 												</span>
-												{getKitchenStatusBadge(item.kitchenStatus)}
+												{renderKitchenBadge(item.kitchenStatus)}
 											</div>
 											{item.variants && Object.keys(item.variants).length > 0 && (
 												<div className="text-xs text-gray-500 ml-6">
@@ -252,20 +203,20 @@ export default function OrderCard({
 											)}
 										</div>
 										<span className={item.served ? "line-through text-gray-400" : "text-gray-600"}>
-											Rp {item.price.toLocaleString()}
+											{formatCurrency(item.price)}
 										</span>
 									</div>
 								))}
 								{hasMore && (
-									<p className="text-xs text-gray-900 font-medium">+{order.items.length - 3} more items</p>
-								)}
-							</div>
+								<p className="text-xs text-gray-900 font-medium">+{(order.items || []).length - 3} more items</p>
+							)}
+						</div>
 
-							<div className="pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-								<div>
-									<p className="text-xs text-gray-500">Total</p>
-									<p className="text-lg sm:text-xl font-bold text-[#B2FF5E]">Rp {order.total.toLocaleString()}</p>
-								</div>
+						<div className="pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+						<div>
+							<p className="text-xs text-gray-500">Total</p>
+							<p className="text-lg sm:text-xl font-bold" style={{ color: COLORS.PRIMARY_LIGHT }}>{formatCurrency(order.total || 0)}</p>
+							</div>
 								<div className="text-sm text-gray-600">Served: {servedCount}/{totalCount}</div>
 							</div>
 						</div>
@@ -325,15 +276,9 @@ export default function OrderCard({
 																{Object.entries(item.variants).map(([key, value]) => value).join(", ")}
 															</p>
 														)}
-														{item.kitchenStatus !== 'not_required' && (
-															<div className="mt-1">
-																{isPending && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">⏳ Pending</span>}
-																{isCooking && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">🍳 In Cook</span>}
-																{isReady && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">✓ Ready</span>}
-															</div>
-														)}
+														{renderKitchenBadge(item.kitchenStatus)}
 													</div>
-													<span className="text-sm font-semibold text-gray-900">Rp {item.price.toLocaleString()}</span>
+													<span className="text-sm font-semibold text-gray-900">{formatCurrency(item.price)}</span>
 												</label>
 											);
 										})}
@@ -354,7 +299,7 @@ export default function OrderCard({
 													<p className="text-sm font-medium text-gray-700">{item.quantity} × {item.name}</p>
 													{item.servedAt && <p className="text-xs text-gray-500 mt-0.5">Served at {item.servedAt}</p>}
 												</div>
-												<span className="text-sm font-semibold text-gray-700">Rp {item.price.toLocaleString()}</span>
+												<span className="text-sm font-semibold text-gray-700">{formatCurrency(item.price)}</span>
 											</div>
 										))}
 									</div>
@@ -438,13 +383,11 @@ export default function OrderCard({
 						<div className="flex items-center gap-2">
 							{customActions}
 							
-							{showDeleteButton && onDelete && (
-								<button onClick={handleDelete} className="p-2 text-[#FF6859] hover:bg-red-50 rounded-lg transition-colors" title="Delete Order">
-									<Trash2 className="w-4 h-4" />
-								</button>
-							)}
-							
-							{showServeButtons && onServeAll && !allServed && (
+					{showDeleteButton && onDelete && (
+						<button onClick={handleDelete} className="p-2 hover:bg-red-50 rounded-lg transition-colors" style={{ color: COLORS.DANGER }} title="Delete Order">
+							<Trash2 className="w-4 h-4" />
+						</button>
+					)}							{showServeButtons && onServeAll && !allServed && (
 								<button onClick={handleServeAll} className="px-3 py-1.5 bg-[#B2FF5E] text-gray-900 text-xs font-semibold rounded-lg hover:bg-[#a0e855] transition-colors" title="Serve All Items">
 									Serve All
 								</button>
@@ -473,7 +416,7 @@ export default function OrderCard({
 										<span className={item.served ? "line-through text-gray-400" : "text-gray-700"}>
 											{item.quantity}x {item.name}
 										</span>
-										{getKitchenStatusBadge(item.kitchenStatus)}
+										{renderKitchenBadge(item.kitchenStatus)}
 									</div>
 									{item.variants && Object.keys(item.variants).length > 0 && (
 										<div className="text-xs text-gray-500 ml-6">
@@ -485,23 +428,23 @@ export default function OrderCard({
 								</div>
 								<div className="flex items-center gap-2">
 									<span className={item.served ? "line-through text-gray-400" : "text-gray-600"}>
-										Rp {item.price.toLocaleString()}
+										{formatCurrency(item.price)}
 									</span>
-									{showServeButtons && onServeItem && !item.served && (
-										<button onClick={(e) => handleServeItem(e, item.id)} className="p-1 text-[#B2FF5E] hover:bg-green-50 rounded transition-colors" title="Mark as Served">
-											<CheckCircle className="w-4 h-4" />
-										</button>
-									)}
+								{showServeButtons && onServeItem && !item.served && (
+									<button onClick={(e) => handleServeItem(e, item.id)} className="p-1 hover:bg-green-50 rounded transition-colors" style={{ color: COLORS.PRIMARY_LIGHT }} title="Mark as Served">
+										<CheckCircle className="w-4 h-4" />
+									</button>
+								)}
 								</div>
 							</div>
 						))}
-						{hasMore && <p className="text-xs text-gray-900 font-medium">+{order.items.length - 3} more items</p>}
+						{hasMore && <p className="text-xs text-gray-900 font-medium">+{(order.items || []).length - 3} more items</p>}
 					</div>
 
 					<div className="pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
 						<div>
 							<p className="text-xs text-gray-500">Total</p>
-							<p className="text-lg sm:text-xl font-bold text-[#B2FF5E]">Rp {order.total.toLocaleString()}</p>
+							<p className="text-lg sm:text-xl font-bold text-[#B2FF5E]">{formatCurrency(order.total || 0)}</p>
 						</div>
 						<div className="text-sm text-gray-600">Served: {servedCount}/{totalCount}</div>
 					</div>

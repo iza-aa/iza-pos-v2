@@ -1,6 +1,8 @@
 'use client'
 
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { useState } from 'react'
+import { EllipsisVerticalIcon, ArrowUpTrayIcon, AdjustmentsHorizontalIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { getInventoryStatusColor, getInventoryStatusStyle, getInventoryStatusText } from '@/lib/staffUtils'
 
 interface InventoryItem {
   id: string
@@ -18,36 +20,13 @@ interface InventoryTableProps {
   items: InventoryItem[]
   viewAsOwner: boolean
   onRestock?: (item: InventoryItem) => void
+  onAdjust?: (item: InventoryItem) => void
   onEdit?: (item: InventoryItem) => void
   onDelete?: (item: InventoryItem) => void
 }
 
-export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, onDelete }: InventoryTableProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'in-stock': return ''
-      case 'low-stock': return 'bg-yellow-100 text-yellow-700'
-      case 'out-of-stock': return ''
-      default: return 'bg-gray-100 text-gray-700'
-    }
-  }
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'in-stock': return { backgroundColor: '#B2FF5E', color: '#000000' }
-      case 'out-of-stock': return { backgroundColor: '#FF6859', color: '#FFFFFF' }
-      default: return {}
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'in-stock': return 'In Stock'
-      case 'low-stock': return 'Low Stock'
-      case 'out-of-stock': return 'Out of Stock'
-      default: return status
-    }
-  }
+export default function InventoryTable({ items, viewAsOwner, onRestock, onAdjust, onEdit, onDelete }: InventoryTableProps) {
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl overflow-hidden ">
@@ -116,29 +95,93 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onEdit, 
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap w-[11%]">
                   <span 
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}
-                    style={getStatusStyle(item.status)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getInventoryStatusColor(item.status)}`}
+                    style={getInventoryStatusStyle(item.status)}
                   >
-                    {getStatusText(item.status)}
+                    {getInventoryStatusText(item.status)}
                   </span>
                 </td>
                 {!viewAsOwner && (
                   <td className="px-6 py-4 whitespace-nowrap text-left w-[14%]">
-                    <button
-                      onClick={() => onEdit?.(item)}
-                      className="text-gray-700 hover:text-gray-900 font-medium mr-3 text-sm"
-                      title="Edit"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => onDelete?.(item)}
-                      className="hover:underline font-medium text-sm"
-                      style={{ color: '#FF6859' }}
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenDropdown(openDropdown === item.id ? null : item.id)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                      >
+                        <EllipsisVerticalIcon className="w-5 h-5 text-gray-600" />
+                      </button>
+                      
+                      {openDropdown === item.id && (
+                        <>
+                          {/* Backdrop */}
+                          <div 
+                            className="fixed inset-0 z-10" 
+                            onClick={() => setOpenDropdown(null)}
+                          />
+                          
+                          {/* Dropdown Menu */}
+                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                            <button
+                              onClick={() => {
+                                onRestock?.(item)
+                                setOpenDropdown(null)
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition flex items-center gap-3"
+                            >
+                              <ArrowUpTrayIcon className="w-5 h-5 text-gray-600" />
+                              <div>
+                                <div className="font-medium">Restock</div>
+                                <div className="text-xs text-gray-500">Add from supplier</div>
+                              </div>
+                            </button>
+                            
+                            <button
+                              onClick={() => {
+                                onAdjust?.(item)
+                                setOpenDropdown(null)
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition flex items-center gap-3"
+                            >
+                              <AdjustmentsHorizontalIcon className="w-5 h-5 text-gray-600" />
+                              <div>
+                                <div className="font-medium">Adjust Stock</div>
+                                <div className="text-xs text-gray-500">Correction/damaged</div>
+                              </div>
+                            </button>
+                            
+                            <div className="border-t border-gray-200 my-1" />
+                            
+                            <button
+                              onClick={() => {
+                                onEdit?.(item)
+                                setOpenDropdown(null)
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition flex items-center gap-3"
+                            >
+                              <PencilIcon className="w-5 h-5 text-gray-600" />
+                              <div>
+                                <div className="font-medium">Edit Details</div>
+                                <div className="text-xs text-gray-500">Name, category, etc</div>
+                              </div>
+                            </button>
+                            
+                            <button
+                              onClick={() => {
+                                onDelete?.(item)
+                                setOpenDropdown(null)
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center gap-3"
+                            >
+                              <TrashIcon className="w-5 h-5 text-red-600" />
+                              <div>
+                                <div className="font-medium">Delete</div>
+                                <div className="text-xs text-red-500">Remove item</div>
+                              </div>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>

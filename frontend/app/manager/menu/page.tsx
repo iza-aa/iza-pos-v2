@@ -2,6 +2,9 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { useSessionValidation } from '@/lib/useSessionValidation'
+import { formatCurrency } from '@/lib/numberConstants'
+import { getCurrentUser } from '@/lib/authUtils'
 import { 
   MagnifyingGlassIcon, 
   PlusIcon, 
@@ -27,19 +30,8 @@ import {
 import { supabase } from '@/lib/supabaseClient'
 import MenuModal from '@/app/components/manager/menu/MenuModal'
 import CategoryModal from '@/app/components/manager/menu/CategoryModal'
-import DeleteModal from '@/app/components/ui/DeleteModal'
-
-interface MenuItem {
-  id: string
-  name: string
-  category: string
-  categoryId: string
-  price: number
-  image: string
-  available: boolean
-  hasVariants?: boolean
-  variantGroups: string[]
-}
+import { DeleteModal } from '@/app/components/ui'
+import type { MenuItem } from '@/lib/types'
 
 // Icon mapping for categories - maps icon name to Lucide components
 const iconNameToComponent: Record<string, any> = {
@@ -66,6 +58,8 @@ const categoryIcons: Record<string, any> = {
 }
 
 export default function MenuPage() {
+  useSessionValidation();
+  
   const searchParams = useSearchParams()
   const viewAsOwner = searchParams.get('viewAs') === 'owner'
   
@@ -175,15 +169,14 @@ export default function MenuPage() {
 
   // Simplified stock calculation - can be enhanced later with recipe integration
   const getEstimatedStock = (menuId: string): { canMake: number; status: 'available' | 'low' | 'out' } => {
-    // For now, return default values
-    // TODO: Integrate with recipes and inventory_items tables
+    // Future enhancement: Calculate based on product_recipes join with inventory_items
+    // Query recipe ingredients and check current stock levels against recipe requirements
     return { canMake: 999, status: 'available' }
   }
 
   const handleAddNewCategory = () => {
     setEditingCategory(null)
     setShowAddCategoryModal(true)
-    console.log('Opening Add Category modal')
   }
 
   const handleSaveNewCategory = async (name: string, icon: string, type: string) => {
@@ -250,7 +243,8 @@ export default function MenuPage() {
   }
 
   const handleSaveNewMenu = async (newMenu: Omit<MenuItem, 'id'>) => {
-    const managerId = localStorage.getItem('user_id')
+    const currentUser = getCurrentUser()
+    if (!currentUser) return
     
     const { data, error } = await supabase
       .from('products')
@@ -261,8 +255,8 @@ export default function MenuPage() {
         image: newMenu.image,
         available: newMenu.available,
         has_variants: newMenu.hasVariants,
-        created_by: managerId,
-        updated_by: managerId
+        created_by: currentUser.id,
+        updated_by: currentUser.id
       }])
       .select()
       .single()
@@ -304,7 +298,8 @@ export default function MenuPage() {
   }
 
   const handleUpdateMenu = async (updatedMenu: MenuItem) => {
-    const managerId = localStorage.getItem('user_id')
+    const currentUser = getCurrentUser()
+    if (!currentUser) return
     
     const { error } = await supabase
       .from('products')
@@ -635,7 +630,7 @@ export default function MenuPage() {
                   {/* Spacer to push content to bottom */}
                   <div className="flex-1"></div>
                   
-                  <p className="text-sm md:text-base font-bold text-gray-900 mb-2 md:mb-3">Rp {menu.price.toLocaleString('id-ID')}</p>
+                  <p className="text-sm md:text-base font-bold text-gray-900 mb-2 md:mb-3">{formatCurrency(menu.price)}</p>
 
                   {/* Actions */}
                   {!viewAsOwner && (

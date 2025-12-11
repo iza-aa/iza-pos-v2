@@ -1,14 +1,17 @@
 'use client'
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Navbar from "../components/ui/navbar/Navbar";
-import FloatingAIAssistant from "../components/ui/FloatingAIAssistant";
+import { supabase } from "@/lib/supabaseClient";
+import { getCurrentUser } from "@/lib/authUtils";
+import { Navbar, FloatingAIAssistant, Toast as ToastContainer } from "../components/ui";
+import { setupNetworkMonitoring } from '@/lib/errorHandling';
 
 type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter';
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [staffType, setStaffType] = useState<StaffType | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -18,7 +21,29 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     setUserRole(localStorage.getItem('user_role'));
     const type = localStorage.getItem('staff_type') as StaffType | null;
     setStaffType(type);
-  }, []);
+    setupNetworkMonitoring();
+    
+    // Verify staff still exists in database
+    const verifyStaff = async () => {
+      const user = getCurrentUser();
+      
+      if (user && user.role === 'staff' && pathname !== '/staff/login') {
+        const { data, error } = await supabase
+          .from('staff')
+          .select('id, status')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        // If staff not found or inactive, logout
+        if (error || !data || data.status !== 'active') {
+          localStorage.clear();
+          router.push('/staff/login');
+        }
+      }
+    };
+    
+    verifyStaff();
+  }, [pathname, router]);
 
   const hideNavbar = pathname === "/staff/login";
 
@@ -36,6 +61,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       />
       <main>{children}</main>
       {userRole === 'owner' && <FloatingAIAssistant />}
+      <ToastContainer />
     </div>
   );
 }
