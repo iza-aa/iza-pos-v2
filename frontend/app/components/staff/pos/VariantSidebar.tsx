@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { ProductImagePlaceholder } from "@/app/components/ui";
 import { formatCurrency } from '@/lib/numberConstants';
-import type { VariantOption, VariantGroup } from '@/lib/types';
+import type { VariantOption, VariantGroup, MenuItem, SelectedVariant } from '@/lib/types';
 
 interface VariantSidebarProps {
 	isOpen: boolean;
@@ -17,7 +17,7 @@ interface VariantSidebarProps {
 		price: number;
 		image: string;
 	};
-	onAddToOrder: (item: any, selectedVariants: any, totalPrice: number, quantity: number) => void;
+	onAddToOrder: (item: MenuItem, selectedVariants: SelectedVariant[], totalPrice: number, quantity: number) => void;
 	isInline?: boolean; // New prop for inline mode
 }
 

@@ -14,7 +14,6 @@ export default function VariantsPage() {
   useSessionValidation();
   
   const searchParams = useSearchParams()
-  const viewAsOwner = searchParams.get('viewAs') === 'owner'
   
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -176,11 +175,6 @@ export default function VariantsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
-            {viewAsOwner && (
-              <span className="inline-block text-xs md:text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-                👁️ Viewing as Owner
-              </span>
-            )}
             
             {/* Toggle Stats Button */}
             <button 
@@ -241,20 +235,18 @@ export default function VariantsPage() {
       <section className="flex-1 overflow-y-auto bg-gray-50 px-4 md:px-6 py-4 md:py-6">
         <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 md:gap-4 space-y-3 md:space-y-4">
           {/* Add New Variant Group Card */}
-          {!viewAsOwner && (
-            <button
-              onClick={handleAddVariantGroup}
-              className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-gray-900 hover:bg-gray-100 transition flex flex-col items-center justify-center gap-2 md:gap-3 min-h-[180px] md:min-h-[200px] break-inside-avoid mb-3 md:mb-4 w-full"
-            >
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-900 rounded-full flex items-center justify-center">
-                <PlusIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm md:text-base font-semibold text-gray-700">Add New Variant Group</p>
-                <p className="text-xs text-gray-500 mt-1">Create a new variant group</p>
-              </div>
-            </button>
-          )}
+          <button
+            onClick={handleAddVariantGroup}
+            className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-4 md:p-6 hover:border-gray-900 hover:bg-gray-100 transition flex flex-col items-center justify-center gap-2 md:gap-3 min-h-[180px] md:min-h-[200px] break-inside-avoid mb-3 md:mb-4 w-full"
+          >
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-900 rounded-full flex items-center justify-center">
+              <PlusIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm md:text-base font-semibold text-gray-700">Add New Variant Group</p>
+              <p className="text-xs text-gray-500 mt-1">Create a new variant group</p>
+            </div>
+          </button>
 
           {/* Variant Group Cards */}
           {filteredGroups.map((group) => (
@@ -263,22 +255,21 @@ export default function VariantsPage() {
               <div className="p-3 md:p-4 border-b border-gray-200">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-base md:text-lg font-bold text-gray-900">{group.name}</h3>
-                  {!viewAsOwner && (
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => handleEditGroup(group)}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition"
-                        title="Edit"
-                      >
-                        <PencilIcon className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteGroup(group)}
-                        className="p-1.5 hover:bg-red-50 rounded-lg transition"
-                        title="Delete"
-                        style={{ color: '#FF6859' }}
-                      >
-                        <TrashIcon className="w-4 h-4" />
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => handleEditGroup(group)}
+                      className="p-1.5 hover:bg-gray-100 rounded-lg transition"
+                      title="Edit"
+                    >
+                      <PencilIcon className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteGroup(group)}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition"
+                      title="Delete"
+                      style={{ color: '#FF6859' }}
+                    >
+                      <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
                   )}

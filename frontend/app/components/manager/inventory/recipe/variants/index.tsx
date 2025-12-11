@@ -12,7 +12,7 @@ import { AddIngredientModal, EditIngredientModal } from './RecipeVariantsModals'
 import RecipeVariantsTableView from './RecipeVariantsTableView'
 import type { RecipeVariantsTabProps, SelectedOptionForAdd, EditingIngredient } from './types'
 
-export default function RecipeVariantsTab({ viewAsOwner }: RecipeVariantsTabProps) {
+export default function RecipeVariantsTab() {
   const { variantGroups, recipes, inventoryItems, loading, refetch } = useRecipeVariants()
   
   const [searchQuery, setSearchQuery] = useState('')

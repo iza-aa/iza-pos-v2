@@ -10,13 +10,29 @@ import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
 import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
+import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
+
+interface OrderDisplay {
+	id: string
+	customerName: string
+	orderNumber: string
+	orderType: string
+	items: OrderItem[]
+	total: number
+	date: string
+	time: string
+	status: "new" | "preparing" | "partially-served" | "served" | "completed"
+	table?: string
+	createdAt: string
+	timeDiff?: string
+}
 
 export default function OrderPage() {
 	useSessionValidation();
 	
-	const [orderList, setOrderList] = useState<any[]>([]);
+	const [orderList, setOrderList] = useState<OrderDisplay[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
@@ -93,7 +109,7 @@ export default function OrderPage() {
 
 			// Transform data to match component format
 			const transformedOrders = ordersData?.map(order => {
-				const servedCount = order.order_items.filter((item: any) => item.served).length;
+				const servedCount = order.order_items.filter((item) => item.served).length;
 				const totalCount = order.order_items.length;
 				
 				// Calculate time difference in minutes (Jakarta timezone)
@@ -162,7 +178,7 @@ export default function OrderPage() {
 					customerName: order.customer_name || 'Guest',
 					orderNumber: order.order_number || `#${order.id.substring(0, 8).toUpperCase()}`,
 					orderType: order.order_type || 'Dine in',
-				items: order.order_items.map((item: any) => ({
+				items: order.order_items.map((item) => ({
 					id: item.id,
 					name: item.product_name || item.products?.name || 'Unknown Item',
 					quantity: item.quantity,
@@ -274,8 +290,8 @@ export default function OrderPage() {
 		if (!order) return;
 		
 		const unservedItemIds = order.items
-			.filter((item: any) => !item.served)
-			.map((item: any) => item.id);
+			.filter((item) => !item.served)
+			.map((item) => item.id);
 		
 		if (unservedItemIds.length > 0) {
 			await handleMarkServed(orderId, unservedItemIds);

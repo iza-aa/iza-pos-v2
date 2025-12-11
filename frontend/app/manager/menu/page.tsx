@@ -61,7 +61,6 @@ export default function MenuPage() {
   useSessionValidation();
   
   const searchParams = useSearchParams()
-  const viewAsOwner = searchParams.get('viewAs') === 'owner'
   
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -142,7 +141,7 @@ export default function MenuPage() {
       const { data, error } = await query
       
       if (data) {
-        setMenuItems(data.map((p: any) => ({
+        setMenuItems(data.map((p) => ({
           id: p.id,
           name: p.name,
           category: p.category?.name || 'Unknown',
@@ -151,7 +150,7 @@ export default function MenuPage() {
           image: p.image || '/picture/default-food.jpg',
           available: p.available,
           hasVariants: p.has_variants,
-          variantGroups: p.product_variant_groups?.map((pvg: any) => pvg.variant_group_id) || [],
+          variantGroups: p.product_variant_groups?.map((pvg) => pvg.variant_group_id) || [],
         })))
       }
       
@@ -358,12 +357,20 @@ export default function MenuPage() {
     }
   }
 
-  const handleFilter = () => {
-    setShowFilterModal(true)
-    console.log('Opening filter modal')
-  }
+interface Category {
+  id: string
+  name: string
+  icon?: string
+  type?: string
+  count?: number
+}
 
-  const handleDeleteCategory = (category: any) => {
+const handleFilter = () => {
+  setShowFilterModal(true)
+  console.log('Opening filter modal')
+}
+
+const handleDeleteCategory = (category: Category) => {
     if (category.id === 'all') return // Cannot delete 'All Menu'
     setDeletingCategory(category)
   }
@@ -450,8 +457,8 @@ export default function MenuPage() {
                     <span className="text-sm font-medium">{category.name}</span>
                   </div>
                   
-                  {/* Edit and Delete buttons - only show when selected and not 'all' and not viewAsOwner */}
-                  {isSelected && category.id !== 'all' && !viewAsOwner && (
+                  {/* Edit and Delete buttons - only show when selected and not 'all' */}
+                  {isSelected && category.id !== 'all' && (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={(e) => {
@@ -486,15 +493,13 @@ export default function MenuPage() {
           })}
         </div>
 
-        {!viewAsOwner && (
-          <button 
-            onClick={handleAddNewCategory}
-            className="w-full mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white px-3 py-2.5 rounded-lg hover:bg-gray-800 transition font-medium flex-shrink-0 text-sm"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add New Category
-          </button>
-        )}
+        <button 
+          onClick={handleAddNewCategory}
+          className="w-full mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white px-3 py-2.5 rounded-lg hover:bg-gray-800 transition font-medium flex-shrink-0 text-sm"
+        >
+          <PlusIcon className="w-4 h-4" />
+          Add New Category
+        </button>
       </section>
 
       {/* Section 2 & 3: Content Area */}
@@ -510,11 +515,6 @@ export default function MenuPage() {
             </div>
 
             <div className="flex items-center gap-4">
-                            {viewAsOwner && (
-                <span className="inline-block text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-                  👁️ Viewing as Owner
-                </span>
-              )}
               {/* Search */}
               <div className="relative flex-1 lg:flex-none">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
@@ -557,18 +557,16 @@ export default function MenuPage() {
           {/* Menu Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-8">
             {/* Add New Menu Card */}
-            {!viewAsOwner && (
-              <button 
-                onClick={handleAddNewMenu}
-                className="border-2 border-dashed border-gray-300 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center gap-2 md:gap-3 hover:border-gray-900 hover:bg-gray-100 transition min-h-[200px] md:min-h-[250px]"
-              >
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-900 rounded-full flex items-center justify-center">
-                  <PlusIcon className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                </div>
-                <p className="text-sm font-semibold text-gray-700">Add New Menu to</p>
-                <p className="text-sm font-semibold text-gray-700">{currentCategory?.name}</p>
-              </button>
-            )}
+            <button 
+              onClick={handleAddNewMenu}
+              className="border-2 border-dashed border-gray-300 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center gap-2 md:gap-3 hover:border-gray-900 hover:bg-gray-100 transition min-h-[200px] md:min-h-[250px]"
+            >
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-900 rounded-full flex items-center justify-center">
+                <PlusIcon className="w-6 h-6 md:w-8 md:h-8 text-white" />
+              </div>
+              <p className="text-sm font-semibold text-gray-700">Add New Menu to</p>
+              <p className="text-sm font-semibold text-gray-700">{currentCategory?.name}</p>
+            </button>
 
             {/* Menu Cards */}
             {filteredMenuItems.map((menu) => {
@@ -633,23 +631,21 @@ export default function MenuPage() {
                   <p className="text-sm md:text-base font-bold text-gray-900 mb-2 md:mb-3">{formatCurrency(menu.price)}</p>
 
                   {/* Actions */}
-                  {!viewAsOwner && (
-                    <div className="flex items-center gap-2 mt-auto">
-                      <button 
-                        onClick={() => handleEditMenu(menu)}
-                        className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteMenu(menu)}
-                        className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium rounded-xl hover:bg-red-50 transition"
-                        style={{ color: '#FF6859', borderColor: '#FF6859', borderWidth: '1px', borderStyle: 'solid' }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 mt-auto">
+                    <button 
+                      onClick={() => handleEditMenu(menu)}
+                      className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteMenu(menu)}
+                      className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium rounded-xl hover:bg-red-50 transition"
+                      style={{ color: '#FF6859', borderColor: '#FF6859', borderWidth: '1px', borderStyle: 'solid' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
               )

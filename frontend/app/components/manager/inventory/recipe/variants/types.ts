@@ -33,7 +33,6 @@ export interface VariantGroup {
 }
 
 export interface RecipeVariantsTabProps {
-  viewAsOwner: boolean
 }
 
 export interface SelectedOptionForAdd {

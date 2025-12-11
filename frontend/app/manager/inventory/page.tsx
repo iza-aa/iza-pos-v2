@@ -19,7 +19,7 @@ export default function InventoryPage() {
   useSessionValidation();
   
   const searchParams = useSearchParams()
-  const viewAsOwner = searchParams.get('viewAs') === 'owner'
+  
   const [activeTab, setActiveTab] = useState<TabType>('raw-materials')
   const [showSidebar, setShowSidebar] = useState(false)
 
@@ -51,13 +51,13 @@ export default function InventoryPage() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'raw-materials' && <RawMaterialsTab viewAsOwner={viewAsOwner} />}
-        {activeTab === 'recipes' && <RecipesTab viewAsOwner={viewAsOwner} />}
-        {activeTab === 'recipe-dishes' && <RecipeDishesTab viewAsOwner={viewAsOwner} />}
-        {activeTab === 'recipe-variants' && <RecipeVariantsTab viewAsOwner={viewAsOwner} />}
-        {activeTab === 'default-modifiers' && <DefaultModifiersTab viewAsOwner={viewAsOwner} />}
-        {activeTab === 'product-overrides' && <ProductOverridesTab viewAsOwner={viewAsOwner} />}
-        {activeTab === 'usage-history' && <UsageHistoryTab viewAsOwner={viewAsOwner} />}
+        {activeTab === 'raw-materials' && <RawMaterialsTab />}
+        {activeTab === 'recipes' && <RecipesTab />}
+        {activeTab === 'recipe-dishes' && <RecipeDishesTab />}
+        {activeTab === 'recipe-variants' && <RecipeVariantsTab />}
+        {activeTab === 'default-modifiers' && <DefaultModifiersTab />}
+        {activeTab === 'product-overrides' && <ProductOverridesTab />}
+        {activeTab === 'usage-history' && <UsageHistoryTab />}
       </div>
     </div>
   )

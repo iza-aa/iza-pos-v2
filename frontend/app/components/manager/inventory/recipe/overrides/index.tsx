@@ -7,10 +7,6 @@ import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
 import { validateRequired, isPositiveNumber } from '@/lib/validation'
 import type { VariantOption } from '@/lib/types'
 
-interface ProductOverridesTabProps {
-  viewAsOwner: boolean
-}
-
 interface IngredientInput {
   inventory_item_id: string
   ingredient_name: string
@@ -33,11 +29,16 @@ interface Product {
   name: string
 }
 
-export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTabProps) {
+interface InventoryItem {
+  id: string
+  name: string
+}
+
+export default function ProductOverridesTab() {
   const [overrides, setOverrides] = useState<OverrideRecipe[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [variantOptions, setVariantOptions] = useState<VariantOption[]>([])
-  const [inventoryItems, setInventoryItems] = useState<any[]>([])
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -119,9 +120,9 @@ export default function ProductOverridesTab({ viewAsOwner }: ProductOverridesTab
       // Transform overrides with ingredients
       const transformedOverrides: OverrideRecipe[] = (overridesData || []).map(recipe => {
         const recipeIngredients = (ingredientsData || [])
-          .filter((ing: any) => ing.recipe_id === recipe.id)
-          .map((ing: any) => {
-            const inventoryItem = (inventoryData || []).find((inv: any) => inv.id === ing.inventory_item_id)
+          .filter((ing) => ing.recipe_id === recipe.id)
+          .map((ing) => {
+            const inventoryItem = (inventoryData || []).find((inv) => inv.id === ing.inventory_item_id)
             return {
               inventory_item_id: ing.inventory_item_id,
               ingredient_name: inventoryItem?.name || ing.ingredient_name || 'Unknown',

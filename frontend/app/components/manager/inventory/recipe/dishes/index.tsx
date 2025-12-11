@@ -22,14 +22,21 @@ interface Recipe {
   updatedAt: string
 }
 
-interface RecipeDishesTabProps {
-  viewAsOwner: boolean
+interface Product {
+  id: string
+  name: string
+  category_id: string
 }
 
-export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
+interface InventoryItem {
+  id: string
+  name: string
+}
+
+export default function RecipeDishesTab() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showStats, setShowStats] = useState(true)
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
@@ -96,9 +103,9 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
       // Transform data manually
       const transformedRecipes: Recipe[] = (recipesData || []).map(recipe => {
         const recipeIngredients = (ingredientsData || [])
-          .filter((ing: any) => ing.recipe_id === recipe.id)
-          .map((ing: any) => {
-            const inventoryItem = (inventoryData || []).find((inv: any) => inv.id === ing.inventory_item_id)
+          .filter((ing) => ing.recipe_id === recipe.id)
+          .map((ing) => {
+            const inventoryItem = (inventoryData || []).find((inv) => inv.id === ing.inventory_item_id)
             return {
               inventory_item_id: ing.inventory_item_id,
               ingredient_name: inventoryItem?.name || ing.ingredient_name || 'Unknown',
@@ -149,7 +156,7 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
     withoutRecipe: productRecipes.filter(pr => !pr.hasRecipe).length,
   }
 
-  const handleSetRecipe = (product: any) => {
+  const handleSetRecipe = (product: Product) => {
     setSelectedProduct({
       id: product.id,
       name: product.name
@@ -343,15 +350,13 @@ export default function RecipeDishesTab({ viewAsOwner }: RecipeDishesTabProps) {
                   <h3 className="text-base md:text-lg font-bold text-gray-900">{product.name}</h3>
                   <p className="text-xs text-gray-500 mt-1">{product.category}</p>
                 </div>
-                {!viewAsOwner && (
-                  <button
-                    onClick={() => hasRecipe && baseRecipe ? handleEditRecipe(baseRecipe) : handleSetRecipe(product)}
-                    className="p-1.5 rounded-lg transition hover:bg-gray-100"
-                    title={hasRecipe ? "Edit Recipe" : "Set Recipe"}
-                  >
-                    <PlusIcon className="w-4 h-4 text-gray-600" />
-                  </button>
-                )}
+                <button
+                  onClick={() => hasRecipe && baseRecipe ? handleEditRecipe(baseRecipe) : handleSetRecipe(product)}
+                  className="p-1.5 rounded-lg transition hover:bg-gray-100"
+                  title={hasRecipe ? "Edit Recipe" : "Set Recipe"}
+                >
+                  <PlusIcon className="w-4 h-4 text-gray-600" />
+                </button>
               </div>
               
               {/* Status Badge */}

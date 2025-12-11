@@ -30,11 +30,7 @@ interface UsageTransaction {
   }[]
 }
 
-interface UsageHistoryTabProps {
-  viewAsOwner: boolean
-}
-
-export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
+export default function UsageHistoryTab() {
   const [filterType, setFilterType] = useState<'all' | 'sale' | 'restock' | 'adjustment'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showStats, setShowStats] = useState(true)
@@ -61,34 +57,45 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
 
       // Fetch orders data if there are order_ids
       const orderIds = transactionsData
-        ?.filter((t: any) => t.order_id)
-        .map((t: any) => t.order_id) || []
+        ?.filter((t) => t.order_id)
+        .map((t) => t.order_id) || []
       
-      let ordersMap: Record<string, any> = {}
+      interface Order {
+        id: string
+        order_number: string
+      }
+      
+      interface Staff {
+        id: string
+        name: string
+        role: string
+      }
+      
+      let ordersMap: Record<string, Order> = {}
       if (orderIds.length > 0) {
         const { data: ordersData } = await supabase
           .from('orders')
           .select('id, order_number')
           .in('id', orderIds)
         
-        ordersData?.forEach((order: any) => {
+        ordersData?.forEach((order) => {
           ordersMap[order.id] = order
         })
       }
 
       // Fetch staff data if there are performed_by ids
       const staffIds = transactionsData
-        ?.filter((t: any) => t.performed_by)
-        .map((t: any) => t.performed_by) || []
+        ?.filter((t) => t.performed_by)
+        .map((t) => t.performed_by) || []
       
-      let staffMap: Record<string, any> = {}
+      let staffMap: Record<string, Staff> = {}
       if (staffIds.length > 0) {
         const { data: staffData } = await supabase
           .from('staff')
           .select('id, name, role')
           .in('id', staffIds)
         
-        staffData?.forEach((staff: any) => {
+        staffData?.forEach((staff) => {
           staffMap[staff.id] = staff
         })
       }
@@ -114,11 +121,11 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
       }
 
       // Transform data manually
-      const transformedTransactions: UsageTransaction[] = (transactionsData || []).map((trans: any) => {
+      const transformedTransactions: UsageTransaction[] = (transactionsData || []).map((trans) => {
         const transDetails = (detailsData || [])
-          .filter((detail: any) => detail.usage_transaction_id === trans.id)
-          .map((detail: any) => {
-            const inventoryItem = (inventoryData || []).find((inv: any) => inv.id === detail.inventory_item_id)
+          .filter((detail) => detail.usage_transaction_id === trans.id)
+          .map((detail) => {
+            const inventoryItem = (inventoryData || []).find((inv) => inv.id === detail.inventory_item_id)
             return {
               inventory_item_id: detail.inventory_item_id,
               ingredient_name: inventoryItem?.name || detail.ingredient_name || 'Unknown',
@@ -324,7 +331,7 @@ export default function UsageHistoryTab({ viewAsOwner }: UsageHistoryTabProps) {
           {['all', 'sale', 'restock', 'adjustment'].map(type => (
             <button
               key={type}
-              onClick={() => setFilterType(type as any)}
+              onClick={() => setFilterType(type as typeof filterType)}
               className={`px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition whitespace-nowrap ${
                 filterType === type
                   ? 'bg-gray-900 text-white'

@@ -37,6 +37,12 @@ interface IngredientInput {
   unit: string
 }
 
+interface InventoryItem {
+  id: string
+  name: string
+  unit: string
+}
+
 export default function RecipeModal({
   isOpen,
   onClose,
@@ -47,7 +53,7 @@ export default function RecipeModal({
   productName
 }: RecipeModalProps) {
   const [ingredients, setIngredients] = useState<IngredientInput[]>([])
-  const [availableIngredients, setAvailableIngredients] = useState<any[]>([])
+  const [availableIngredients, setAvailableIngredients] = useState<InventoryItem[]>([])
 
   useEffect(() => {
     if (isOpen) {
@@ -95,7 +101,7 @@ export default function RecipeModal({
     setIngredients(ingredients.filter((_, i) => i !== index))
   }
 
-  const handleIngredientChange = (index: number, field: keyof IngredientInput, value: any) => {
+  const handleIngredientChange = (index: number, field: keyof IngredientInput, value: string | number) => {
     const newIngredients = [...ingredients]
     
     if (field === 'inventory_item_id') {

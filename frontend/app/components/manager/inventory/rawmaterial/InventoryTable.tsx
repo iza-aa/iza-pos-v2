@@ -18,14 +18,13 @@ interface InventoryItem {
 
 interface InventoryTableProps {
   items: InventoryItem[]
-  viewAsOwner: boolean
-  onRestock?: (item: InventoryItem) => void
-  onAdjust?: (item: InventoryItem) => void
-  onEdit?: (item: InventoryItem) => void
-  onDelete?: (item: InventoryItem) => void
+  onRestock: (item: InventoryItem) => void
+  onAdjust: (item: InventoryItem) => void
+  onEdit: (item: InventoryItem) => void
+  onDelete: (item: InventoryItem) => void
 }
 
-export default function InventoryTable({ items, viewAsOwner, onRestock, onAdjust, onEdit, onDelete }: InventoryTableProps) {
+export default function InventoryTable({ items, onRestock, onAdjust, onEdit, onDelete }: InventoryTableProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   return (
@@ -55,11 +54,9 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onAdjust
               <th className="w-[11%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              {!viewAsOwner && (
-                <th className="w-[14%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              )}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
@@ -101,15 +98,14 @@ export default function InventoryTable({ items, viewAsOwner, onRestock, onAdjust
                     {getInventoryStatusText(item.status)}
                   </span>
                 </td>
-                {!viewAsOwner && (
-                  <td className="px-6 py-4 whitespace-nowrap text-left w-[14%]">
-                    <div className="relative">
-                      <button
-                        onClick={() => setOpenDropdown(openDropdown === item.id ? null : item.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                      >
-                        <EllipsisVerticalIcon className="w-5 h-5 text-gray-600" />
-                      </button>
+                <td className="px-6 py-4 whitespace-nowrap text-left w-[14%]">
+                  <div className="relative">
+                    <button
+                      onClick={() => setOpenDropdown(openDropdown === item.id ? null : item.id)}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition"
+                    >
+                      <EllipsisVerticalIcon className="w-5 h-5 text-gray-600" />
+                    </button>
                       
                       {openDropdown === item.id && (
                         <>

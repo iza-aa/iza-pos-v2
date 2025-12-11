@@ -5,10 +5,6 @@ import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, EyeIco
 import { supabase } from '@/lib/supabaseClient'
 import type { VariantOption } from '@/lib/types'
 
-interface DefaultModifiersTabProps {
-  viewAsOwner: boolean
-}
-
 interface ModifierRecipe {
   id: string
   product_name: string
@@ -19,7 +15,7 @@ interface ModifierRecipe {
   is_active: boolean
 }
 
-export default function DefaultModifiersTab({ viewAsOwner }: DefaultModifiersTabProps) {
+export default function DefaultModifiersTab() {
   const [modifiers, setModifiers] = useState<ModifierRecipe[]>([])
   const [variantOptions, setVariantOptions] = useState<VariantOption[]>([])
   const [loading, setLoading] = useState(true)

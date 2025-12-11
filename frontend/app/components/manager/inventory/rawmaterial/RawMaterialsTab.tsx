@@ -27,11 +27,7 @@ interface InventoryItem {
   status: 'in-stock' | 'low-stock' | 'out-of-stock'
 }
 
-interface RawMaterialsTabProps {
-  viewAsOwner: boolean
-}
-
-export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
+export default function RawMaterialsTab() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -436,18 +432,13 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
               )}
             </button>
 
-            {!viewAsOwner && (
-              <>
-
-                <button 
-                  onClick={handleAddNewItem}
-                  className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition font-medium text-sm"
-                >
-                  <PlusIcon className="w-4 h-4 md:w-5 md:h-5" />
-                  Add New Item
-                </button>
-              </>
-            )}
+            <button 
+              onClick={handleAddNewItem}
+              className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition font-medium text-sm"
+            >
+              <PlusIcon className="w-4 h-4 md:w-5 md:h-5" />
+              Add New Item
+            </button>
           </div>
         </div>
 
@@ -478,7 +469,7 @@ export default function RawMaterialsTab({ viewAsOwner }: RawMaterialsTabProps) {
         <div className="flex-1 overflow-hidden">
           <InventoryTable 
             items={filteredItems} 
-            viewAsOwner={viewAsOwner}
+
             onRestock={handleRestockItem}
             onAdjust={handleAdjustItem}
             onEdit={handleEditItem}

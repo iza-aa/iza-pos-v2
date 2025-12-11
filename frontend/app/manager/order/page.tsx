@@ -8,6 +8,7 @@ import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
 import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
+import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
 import { showSuccess, showError } from '@/lib/errorHandling';
@@ -17,7 +18,7 @@ interface Order {
 	customerName: string;
 	orderNumber: string;
 	orderType: string;
-	items: any[];
+	items: OrderItem[];
 	total: number;
 	date: string;
 	time: string;
@@ -103,7 +104,7 @@ export default function ManagerOrderPage() {
 		// Get unique served_by IDs from all order_items
 		const servedByIds = [...new Set(
 			ordersData?.flatMap(o => 
-				o.order_items?.map((item: any) => item.served_by).filter(Boolean) || []
+				o.order_items?.map((item) => item.served_by).filter(Boolean) || []
 			) || []
 		)];
 		
@@ -147,7 +148,7 @@ export default function ManagerOrderPage() {
 	}
 	console.log('Staff map:', staffMap);		// Transform data to match component format
 		const transformedOrders = ordersData?.map(order => {
-			const servedCount = order.order_items.filter((item: any) => item.served).length;
+			const servedCount = order.order_items.filter((item) => item.served).length;
 			const totalCount = order.order_items.length;
 				
 		// Calculate time difference in minutes (Jakarta timezone)
@@ -206,8 +207,8 @@ export default function ManagerOrderPage() {
 		}				// Get unique served_by staff from order_items
 				const servedByStaffIds = [...new Set(
 					order.order_items
-						?.filter((item: any) => item.served && item.served_by)
-						.map((item: any) => item.served_by) || []
+						?.filter((item) => item.served && item.served_by)
+						.map((item) => item.served_by) || []
 				)];
 				
 				const servedByNames = servedByStaffIds
@@ -223,7 +224,7 @@ export default function ManagerOrderPage() {
 					customerName: order.customer_name || 'Guest',
 					orderNumber: order.order_number || `#${order.id.substring(0, 8).toUpperCase()}`,
 					orderType: order.order_type || 'Dine in',
-					items: order.order_items.map((item: any) => ({
+					items: order.order_items.map((item) => ({
 						id: item.id,
 					name: item.product_name || item.products?.name || 'Unknown Item',
 					quantity: item.quantity,

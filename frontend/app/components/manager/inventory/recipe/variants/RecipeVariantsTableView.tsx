@@ -2,16 +2,45 @@
 
 import { ChevronDownIcon, ChevronUpIcon, PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
 
+interface VariantOption {
+  id: string
+  name: string
+  price_modifier: number
+}
+
+interface VariantGroup {
+  id: string
+  name: string
+  options: VariantOption[]
+}
+
+interface RecipeIngredient {
+  inventory_item_id: string
+  ingredient_name: string
+  quantity_needed: number
+  unit: string
+}
+
+interface VariantRecipe {
+  variant_option_id: string
+  ingredients: RecipeIngredient[]
+}
+
+interface RawMaterial {
+  id: string
+  name: string
+}
+
 interface RecipeVariantsTableViewProps {
-  variantGroups: any[]
-  recipes: any[]
-  rawMaterials: any[]
+  variantGroups: VariantGroup[]
+  recipes: VariantRecipe[]
+  rawMaterials: RawMaterial[]
   expandedGroups: Set<string>
   onToggleGroup: (groupId: string) => void
   onOpenAddModal: (groupId: string, groupName: string, optionId: string, optionName: string) => void
-  onOpenEditModal: (optionId: string, index: number, ingredient: any) => void
+  onOpenEditModal: (optionId: string, index: number, ingredient: RecipeIngredient) => void
   onRemoveIngredient: (optionId: string, index: number) => void
-  getRecipeForOption: (optionId: string) => any
+  getRecipeForOption: (optionId: string) => VariantRecipe | undefined
   formatPriceModifier: (modifier: number) => string
 }
 

@@ -16,9 +16,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { formatCurrency } from '@/lib/numberConstants';
 import { LayoutGrid, Coffee, UtensilsCrossed, Cookie, Cake, Milk, Pizza, Sandwich, Soup, Salad, IceCream } from 'lucide-react';
 import { showSuccess, showError, showWarning } from '@/lib/errorHandling';
+import type { MenuItem, VariantGroup, VariantOption, SelectedVariant } from '@/lib/types';
 
 // Icon mapping for categories
-const iconNameToComponent: Record<string, any> = {
+const iconNameToComponent: Record<string, React.ComponentType<any>> = {
   'Coffee': Coffee,
   'UtensilsCrossed': UtensilsCrossed,
   'Cookie': Cookie,
@@ -36,20 +37,37 @@ const iconNameToComponent: Record<string, any> = {
   '🍵': Milk,
 };
 
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface CartItem {
+  id: string;
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  hasVariants: boolean;
+  variants?: SelectedVariant[];
+  image?: string;
+}
+
 export default function POSPage() {
 	useSessionValidation();
 	
 	const [activeTab, setActiveTab] = useState("all");
 	const [activeCategory, setActiveCategory] = useState("all");
-	const [categories, setCategories] = useState<any[]>([]);
-	const [foodItems, setFoodItems] = useState<any[]>([]);
+	const [categories, setCategories] = useState<Category[]>([]);
+	const [foodItems, setFoodItems] = useState<MenuItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [variantSidebarOpen, setVariantSidebarOpen] = useState(false);
 	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-	const [selectedItem, setSelectedItem] = useState<any>(null);
+	const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 	const [orderDetailsOpen, setOrderDetailsOpen] = useState(true);
-	const [cart, setCart] = useState<any[]>([]);
+	const [cart, setCart] = useState<CartItem[]>([]);
 
 	// Page protection - only for Owner, Cashier, Barista
 	useEffect(() => {
@@ -126,73 +144,79 @@ export default function POSPage() {
 			const { data, error } = await query
 			
 			if (data) {
-				setFoodItems(data.map((p: any) => ({
-					id: p.id,
-					name: p.name,
-					category: p.category?.name || 'Unknown',
-					categoryId: p.category_id,
-					price: p.price,
-					image: p.image || '/picture/default-food.jpg',
-					hasVariants: p.has_variants,
-				})))
-			}
-			
-			setLoading(false)
+			setFoodItems(data.map((p) => ({
+				id: p.id,
+				name: p.name,
+				category: p.category?.name || 'Unknown',
+				categoryId: p.category_id,
+				price: p.price,
+				image: p.image || '/picture/default-food.jpg',
+				hasVariants: p.has_variants,
+				is_available: p.available,
+			} as MenuItem)))
 		}
 		
-		fetchProducts()
-	}, [activeCategory])
+		setLoading(false)
+	}
+	
+	fetchProducts()
+}, [activeCategory])
 
-	const handleQuantityChange = (id: string, delta: number) => {
-		const item = foodItems.find(i => i.id === id)
-		
-		if (item?.hasVariants) {
-			// For variant items, decrement the last added item
-			if (delta < 0) {
-				const variantCartItems = cart.filter(c => c.productId === id)
-				if (variantCartItems.length > 0) {
-					const lastItem = variantCartItems[variantCartItems.length - 1]
-					const newCart = [...cart]
-					const lastItemIndex = newCart.findIndex(c => c.id === lastItem.id)
-					
-					if (lastItemIndex >= 0) {
-						newCart[lastItemIndex].quantity = Math.max(0, newCart[lastItemIndex].quantity - 1)
-						
-						// Remove if quantity is 0
-						if (newCart[lastItemIndex].quantity === 0) {
-							newCart.splice(lastItemIndex, 1)
-						}
-						setCart(newCart)
-					}
-				}
-			}
-			// For increment, open variant modal
+const handleQuantityChange = (id: string, delta: number) => {
+	const item = foodItems.find(i => i.id === id)
+	
+	if (item?.hasVariants) {
+		if (delta > 0) {
+			handleItemClick(item)
 			return
 		}
 		
-		// For non-variant items
-		const existingItemIndex = cart.findIndex(item => 
-			item.id === id && !item.productId
-		)
-		
-		if (existingItemIndex >= 0) {
-			const newCart = [...cart]
-			newCart[existingItemIndex].quantity = Math.max(0, newCart[existingItemIndex].quantity + delta)
-			
-			// Remove if quantity is 0
-			if (newCart[existingItemIndex].quantity === 0) {
-				newCart.splice(existingItemIndex, 1)
-			}
-			setCart(newCart)
-		} else if (delta > 0) {
-			// Add new item to cart
-			if (item && !item.hasVariants) {
-				setCart([...cart, { ...item, quantity: delta }])
+		// For variant items, decrement the last added item
+		if (delta < 0) {
+			const variantCartItems = cart.filter(c => c.productId === id)
+			if (variantCartItems.length > 0) {
+				const lastItem = variantCartItems[variantCartItems.length - 1]
+				const newCart = [...cart]
+				const lastItemIndex = newCart.findIndex(c => c.id === lastItem.id)
+				
+				if (lastItemIndex >= 0) {
+					newCart[lastItemIndex].quantity = Math.max(0, newCart[lastItemIndex].quantity - 1)
+					
+					// Remove if quantity is 0
+					if (newCart[lastItemIndex].quantity === 0) {
+						newCart.splice(lastItemIndex, 1)
+					}
+					setCart(newCart)
+				}
 			}
 		}
-	};
+		// For increment, open variant modal
+		return
+	}
+	
+	// For non-variant items
+	const existingItemIndex = cart.findIndex(item => 
+		item.id === id && !item.productId
+	)
+	
+	if (existingItemIndex >= 0) {
+		const newCart = [...cart]
+		newCart[existingItemIndex].quantity = Math.max(0, newCart[existingItemIndex].quantity + delta)
+		
+		// Remove if quantity is 0
+		if (newCart[existingItemIndex].quantity === 0) {
+			newCart.splice(existingItemIndex, 1)
+		}
+		setCart(newCart)
+	} else if (delta > 0) {
+		// Add new item to cart
+		if (item && !item.hasVariants) {
+			setCart([...cart, { ...item, quantity: delta }])
+		}
+	}
+};
 
-	const handleItemClick = (item: any) => {
+	const handleItemClick = (item: MenuItem) => {
 		if (item.hasVariants) {
 			setSelectedItem(item);
 			setVariantSidebarOpen(true);
@@ -203,7 +227,7 @@ export default function POSPage() {
 		}
 	};
 
-	const handleAddToOrder = (item: any, selectedVariants: any, totalPrice: number, quantity: number) => {
+	const handleAddToOrder = (item: MenuItem, selectedVariants: SelectedVariant[], totalPrice: number, quantity: number) => {
 		// Add item with variants to cart
 		const cartItem = {
 			id: `${item.id}-${Date.now()}`, // Unique ID for cart item
@@ -223,7 +247,7 @@ export default function POSPage() {
 	};
 
 	// Handle quantity change from OrderSummary
-	const handleOrderQuantityChange = (item: any, newQuantity: number) => {
+	const handleOrderQuantityChange = (item: CartItem, newQuantity: number) => {
 		if (newQuantity <= 0) {
 			// Remove item if quantity is 0 or less
 			const newCart = cart.filter(c => c.id !== item.id)
@@ -251,7 +275,7 @@ export default function POSPage() {
 	}
 
 	// Handle place order
-	const handlePlaceOrder = async (paymentData: any) => {
+	const handlePlaceOrder = async (paymentData: { payment_method: string; cash_amount?: number }) => {
 		if (cart.length === 0) {
 			showError('Keranjang masih kosong!')
 			return
@@ -311,7 +335,7 @@ export default function POSPage() {
 			const product = productsData?.find(p => p.id === productId)
 			
 			// Get category type - categories is a single object when using !inner
-			const category = product?.categories as any
+			const category = product?.categories as { type?: string }
 			const categoryType = category?.type || 'food'
 			
 			// Determine kitchen_status based on category type
@@ -373,15 +397,16 @@ export default function POSPage() {
 			setCart([])
 			setPaymentModalOpen(false)
 
-		} catch (error: any) {
-			alert(`Failed to place order: ${error?.message || 'Unknown error'}`)
-		}
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+		alert(`Failed to place order: ${errorMessage}`)
 	}
+}
 
-	return (
-		<main className="h-[calc(100vh-55px)] bg-gray-100 flex flex-col lg:flex-row overflow-hidden relative">
-			{/* Section 1: Menu - Left scrollable */}
-			<section className="flex-1 flex flex-col overflow-hidden">
+return (
+	<main className="h-[calc(100vh-55px)] bg-gray-100 flex flex-col lg:flex-row overflow-hidden relative">
+		{/* Section 1: Menu - Left scrollable */}
+		<section className="flex-1 flex flex-col overflow-hidden">
 				{/* Header dengan background putih */}
 				<div className="bg-white px-4 md:px-6 py-4 md:py-6 border-b border-gray-200 min-h-[88px] md:min-h-[104px] flex items-center">
 					<div className="w-full">
@@ -467,24 +492,27 @@ export default function POSPage() {
 		<section 
 			onTouchStart={(e) => {
 				const touch = e.touches[0];
-				(e.currentTarget as any).touchStartY = touch.clientY;
+				const target = e.currentTarget as HTMLElement & { touchStartY?: number };
+				target.touchStartY = touch.clientY;
 			}}
 			onTouchMove={(e) => {
 				const touch = e.touches[0];
-				const startY = (e.currentTarget as any).touchStartY;
+				const target = e.currentTarget as HTMLElement & { touchStartY?: number };
+				const startY = target.touchStartY;
 				if (startY && touch.clientY - startY > 10) {
 					// Prevent scroll when dragging down
 					e.preventDefault();
 				}
 			}}
 			onTouchEnd={(e) => {
-				const startY = (e.currentTarget as any).touchStartY;
+				const target = e.currentTarget as HTMLElement & { touchStartY?: number };
+				const startY = target.touchStartY;
 				const endY = e.changedTouches[0].clientY;
-				if (endY - startY > 100) {
+				if (startY && endY - startY > 100) {
 					// Swipe down > 100px, close
 					setOrderDetailsOpen(false);
 				}
-				delete (e.currentTarget as any).touchStartY;
+				delete target.touchStartY;
 			}}
 			className={`
 			/* Mobile: Bottom sheet */
