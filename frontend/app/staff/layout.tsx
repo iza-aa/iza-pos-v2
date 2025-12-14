@@ -2,10 +2,10 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { getCurrentUser } from "@/lib/authUtils";
+import { supabase } from "@/lib/config/supabaseClient";
+import { getCurrentUser } from "@/lib/utils";
 import { Navbar, FloatingAIAssistant, Toast as ToastContainer } from "../components/ui";
-import { setupNetworkMonitoring } from '@/lib/errorHandling';
+import { setupNetworkMonitoring } from '@/lib/services/errorHandling';
 
 type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter';
 

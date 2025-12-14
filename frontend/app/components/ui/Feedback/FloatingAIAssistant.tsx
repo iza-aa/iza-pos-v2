@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { getCurrentUser } from "@/lib/authUtils";
+import { getCurrentUser } from "@/lib/utils";
 import {
   XMarkIcon,
   PaperAirplaneIcon,

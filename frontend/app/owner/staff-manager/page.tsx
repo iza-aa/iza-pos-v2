@@ -9,10 +9,10 @@ import AttendanceSection from "@/app/components/owner/staff-manager/AttendanceSe
 import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle"
 import type { NewStaffData } from "@/app/components/owner/staff-manager/AddStaffModal"
 import bcrypt from "bcryptjs"
-import { generateRandomCode } from '@/lib/authUtils'
-import { TIME_UNITS, POLLING_INTERVALS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from '@/lib/timeConstants'
-import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
-import { logActivity } from '@/lib/activityLogger'
+import { generateRandomCode } from '@/lib/utils'
+import { TIME_UNITS, POLLING_INTERVALS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from '@/lib/constants'
+import { showSuccess, showError, confirmDelete } from '@/lib/services/errorHandling'
+import { logActivity } from '@/lib/services/activity/activityLogger'
 import type { Staff } from '@/lib/types'
 import { UsersIcon, ClockIcon, ChevronDownIcon, CalendarIcon } from '@heroicons/react/24/outline';
 

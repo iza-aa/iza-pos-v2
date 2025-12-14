@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { PlusIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { showSuccess, showError } from '@/lib/errorHandling'
-import { logActivity } from '@/lib/activityLogger'
+import { supabase } from '@/lib/config/supabaseClient'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
+import { logActivity } from '@/lib/services/activity/activityLogger'
 import RecipeModal from './RecipeModal'
 
 interface RecipeIngredient {

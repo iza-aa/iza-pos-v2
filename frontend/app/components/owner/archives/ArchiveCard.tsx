@@ -11,7 +11,9 @@ import {
   DocumentIcon,
   ClipboardDocumentListIcon,
   CurrencyDollarIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  DocumentTextIcon,
+  TableCellsIcon
 } from '@heroicons/react/24/outline'
 
 interface ArchiveCardProps {
@@ -34,7 +36,7 @@ interface ArchiveCardProps {
     sales?: string
     staff_attendance?: string
   }
-  onDownload: (archiveId: string, fileType?: string) => void
+  onDownload: (archiveId: string, fileType?: string, format?: 'pdf' | 'excel') => void
   onDelete?: (archiveId: string) => void
 }
 
@@ -50,6 +52,7 @@ export default function ArchiveCard({
   onDelete
 }: ArchiveCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [expandedFileType, setExpandedFileType] = useState<string | null>(null)
   
   const formattedDate = new Date(generatedAt).toLocaleDateString('id-ID', {
     day: '2-digit',
@@ -96,6 +99,13 @@ export default function ArchiveCard({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] md:text-xs text-gray-500">{formattedDate}</span>
+            <button
+              onClick={() => onDownload(archiveId)}
+              className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              title="Download all files"
+            >
+              <DocumentArrowDownIcon className="w-3.5 h-3.5" />
+            </button>
             {onDelete && (
               <button
                 onClick={() => onDelete(archiveId)}
@@ -181,18 +191,59 @@ export default function ArchiveCard({
               <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-200">
                 {filesList.map((file) => {
                   const IconComponent = file.IconComponent
+                  const isFileExpanded = expandedFileType === file.type
+                  
                   return (
-                    <button
-                      key={file.type}
-                      onClick={() => onDownload(archiveId, file.type)}
-                      className="w-full px-2 py-1.5 bg-gray-50 hover:bg-gray-100 text-left text-[10px] md:text-xs rounded transition flex items-center justify-between group border border-gray-200"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <IconComponent className="w-3.5 h-3.5 text-gray-600" />
-                        <span className="text-gray-700 font-medium">{file.label}</span>
-                      </div>
-                      <DocumentArrowDownIcon className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600" />
-                    </button>
+                    <div key={file.type} className="space-y-1">
+                      {/* File Type Header */}
+                      <button
+                        onClick={() => setExpandedFileType(isFileExpanded ? null : file.type)}
+                        className="w-full px-2 py-1.5 bg-gray-50 hover:bg-gray-100 text-left text-[10px] md:text-xs rounded transition flex items-center justify-between border border-gray-200"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <IconComponent className="w-3.5 h-3.5 text-gray-600" />
+                          <span className="text-gray-700 font-medium">{file.label}</span>
+                        </div>
+                        {isFileExpanded ? (
+                          <ChevronUpIcon className="w-3.5 h-3.5 text-gray-400" />
+                        ) : (
+                          <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+                        )}
+                      </button>
+
+                      {/* Format Options (Expanded) */}
+                      {isFileExpanded && (
+                        <div className="pl-4 space-y-1">
+                          <button
+                            onClick={() => {
+                              onDownload(archiveId, file.type, 'pdf')
+                              setExpandedFileType(null)
+                            }}
+                            className="w-full px-2 py-1.5 bg-white hover:bg-gray-50 text-left text-[10px] md:text-xs rounded transition flex items-center justify-between group border border-gray-200"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <DocumentTextIcon className="w-3.5 h-3.5 text-red-600" />
+                              <span className="text-gray-700">PDF Document</span>
+                            </div>
+                            <DocumentArrowDownIcon className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600" />
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              onDownload(archiveId, file.type, 'excel')
+                              setExpandedFileType(null)
+                            }}
+                            className="w-full px-2 py-1.5 bg-white hover:bg-gray-50 text-left text-[10px] md:text-xs rounded transition flex items-center justify-between group border border-gray-200"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <TableCellsIcon className="w-3.5 h-3.5 text-green-600" />
+                              <span className="text-gray-700">Excel Spreadsheet</span>
+                            </div>
+                            <DocumentArrowDownIcon className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>

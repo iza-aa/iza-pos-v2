@@ -8,9 +8,9 @@ import {
   ArrowDownTrayIcon,
   ChevronDownIcon
 } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { showError, showWarning } from '@/lib/errorHandling'
-import { shouldShowArchiveReminder } from '@/lib/archiveService'
+import { supabase } from '@/lib/config/supabaseClient'
+import { showError, showWarning } from '@/lib/services/errorHandling'
+import { shouldShowArchiveReminder } from '@/lib/services/archiveService'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { 
@@ -20,7 +20,7 @@ import {
   ActivityCategory,
   SeverityLevel,
   UserRole
-} from '@/lib/activityTypes'
+} from '@/lib/types'
 import {
   ActivityLogStats,
   ActivityLogFilters,

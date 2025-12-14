@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
-import { formatCurrency } from '@/lib/numberConstants'
+import { formatCurrency } from '@/lib/constants';
 
 interface DeleteItemModalProps {
   isOpen: boolean

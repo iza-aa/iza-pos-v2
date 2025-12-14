@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { XMarkIcon, ArchiveBoxIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { dismissArchiveReminder, generateMonthlyArchive, deleteArchivedData, getPreviousMonthRange } from '@/lib/archiveService'
-import { showSuccess, showError } from '@/lib/errorHandling'
+import { dismissArchiveReminder, generateMonthlyArchive, deleteArchivedData, getPreviousMonthRange } from '@/lib/services/archiveService'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
 
 interface ArchiveBannerProps {
   onDismiss: () => void

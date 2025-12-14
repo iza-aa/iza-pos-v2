@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { MagnifyingGlassIcon, EyeIcon, EyeSlashIcon, ShoppingCartIcon, ArrowUpTrayIcon, AdjustmentsHorizontalIcon, UserCircleIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { formatCurrency } from '@/lib/numberConstants'
-import { COLORS } from '@/lib/themeConstants'
+import { supabase } from '@/lib/config/supabaseClient'
+import { formatCurrency } from '@/lib/constants'
+import { COLORS } from '@/lib/constants'
 
 interface UsageTransaction {
   id: string

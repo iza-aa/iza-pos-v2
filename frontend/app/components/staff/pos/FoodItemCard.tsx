@@ -1,8 +1,8 @@
 "use client";
 
 import { ProductImagePlaceholder } from "@/app/components/ui";
-import { formatCurrency } from '@/lib/numberConstants';
-import { COLORS } from '@/lib/themeConstants';
+import { formatCurrency } from '@/lib/constants';
+import { COLORS } from '@/lib/constants';
 
 interface FoodItem {
 	id: string;

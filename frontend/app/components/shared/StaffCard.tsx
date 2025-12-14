@@ -1,8 +1,8 @@
 'use client'
 
-import { getStaffStatusColor, getStaffStatusStyle, getStaffRoleColor, getStaffRoleStyle } from '@/lib/staffUtils'
-import { getInitials, getAvatarColor } from '@/lib/avatarUtils'
-import { isLoginCodeValid } from '@/lib/staffConstants'
+import { getStaffStatusColor, getStaffStatusStyle, getStaffRoleColor, getStaffRoleStyle } from '@/lib/utils'
+import { getInitials, getAvatarColor } from '@/lib/utils'
+import { isLoginCodeValid } from '@/lib/constants'
 import type { Staff } from '@/lib/types'
 
 interface StaffCardProps {

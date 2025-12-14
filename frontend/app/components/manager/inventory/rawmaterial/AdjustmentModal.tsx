@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { XMarkIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline'
-import { showSuccess, showError } from '@/lib/errorHandling'
-import { validateRequired, validateRange } from '@/lib/validation'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
+import { validateRequired, validateRange } from '@/lib/utils'
 
 interface InventoryItem {
   id: string

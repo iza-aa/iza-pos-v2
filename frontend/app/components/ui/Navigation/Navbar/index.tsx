@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { getCurrentUser } from '@/lib/authUtils'
+import { getCurrentUser } from '@/lib/utils'
 import { 
   BellIcon, 
   Bars3Icon, 

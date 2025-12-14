@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { FiCamera, FiTrash2, FiLogOut } from "react-icons/fi";
 import { createClient } from "@supabase/supabase-js";
-import { logActivity } from "@/lib/activityLogger";
-import { getCurrentUser } from "@/lib/authUtils";
+import { logActivity } from "@/lib/services/activity/activityLogger";
+import { getCurrentUser } from "@/lib/utils";
 
 interface ProfilePopoutProps {
   onClose: () => void;

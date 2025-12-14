@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSessionValidation } from '@/lib/useSessionValidation'
+import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
 import { ArchiveBoxIcon, PlusIcon, FolderIcon, ClipboardDocumentListIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { ArchiveCard } from '@/app/components/owner/archives'
-import { generateMonthlyArchive, ArchiveMetadata, loadArchivesFromDB, deleteArchiveFromDB } from '@/lib/archiveService'
-import { showSuccess, showError } from '@/lib/errorHandling'
+import { generateMonthlyArchive, ArchiveMetadata, loadArchivesFromDB, deleteArchiveFromDB, downloadArchiveFile } from '@/lib/services/archiveService'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
 
 export default function ArchivesPage() {
   useSessionValidation()
@@ -51,32 +51,20 @@ export default function ArchivesPage() {
     }
   }
 
-  const handleDownload = async (archiveId: string, fileType?: string) => {
+  const handleDownload = async (archiveId: string, fileType?: string, format: 'pdf' | 'excel' = 'pdf') => {
     setLoading(true)
     try {
-      // If specific file type requested, generate and download that file only
-      if (fileType) {
-        let dataTypes: ('activity_logs' | 'sales' | 'staff_attendance')[] = []
-        if (fileType === 'activity_logs') dataTypes = ['activity_logs']
-        else if (fileType === 'sales') dataTypes = ['sales']
-        else if (fileType === 'staff_attendance') dataTypes = ['staff_attendance']
-
-        const result = await generateMonthlyArchive(dataTypes)
-        
-        if (result.success) {
-          showSuccess(`${fileType === 'activity_logs' ? 'Activity Logs' : fileType === 'sales' ? 'Sales Report' : 'Staff Attendance'} downloaded successfully`)
-        } else {
-          showError(result.message)
-        }
+      // Download without regenerating/saving to DB
+      const result = await downloadArchiveFile(archiveId, fileType, format)
+      
+      if (result.success) {
+        const formatName = format === 'pdf' ? 'PDF' : 'Excel'
+        const fileName = fileType ? 
+          (fileType === 'activity_logs' ? 'Activity Logs' : fileType === 'sales' ? 'Sales Report' : 'Staff Attendance') :
+          'All files'
+        showSuccess(`${fileName} (${formatName}) downloaded successfully`)
       } else {
-        // Download all files
-        const result = await generateMonthlyArchive(['activity_logs', 'sales', 'staff_attendance'])
-        
-        if (result.success) {
-          showSuccess('All archive files downloaded successfully')
-        } else {
-          showError(result.message)
-        }
+        showError(result.message)
       }
     } catch (error: any) {
       showError(error.message || 'Failed to download archive')

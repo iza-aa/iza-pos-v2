@@ -5,10 +5,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { FiSearch } from "react-icons/fi";
 import { BiQr } from "react-icons/bi";
 import { CustomDropdown } from "@/app/components/ui";
-import { roleOptions } from '@/lib/staffConstants';
-import { generateRandomCode } from '@/lib/authUtils';
-import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from '@/lib/timeConstants';
-import { showSuccess, showError } from '@/lib/errorHandling';
+import { roleOptions } from '@/lib/constants';
+import { generateRandomCode } from '@/lib/utils';
+import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from '@/lib/constants';
+import { showSuccess, showError } from '@/lib/services/errorHandling';
 
 const supabase = createClient(
 	process.env.NEXT_PUBLIC_SUPABASE_URL!,

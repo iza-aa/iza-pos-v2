@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { showError } from '@/lib/errorHandling'
-import { isPositiveNumber } from '@/lib/validation'
+import { supabase } from '@/lib/config/supabaseClient'
+import { showError } from '@/lib/services/errorHandling'
+import { isPositiveNumber } from '@/lib/utils'
 
 interface RecipeIngredient {
   inventory_item_id: string

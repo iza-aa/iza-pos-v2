@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { MagnifyingGlassIcon, Squares2X2Icon, TableCellsIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { showSuccess, showError } from '@/lib/errorHandling'
+import { supabase } from '@/lib/config/supabaseClient'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
 import RecipeVariantsCard from './RecipeVariantsCard'
 import { useRecipeVariants } from './useRecipeVariants'
 import { getRecipeForOption, filterVariantGroups, formatPriceModifier } from './helpers'

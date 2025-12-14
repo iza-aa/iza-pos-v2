@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { getCurrentUser } from "@/lib/authUtils"
+import { getCurrentUser } from "@/lib/utils"
 import TotalSales from "@/app/components/owner/dashboard/analytics/totalsales"
 import TotalProductSales from "@/app/components/owner/dashboard/analytics/totalproductsales"
 import TotalCustomer from "@/app/components/owner/dashboard/analytics/totalcustomer"

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { generateRandomCode } from "@/lib/authUtils";
-import { EXPIRATION_TIMES } from "@/lib/timeConstants";
+import { generateRandomCode } from "@/lib/utils";
+import { EXPIRATION_TIMES } from "@/lib/constants";
 
 // Helper kirim WhatsApp via Fonnte
 async function sendWhatsAppMessage(phone: string, code: string) {

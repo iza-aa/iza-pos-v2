@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { getCurrentUser } from "@/lib/authUtils";
+import { getCurrentUser } from "@/lib/utils";
 import { Navbar, FloatingAIAssistant, Toast as ToastContainer } from "../components/ui";
-import { setupNetworkMonitoring } from '@/lib/errorHandling';
+import { setupNetworkMonitoring } from '@/lib/services/errorHandling';
 
 export default function ManagerLayout({
   children,

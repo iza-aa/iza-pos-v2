@@ -1,8 +1,8 @@
 "use client";
 import { PencilIcon, MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
-import { formatCurrency } from '@/lib/numberConstants';
-import { COLORS } from '@/lib/themeConstants';
+import { formatCurrency } from '@/lib/constants';
+import { COLORS } from '@/lib/constants';
 
 interface OrderItem {
 	id: string;

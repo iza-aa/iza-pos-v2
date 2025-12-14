@@ -1,5 +1,7 @@
 'use client'
 
+import OrderSourceBadge from '@/app/components/shared/OrderSourceBadge';
+
 interface OrderItem {
   name: string
   quantity: number
@@ -19,6 +21,7 @@ interface Order {
   time: string
   status: "new" | "preparing" | "partially-served" | "served" | "completed"
   table?: string
+  orderSource?: 'pos' | 'qr'
 }
 
 interface OrderTableProps {
@@ -79,16 +82,19 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
               <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Time
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[10%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Table/Type
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[10%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Source
+              </th>
+              <th className="w-[10%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Items
               </th>
-              <th className="w-[12%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[10%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Total
               </th>
-              <th className="w-[14%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="w-[13%] px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Status
               </th>
             </tr>
@@ -117,13 +123,19 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
                     <div className="text-xs text-gray-500">{order.date}</div>
                   </td>
                   
-                  <td className="w-[12%] px-6 py-4 whitespace-nowrap">
+                  <td className="w-[10%] px-6 py-4 whitespace-nowrap">
                     <div className={`text-sm text-gray-700 ${!order.table ? 'font-bold' : ''}`}>
                       {order.table || "Takeway"}
                     </div>
                   </td>
                   
-                  <td className="w-[25%] px-6 py-4">
+                  <td className="w-[10%] px-6 py-4 whitespace-nowrap">
+                    {order.orderSource && (
+                      <OrderSourceBadge source={order.orderSource} size="sm" />
+                    )}
+                  </td>
+                  
+                  <td className="w-[10%] px-6 py-4">
                     <div className="space-y-1">
                       {displayItems.map((item, idx) => (
                         <div key={idx} className="text-sm text-gray-700">
@@ -138,13 +150,13 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
                     </div>
                   </td>
                   
-                  <td className="w-[12%] px-6 py-4 whitespace-nowrap">
+                  <td className="w-[10%] px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-bold text-green-600">
                       ${order.total.toFixed(2)}
                     </div>
                   </td>
                   
-                  <td className="w-[14%] px-6 py-4 whitespace-nowrap">
+                  <td className="w-[13%] px-6 py-4 whitespace-nowrap">
                     <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${config.bg}`}>
                       <span className="text-base">{config.icon}</span>
                       <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>

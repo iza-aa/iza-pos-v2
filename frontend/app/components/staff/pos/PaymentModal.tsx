@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import { formatCurrency } from '@/lib/numberConstants'
+import { formatCurrency } from '@/lib/constants'
 
 interface PaymentModalProps {
   isOpen: boolean

@@ -1,7 +1,7 @@
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor } from '@/lib/activityTypes'
+import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor } from '@/lib/types'
 
-import { parseSupabaseTimestamp, formatJakartaDateTime } from "@/lib/dateUtils";
+import { parseSupabaseTimestamp, formatJakartaDateTime } from "@/lib/utils";
 
 interface ActivityLogDetailProps {
   log: ActivityLog | null

@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { useSessionValidation } from "@/lib/useSessionValidation"
-import { getCurrentUser, generateRandomCode } from "@/lib/authUtils"
-import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from "@/lib/timeConstants"
-import { supabase } from "@/lib/supabaseClient"
+import { useSessionValidation } from "@/lib/hooks/useSessionValidation"
+import { getCurrentUser, generateRandomCode } from "@/lib/utils"
+import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from "@/lib/constants"
+import { supabase } from "@/lib/config/supabaseClient"
 import { SearchBar, ViewModeToggle } from "@/app/components/ui"
 import { StaffCard, StaffTable, QRPresenceModal } from "@/app/components/shared"
 import AttendanceSection from "@/app/components/owner/staff-manager/AttendanceSection"
@@ -17,6 +17,8 @@ export default function ManagerStaffPage() {
   useSessionValidation()
   
   const [staffList, setStaffList] = useState<Staff[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('card')
   const [copyMsg, setCopyMsg] = useState("")
   const [activeTab, setActiveTab] = useState<'staff' | 'presensi'>('staff')
@@ -53,6 +55,18 @@ export default function ManagerStaffPage() {
   useEffect(() => {
     fetchStaff()
   }, [])
+
+  // Filtered staff list based on search query
+  const filteredStaff = useMemo(() => {
+    if (!searchQuery.trim()) return staffList
+    
+    const query = searchQuery.toLowerCase()
+    return staffList.filter(staff => 
+      staff.name?.toLowerCase().includes(query) ||
+      staff.staff_code?.toLowerCase().includes(query) ||
+      staff.role?.toLowerCase().includes(query)
+    )
+  }, [staffList, searchQuery])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -355,6 +369,8 @@ export default function ManagerStaffPage() {
                     staff={staff}
                     onGeneratePass={() => handleGeneratePass(staff.id)}
                     onCopyCode={handleCopyCode}
+                    onEdit={() => {}} // Dummy - Manager can't edit
+                    onDelete={() => {}} // Dummy - Manager can't delete
                     showActions={false}
                   />
                 ))}
@@ -364,6 +380,8 @@ export default function ManagerStaffPage() {
                 staffList={filteredStaff}
                 onGeneratePass={handleGeneratePass}
                 onCopyCode={handleCopyCode}
+                onEdit={() => {}} // Dummy - Manager can't edit
+                onDelete={() => {}} // Dummy - Manager can't delete
                 showActions={false}
               />
             )}

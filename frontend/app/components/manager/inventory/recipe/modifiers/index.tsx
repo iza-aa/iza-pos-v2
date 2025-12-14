@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/lib/config/supabaseClient'
 import type { VariantOption } from '@/lib/types'
 
 interface ModifierRecipe {

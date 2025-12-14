@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from "next/navigation";
 import { Navbar, FloatingAIAssistant, Toast as ToastContainer } from "../components/ui";
-import { setupNetworkMonitoring } from '@/lib/errorHandling';
+import { setupNetworkMonitoring } from '@/lib/services/errorHandling';
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

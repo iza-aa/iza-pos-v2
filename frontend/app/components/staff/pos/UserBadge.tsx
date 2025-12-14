@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { getCurrentUser } from '@/lib/authUtils';
+import { getCurrentUser } from '@/lib/utils';
 
 export default function UserBadge() {
 	const [userName, setUserName] = useState("");

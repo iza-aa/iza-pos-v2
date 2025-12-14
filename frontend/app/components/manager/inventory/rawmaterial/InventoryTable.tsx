@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { EllipsisVerticalIcon, ArrowUpTrayIcon, AdjustmentsHorizontalIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
-import { getInventoryStatusColor, getInventoryStatusStyle, getInventoryStatusText } from '@/lib/staffUtils'
+import { getInventoryStatusColor, getInventoryStatusStyle, getInventoryStatusText } from '@/lib/utils'
 
 interface InventoryItem {
   id: string

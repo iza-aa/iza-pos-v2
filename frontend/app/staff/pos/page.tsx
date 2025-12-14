@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useSessionValidation } from "@/lib/useSessionValidation";
-import { getCurrentStaffInfo, getCurrentUser } from '@/lib/authUtils';
-import { logActivity } from '@/lib/activityLogger';
+import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
+import { getCurrentStaffInfo, getCurrentUser } from '@/lib/utils';
+import { logActivity } from '@/lib/services/activity/activityLogger';
 import OrderLineTabs from "@/app/components/staff/pos/OrderLineTabs";
 import OrderLineCard from "@/app/components/staff/pos/OrderLineCard";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
@@ -13,10 +13,10 @@ import OrderSummary from "@/app/components/staff/pos/OrderSummary";
 import PaymentModal from "@/app/components/staff/pos/PaymentModal";
 import PaymentSummary from "@/app/components/staff/pos/PaymentSummary";
 import { ChevronLeftIcon, ChevronRightIcon, PrinterIcon, ShoppingCartIcon, MagnifyingGlassIcon, ChevronDoubleRightIcon, ChevronDoubleLeftIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { supabase } from "@/lib/supabaseClient";
-import { formatCurrency } from '@/lib/numberConstants';
+import { supabase } from "@/lib/config/supabaseClient";
+import { formatCurrency } from '@/lib/constants';
 import { LayoutGrid, Coffee, UtensilsCrossed, Cookie, Cake, Milk, Pizza, Sandwich, Soup, Salad, IceCream } from 'lucide-react';
-import { showSuccess, showError, showWarning } from '@/lib/errorHandling';
+import { showSuccess, showError, showWarning } from '@/lib/services/errorHandling';
 import type { MenuItem, VariantGroup, VariantOption, SelectedVariant } from '@/lib/types';
 
 // Icon mapping for categories
@@ -151,7 +151,7 @@ export default function POSPage() {
 				category: p.category?.name || 'Unknown',
 				categoryId: p.category_id,
 				price: p.price,
-				image: p.image || '/picture/default-food.jpg',
+				image: p.image || null,
 				hasVariants: p.has_variants,
 				is_available: p.available,
 			} as MenuItem)))
@@ -295,13 +295,28 @@ const handleQuantityChange = (id: string, delta: number) => {
 			// Generate order number
 		const orderNumber = `ORD-${Date.now()}`
 
-	// 1. Create order with role tracking and staff code
+	// 1. Get table_id if table_number is provided
+	let tableId = null;
+	if (paymentData.tableNumber) {
+		const { data: tableData } = await supabase
+			.from('tables')
+			.select('id')
+			.eq('table_number', paymentData.tableNumber)
+			.eq('is_active', true)
+			.maybeSingle();
+		
+		tableId = tableData?.id || null;
+	}
+
+	// 2. Create order with role tracking, staff code, and table integration
 	const { data: orderData, error: orderError } = await supabase
 		.from('orders')
 		.insert([{
 		order_number: orderNumber,
 		customer_name: paymentData.customerName || 'Guest',
 		table_number: paymentData.tableNumber || null,
+		table_id: tableId,
+		order_source: 'pos',
 		order_type: paymentData.tableNumber ? 'Dine in' : 'Take Away',
 		status: 'new',
 		subtotal: total,
@@ -321,7 +336,9 @@ const handleQuantityChange = (id: string, delta: number) => {
 	
 	if (orderError) {
 			throw orderError
-		}		// 2. Fetch products with categories to determine kitchen_status
+		}
+
+		// 3. Fetch products with categories to determine kitchen_status
 		const productIds = cart.map(item => item.productId || item.id)
 		const { data: productsData, error: productError } = await supabase
 			.from('products')
@@ -330,7 +347,7 @@ const handleQuantityChange = (id: string, delta: number) => {
 
 	if (productError) {
 		throw productError
-	}		// 3. Create order items with kitchen_status
+	}		// 4. Create order items with kitchen_status
 		const orderItems = cart.map(item => {
 			const productId = item.productId || item.id
 			const product = productsData?.find(p => p.id === productId)
@@ -348,10 +365,10 @@ const handleQuantityChange = (id: string, delta: number) => {
 			product_name: product?.name || item.name || 'Unknown Item',
 			quantity: item.quantity,
 			base_price: item.price,
-			variants: item.variants || {},
+			variants: item.variants || null, // Use null instead of {} for empty variants
 			total_price: item.price * item.quantity,
-			kitchen_status: isBeverage ? 'not_required' : 'pending',
-			notes: null
+			kitchen_status: isBeverage ? 'not_required' : 'pending'
+			// notes is nullable, don't send if null
 		}
 	})
 

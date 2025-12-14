@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/activityTypes'
-import { parseSupabaseTimestamp, formatJakartaTime } from '@/lib/dateUtils'
-import { POLLING_INTERVALS } from '@/lib/timeConstants'
+import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/types'
+import { parseSupabaseTimestamp, formatJakartaTime } from '@/lib/utils'
+import { POLLING_INTERVALS } from '@/lib/constants'
 
 interface ActivityLogTableProps {
   logs: ActivityLog[]

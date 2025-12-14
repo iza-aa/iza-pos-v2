@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useSessionValidation } from "@/lib/useSessionValidation";
-import { POLLING_INTERVALS, getWeeksAgo, getMonthsAgo } from "@/lib/timeConstants";
+import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
+import { POLLING_INTERVALS, getWeeksAgo, getMonthsAgo } from "@/lib/constants";
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
 import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
@@ -9,10 +9,10 @@ import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
 import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
-import { supabase } from "@/lib/supabaseClient";
-import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
-import { showSuccess, showError } from '@/lib/errorHandling';
-import { logActivity } from '@/lib/activityLogger';
+import { supabase } from "@/lib/config/supabaseClient";
+import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/utils";
+import { showSuccess, showError } from '@/lib/services/errorHandling';
+import { logActivity } from '@/lib/services/activity/activityLogger';
 
 interface Order {
 	id: string;
@@ -25,6 +25,7 @@ interface Order {
 	time: string;
 	status: "new" | "preparing" | "partially-served" | "served" | "completed";
 	table?: string;
+	orderSource?: 'pos' | 'qr';
 	createdAt: string;
 	createdByName?: string;
 	createdByRole?: string;
@@ -41,7 +42,7 @@ export default function ManagerOrderPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
 	const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served'>('all');
+	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served' | 'pos' | 'qr'>('all');
 
 	useEffect(() => {
 		fetchOrders();
@@ -241,6 +242,7 @@ export default function ManagerOrderPage() {
 				time: formatJakartaTime(orderCreatedAt),
 				status,
 				table: order.table_number || undefined,
+				orderSource: order.order_source || undefined,
 				createdByName: order.created_by ? staffMap.get(order.created_by)?.name : undefined,
 				createdByRole: order.created_by ? staffMap.get(order.created_by)?.type : order.created_by_role,
 				servedByNames: servedByNames,
@@ -363,6 +365,10 @@ export default function ManagerOrderPage() {
 			matchesFilter = order.status === 'partially-served';
 		} else if (orderFilter === 'served') {
 			matchesFilter = order.status === 'served';
+		} else if (orderFilter === 'pos') {
+			matchesFilter = order.orderSource === 'pos';
+		} else if (orderFilter === 'qr') {
+			matchesFilter = order.orderSource === 'qr';
 		}
 
 		// Date filter
@@ -475,6 +481,26 @@ export default function ManagerOrderPage() {
 							}`}
 						>
 							Served
+						</button>
+						<button
+							onClick={() => setOrderFilter('pos')}
+							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+								orderFilter === 'pos'
+									? 'bg-gray-900 text-white shadow-md'
+									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+							}`}
+						>
+							POS Only
+						</button>
+						<button
+							onClick={() => setOrderFilter('qr')}
+							className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+								orderFilter === 'qr'
+									? 'bg-gray-900 text-white shadow-md'
+									: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+							}`}
+						>
+							QR Only
 						</button>
 					</div>
 				</div>

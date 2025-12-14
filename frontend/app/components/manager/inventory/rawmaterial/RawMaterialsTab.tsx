@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { getCurrentUser } from '@/lib/authUtils'
-import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
-import { validateInventoryItem, validateStockAdjustment } from '@/lib/validation'
-import { getStockStatus } from '@/lib/numberConstants'
-import { logActivity } from '@/lib/activityLogger'
+import { getCurrentUser } from '@/lib/utils'
+import { showSuccess, showError, confirmDelete } from '@/lib/services/errorHandling'
+import { validateInventoryItem, validateStockAdjustment } from '@/lib/utils'
+import { getStockStatus } from '@/lib/constants'
+import { logActivity } from '@/lib/services/activity/activityLogger'
 import InventoryStats from './InventoryStats'
 import InventoryFilters from './InventoryFilters'
 import InventoryTable from './InventoryTable'
@@ -14,7 +14,7 @@ import InventoryModal from './InventoryModal'
 import RestockModal from './RestockModal'
 import AdjustmentModal from './AdjustmentModal'
 import { DeleteModal } from '@/app/components/ui'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/lib/config/supabaseClient'
 
 interface InventoryItem {
   id: string

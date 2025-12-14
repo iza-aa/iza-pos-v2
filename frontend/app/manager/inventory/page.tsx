@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState } from 'react'
-import { useSessionValidation } from '@/lib/useSessionValidation'
+import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
 import { Bars3Icon } from '@heroicons/react/24/outline'
 import InventoryTabs from '@/app/components/manager/inventory/InventoryTabs'
 import RawMaterialsTab from '@/app/components/manager/inventory/rawmaterial/RawMaterialsTab'

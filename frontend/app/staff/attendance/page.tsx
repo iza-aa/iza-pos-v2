@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSessionValidation } from "@/lib/useSessionValidation"
-import { getCurrentUser } from '@/lib/authUtils'
-import { supabase } from "@/lib/supabaseClient"
-import { TIME_UNITS } from '@/lib/timeConstants'
-import { showSuccess, showError } from '@/lib/errorHandling'
+import { useSessionValidation } from "@/lib/hooks/useSessionValidation"
+import { getCurrentUser } from '@/lib/utils'
+import { supabase } from '@/lib/config/supabaseClient'
+import { TIME_UNITS } from '@/lib/constants'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
 import { 
   ClockIcon, 
   CheckCircleIcon, 

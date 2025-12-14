@@ -2,9 +2,9 @@
 
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/config/supabaseClient';
 import { ProductImagePlaceholder } from "@/app/components/ui";
-import { formatCurrency } from '@/lib/numberConstants';
+import { formatCurrency } from '@/lib/constants';
 import type { VariantOption, VariantGroup, MenuItem, SelectedVariant } from '@/lib/types';
 
 interface VariantSidebarProps {
@@ -165,7 +165,26 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 	const handleAddToOrder = () => {
 		if (!canAddToOrder()) return;
 		
-		onAddToOrder(item, selectedVariants, calculateTotalPrice(), quantity);
+		// Convert selectedVariants to proper SelectedVariant[] format for database
+		const variantsArray: SelectedVariant[] = [];
+		
+		variantGroups.forEach(group => {
+			const selectedIds = selectedVariantIds[group.id] || [];
+			selectedIds.forEach(optionId => {
+				const option = group.options.find(opt => opt.id === optionId);
+				if (option) {
+					variantsArray.push({
+						group_id: group.id,
+						group_name: group.name,
+						option_id: option.id,
+						option_name: option.name,
+						price_adjustment: option.priceModifier
+					});
+				}
+			});
+		});
+		
+		onAddToOrder(item, variantsArray, calculateTotalPrice(), quantity);
 		onClose();
 	};
 

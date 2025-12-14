@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/activityTypes'
-import { POLLING_INTERVALS } from '@/lib/timeConstants'
+import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/types'
+import { POLLING_INTERVALS } from '@/lib/constants'
 
 interface ActivityLogCardProps {
   log: ActivityLog

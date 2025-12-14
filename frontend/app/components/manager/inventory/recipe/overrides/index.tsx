@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { PencilIcon, PlusIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
-import { validateRequired, isPositiveNumber } from '@/lib/validation'
+import { supabase } from '@/lib/config/supabaseClient'
+import { showSuccess, showError, confirmDelete } from '@/lib/services/errorHandling'
+import { validateRequired, isPositiveNumber } from '@/lib/utils'
 import type { VariantOption } from '@/lib/types'
 
 interface IngredientInput {

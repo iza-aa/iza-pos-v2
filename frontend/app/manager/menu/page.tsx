@@ -2,10 +2,10 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { useSessionValidation } from '@/lib/useSessionValidation'
-import { formatCurrency } from '@/lib/numberConstants'
-import { getCurrentUser } from '@/lib/authUtils'
-import { logActivity } from '@/lib/activityLogger'
+import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
+import { formatCurrency } from '@/lib/constants'
+import { getCurrentUser } from '@/lib/utils'
+import { logActivity } from '@/lib/services/activity/activityLogger'
 import { 
   MagnifyingGlassIcon, 
   PlusIcon, 
@@ -28,10 +28,10 @@ import {
   Salad,
   IceCream
 } from 'lucide-react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/lib/config/supabaseClient'
 import MenuModal from '@/app/components/manager/menu/MenuModal'
 import CategoryModal from '@/app/components/manager/menu/CategoryModal'
-import { DeleteModal } from '@/app/components/ui'
+import { DeleteModal, ProductImagePlaceholder } from '@/app/components/ui'
 import type { MenuItem } from '@/lib/types'
 
 // Icon mapping for categories - maps icon name to Lucide components
@@ -148,7 +148,7 @@ export default function MenuPage() {
           category: p.category?.name || 'Unknown',
           categoryId: p.category_id,
           price: p.price,
-          image: p.image || '/picture/default-food.jpg',
+          image: p.image || null,
           available: p.available,
           hasVariants: p.has_variants,
           variantGroups: p.product_variant_groups?.map((pvg) => pvg.variant_group_id) || [],
@@ -657,10 +657,10 @@ const handleDeleteCategory = (category: Category) => {
                 {/* Menu Image */}
                 <div className="relative p-[3px]">
                   <div className="w-full h-20 md:h-24 bg-gray-200 rounded-xl overflow-hidden">
-                    <img
-                      src={menu.image || "/placeholder.jpg"}
-                      alt={menu.name}
-                      className="w-full h-full object-cover"
+                    <ProductImagePlaceholder
+                      name={menu.name}
+                      imageUrl={menu.image}
+                      className="w-full h-full"
                     />
                   </div>
                 </div>

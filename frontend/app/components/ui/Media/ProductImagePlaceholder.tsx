@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getInitials } from "@/lib/avatarUtils";
+import { getInitials } from "@/lib/utils";
 
 interface ProductImagePlaceholderProps {
   name: string;
@@ -38,8 +38,15 @@ export default function ProductImagePlaceholder({
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // Check if image exists and is valid
-  const hasValidImage = imageUrl && imageUrl.trim() !== '' && imageUrl !== '/placeholder.jpg' && !imageError;
+  // Check if image URL is valid (not empty, not placeholder, not 404 path)
+  const isValidImageUrl = imageUrl && 
+    imageUrl.trim() !== '' && 
+    imageUrl !== '/placeholder.jpg' &&
+    imageUrl !== '/picture/default-food.jpg' &&
+    !imageUrl.includes('undefined') &&
+    !imageUrl.includes('null');
+
+  const hasValidImage = isValidImageUrl && !imageError;
 
   if (hasValidImage) {
     return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { getStaffStatusColor, getStaffStatusStyle } from '@/lib/staffUtils'
+import { getStaffStatusColor, getStaffStatusStyle } from '@/lib/utils'
 import type { Staff } from '@/lib/types'
 
 interface StaffTableProps {

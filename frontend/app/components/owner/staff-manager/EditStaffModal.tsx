@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import { roleOptions, statusOptions } from '@/lib/staffConstants'
+import { roleOptions, statusOptions } from '@/lib/constants'
 import type { Staff } from '@/lib/types'
 
 interface EditStaffModalProps {

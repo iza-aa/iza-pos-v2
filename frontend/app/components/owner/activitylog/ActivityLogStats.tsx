@@ -1,4 +1,4 @@
-import { ActivityLogStats as Stats } from '@/lib/activityTypes'
+import { ActivityLogStats as Stats } from '@/lib/types'
 
 interface ActivityLogStatsProps {
   stats: Stats

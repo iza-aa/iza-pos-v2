@@ -15,7 +15,7 @@ import {
   InformationCircleIcon,
   XMarkIcon 
 } from '@heroicons/react/24/outline'
-import { subscribeToToasts, type ToastOptions } from '@/lib/errorHandling'
+import { subscribeToToasts, type ToastOptions } from '@/lib/services/errorHandling'
 
 interface Toast extends ToastOptions {
   id: number

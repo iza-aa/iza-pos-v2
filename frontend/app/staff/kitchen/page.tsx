@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSessionValidation } from "@/lib/useSessionValidation";
-import { getCurrentUser } from "@/lib/authUtils";
-import { COLORS } from "@/lib/themeConstants";
-import { supabase } from "@/lib/supabaseClient";
+import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
+import { getCurrentUser } from "@/lib/utils";
+import { COLORS } from "@/lib/constants";
+import { supabase } from "@/lib/config/supabaseClient";
 import { ClockIcon, FireIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
 interface KitchenOrder {

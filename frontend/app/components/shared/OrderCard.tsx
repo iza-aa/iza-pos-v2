@@ -2,10 +2,11 @@
 
 import { Trash2, CheckCircle } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { getOrderStatusConfig, getKitchenStatusBadge } from "@/lib/orderConstants";
-import { formatCurrency } from "@/lib/numberConstants";
-import { COLORS } from "@/lib/themeConstants";
+import { getOrderStatusConfig, getKitchenStatusBadge } from "@/lib/constants";
+import { formatCurrency } from "@/lib/constants";
+import { COLORS } from "@/lib/constants";
 import type { Order, OrderItem } from "@/lib/types";
+import OrderSourceBadge from "./OrderSourceBadge";
 
 interface OrderCardProps {
 	order: Order;
@@ -132,7 +133,17 @@ export default function OrderCard({
 											{statusConfig.label}
 										</span>
 									</div>
-									<p className="text-sm text-gray-600">{order.customerName}</p>
+									<div className="flex flex-wrap items-center gap-2 mt-1">
+										<p className="text-sm text-gray-600">{order.customerName}</p>
+										{order.tableNumber && (
+											<span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
+												{order.tableNumber}
+											</span>
+										)}
+										{order.orderSource && (
+											<OrderSourceBadge source={order.orderSource} size="sm" />
+										)}
+									</div>
 									
 									{(order.createdByName || (order.servedByNames && order.servedByNames.length > 0)) && (
 										<div className="mt-2 flex flex-wrap items-center gap-2">

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { getCurrentUser } from "@/lib/authUtils";
+import { supabase } from "@/lib/config/supabaseClient";
+import { getCurrentUser } from "@/lib/utils";
 import { 
   PerformanceSummary, 
   ProductivityTrend, 

@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { XMarkIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
-import { formatCurrency } from '@/lib/numberConstants'
-import { showSuccess, showError } from '@/lib/errorHandling'
-import { validateRequired, isPositiveInteger } from '@/lib/validation'
+import { formatCurrency } from '@/lib/constants'
+import { showSuccess, showError } from '@/lib/services/errorHandling'
+import { validateRequired, isPositiveInteger } from '@/lib/utils'
 
 interface InventoryItem {
   id: string

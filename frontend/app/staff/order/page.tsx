@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useSessionValidation } from "@/lib/useSessionValidation";
-import { getCurrentStaffInfo, getCurrentUser } from '@/lib/authUtils';
-import { ORDER_TIMINGS, TABLES } from '@/lib/orderConstants';
-import { POLLING_INTERVALS, TIME_UNITS, getWeeksAgo, getMonthsAgo } from '@/lib/timeConstants';
+import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
+import { getCurrentStaffInfo, getCurrentUser } from '@/lib/utils';
+import { ORDER_TIMINGS, TABLES } from '@/lib/constants';
+import { POLLING_INTERVALS, TIME_UNITS, getWeeksAgo, getMonthsAgo } from '@/lib/constants';
 import OrderHeader from "@/app/components/staff/order/OrderHeader";
 import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
@@ -11,8 +11,8 @@ import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
 import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
-import { supabase } from "@/lib/supabaseClient";
-import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
+import { supabase } from "@/lib/config/supabaseClient";
+import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/utils";
 
 interface OrderDisplay {
 	id: string
@@ -25,6 +25,7 @@ interface OrderDisplay {
 	time: string
 	status: "new" | "preparing" | "partially-served" | "served" | "completed"
 	table?: string
+	orderSource?: 'pos' | 'qr'
 	createdAt: string
 	timeDiff?: string
 }
@@ -38,7 +39,7 @@ export default function OrderPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
 	const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served'>('all');
+	const [orderFilter, setOrderFilter] = useState<'all' | 'dine-in' | 'takeaway' | 'new-preparing' | 'partially-served' | 'served' | 'pos' | 'qr'>('all');
 
 	// Page protection - only for Owner, Waiter
 	useEffect(() => {
@@ -194,6 +195,7 @@ export default function OrderPage() {
 				time: formatJakartaTime(orderCreatedAt),
 				status,
 				table: order.table_number || undefined,
+				orderSource: order.order_source || undefined,
 				createdByRole: order.created_by_role || undefined,
 				createdByStaffCode: order.created_by_staff_code || undefined,
 				createdByStaffName: order.created_by_staff_name || undefined,
@@ -203,7 +205,7 @@ export default function OrderPage() {
 			};
 			}) || [];
 
-			setOrders(transformedOrders);
+			setOrderList(transformedOrders);
 		} catch (error) {
 			// Error fetching orders
 		} finally {
@@ -322,6 +324,10 @@ export default function OrderPage() {
 			matchesFilter = order.status === 'partially-served';
 		} else if (orderFilter === 'served') {
 			matchesFilter = order.status === 'served';
+		} else if (orderFilter === 'pos') {
+			matchesFilter = order.orderSource === 'pos';
+		} else if (orderFilter === 'qr') {
+			matchesFilter = order.orderSource === 'qr';
 		}
 
 		// Date filter
@@ -432,6 +438,26 @@ export default function OrderPage() {
 						}`}
 					>
 						Served
+					</button>
+					<button
+						onClick={() => setOrderFilter('pos')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'pos'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						POS Only
+					</button>
+					<button
+						onClick={() => setOrderFilter('qr')}
+						className={`px-6 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap flex-shrink-0 ${
+							orderFilter === 'qr'
+								? 'bg-gray-900 text-white shadow-md'
+								: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+						}`}
+					>
+						QR Only
 					</button>
 				</div>
 			</div>				{/* Content */}

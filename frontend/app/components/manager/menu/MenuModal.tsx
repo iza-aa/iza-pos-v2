@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { showError } from '@/lib/errorHandling'
+import { supabase } from '@/lib/config/supabaseClient'
+import { showError } from '@/lib/services/errorHandling'
 import type { MenuItem, VariantOption, VariantGroup } from '@/lib/types'
 
 interface MenuModalProps {

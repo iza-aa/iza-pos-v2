@@ -2,10 +2,10 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { useSessionValidation } from '@/lib/useSessionValidation'
+import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
 import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabaseClient'
-import { formatPriceModifier } from '@/lib/formatUtils'
+import { supabase } from '@/lib/config/supabaseClient'
+import { formatPriceModifier } from '@/lib/utils'
 import VariantGroupModal from '@/app/components/manager/variants/VariantGroupModal'
 import { DeleteModal } from '@/app/components/ui'
 import type { VariantOption, VariantGroup } from '@/lib/types'

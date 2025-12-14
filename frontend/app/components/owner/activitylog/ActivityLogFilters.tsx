@@ -1,4 +1,4 @@
-import { ActivityLogFilters as Filters, UserRole } from '@/lib/activityTypes'
+import { ActivityLogFilters as Filters, UserRole } from '@/lib/types'
 
 interface ActivityLogFiltersProps {
   filters: Filters
