@@ -270,9 +270,8 @@ export default function VariantsPage() {
                       style={{ color: '#FF6859' }}
                     >
                       <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-2 mb-2">

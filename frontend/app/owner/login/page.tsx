@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { logActivity } from "@/lib/activityLogger";
 
 const slides = [
 	{
@@ -55,9 +56,30 @@ export default function OwnerLoginPage() {
 			localStorage.setItem("user_id", result.user_id);
 			localStorage.setItem("user_name", result.user_name);
 			localStorage.setItem("user_role", "owner");
+			
+			// Log successful login
+			await logActivity({
+				action: 'LOGIN',
+				category: 'AUTH',
+				description: `Owner ${result.user_name} logged in successfully`,
+				resourceType: 'Authentication',
+				severity: 'info'
+			});
+			
 			window.location.href = "/owner/dashboard";
 		} else {
 			setError(result.error || "Email atau Password salah.");
+			
+			// Log failed login attempt
+			await logActivity({
+				action: 'LOGIN',
+				category: 'AUTH',
+				description: `Failed owner login attempt`,
+				resourceType: 'Authentication',
+				severity: 'critical',
+				notes: `Failed authentication attempt for email: ${email}`,
+				tags: ['login', 'failed', 'security-alert']
+			});
 		}
 	};
 

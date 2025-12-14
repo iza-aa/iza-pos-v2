@@ -17,9 +17,9 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
     id: '',
     staff_code: '',
     name: '',
-    role: 'Kasir',
+    role: 'Kasir' as Staff['role'],
     phone: '',
-    status: 'active'
+    status: 'active' as Staff['status']
   })
 
   // Update formData when staff prop changes
@@ -88,7 +88,7 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
             </label>
             <select
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as Staff['role'] })}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
@@ -121,7 +121,7 @@ export default function EditStaffModal({ isOpen, staff, onClose, onSave }: EditS
             </label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as Staff['status'] })}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
             >

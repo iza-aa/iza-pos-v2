@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { PlusIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/supabaseClient'
 import { showSuccess, showError } from '@/lib/errorHandling'
+import { logActivity } from '@/lib/activityLogger'
 import RecipeModal from './RecipeModal'
 
 interface RecipeIngredient {
@@ -207,6 +208,24 @@ export default function RecipeDishesTab() {
 
       if (ingredientsError) throw ingredientsError
 
+      // Log recipe creation
+      await logActivity({
+        action: 'CREATE',
+        category: 'INVENTORY',
+        description: `Created recipe for ${selectedProduct?.name || 'product'}`,
+        severity: 'warning',
+        resourceType: 'recipe',
+        resourceId: recipeData.id,
+        resourceName: selectedProduct?.name || '',
+        newValue: JSON.stringify({
+          product_name: selectedProduct?.name,
+          ingredients_count: newRecipe.ingredients.length,
+          ingredients: newRecipe.ingredients.map(ing => `${ing.ingredient_name} (${ing.quantity_needed} ${ing.unit})`)
+        }),
+        notes: `Recipe with ${newRecipe.ingredients.length} ingredients`,
+        tags: ['recipe', 'create', 'inventory']
+      })
+
       await fetchData()
       setShowRecipeModal(false)
       setSelectedProduct(null)
@@ -263,6 +282,30 @@ export default function RecipeDishesTab() {
         console.error('Insert error:', ingredientsError)
         throw ingredientsError
       }
+
+      // Get product name for logging
+      const product = products.find(p => p.id === updatedRecipe.product_id)
+      
+      // Log recipe update
+      await logActivity({
+        action: 'UPDATE',
+        category: 'INVENTORY',
+        description: `Updated recipe for ${product?.name || 'product'}`,
+        severity: 'warning',
+        resourceType: 'recipe',
+        resourceId: updatedRecipe.id,
+        resourceName: product?.name || '',
+        previousValue: editingRecipe ? JSON.stringify({
+          ingredients_count: editingRecipe.ingredients.length,
+          ingredients: editingRecipe.ingredients.map(ing => `${ing.ingredient_name} (${ing.quantity_needed} ${ing.unit})`)
+        }) : undefined,
+        newValue: JSON.stringify({
+          ingredients_count: updatedRecipe.ingredients.length,
+          ingredients: updatedRecipe.ingredients.map(ing => `${ing.ingredient_name} (${ing.quantity_needed} ${ing.unit})`)
+        }),
+        notes: `Recipe ingredients updated`,
+        tags: ['recipe', 'update', 'inventory']
+      })
 
       await fetchData()
       setShowRecipeModal(false)

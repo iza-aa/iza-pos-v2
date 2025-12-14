@@ -85,15 +85,6 @@ export default function ActivityLogCard({ log, onClick }: ActivityLogCardProps) 
             💬 {log.notes}
           </div>
         )}
-
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1 mt-2 md:mt-3">
-          {log.tags.slice(0, 3).map(tag => (
-            <span key={tag} className="text-[10px] md:text-xs bg-white text-black px-1.5 md:px-2 py-0.5 rounded">
-              {tag}
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   )

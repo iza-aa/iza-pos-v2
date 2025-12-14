@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useSessionValidation } from '@/lib/useSessionValidation'
 import { formatCurrency } from '@/lib/numberConstants'
 import { getCurrentUser } from '@/lib/authUtils'
+import { logActivity } from '@/lib/activityLogger'
 import { 
   MagnifyingGlassIcon, 
   PlusIcon, 
@@ -293,6 +294,24 @@ export default function MenuPage() {
       
       setMenuItems(prev => [...prev, menu])
       setShowAddMenuModal(false)
+      
+      // Log activity
+      await logActivity({
+        action: 'CREATE',
+        category: 'MENU',
+        description: `Created new menu item: ${menu.name}`,
+        resourceType: 'Menu Item',
+        resourceId: menu.id,
+        resourceName: menu.name,
+        newValue: {
+          name: menu.name,
+          category: menu.category,
+          price: menu.price,
+          hasVariants: menu.hasVariants
+        },
+        severity: 'info',
+        tags: ['menu', 'create']
+      })
     }
   }
 
@@ -334,8 +353,50 @@ export default function MenuPage() {
           .insert(variantGroupsData)
       }
       
+      // Find old menu for comparison
+      const oldMenu = menuItems.find(m => m.id === updatedMenu.id)
+      
       setMenuItems(prev => prev.map(m => m.id === updatedMenu.id ? updatedMenu : m))
       setEditingMenu(null)
+      
+      // Calculate price change percentage
+      let priceChangePercent = 0
+      let severity: 'info' | 'warning' = 'info'
+      let changesSummary = ''
+      
+      if (oldMenu && oldMenu.price !== updatedMenu.price) {
+        priceChangePercent = Math.abs(((updatedMenu.price - oldMenu.price) / oldMenu.price) * 100)
+        
+        // Set warning severity if price change > 20%
+        if (priceChangePercent > 20) {
+          severity = 'warning'
+        }
+        
+        changesSummary = `Price: ${formatCurrency(oldMenu.price)} → ${formatCurrency(updatedMenu.price)} (${priceChangePercent.toFixed(1)}% change)`
+      }
+      
+      // Log activity with changes
+      await logActivity({
+        action: 'UPDATE',
+        category: 'MENU',
+        description: `Updated menu item: ${updatedMenu.name}`,
+        resourceType: 'Menu Item',
+        resourceId: updatedMenu.id,
+        resourceName: updatedMenu.name,
+        previousValue: oldMenu ? {
+          name: oldMenu.name,
+          price: oldMenu.price,
+          available: oldMenu.available
+        } : undefined,
+        newValue: {
+          name: updatedMenu.name,
+          price: updatedMenu.price,
+          available: updatedMenu.available
+        },
+        changesSummary: changesSummary || undefined,
+        severity,
+        tags: ['menu', 'update', priceChangePercent > 20 ? 'price-alert' : undefined].filter(Boolean) as string[]
+      })
     }
   }
 
@@ -352,6 +413,25 @@ export default function MenuPage() {
       
       if (!error) {
         setMenuItems(prev => prev.filter(m => m.id !== deletingMenu.id))
+        
+        // Log activity
+        await logActivity({
+          action: 'DELETE',
+          category: 'MENU',
+          description: `Deleted menu item: ${deletingMenu.name}`,
+          resourceType: 'Menu Item',
+          resourceId: deletingMenu.id,
+          resourceName: deletingMenu.name,
+          previousValue: {
+            name: deletingMenu.name,
+            category: deletingMenu.category,
+            price: deletingMenu.price
+          },
+          severity: 'critical',
+          tags: ['menu', 'delete'],
+          isReversible: false
+        })
+        
         setDeletingMenu(null)
       }
     }

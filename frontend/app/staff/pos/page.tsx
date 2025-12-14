@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSessionValidation } from "@/lib/useSessionValidation";
 import { getCurrentStaffInfo, getCurrentUser } from '@/lib/authUtils';
+import { logActivity } from '@/lib/activityLogger';
 import OrderLineTabs from "@/app/components/staff/pos/OrderLineTabs";
 import OrderLineCard from "@/app/components/staff/pos/OrderLineCard";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
@@ -378,19 +379,22 @@ const handleQuantityChange = (id: string, delta: number) => {
 			}
 
 			// 5. Log activity
-			await supabase
-				.from('activity_logs')
-				.insert([{
-					staff_id: staffId,
-					activity_type: 'order_created',
-					description: `Created order ${orderNumber} - ${cart.length} items - ${formatCurrency(total)}`,
-					metadata: {
-						order_id: orderData.id,
-						order_number: orderNumber,
-						total: total,
-						payment_method: 'Cash'
-					}
-				}])
+			await logActivity({
+				action: 'CREATE',
+				category: 'SALES',
+				description: `Created order ${orderNumber} with ${cart.length} items`,
+				resourceType: 'Order',
+				resourceId: orderData.id,
+				resourceName: orderNumber,
+				newValue: {
+					order_number: orderNumber,
+					total: total,
+					items_count: cart.length,
+					payment_method: 'Cash'
+				},
+				severity: 'info',
+				tags: ['order', 'create', 'pos']
+			})
 
 			// Success! Clear cart and close modal
 			alert(`Order ${orderNumber} placed successfully!`)

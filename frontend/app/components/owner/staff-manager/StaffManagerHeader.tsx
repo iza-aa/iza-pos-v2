@@ -8,6 +8,7 @@ interface StaffManagerHeaderProps {
   onGenerateQR: () => void
   onAddStaff?: () => void
   children?: ReactNode
+  activeTab?: 'staff' | 'presensi'
 }
 
 export default function StaffManagerHeader({ 
@@ -15,7 +16,8 @@ export default function StaffManagerHeader({
   description, 
   onGenerateQR,
   onAddStaff,
-  children
+  children,
+  activeTab = 'staff'
 }: StaffManagerHeaderProps) {
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 md:mb-6 gap-4">
@@ -25,25 +27,25 @@ export default function StaffManagerHeader({
       </div>
 
       <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-        {onAddStaff && (
+        {onAddStaff && activeTab === 'staff' && (
           <button
             onClick={onAddStaff}
-            className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition"
+            className="flex items-center justify-center h-[38px] md:h-[42px] w-[38px] md:w-[42px] bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition"
             title="Add New Staff"
           >
-            <UserPlusIcon className="w-4 md:w-5 h-4 md:h-5" />
-            <span className="text-xs md:text-sm font-medium">Add Staff</span>
+            <UserPlusIcon className="w-5 md:w-5 h-5 md:h-5" />
           </button>
         )}
         
-        <button
-          onClick={onGenerateQR}
-          className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-100 text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-200 transition"
-          title="Generate QR and Code"
-        >
-          <BiQr className="w-4 md:w-5 h-4 md:h-5" />
-          <span className="text-xs md:text-sm font-medium">Generate QR</span>
-        </button>
+        {activeTab === 'presensi' && (
+          <button
+            onClick={onGenerateQR}
+            className="flex items-center justify-center h-[38px] md:h-[42px] w-[38px] md:w-[42px] bg-gray-100 text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-200 transition"
+            title="Generate QR and Code"
+          >
+            <BiQr className="w-5 md:w-5 h-5 md:h-5" />
+          </button>
+        )}
         
         {children}
       </div>

@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from "react";
-import { FiCamera, FiTrash2 } from "react-icons/fi";
+import { FiCamera, FiTrash2, FiLogOut } from "react-icons/fi";
 import { createClient } from "@supabase/supabase-js";
+import { logActivity } from "@/lib/activityLogger";
+import { getCurrentUser } from "@/lib/authUtils";
 
 interface ProfilePopoutProps {
   onClose: () => void;
@@ -83,6 +85,34 @@ export default function ProfilePopout({ onClose }: ProfilePopoutProps) {
       alert("Gagal mengubah data!");
     }
   };
+
+  const handleLogout = async () => {
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      // Log logout activity before clearing localStorage
+      await logActivity({
+        action: 'LOGOUT',
+        category: 'AUTH',
+        description: `${currentUser.role} ${currentUser.name} logged out`,
+        resourceType: 'Authentication',
+        severity: 'info'
+      });
+    }
+
+    // Clear all auth data
+    localStorage.clear();
+    
+    // Redirect to appropriate login page
+    if (pathname.startsWith('/owner')) {
+      window.location.href = '/owner/login';
+    } else if (pathname.startsWith('/manager')) {
+      window.location.href = '/manager/login';
+    } else {
+      window.location.href = '/staff/login';
+    }
+  };
+
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
   if (!profile) {
     return (
@@ -339,14 +369,22 @@ export default function ProfilePopout({ onClose }: ProfilePopoutProps) {
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold"
+              className="px-4 py-2 rounded-lg bg-red-50 text-red-600 font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
+              onClick={handleLogout}
+            >
+              <FiLogOut className="w-4 h-4" />
+              Logout
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
               onClick={onClose}
             >
               Tutup
             </button>
             <button
               type="button"
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold"
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
               onClick={handleUpdateStaff}
             >
               Ubah Data

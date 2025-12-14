@@ -122,18 +122,6 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
             </div>
           )}
 
-          {/* Tags */}
-          <div className="mb-4">
-            <div className="text-sm font-medium text-gray-500 mb-2">Tags</div>
-            <div className="flex flex-wrap gap-2">
-              {log.tags.map(tag => (
-                <span key={tag} className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
           {/* Metadata */}
           <div className="border-t border-gray-200 pt-4">
             <div className="text-sm text-gray-500 space-y-1">

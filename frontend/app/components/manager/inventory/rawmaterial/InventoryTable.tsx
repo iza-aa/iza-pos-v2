@@ -179,7 +179,6 @@ export default function InventoryTable({ items, onRestock, onAdjust, onEdit, onD
                       )}
                     </div>
                   </td>
-                )}
               </tr>
             ))}
           </tbody>

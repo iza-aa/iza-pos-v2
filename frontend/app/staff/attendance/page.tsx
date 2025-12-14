@@ -99,18 +99,53 @@ export default function AttendancePage() {
       return
     }
 
-    // Create attendance record
+    // Check if already has attendance record today
     const today = new Date().toISOString().split('T')[0]
-    
-    const { error } = await supabase
+    const { data: existingRecord } = await supabase
       .from('presensi_shift')
-      .insert({
-        staff_id: userId,
-        tanggal: today,
-        waktu_masuk: new Date().toISOString(),
-        status: 'hadir',
-        keterangan: `Presensi dengan kode: ${presenceCode.toUpperCase()}`
-      })
+      .select('*')
+      .eq('staff_id', userId)
+      .eq('tanggal', today)
+      .maybeSingle()
+
+    let error
+
+    if (existingRecord) {
+      // Already clocked in today - update with clock out time
+      const { error: updateErr } = await supabase
+        .from('presensi_shift')
+        .update({
+          waktu_keluar: new Date().toISOString(),
+          keterangan: existingRecord.keterangan 
+            ? `${existingRecord.keterangan} | Clock out dengan kode: ${presenceCode.toUpperCase()}`
+            : `Clock out dengan kode: ${presenceCode.toUpperCase()}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingRecord.id)
+      
+      error = updateErr
+      
+      if (!updateErr) {
+        showSuccess('Clock out berhasil!')
+      }
+    } else {
+      // No record yet - create new with clock in time
+      const { error: insertErr } = await supabase
+        .from('presensi_shift')
+        .insert({
+          staff_id: userId,
+          tanggal: today,
+          waktu_masuk: new Date().toISOString(),
+          status: 'hadir',
+          keterangan: `Clock in dengan kode: ${presenceCode.toUpperCase()}`
+        })
+      
+      error = insertErr
+      
+      if (!insertErr) {
+        showSuccess('Clock in berhasil!')
+      }
+    }
 
     if (!error) {
       // Update usage count
@@ -125,7 +160,7 @@ export default function AttendancePage() {
       setShowQRInput(false)
       await fetchAttendances()
     } else {
-      setCodeError('Gagal clock in. Mungkin Anda sudah clock in hari ini.')
+      setCodeError('Gagal melakukan presensi. Silakan coba lagi.')
     }
     
     setClockingIn(false)

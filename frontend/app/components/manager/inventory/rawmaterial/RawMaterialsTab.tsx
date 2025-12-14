@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/authUtils'
 import { showSuccess, showError, confirmDelete } from '@/lib/errorHandling'
 import { validateInventoryItem, validateStockAdjustment } from '@/lib/validation'
 import { getStockStatus } from '@/lib/numberConstants'
+import { logActivity } from '@/lib/activityLogger'
 import InventoryStats from './InventoryStats'
 import InventoryFilters from './InventoryFilters'
 import InventoryTable from './InventoryTable'
@@ -132,6 +133,24 @@ export default function RawMaterialsTab() {
       await fetchInventoryItems()
       setShowAddItemModal(false)
       showSuccess('Item inventory berhasil ditambahkan')
+      
+      // Log activity
+      await logActivity({
+        action: 'CREATE',
+        category: 'INVENTORY',
+        description: `Created new inventory item: ${newItem.name}`,
+        resourceType: 'Inventory Item',
+        resourceId: data.id,
+        resourceName: newItem.name,
+        newValue: {
+          name: newItem.name,
+          category: newItem.category,
+          current_stock: newItem.currentStock,
+          unit: newItem.unit
+        },
+        severity: 'info',
+        tags: ['inventory', 'create']
+      })
     } catch (error) {
       showError('Gagal menambahkan item inventory')
     }
@@ -232,6 +251,24 @@ export default function RawMaterialsTab() {
 
       await fetchInventoryItems()
       showSuccess(`Berhasil restock ${item.name}`)
+      
+      // Log activity
+      await logActivity({
+        action: 'ADJUST',
+        category: 'INVENTORY',
+        description: `Restocked ${item.name}: +${quantity} ${item.unit}`,
+        resourceType: 'Inventory Item',
+        resourceId: itemId,
+        resourceName: item.name,
+        previousValue: { stock: previousStock },
+        newValue: { stock: newStock },
+        changesSummary: [
+          `Stock: ${previousStock}${item.unit} → ${newStock}${item.unit} (+${quantity}${item.unit})`
+        ],
+        severity: 'info',
+        tags: ['inventory', 'restock'],
+        notes: notes || undefined
+      })
     } catch (error) {
       showError('Gagal melakukan restock')
       throw error
@@ -312,6 +349,25 @@ export default function RawMaterialsTab() {
 
       await fetchInventoryItems()
       showSuccess(`Stok ${item.name} berhasil disesuaikan: ${previousStock} → ${newStock}`)
+      
+      // Log activity
+      const adjustmentType = difference > 0 ? 'increase' : 'decrease'
+      await logActivity({
+        action: 'ADJUST',
+        category: 'INVENTORY',
+        description: `Adjusted ${item.name} stock: ${previousStock} → ${newStock}`,
+        resourceType: 'Inventory Item',
+        resourceId: itemId,
+        resourceName: item.name,
+        previousValue: { stock: previousStock },
+        newValue: { stock: newStock },
+        changesSummary: [
+          `Stock: ${previousStock}${item.unit} → ${newStock}${item.unit} (${difference > 0 ? '+' : ''}${difference}${item.unit})`
+        ],
+        severity: 'warning',
+        tags: ['inventory', 'adjustment', adjustmentType],
+        notes: reason
+      })
     } catch (error) {
       showError('Gagal melakukan adjustment stok')
       throw error
@@ -388,6 +444,27 @@ export default function RawMaterialsTab() {
 
         await fetchInventoryItems()
         showSuccess(`Item ${deletingItem.name} berhasil dihapus`)
+        
+        // Log activity
+        await logActivity({
+          action: 'DELETE',
+          category: 'INVENTORY',
+          description: `Deleted inventory item: ${deletingItem.name}`,
+          resourceType: 'Inventory Item',
+          resourceId: deletingItem.id,
+          resourceName: deletingItem.name,
+          previousValue: {
+            name: deletingItem.name,
+            category: deletingItem.category,
+            current_stock: deletingItem.currentStock,
+            unit: deletingItem.unit
+          },
+          severity: 'critical',
+          tags: ['inventory', 'delete'],
+          isReversible: false,
+          notes: deletingItem.currentStock > 0 ? `Had ${deletingItem.currentStock} ${deletingItem.unit} in stock` : 'Stock was 0'
+        })
+        
         setDeletingItem(null)
       } catch (error) {
         showError('Gagal menghapus item inventory. Mungkin masih digunakan di recipe atau transaksi.')

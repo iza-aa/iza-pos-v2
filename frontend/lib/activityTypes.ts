@@ -11,6 +11,8 @@ export type ActivityAction =
   | 'VIEW'
   | 'EXPORT'
   | 'ADJUST'
+  | 'ARCHIVE_GENERATED'
+  | 'ARCHIVE_DELETED'
 
 export type ActivityCategory = 
   | 'AUTH'           // Authentication & Authorization

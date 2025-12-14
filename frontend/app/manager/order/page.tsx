@@ -12,6 +12,7 @@ import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/dateUtils";
 import { showSuccess, showError } from '@/lib/errorHandling';
+import { logActivity } from '@/lib/activityLogger';
 
 interface Order {
 	id: string;
@@ -305,9 +306,34 @@ export default function ManagerOrderPage() {
 				return;
 			}
 
+			// Get order details before removing from state
+			const deletedOrder = orderList.find(o => o.id === orderId);
+
 			// Update local state
 			setOrderList(prev => prev.filter(order => order.id !== orderId));
 			showSuccess('Order berhasil dihapus');
+			
+			// Log activity
+			if (deletedOrder) {
+				await logActivity({
+					action: 'DELETE',
+					category: 'SALES',
+					description: `Deleted/voided order ${deletedOrder.orderNumber}`,
+					resourceType: 'Order',
+					resourceId: orderId,
+					resourceName: deletedOrder.orderNumber,
+					previousValue: {
+						order_number: deletedOrder.orderNumber,
+						customer_name: deletedOrder.customerName,
+						total: deletedOrder.total,
+						items_count: deletedOrder.items.length
+					},
+					severity: 'critical',
+					tags: ['order', 'delete', 'void'],
+					isReversible: false,
+					notes: 'Order deleted by manager'
+				});
+			}
 		} catch (error) {
 			showError('Gagal menghapus order. Silakan coba lagi.');
 		}

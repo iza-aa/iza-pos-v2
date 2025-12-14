@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { logActivity } from "@/lib/activityLogger";
 
 const slides = [
   {
@@ -54,9 +55,30 @@ export default function ManagerLoginPage() {
       localStorage.setItem("user_role", "manager");
       localStorage.setItem("staff_type", result.staff_type || "");
       localStorage.setItem("staff_code", result.staff_code);
+      
+      // Log successful login
+      await logActivity({
+        action: 'LOGIN',
+        category: 'AUTH',
+        description: `Manager ${result.user_name} (${result.staff_code}) logged in successfully`,
+        resourceType: 'Authentication',
+        severity: 'info'
+      });
+      
       window.location.href = "/manager/dashboard";
     } else {
       setError(result.error || "Email atau Password salah.");
+      
+      // Log failed login attempt
+      await logActivity({
+        action: 'LOGIN',
+        category: 'AUTH',
+        description: `Failed manager login attempt`,
+        resourceType: 'Authentication',
+        severity: 'critical',
+        notes: `Failed authentication attempt for email: ${email}`,
+        tags: ['login', 'failed', 'security-alert']
+      });
     }
   };
 

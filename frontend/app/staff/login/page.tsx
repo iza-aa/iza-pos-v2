@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { logActivity } from "@/lib/activityLogger";
 
 const slides = [
   {
@@ -59,6 +60,16 @@ export default function LoginStaffPage() {
       localStorage.setItem("user_role", result.user_role); // 'staff' atau 'manager'
       localStorage.setItem("staff_type", result.staff_type);
       localStorage.setItem("staff_code", result.staff_code);
+      
+      // Log successful login
+      await logActivity({
+        action: 'LOGIN',
+        category: 'AUTH',
+        description: `${result.user_role === 'manager' ? 'Manager' : 'Staff'} ${result.user_name} (${result.staff_code}) logged in successfully`,
+        resourceType: 'Authentication',
+        resourceName: `${result.staff_type} - ${result.staff_code}`,
+        severity: 'info'
+      });
 
       // Auto redirect berdasarkan role
       if (result.user_role === "manager") {
@@ -68,6 +79,17 @@ export default function LoginStaffPage() {
       }
     } else {
       setError(result.error || "ID Staff atau Password salah.");
+      
+      // Log failed login attempt
+      await logActivity({
+        action: 'LOGIN',
+        category: 'AUTH',
+        description: `Failed staff login attempt`,
+        resourceType: 'Authentication',
+        severity: 'critical',
+        notes: `Failed authentication attempt for staff code: ${staffId}`,
+        tags: ['login', 'failed', 'security-alert']
+      });
     }
   };
 
