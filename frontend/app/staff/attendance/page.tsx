@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
 import { supabase } from "@/lib/config/supabaseClient";
-import { showSuccess, showError } from "@/lib/services/errorHandling";
+import { showError, showSuccess } from "@/lib/services/errorHandling";
 import {
   ClockIcon,
   ExclamationTriangleIcon,
@@ -74,24 +74,29 @@ type PresenceCode = {
   attendance_date?: string | null;
 };
 
+type Html5QrcodeConfig = {
+  fps?: number;
+  qrbox?: { width: number; height: number };
+  aspectRatio?: number;
+  disableFlip?: boolean;
+};
+
+type Html5QrcodeInstance = {
+  start: (
+    cameraConfig: { facingMode: "environment" | "user" } | string,
+    config: Html5QrcodeConfig,
+    onScanSuccess: (decodedText: string) => void,
+    onScanFailure?: (errorMessage: string) => void,
+  ) => Promise<void | null>;
+  stop: () => Promise<void>;
+  clear: () => void;
+};
+
+type Html5QrcodeConstructor = new (elementId: string) => Html5QrcodeInstance;
+
 type RawRelationValue = Record<string, unknown> | Record<string, unknown>[] | null;
 
-
-type BarcodeDetectorBarcode = {
-  rawValue: string;
-};
-
-type BarcodeDetectorConstructor = new (options?: {
-  formats?: string[];
-}) => {
-  detect: (source: CanvasImageSource) => Promise<BarcodeDetectorBarcode[]>;
-};
-
-declare global {
-  interface Window {
-    BarcodeDetector?: BarcodeDetectorConstructor;
-  }
-}
+const QR_READER_ELEMENT_ID = "staff-attendance-qr-reader";
 
 const toSafeString = (value: unknown) => {
   return typeof value === "string" ? value : "";
@@ -384,7 +389,6 @@ const generateRandomCode = () => {
   return Math.random().toString(36).slice(2, 12).toUpperCase();
 };
 
-
 const extractPresenceCodeFromQrText = (text: string) => {
   const trimmedText = text.trim();
 
@@ -431,6 +435,24 @@ const createNextPresenceCode = async () => {
   });
 };
 
+const getScannerErrorMessage = (error: unknown) => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
+  if (/permission|notallowed|denied/i.test(errorMessage)) {
+    return "Akses kamera ditolak. Izinkan kamera di pengaturan Safari/Chrome, lalu coba lagi.";
+  }
+
+  if (/notfound|not found|overconstrained/i.test(errorMessage)) {
+    return "Kamera belakang tidak ditemukan. Pastikan browser memiliki izin kamera.";
+  }
+
+  if (/notreadable|trackstart|in use/i.test(errorMessage)) {
+    return "Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera/video lain lalu coba lagi.";
+  }
+
+  return "Gagal membuka scanner QR. Coba refresh halaman atau gunakan input kode manual.";
+};
+
 export default function AttendancePage() {
   useSessionValidation();
 
@@ -452,11 +474,9 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const scannerStreamRef = useRef<MediaStream | null>(null);
-  const scannerTimeoutRef = useRef<number | null>(null);
-  const scannerActiveRef = useRef(false);
+  const html5QrCodeRef = useRef<Html5QrcodeInstance | null>(null);
+  const scannerStartingRef = useRef(false);
+  const scannerHasDecodedRef = useRef(false);
 
   const today = useMemo(() => getTodayDateString(), []);
 
@@ -576,159 +596,94 @@ export default function AttendancePage() {
     fetchPageData();
   }, [fetchPageData]);
 
-  const stopQrScanner = useCallback(() => {
-    scannerActiveRef.current = false;
+  const stopQrScanner = useCallback(async () => {
+    scannerHasDecodedRef.current = false;
+    scannerStartingRef.current = false;
 
-    if (scannerTimeoutRef.current !== null) {
-      window.clearTimeout(scannerTimeoutRef.current);
-      scannerTimeoutRef.current = null;
-    }
+    if (html5QrCodeRef.current) {
+      try {
+        await html5QrCodeRef.current.stop();
+      } catch (error) {
+        console.warn("Scanner was not running or failed to stop:", error);
+      }
 
-    if (scannerStreamRef.current) {
-      scannerStreamRef.current.getTracks().forEach((track) => track.stop());
-      scannerStreamRef.current = null;
-    }
+      try {
+        html5QrCodeRef.current.clear();
+      } catch (error) {
+        console.warn("Failed to clear QR scanner:", error);
+      }
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+      html5QrCodeRef.current = null;
     }
 
     setScannerOpen(false);
     setScannerLoading(false);
   }, []);
 
-  const scanCurrentVideoFrame = useCallback(async () => {
-    if (!scannerActiveRef.current) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (!video || !canvas || !window.BarcodeDetector) {
-      scannerTimeoutRef.current = window.setTimeout(scanCurrentVideoFrame, 500);
-      return;
-    }
-
-    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      scannerTimeoutRef.current = window.setTimeout(scanCurrentVideoFrame, 300);
-      return;
-    }
-
-    try {
-      const canvasContext = canvas.getContext("2d");
-
-      if (!canvasContext) {
-        scannerTimeoutRef.current = window.setTimeout(scanCurrentVideoFrame, 500);
-        return;
-      }
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-      const barcodes = await detector.detect(canvas);
-      const rawQrValue = barcodes[0]?.rawValue ?? "";
-      const scannedCode = extractPresenceCodeFromQrText(rawQrValue);
-
-      if (scannedCode) {
-        setPresenceCode(scannedCode);
-        setCodeError("");
-        setScannerMessage(`Kode QR terbaca: ${scannedCode}`);
-        stopQrScanner();
-        return;
-      }
-    } catch (error) {
-      console.error("QR scan error:", error);
-    }
-
-    scannerTimeoutRef.current = window.setTimeout(scanCurrentVideoFrame, 500);
-  }, [stopQrScanner]);
-
   const startQrScanner = useCallback(async () => {
+    if (scannerStartingRef.current) return;
+
     setCodeError("");
     setScannerMessage("");
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setScannerOpen(true);
-      setScannerMessage(
-        "Browser tidak mendukung akses kamera. Gunakan kamera bawaan HP untuk scan QR, lalu salin kode dari URL.",
-      );
-      return;
-    }
-
-    if (!window.BarcodeDetector) {
-      setScannerOpen(true);
-      setScannerMessage(
-        "Browser ini belum mendukung pembaca QR otomatis. Gunakan kamera bawaan HP untuk scan QR, lalu salin kode dari URL ke input manual.",
-      );
-      return;
-    }
-
     setScannerOpen(true);
     setScannerLoading(true);
-    scannerActiveRef.current = true;
+    scannerStartingRef.current = true;
+    scannerHasDecodedRef.current = false;
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 150);
+    });
 
     try {
-      let stream: MediaStream;
+      const html5QrcodeModule = await import("html5-qrcode");
+      const Html5Qrcode = html5QrcodeModule.Html5Qrcode as unknown as Html5QrcodeConstructor;
+      const scannerInstance = new Html5Qrcode(QR_READER_ELEMENT_ID);
 
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { exact: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-      } catch (exactEnvironmentError) {
-        console.warn(
-          "Kamera belakang exact tidak tersedia, mencoba kamera belakang ideal.",
-          exactEnvironmentError,
-        );
+      html5QrCodeRef.current = scannerInstance;
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-      }
+      await scannerInstance.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
+          disableFlip: true,
+        },
+        (decodedText: string) => {
+          if (scannerHasDecodedRef.current) return;
 
-      scannerStreamRef.current = stream;
+          const scannedCode = extractPresenceCodeFromQrText(decodedText);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+          if (!scannedCode) return;
+
+          scannerHasDecodedRef.current = true;
+          setPresenceCode(scannedCode);
+          setCodeError("");
+          setScannerMessage(`Kode QR terbaca: ${scannedCode}`);
+
+          if (navigator.vibrate) {
+            navigator.vibrate(200);
+          }
+
+          void stopQrScanner();
+        },
+      );
 
       setScannerLoading(false);
       setScannerMessage("Arahkan kamera belakang ke QR live di layar kasir.");
-      scannerTimeoutRef.current = window.setTimeout(scanCurrentVideoFrame, 350);
     } catch (error) {
-      console.error("Failed to open rear camera:", error);
-      scannerActiveRef.current = false;
+      console.error("Failed to open html5-qrcode scanner:", error);
       setScannerLoading(false);
-      setScannerMessage(
-        "Gagal membuka kamera belakang. Pastikan izin kamera diberikan, halaman dibuka lewat HTTPS, dan browser mendukung kamera belakang.",
-      );
+      setScannerMessage(getScannerErrorMessage(error));
+      scannerStartingRef.current = false;
     }
-  }, [scanCurrentVideoFrame]);
+  }, [stopQrScanner]);
 
   useEffect(() => {
     return () => {
-      scannerActiveRef.current = false;
-
-      if (scannerTimeoutRef.current !== null) {
-        window.clearTimeout(scannerTimeoutRef.current);
-      }
-
-      if (scannerStreamRef.current) {
-        scannerStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      void stopQrScanner();
     };
-  }, []);
+  }, [stopQrScanner]);
 
   const validatePresenceCode = async () => {
     const normalizedCode = presenceCode.trim().toUpperCase();
@@ -938,21 +893,19 @@ export default function AttendancePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto ">
+      <div className="mx-auto">
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
               Absensi Staff
             </h1>
             <p className="mt-2 text-sm text-gray-600 md:text-base">
-              Test clock in dan clock out dari akun staff yang sedang login.
+              Clock in dan clock out dari akun staff yang sedang login.
             </p>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
-            <p className="font-semibold text-gray-900">
-              {formatDate(today)}
-            </p>
+            <p className="font-semibold text-gray-900">{formatDate(today)}</p>
             <p className="text-gray-500">Validasi QR + lokasi + shift</p>
           </div>
         </div>
@@ -1124,102 +1077,96 @@ export default function AttendancePage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-gray-50 p-3">
-                  <QrCodeIcon className="h-5 w-5 text-gray-500" />
-                  <p className="mt-2 text-xs font-semibold text-gray-900">
-                    QR Dinamis
-                  </p>
-                  <p className="text-xs text-gray-500">Valid 60 detik</p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-3">
-                  <MapPinIcon className="h-5 w-5 text-gray-500" />
-                  <p className="mt-2 text-xs font-semibold text-gray-900">
-                    Lokasi
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Radius {storeSettings?.attendance_radius_meters ?? 150} m
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-3">
-                  <KeyIcon className="h-5 w-5 text-gray-500" />
-                  <p className="mt-2 text-xs font-semibold text-gray-900">
-                    Session
-                  </p>
-                  <p className="text-xs text-gray-500">Login staff aktif</p>
-                </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+                QR yang discan adalah QR live dari halaman <strong>/absensi</strong>.
+                Kamera memakai scanner <strong>html5-qrcode</strong> agar lebih stabil di iPhone/iOS.
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                Riwayat Absensi
-              </h3>
-              <p className="text-sm text-gray-500">
-                Menampilkan 30 data absensi terakhir dari akun staff ini.
-              </p>
+          <section className="space-y-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <KeyIcon className="h-6 w-6 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Mode</p>
+                    <p className="font-bold text-gray-900">QR Dinamis</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <MapPinIcon className="h-6 w-6 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Radius</p>
+                    <p className="font-bold text-gray-900">
+                      {storeSettings?.attendance_radius_meters ?? 0} m
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <QrCodeIcon className="h-6 w-6 text-gray-500" />
+                  <div>
+                    <p className="text-sm text-gray-500">Status</p>
+                    <p className="font-bold text-gray-900">
+                      {isCompletedToday ? "Selesai" : "Siap Absen"}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {attendanceList.length === 0 ? (
-              <div className="p-12 text-center">
-                <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  Belum ada data absensi
-                </h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  Clock in pertama akan muncul di sini.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Tanggal
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Shift
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Clock In
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Clock Out
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Durasi
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Jarak
-                      </th>
-                    </tr>
-                  </thead>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-bold text-gray-900">
+                Riwayat Absensi
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Menampilkan maksimal 30 data absensi terbaru.
+              </p>
 
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {attendanceList.map((attendance) => (
-                      <tr key={attendance.id} className="hover:bg-gray-50">
-                        <td className="px-5 py-4">
-                          <p className="text-sm font-semibold text-gray-900">
+              <div className="mt-5 space-y-3">
+                {attendanceList.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                    Belum ada riwayat absensi.
+                  </div>
+                ) : (
+                  attendanceList.map((attendance) => (
+                    <div
+                      key={attendance.id}
+                      className="rounded-xl border border-gray-200 p-4"
+                    >
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <p className="font-bold text-gray-900">
                             {formatDate(attendance.attendance_date)}
                           </p>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <p className="text-sm font-semibold text-gray-900">
-                            {attendance.shift?.shift_name ?? "-"}
+                          <p className="mt-1 text-sm text-gray-500">
+                            {attendance.shift?.shift_name ?? "Tanpa Shift"}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            {formatTime(attendance.shift?.start_time)} - {formatTime(attendance.shift?.end_time)}
-                          </p>
-                        </td>
+                        </div>
 
-                        <td className="px-5 py-4">
-                          <p className="text-sm font-semibold text-gray-900">
+                        <div className="text-sm text-gray-600 lg:text-right">
+                          <p>
+                            Durasi: {getDuration(attendance.clock_in_at, attendance.clock_out_at)}
+                          </p>
+                          <p>
+                            Jarak in: {formatDistance(attendance.clock_in_distance_meters)}
+                          </p>
+                          <p>
+                            Jarak out: {formatDistance(attendance.clock_out_distance_meters)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="rounded-xl bg-gray-50 p-3">
+                          <p className="text-xs text-gray-500">Clock In</p>
+                          <p className="mt-1 font-semibold text-gray-900">
                             {formatDateTime(attendance.clock_in_at)}
                           </p>
                           <span
@@ -1229,10 +1176,11 @@ export default function AttendancePage() {
                           >
                             {getStatusLabel(attendance.check_in_status)}
                           </span>
-                        </td>
+                        </div>
 
-                        <td className="px-5 py-4">
-                          <p className="text-sm font-semibold text-gray-900">
+                        <div className="rounded-xl bg-gray-50 p-3">
+                          <p className="text-xs text-gray-500">Clock Out</p>
+                          <p className="mt-1 font-semibold text-gray-900">
                             {formatDateTime(attendance.clock_out_at)}
                           </p>
                           <span
@@ -1242,40 +1190,28 @@ export default function AttendancePage() {
                           >
                             {getStatusLabel(attendance.check_out_status)}
                           </span>
-                        </td>
-
-                        <td className="px-5 py-4 text-sm text-gray-700">
-                          {getDuration(
-                            attendance.clock_in_at,
-                            attendance.clock_out_at,
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4 text-sm text-gray-700">
-                          <p>In: {formatDistance(attendance.clock_in_distance_meters)}</p>
-                          <p>Out: {formatDistance(attendance.clock_out_distance_meters)}</p>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            )}
+            </div>
           </section>
         </div>
 
         {scannerOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Scan QR Presensi</h2>
-                  <p className="text-sm text-gray-500">Arahkan kamera belakang ke QR live di layar kasir.</p>
+                  <h3 className="text-lg font-bold text-gray-900">Scan QR Presensi</h3>
+                  <p className="text-sm text-gray-500">Arahkan kamera ke QR live.</p>
                 </div>
 
                 <button
                   type="button"
-                  onClick={stopQrScanner}
+                  onClick={() => void stopQrScanner()}
                   className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   Tutup
@@ -1283,20 +1219,11 @@ export default function AttendancePage() {
               </div>
 
               <div className="p-5">
-                <div className="relative overflow-hidden rounded-2xl bg-black">
-                  <video
-                    ref={videoRef}
-                    className="h-90 w-full object-cover"
-                    playsInline
-                    muted
-                  />
-
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <div className="h-56 w-56 rounded-3xl border-4 border-white/90 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
-                  </div>
+                <div className="relative min-h-80 overflow-hidden rounded-2xl bg-black">
+                  <div id={QR_READER_ELEMENT_ID} className="min-h-80 w-full" />
 
                   {scannerLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white">
                       <div className="text-center">
                         <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-white" />
                         <p className="mt-3 text-sm font-medium">Membuka kamera...</p>
@@ -1305,8 +1232,6 @@ export default function AttendancePage() {
                   )}
                 </div>
 
-                <canvas ref={canvasRef} className="hidden" />
-
                 {scannerMessage && (
                   <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
                     {scannerMessage}
@@ -1314,7 +1239,7 @@ export default function AttendancePage() {
                 )}
 
                 <p className="mt-4 text-xs text-gray-500">
-                  Kalau kamera belakang tidak terbuka di HP, pastikan halaman dibuka melalui HTTPS atau localhost dan izin kamera sudah diberikan.
+                  Di iPhone, buka lewat HTTPS dan pastikan izin kamera untuk Safari/Chrome sudah aktif.
                 </p>
               </div>
             </div>
