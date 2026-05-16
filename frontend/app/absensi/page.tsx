@@ -350,8 +350,7 @@ export default function AbsensiPage() {
               </h1>
 
               <p className="mt-4 max-w-xl text-base leading-7 text-gray-300 md:text-lg">
-                Scan QR ini untuk clock in atau clock out. QR otomatis berubah
-                setiap 1 menit. Token lama otomatis tidak valid setelah QR berganti.
+                Scan QR ini untuk clock in atau clock out. QR otomatis berubah setiap 1 menit atau langsung setelah dipakai. Token lama otomatis tidak valid setelah QR berganti.
               </p>
 
               <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
