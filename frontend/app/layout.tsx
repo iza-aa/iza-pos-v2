@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, IM_Fell_DW_Pica} from "next/font/google";
-import "./globals.css";
+import { Geist, Geist_Mono} from "next/font/google";
+import "../app/globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,11 +12,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const antiqua = IM_Fell_DW_Pica({
-  weight: '400',
-  variable: "--font-antiqua",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "IZA POS V2",

@@ -648,18 +648,18 @@ export default function AttendancePage() {
     setCodeError("");
     setScannerMessage("");
 
-    if (!window.BarcodeDetector) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setScannerOpen(true);
       setScannerMessage(
-        "Browser ini belum mendukung scanner QR langsung. Gunakan kamera bawaan HP untuk scan QR, lalu buka link yang muncul.",
+        "Browser tidak mendukung akses kamera. Gunakan kamera bawaan HP untuk scan QR, lalu salin kode dari URL.",
       );
       return;
     }
 
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (!window.BarcodeDetector) {
       setScannerOpen(true);
       setScannerMessage(
-        "Browser tidak mendukung akses kamera. Gunakan kamera bawaan HP untuk scan QR.",
+        "Browser ini belum mendukung pembaca QR otomatis. Gunakan kamera bawaan HP untuk scan QR, lalu salin kode dari URL ke input manual.",
       );
       return;
     }
@@ -669,14 +669,32 @@ export default function AttendancePage() {
     scannerActiveRef.current = true;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+      let stream: MediaStream;
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { exact: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      } catch (exactEnvironmentError) {
+        console.warn(
+          "Kamera belakang exact tidak tersedia, mencoba kamera belakang ideal.",
+          exactEnvironmentError,
+        );
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      }
 
       scannerStreamRef.current = stream;
 
@@ -686,13 +704,14 @@ export default function AttendancePage() {
       }
 
       setScannerLoading(false);
-      setScannerMessage("Arahkan kamera ke QR live di layar kasir.");
+      setScannerMessage("Arahkan kamera belakang ke QR live di layar kasir.");
       scannerTimeoutRef.current = window.setTimeout(scanCurrentVideoFrame, 350);
     } catch (error) {
-      console.error("Failed to open camera:", error);
+      console.error("Failed to open rear camera:", error);
+      scannerActiveRef.current = false;
       setScannerLoading(false);
       setScannerMessage(
-        "Gagal membuka kamera. Pastikan izin kamera diberikan dan gunakan browser HTTPS atau localhost.",
+        "Gagal membuka kamera belakang. Pastikan izin kamera diberikan, halaman dibuka lewat HTTPS, dan browser mendukung kamera belakang.",
       );
     }
   }, [scanCurrentVideoFrame]);
@@ -1251,7 +1270,7 @@ export default function AttendancePage() {
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Scan QR Presensi</h2>
-                  <p className="text-sm text-gray-500">Arahkan kamera HP ke QR live di layar kasir.</p>
+                  <p className="text-sm text-gray-500">Arahkan kamera belakang ke QR live di layar kasir.</p>
                 </div>
 
                 <button
@@ -1295,7 +1314,7 @@ export default function AttendancePage() {
                 )}
 
                 <p className="mt-4 text-xs text-gray-500">
-                  Kalau kamera tidak terbuka di HP, pastikan halaman dibuka melalui HTTPS atau localhost dan izin kamera sudah diberikan.
+                  Kalau kamera belakang tidak terbuka di HP, pastikan halaman dibuka melalui HTTPS atau localhost dan izin kamera sudah diberikan.
                 </p>
               </div>
             </div>
