@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useMemo, useState } from "react";
 import { supabase } from "@/lib/config/supabaseClient";
 import {
   CalendarDaysIcon,
@@ -135,6 +135,36 @@ const EMPTY_STORE_SETTINGS_FORM: StoreSettingsFormData = {
   store_latitude: "",
   store_longitude: "",
   attendance_radius_meters: "150",
+};
+
+type AttendanceDataSnapshot = {
+  shiftList: ShiftRecord[];
+  storeSettings: StoreSettingsRecord | null;
+  storeFormData: StoreSettingsFormData;
+  attendanceList: AttendanceRecord[];
+};
+
+type AttendanceFetchParams = {
+  dateRangeMode: DateRangeMode;
+  customStartDate: string;
+  customEndDate: string;
+  force?: boolean;
+};
+
+const FETCH_CACHE_TTL_MS = 5000;
+
+let attendanceDataCache: AttendanceDataSnapshot | null = null;
+let attendanceDataCacheKey = "";
+let attendanceDataCacheAt = 0;
+let attendanceFetchPromise: Promise<AttendanceDataSnapshot> | null = null;
+let attendanceFetchPromiseKey = "";
+
+const getAttendanceFetchKey = ({
+  dateRangeMode,
+  customStartDate,
+  customEndDate,
+}: AttendanceFetchParams) => {
+  return `${dateRangeMode}|${customStartDate}|${customEndDate}`;
 };
 
 const toSafeString = (value: unknown) => {
@@ -510,6 +540,166 @@ const isValidShiftForm = (formData: ShiftFormData) => {
   );
 };
 
+
+const buildStoreSettingsFormData = (
+  storeSettingsData: StoreSettingsRecord | null,
+): StoreSettingsFormData => {
+  return {
+    store_name: storeSettingsData?.store_name ?? "Coffee Shop",
+    store_latitude:
+      storeSettingsData?.store_latitude === null ||
+      storeSettingsData?.store_latitude === undefined
+        ? ""
+        : String(storeSettingsData.store_latitude),
+    store_longitude:
+      storeSettingsData?.store_longitude === null ||
+      storeSettingsData?.store_longitude === undefined
+        ? ""
+        : String(storeSettingsData.store_longitude),
+    attendance_radius_meters: String(
+      storeSettingsData?.attendance_radius_meters ?? 150,
+    ),
+  };
+};
+
+const loadAttendanceSnapshot = async ({
+  dateRangeMode,
+  customStartDate,
+  customEndDate,
+  force = false,
+}: AttendanceFetchParams): Promise<AttendanceDataSnapshot> => {
+  const fetchKey = getAttendanceFetchKey({
+    dateRangeMode,
+    customStartDate,
+    customEndDate,
+  });
+
+  const now = Date.now();
+
+  if (
+    !force &&
+    attendanceDataCache &&
+    attendanceDataCacheKey === fetchKey &&
+    now - attendanceDataCacheAt < FETCH_CACHE_TTL_MS
+  ) {
+    return attendanceDataCache;
+  }
+
+  if (attendanceFetchPromise && attendanceFetchPromiseKey === fetchKey) {
+    return attendanceFetchPromise;
+  }
+
+  attendanceFetchPromiseKey = fetchKey;
+  attendanceFetchPromise = (async () => {
+    const { startDate, endDate } = getDateRange(
+      dateRangeMode,
+      customStartDate,
+      customEndDate,
+    );
+
+    const shiftsPromise = supabase
+      .from("shifts")
+      .select(
+        "id, shift_name, start_time, check_in_grace_until, end_time, check_out_grace_until, is_active",
+      )
+      .order("start_time", { ascending: true });
+
+    const storeSettingsPromise = supabase
+      .from("store_settings")
+      .select(
+        "id, store_name, store_latitude, store_longitude, attendance_radius_meters, is_active",
+      )
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    let attendanceQuery = supabase
+      .from("attendance")
+      .select(
+        `
+          id,
+          staff_id,
+          shift_id,
+          attendance_date,
+          clock_in_at,
+          clock_out_at,
+          check_in_status,
+          check_out_status,
+          clock_in_distance_meters,
+          clock_out_distance_meters,
+          late_reason,
+          early_leave_reason,
+          overtime_reason,
+          notes,
+          staff:staff_id (
+            id,
+            name,
+            staff_code,
+            staff_type,
+            role
+          ),
+          shift:shift_id (
+            id,
+            shift_name,
+            start_time,
+            check_in_grace_until,
+            end_time,
+            check_out_grace_until
+          )
+        `,
+      )
+      .order("attendance_date", { ascending: false })
+      .order("clock_in_at", { ascending: false, nullsFirst: false });
+
+    if (startDate && endDate) {
+      attendanceQuery = attendanceQuery
+        .gte("attendance_date", startDate)
+        .lte("attendance_date", endDate);
+    }
+
+    const [shiftsResult, attendanceResult, storeSettingsResult] =
+      await Promise.all([shiftsPromise, attendanceQuery, storeSettingsPromise]);
+
+    if (shiftsResult.error) {
+      throw shiftsResult.error;
+    }
+
+    if (attendanceResult.error) {
+      throw attendanceResult.error;
+    }
+
+    if (storeSettingsResult.error) {
+      throw storeSettingsResult.error;
+    }
+
+    const storeSettingsData =
+      storeSettingsResult.data as StoreSettingsRecord | null;
+
+    const snapshot: AttendanceDataSnapshot = {
+      shiftList: (shiftsResult.data ?? []) as ShiftRecord[],
+      storeSettings: storeSettingsData,
+      storeFormData: buildStoreSettingsFormData(storeSettingsData),
+      attendanceList: ((attendanceResult.data ?? []) as RawAttendanceRecord[])
+        .map(normalizeAttendanceRecord)
+        .filter((attendance) => attendance.id),
+    };
+
+    attendanceDataCache = snapshot;
+    attendanceDataCacheKey = fetchKey;
+    attendanceDataCacheAt = Date.now();
+
+    return snapshot;
+  })();
+
+  try {
+    return await attendanceFetchPromise;
+  } finally {
+    attendanceFetchPromise = null;
+    attendanceFetchPromiseKey = "";
+  }
+};
+
 export default function AttendanceSection({
   viewMode = "card",
   dateRangeMode = "today",
@@ -525,7 +715,7 @@ export default function AttendanceSection({
     EMPTY_STORE_SETTINGS_FORM,
   );
   const [selectedShiftId, setSelectedShiftId] = useState("all");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [shiftLoading, setShiftLoading] = useState(false);
   const [storeLoading, setStoreLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -575,138 +765,42 @@ export default function AttendanceSection({
     };
   }, [filteredAttendanceList]);
 
-  useEffect(() => {
-    fetchAttendanceData();
-  }, [dateRangeMode, customStartDate, customEndDate]);
+  const [fetchError, setFetchError] = useState("");
 
-  async function fetchAttendanceData() {
-    setLoading(true);
+  const fetchAttendanceData = useCallback(
+    async (force = false) => {
+      setFetchError("");
 
-    try {
-      const { startDate, endDate } = getDateRange(
-        dateRangeMode,
-        customStartDate,
-        customEndDate,
-      );
-
-      const shiftsPromise = supabase
-        .from("shifts")
-        .select(
-          "id, shift_name, start_time, check_in_grace_until, end_time, check_out_grace_until, is_active",
-        )
-        .order("start_time", { ascending: true });
-
-      const storeSettingsPromise = supabase
-        .from("store_settings")
-        .select(
-          "id, store_name, store_latitude, store_longitude, attendance_radius_meters, is_active",
-        )
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      let attendanceQuery = supabase
-        .from("attendance")
-        .select(
-          `
-            id,
-            staff_id,
-            shift_id,
-            attendance_date,
-            clock_in_at,
-            clock_out_at,
-            check_in_status,
-            check_out_status,
-            clock_in_distance_meters,
-            clock_out_distance_meters,
-            late_reason,
-            early_leave_reason,
-            overtime_reason,
-            notes,
-            staff:staff_id (
-              id,
-              name,
-              staff_code,
-              staff_type,
-              role
-            ),
-            shift:shift_id (
-              id,
-              shift_name,
-              start_time,
-              check_in_grace_until,
-              end_time,
-              check_out_grace_until
-            )
-          `,
-        )
-        .order("attendance_date", { ascending: false })
-        .order("clock_in_at", { ascending: false, nullsFirst: false });
-
-      if (startDate && endDate) {
-        attendanceQuery = attendanceQuery
-          .gte("attendance_date", startDate)
-          .lte("attendance_date", endDate);
+      if (!attendanceDataCache) {
+        setLoading(true);
       }
 
-      const [shiftsResult, attendanceResult, storeSettingsResult] =
-        await Promise.all([
-          shiftsPromise,
-          attendanceQuery,
-          storeSettingsPromise,
-        ]);
+      try {
+        const snapshot = await loadAttendanceSnapshot({
+          dateRangeMode,
+          customStartDate,
+          customEndDate,
+          force,
+        });
 
-      if (shiftsResult.error) {
-        throw shiftsResult.error;
+        setShiftList(snapshot.shiftList);
+        setStoreSettings(snapshot.storeSettings);
+        setStoreFormData(snapshot.storeFormData);
+        setAttendanceList(snapshot.attendanceList);
+      } catch (error) {
+        const message = getErrorMessage(
+          error,
+          "Gagal mengambil data presensi.",
+        );
+
+        console.error("Error fetching attendance:", error);
+        setFetchError(message);
+      } finally {
+        setLoading(false);
       }
-
-      if (attendanceResult.error) {
-        throw attendanceResult.error;
-      }
-
-      if (storeSettingsResult.error) {
-        throw storeSettingsResult.error;
-      }
-
-      setShiftList((shiftsResult.data ?? []) as ShiftRecord[]);
-
-      const storeSettingsData =
-        storeSettingsResult.data as StoreSettingsRecord | null;
-      setStoreSettings(storeSettingsData);
-      setStoreFormData({
-        store_name: storeSettingsData?.store_name ?? "Coffee Shop",
-        store_latitude:
-          storeSettingsData?.store_latitude === null ||
-          storeSettingsData?.store_latitude === undefined
-            ? ""
-            : String(storeSettingsData.store_latitude),
-        store_longitude:
-          storeSettingsData?.store_longitude === null ||
-          storeSettingsData?.store_longitude === undefined
-            ? ""
-            : String(storeSettingsData.store_longitude),
-        attendance_radius_meters: String(
-          storeSettingsData?.attendance_radius_meters ?? 150,
-        ),
-      });
-
-      const normalizedAttendanceList = (
-        (attendanceResult.data ?? []) as RawAttendanceRecord[]
-      )
-        .map(normalizeAttendanceRecord)
-        .filter((attendance) => attendance.id);
-
-      setAttendanceList(normalizedAttendanceList);
-    } catch (error) {
-      const message = getErrorMessage(error, "Gagal mengambil data presensi.");
-
-      console.error("Error fetching attendance:", error);
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [dateRangeMode, customStartDate, customEndDate],
+  );
 
   const openCreateShiftForm = () => {
     setEditingShift(null);
@@ -804,7 +898,7 @@ export default function AttendanceSection({
         throw error;
       }
 
-      await fetchAttendanceData();
+      await fetchAttendanceData(true);
       alert("Lokasi cafe berhasil disimpan.");
     } catch (error) {
       const message = getErrorMessage(error, "Gagal menyimpan lokasi cafe.");
@@ -853,7 +947,7 @@ export default function AttendanceSection({
         throw error;
       }
 
-      await fetchAttendanceData();
+      await fetchAttendanceData(true);
       await onShiftChanged?.();
       closeShiftForm();
     } catch (error) {
@@ -888,7 +982,7 @@ export default function AttendanceSection({
         throw error;
       }
 
-      await fetchAttendanceData();
+      await fetchAttendanceData(true);
       await onShiftChanged?.();
     } catch (error) {
       const message = getErrorMessage(error, "Gagal mengubah status shift.");
@@ -920,7 +1014,7 @@ export default function AttendanceSection({
         throw error;
       }
 
-      await fetchAttendanceData();
+      await fetchAttendanceData(true);
       await onShiftChanged?.();
     } catch (error) {
       const message = getErrorMessage(error, "Gagal menghapus shift.");
@@ -1471,8 +1565,49 @@ export default function AttendanceSection({
     );
   }
 
+  const hasLoadedAnyData =
+    shiftList.length > 0 || attendanceList.length > 0 || storeSettings !== null;
+
+  if (!hasLoadedAnyData && !fetchError) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+        <CalendarDaysIcon className="mx-auto h-10 w-10 text-gray-400" />
+        <h3 className="mt-4 text-base font-bold text-gray-900">
+          Data presensi belum dimuat
+        </h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">
+          Klik tombol di bawah untuk memuat shift, lokasi cafe, dan data presensi.
+          Data tidak dimuat otomatis agar browser tidak menembak request Supabase
+          berulang saat tab Presensi dibuka.
+        </p>
+        <button
+          type="button"
+          onClick={() => fetchAttendanceData(true)}
+          className="mt-5 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+        >
+          Muat Data Presensi
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
+      {fetchError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p>{fetchError}</p>
+            <button
+              type="button"
+              onClick={() => fetchAttendanceData(true)}
+              className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        </div>
+      )}
+
       {renderStoreLocationSettings()}
 
       {renderShiftManagement()}
@@ -1550,7 +1685,7 @@ export default function AttendanceSection({
 
             <button
               type="button"
-              onClick={fetchAttendanceData}
+              onClick={() => fetchAttendanceData(true)}
               className="h-10 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               Refresh

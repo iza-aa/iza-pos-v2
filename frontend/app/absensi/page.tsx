@@ -5,7 +5,6 @@ import { supabase } from "@/lib/config/supabaseClient";
 import {
   CheckCircleIcon,
   ClockIcon,
-  ExclamationTriangleIcon,
   KeyIcon,
   MapPinIcon,
   QrCodeIcon,
@@ -17,48 +16,9 @@ type PresenceCode = {
   id: string;
   code: string;
   expires_at: string;
-  attendance_date: string | null;
+  attendance_date: string;
   is_active: boolean;
   used_count: number | null;
-};
-
-type StoreSettings = {
-  id: string;
-  store_name: string;
-  store_latitude: number | null;
-  store_longitude: number | null;
-  attendance_radius_meters: number;
-  is_active: boolean;
-};
-
-type StaffRecord = {
-  id: string;
-  staff_code: string;
-  name: string;
-  role: string;
-  staff_type: string | null;
-  status: string;
-  login_code: string | null;
-  login_code_expires_at: string | null;
-  shift_id: string | null;
-};
-
-type ShiftRecord = {
-  id: string;
-  shift_name: string;
-  start_time: string;
-  check_in_grace_until: string;
-  end_time: string;
-  check_out_grace_until: string;
-};
-
-type AttendanceRecord = {
-  id: string;
-  staff_id: string;
-  shift_id: string | null;
-  attendance_date: string;
-  clock_in_at: string | null;
-  clock_out_at: string | null;
 };
 
 type CurrentLocation = {
@@ -68,29 +28,20 @@ type CurrentLocation = {
 };
 
 type AttendanceResult = {
-  type: "clock_in" | "clock_out" | "complete";
+  success?: boolean;
+  action?: "clock_in" | "clock_out" | "complete";
   title: string;
   message: string;
   statusLabel?: string;
   statusTone?: "green" | "blue" | "red" | "orange" | "purple";
+  distanceMeters?: number;
+  accuracyMeters?: number;
 };
 
 const QR_REFRESH_SECONDS = 60;
+const KIOSK_RESYNC_SECONDS = 5;
 
-const toDbTimestamp = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  const second = String(date.getSeconds()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-};
-
-const getNowDbTimestamp = () => {
-  return toDbTimestamp(new Date());
-};
+const normalizeCredential = (value: string) => value.trim();
 
 const parseDbTimestamp = (value?: string | null) => {
   if (!value) return null;
@@ -101,86 +52,6 @@ const parseDbTimestamp = (value?: string | null) => {
   if (Number.isNaN(date.getTime())) return null;
 
   return date;
-};
-
-const getTodayDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const date = String(now.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${date}`;
-};
-
-const generatePresenceCode = () => {
-  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const timePart = Date.now().toString(36).slice(-4).toUpperCase();
-
-  return `${randomPart}${timePart}`;
-};
-
-const formatTime = (value?: string | null) => {
-  if (!value) return "--:--";
-  return value.slice(0, 5);
-};
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return "-";
-
-  const date = parseDbTimestamp(value);
-
-  if (!date) return "-";
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
-
-const normalizeCredential = (value: string) => {
-  return value.trim();
-};
-
-const getMinutesFromTime = (value: string) => {
-  const [hourText, minuteText] = value.slice(0, 5).split(":");
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
-
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return 0;
-
-  return hour * 60 + minute;
-};
-
-const getCurrentMinutes = () => {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-};
-
-const calculateDistanceMeters = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
-  const earthRadiusMeters = 6371000;
-  const toRadians = (value: number) => (value * Math.PI) / 180;
-
-  const deltaLat = toRadians(lat2 - lat1);
-  const deltaLon = toRadians(lon2 - lon1);
-
-  const a =
-    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(deltaLon / 2) *
-      Math.sin(deltaLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return earthRadiusMeters * c;
 };
 
 const getLocation = () => {
@@ -214,6 +85,21 @@ const getLocation = () => {
   });
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message;
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 const getStatusClassName = (tone?: AttendanceResult["statusTone"]) => {
   if (tone === "green") return "bg-green-50 text-green-700 border-green-200";
   if (tone === "blue") return "bg-blue-50 text-blue-700 border-blue-200";
@@ -226,223 +112,28 @@ const getStatusClassName = (tone?: AttendanceResult["statusTone"]) => {
   return "bg-gray-50 text-gray-700 border-gray-200";
 };
 
-const getCheckInStatus = (shift: ShiftRecord) => {
-  const currentMinutes = getCurrentMinutes();
-  const startMinutes = getMinutesFromTime(shift.start_time);
-  const graceMinutes = getMinutesFromTime(shift.check_in_grace_until);
-
-  if (currentMinutes < startMinutes) {
-    return {
-      value: "early",
-      label: "Datang Lebih Awal",
-      tone: "blue" as const,
-    };
-  }
-
-  if (currentMinutes <= graceMinutes) {
-    return {
-      value: "on_time",
-      label: "Masuk Tepat Waktu",
-      tone: "green" as const,
-    };
-  }
-
-  return {
-    value: "late",
-    label: "Terlambat",
-    tone: "red" as const,
-  };
-};
-
-const getCheckOutStatus = (shift: ShiftRecord) => {
-  const currentMinutes = getCurrentMinutes();
-  const endMinutes = getMinutesFromTime(shift.end_time);
-  const graceMinutes = getMinutesFromTime(shift.check_out_grace_until);
-
-  if (currentMinutes < endMinutes) {
-    return {
-      value: "early_leave",
-      label: "Pulang Lebih Awal",
-      tone: "orange" as const,
-    };
-  }
-
-  if (currentMinutes <= graceMinutes) {
-    return {
-      value: "on_time",
-      label: "Pulang Tepat Waktu",
-      tone: "green" as const,
-    };
-  }
-
-  return {
-    value: "overtime",
-    label: "Lembur",
-    tone: "purple" as const,
-  };
-};
-
-const fetchActiveStoreSettings = async () => {
-  const { data, error } = await supabase
-    .from("store_settings")
-    .select(
-      "id, store_name, store_latitude, store_longitude, attendance_radius_meters, is_active",
-    )
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  return data as StoreSettings | null;
-};
-
-const fetchValidPresenceCode = async (code: string) => {
-  const { data, error } = await supabase
-    .from("presence_code")
-    .select("id, code, expires_at, attendance_date, is_active, used_count")
-    .eq("code", code)
-    .eq("is_active", true)
-    .gt("expires_at", getNowDbTimestamp())
-    .maybeSingle();
-
-  if (error) throw error;
-
-  return data as PresenceCode | null;
-};
-
-const createNewPresenceCode = async () => {
-  const today = getTodayDate();
-  const newCode = generatePresenceCode();
-  const expiresAt = new Date(Date.now() + QR_REFRESH_SECONDS * 1000);
-
-  await supabase
-    .from("presence_code")
-    .update({ is_active: false })
-    .eq("attendance_date", today)
-    .eq("is_active", true);
-
-  const { data, error } = await supabase
-    .from("presence_code")
-    .insert({
-      code: newCode,
-      expires_at: toDbTimestamp(expiresAt),
-      attendance_date: today,
-      is_active: true,
-      used_count: 0,
-      shift_id: null,
-    })
-    .select("id, code, expires_at, attendance_date, is_active, used_count")
-    .single();
-
-  if (error) throw error;
-
-  return data as PresenceCode;
-};
-
 const fetchOrCreateActivePresenceCode = async () => {
-  const today = getTodayDate();
-
-  const { data, error } = await supabase
-    .from("presence_code")
-    .select("id, code, expires_at, attendance_date, is_active, used_count")
-    .eq("attendance_date", today)
-    .eq("is_active", true)
-    .gt("expires_at", getNowDbTimestamp())
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("get_active_presence_code");
 
   if (error) throw error;
 
-  if (data) return data as PresenceCode;
-
-  return createNewPresenceCode();
+  const rows = Array.isArray(data) ? data : [];
+  return (rows[0] ?? null) as PresenceCode | null;
 };
 
-const invalidateAndRotatePresenceCode = async (presenceCode: PresenceCode) => {
-  await supabase
-    .from("presence_code")
-    .update({
-      is_active: false,
-      used_count: (presenceCode.used_count ?? 0) + 1,
-    })
-    .eq("id", presenceCode.id);
-
-  await createNewPresenceCode();
-};
-
-const fetchStaffByCredential = async (credential: string) => {
-  const normalizedCredential = normalizeCredential(credential);
-
-  const staffSelect =
-    "id, staff_code, name, role, staff_type, status, login_code, login_code_expires_at, shift_id";
-
-  const { data: staffByCode, error: staffCodeError } = await supabase
-    .from("staff")
-    .select(staffSelect)
-    .eq("staff_code", normalizedCredential)
-    .maybeSingle();
-
-  if (staffCodeError) throw staffCodeError;
-
-  if (staffByCode) {
-    return {
-      staff: staffByCode as StaffRecord,
-      matchedBy: "staff_code" as const,
-    };
-  }
-
-  const { data: staffByLoginCode, error: loginCodeError } = await supabase
-    .from("staff")
-    .select(staffSelect)
-    .eq("login_code", normalizedCredential)
-    .maybeSingle();
-
-  if (loginCodeError) throw loginCodeError;
-
-  if (!staffByLoginCode) return null;
-
-  return {
-    staff: staffByLoginCode as StaffRecord,
-    matchedBy: "login_code" as const,
-  };
-};
-
-const fetchShift = async (shiftId: string) => {
-  const { data, error } = await supabase
-    .from("shifts")
-    .select(
-      "id, shift_name, start_time, check_in_grace_until, end_time, check_out_grace_until",
-    )
-    .eq("id", shiftId)
-    .maybeSingle();
+const rotatePresenceCode = async () => {
+  const { data, error } = await supabase.rpc("rotate_presence_code");
 
   if (error) throw error;
 
-  return data as ShiftRecord | null;
-};
-
-const fetchTodayAttendance = async (staffId: string, shiftId: string) => {
-  const { data, error } = await supabase
-    .from("attendance")
-    .select(
-      "id, staff_id, shift_id, attendance_date, clock_in_at, clock_out_at",
-    )
-    .eq("staff_id", staffId)
-    .eq("shift_id", shiftId)
-    .eq("attendance_date", getTodayDate())
-    .maybeSingle();
-
-  if (error) throw error;
-
-  return data as AttendanceRecord | null;
+  const rows = Array.isArray(data) ? data : [];
+  return (rows[0] ?? null) as PresenceCode | null;
 };
 
 export default function AbsensiPage() {
   const [mode, setMode] = useState<"kiosk" | "scan">("kiosk");
   const [scanCode, setScanCode] = useState("");
+
   const [activeCode, setActiveCode] = useState<PresenceCode | null>(null);
   const [kioskLoading, setKioskLoading] = useState(true);
   const [kioskError, setKioskError] = useState("");
@@ -496,12 +187,14 @@ export default function AbsensiPage() {
         setKioskError("");
         const code = await fetchOrCreateActivePresenceCode();
 
-        if (!cancelled) {
-          setActiveCode(code);
+        if (!cancelled && code) {
+          setActiveCode((currentCode) => {
+            if (currentCode?.id === code.id) return currentCode;
+            return code;
+          });
         }
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Gagal memuat QR absensi.";
+        const message = getErrorMessage(error, "Gagal memuat QR absensi.");
 
         if (!cancelled) {
           setKioskError(message);
@@ -515,7 +208,10 @@ export default function AbsensiPage() {
 
     syncCode();
 
-    const interval = window.setInterval(syncCode, 3000);
+    const interval = window.setInterval(
+      syncCode,
+      KIOSK_RESYNC_SECONDS * 1000,
+    );
 
     return () => {
       cancelled = true;
@@ -538,16 +234,18 @@ export default function AbsensiPage() {
       if (seconds <= 0 && !qrRotationInProgressRef.current) {
         qrRotationInProgressRef.current = true;
 
-        createNewPresenceCode()
+        rotatePresenceCode()
           .then((newCode) => {
-            setActiveCode(newCode);
-            setRemainingSeconds(QR_REFRESH_SECONDS);
+            if (newCode) {
+              setActiveCode(newCode);
+              setRemainingSeconds(QR_REFRESH_SECONDS);
+            }
           })
           .catch((error) => {
-            const message =
-              error instanceof Error
-                ? error.message
-                : "Gagal mengganti QR absensi.";
+            const message = getErrorMessage(
+              error,
+              "Gagal mengganti QR absensi.",
+            );
             setKioskError(message);
           })
           .finally(() => {
@@ -571,10 +269,7 @@ export default function AbsensiPage() {
       const location = await getLocation();
       setCurrentLocation(location);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil lokasi perangkat.";
+      const message = getErrorMessage(error, "Gagal mengambil lokasi perangkat.");
       setScanError(message);
     } finally {
       setLocationLoading(false);
@@ -585,6 +280,9 @@ export default function AbsensiPage() {
     event: React.FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
+
+    if (submitLoading) return;
+
     setScanError("");
     setAttendanceResult(null);
 
@@ -603,164 +301,34 @@ export default function AbsensiPage() {
     setSubmitLoading(true);
 
     try {
-      const validPresenceCode = await fetchValidPresenceCode(scanCode);
-
-      if (!validPresenceCode) {
-        throw new Error(
-          "QR sudah expired atau sudah digunakan. Silakan scan QR terbaru.",
-        );
-      }
-
-      const storeSettings = await fetchActiveStoreSettings();
-
-      if (!storeSettings) {
-        throw new Error("Pengaturan lokasi cafe belum tersedia.");
-      }
-
-      if (
-        storeSettings.store_latitude === null ||
-        storeSettings.store_longitude === null
-      ) {
-        throw new Error(
-          "Lokasi cafe belum diatur. Owner perlu mengatur lokasi di menu Presensi.",
-        );
-      }
-
       const location = currentLocation ?? (await getLocation());
       setCurrentLocation(location);
 
-      const distance = calculateDistanceMeters(
-        location.latitude,
-        location.longitude,
-        storeSettings.store_latitude,
-        storeSettings.store_longitude,
-      );
+      const { data, error } = await supabase.rpc("submit_qr_attendance", {
+        p_code: scanCode,
+        p_credential: normalizedCredential,
+        p_latitude: location.latitude,
+        p_longitude: location.longitude,
+        p_accuracy: location.accuracy,
+      });
 
-      if (distance > storeSettings.attendance_radius_meters) {
-        throw new Error(
-          `Lokasi Anda di luar radius absensi. Jarak saat ini ${Math.round(
-            distance,
-          )} meter dari cafe.`,
-        );
-      }
+      if (error) throw error;
 
-      const staffLookup = await fetchStaffByCredential(normalizedCredential);
-
-      if (!staffLookup) {
-        throw new Error("Staff ID atau kode login tidak ditemukan.");
-      }
-
-      const { staff, matchedBy } = staffLookup;
-
-      if (staff.status !== "active") {
-        throw new Error(
-          "Akun staff tidak aktif dan tidak bisa melakukan absensi.",
-        );
-      }
-
-      if (matchedBy === "login_code" && staff.login_code_expires_at) {
-        const expiresAt = parseDbTimestamp(
-          staff.login_code_expires_at,
-        )?.getTime();
-
-        if (expiresAt && expiresAt <= Date.now()) {
-          throw new Error(
-            "Kode login staff sudah expired. Minta generate ulang ke owner.",
-          );
-        }
-      }
-
-      if (!staff.shift_id) {
-        throw new Error(
-          "Staff belum memiliki shift. Owner perlu assign shift terlebih dahulu.",
-        );
-      }
-
-      const shift = await fetchShift(staff.shift_id);
-
-      if (!shift) {
-        throw new Error("Shift staff tidak ditemukan atau sudah dihapus.");
-      }
-
-      const todayAttendance = await fetchTodayAttendance(staff.id, shift.id);
-      const now = getNowDbTimestamp();
-
-      if (!todayAttendance) {
-        const checkInStatus = getCheckInStatus(shift);
-
-        const { error } = await supabase.from("attendance").insert({
-          staff_id: staff.id,
-          shift_id: shift.id,
-          presence_code_id: validPresenceCode.id,
-          attendance_date: getTodayDate(),
-          clock_in_at: now,
-          clock_in_latitude: location.latitude,
-          clock_in_longitude: location.longitude,
-          clock_in_distance_meters: Number(distance.toFixed(2)),
-          clock_in_method: "qr",
-          check_in_status: checkInStatus.value,
-        });
-
-        if (error) throw error;
-
-        await invalidateAndRotatePresenceCode(validPresenceCode);
-
-        setAttendanceResult({
-          type: "clock_in",
-          title: "Clock In Berhasil",
-          message: `${staff.name} berhasil clock in untuk ${shift.shift_name}.`,
-          statusLabel: checkInStatus.label,
-          statusTone: checkInStatus.tone,
-        });
-
-        setCredential("");
-        return;
-      }
-
-      if (todayAttendance.clock_in_at && !todayAttendance.clock_out_at) {
-        const checkOutStatus = getCheckOutStatus(shift);
-
-        const { error } = await supabase
-          .from("attendance")
-          .update({
-            clock_out_at: now,
-            clock_out_latitude: location.latitude,
-            clock_out_longitude: location.longitude,
-            clock_out_distance_meters: Number(distance.toFixed(2)),
-            clock_out_method: "qr",
-            check_out_status: checkOutStatus.value,
-            updated_at: now,
-          })
-          .eq("id", todayAttendance.id);
-
-        if (error) throw error;
-
-        await invalidateAndRotatePresenceCode(validPresenceCode);
-
-        setAttendanceResult({
-          type: "clock_out",
-          title: "Clock Out Berhasil",
-          message: `${staff.name} berhasil clock out dari ${shift.shift_name}.`,
-          statusLabel: checkOutStatus.label,
-          statusTone: checkOutStatus.tone,
-        });
-
-        setCredential("");
-        return;
-      }
-
-      await invalidateAndRotatePresenceCode(validPresenceCode);
+      const result = data as AttendanceResult;
 
       setAttendanceResult({
-        type: "complete",
-        title: "Absensi Hari Ini Sudah Lengkap",
-        message: `${staff.name} sudah memiliki clock in dan clock out untuk hari ini.`,
-        statusLabel: "Selesai",
-        statusTone: "green",
+        title: result.title ?? "Absensi Berhasil",
+        message: result.message ?? "Data absensi berhasil diproses.",
+        action: result.action,
+        statusLabel: result.statusLabel,
+        statusTone: result.statusTone,
+        distanceMeters: result.distanceMeters,
+        accuracyMeters: result.accuracyMeters,
       });
+
+      setCredential("");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Gagal memproses absensi.";
+      const message = getErrorMessage(error, "Gagal memproses absensi.");
       setScanError(message);
     } finally {
       setSubmitLoading(false);
@@ -783,7 +351,7 @@ export default function AbsensiPage() {
 
               <p className="mt-4 max-w-xl text-base leading-7 text-gray-300 md:text-lg">
                 Scan QR ini untuk clock in atau clock out. QR otomatis berubah
-                setiap 1 menit dan langsung berganti setelah digunakan.
+                setiap 1 menit dan token lama tidak bisa digunakan kembali.
               </p>
 
               <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -803,9 +371,9 @@ export default function AbsensiPage() {
 
                 <div className="rounded-2xl bg-white/10 p-4">
                   <p className="text-xs uppercase tracking-wide text-gray-400">
-                    Sistem
+                    Status
                   </p>
-                  <p className="mt-1 text-2xl font-bold">Shift</p>
+                  <p className="mt-1 text-2xl font-bold">Aktif</p>
                 </div>
               </div>
             </div>
@@ -834,18 +402,19 @@ export default function AbsensiPage() {
                   </div>
 
                   <div className="mt-6 text-center">
-                    <p className="text-sm text-gray-500">Kode aktif</p>
-                    <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">
-                      {activeCode.code}
-                    </p>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+                      <CheckCircleIcon className="h-4 w-4" />
+                      QR aktif
+                    </div>
 
                     <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">
                       <ClockIcon className="h-4 w-4" />
                       Berganti dalam {remainingSeconds}s
                     </div>
 
-                    <p className="mt-4 text-xs text-gray-400">
-                      Halaman ini bisa dibiarkan menyala 24 jam di device kasir.
+                    <p className="mt-4 max-w-sm text-xs leading-5 text-gray-400">
+                      Halaman ini bisa dibiarkan menyala di device kasir. Kode
+                      teknis tidak ditampilkan untuk menjaga keamanan QR.
                     </p>
                   </div>
                 </>
@@ -876,13 +445,19 @@ export default function AbsensiPage() {
         </div>
 
         <form onSubmit={handleSubmitAttendance} className="space-y-5 p-6">
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Kode QR
-            </p>
-            <p className="mt-1 font-mono text-lg font-bold text-gray-900">
-              {scanCode || "-"}
-            </p>
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
+            <div className="flex items-start gap-3">
+              <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
+              <div>
+                <p className="text-sm font-bold text-green-800">
+                  QR berhasil terdeteksi
+                </p>
+                <p className="mt-1 text-xs leading-5 text-green-700">
+                  Masukkan Staff ID atau kode login, lalu izinkan lokasi untuk
+                  memproses absensi.
+                </p>
+              </div>
+            </div>
           </div>
 
           {scanError && (
@@ -903,15 +478,23 @@ export default function AbsensiPage() {
                     {attendanceResult.message}
                   </p>
 
-                  {attendanceResult.statusLabel && (
-                    <span
-                      className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClassName(
-                        attendanceResult.statusTone,
-                      )}`}
-                    >
-                      {attendanceResult.statusLabel}
-                    </span>
-                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {attendanceResult.statusLabel && (
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClassName(
+                          attendanceResult.statusTone,
+                        )}`}
+                      >
+                        {attendanceResult.statusLabel}
+                      </span>
+                    )}
+
+                    {typeof attendanceResult.distanceMeters === "number" && (
+                      <span className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
+                        Jarak {Math.round(attendanceResult.distanceMeters)}m
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -930,6 +513,7 @@ export default function AbsensiPage() {
                 placeholder="Contoh: STF001 atau kode login"
                 className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-4 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
                 disabled={submitLoading}
+                autoComplete="off"
               />
             </div>
           </div>
@@ -957,8 +541,9 @@ export default function AbsensiPage() {
           </button>
 
           <p className="text-center text-xs leading-5 text-gray-500">
-            Sistem otomatis menentukan clock in atau clock out berdasarkan data
-            presensi hari ini dan shift yang sudah diatur owner.
+            Tombol otomatis terkunci saat proses berjalan untuk mencegah double
+            submit. Sistem menentukan clock in atau clock out dari data presensi
+            hari ini.
           </p>
         </form>
       </section>

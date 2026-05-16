@@ -439,18 +439,18 @@ const getScannerErrorMessage = (error: unknown) => {
   const errorMessage = error instanceof Error ? error.message : String(error);
 
   if (/permission|notallowed|denied/i.test(errorMessage)) {
-    return "Akses kamera ditolak. Izinkan kamera di pengaturan Safari/Chrome, lalu coba lagi.";
+    return "Akses kamera ditolak. Aktifkan izin kamera lalu coba lagi.";
   }
 
   if (/notfound|not found|overconstrained/i.test(errorMessage)) {
-    return "Kamera belakang tidak ditemukan. Pastikan browser memiliki izin kamera.";
+    return "Kamera tidak ditemukan. Pastikan perangkat memiliki kamera dan izin kamera aktif.";
   }
 
   if (/notreadable|trackstart|in use/i.test(errorMessage)) {
-    return "Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera/video lain lalu coba lagi.";
+    return "Kamera sedang digunakan aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.";
   }
 
-  return "Gagal membuka scanner QR. Coba refresh halaman atau gunakan input kode manual.";
+  return "Gagal membuka scanner QR. Periksa izin kamera lalu coba lagi.";
 };
 
 export default function AttendancePage() {
@@ -659,7 +659,7 @@ export default function AttendancePage() {
           scannerHasDecodedRef.current = true;
           setPresenceCode(scannedCode);
           setCodeError("");
-          setScannerMessage(`Kode QR terbaca: ${scannedCode}`);
+          setScannerMessage("QR berhasil terbaca. Silakan lanjutkan presensi.");
 
           if (navigator.vibrate) {
             navigator.vibrate(200);
@@ -670,7 +670,7 @@ export default function AttendancePage() {
       );
 
       setScannerLoading(false);
-      setScannerMessage("Arahkan kamera belakang ke QR live di layar kasir.");
+      setScannerMessage("Arahkan kamera ke QR presensi yang tersedia di outlet.");
     } catch (error) {
       console.error("Failed to open html5-qrcode scanner:", error);
       setScannerLoading(false);
@@ -714,7 +714,7 @@ export default function AttendancePage() {
     );
 
     if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
-      throw new Error("Kode QR sudah expired. Scan QR terbaru di layar kasir.");
+      throw new Error("QR presensi sudah kedaluwarsa. Silakan scan QR terbaru.");
     }
 
     return presenceCodeData;
@@ -722,17 +722,17 @@ export default function AttendancePage() {
 
   const validateLocation = async () => {
     if (!storeSettings) {
-      throw new Error("Lokasi cafe belum diset oleh owner.");
+      throw new Error("Lokasi outlet belum diatur.");
     }
 
     if (
       storeSettings.store_latitude === null ||
       storeSettings.store_longitude === null
     ) {
-      throw new Error("Latitude dan longitude cafe belum diset oleh owner.");
+      throw new Error("Lokasi outlet belum lengkap.");
     }
 
-    setLocationMessage("Meminta akses lokasi device...");
+    setLocationMessage("Memeriksa lokasi Anda...");
 
     const position = await getCurrentLocation();
     const latitude = position.coords.latitude;
@@ -756,7 +756,7 @@ export default function AttendancePage() {
     }
 
     setLocationMessage(
-      `Lokasi valid. Jarak dari cafe sekitar ${Math.round(distance)} m.`,
+      `Lokasi berhasil diverifikasi.`,
     );
 
     return {
@@ -818,7 +818,7 @@ export default function AttendancePage() {
           clock_in_distance_meters: Number(location.distance.toFixed(2)),
           clock_in_method: "manual_code",
           check_in_status: checkInStatus,
-          notes: `Clock in dari halaman login staff dengan kode ${codeData.code}`,
+          notes: "Clock in melalui QR presensi.",
         });
 
         if (error) throw error;
@@ -838,8 +838,8 @@ export default function AttendancePage() {
             clock_out_method: "manual_code",
             check_out_status: checkOutStatus,
             notes: todayAttendance.notes
-              ? `${todayAttendance.notes} | Clock out dengan kode ${codeData.code}`
-              : `Clock out dari halaman login staff dengan kode ${codeData.code}`,
+              ? `${todayAttendance.notes} | Clock out melalui QR presensi.`
+              : "Clock out melalui QR presensi.",
             updated_at: nowTimestamp,
           })
           .eq("id", todayAttendance.id);
@@ -892,26 +892,28 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto">
-        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="min-h-[calc(100dvh-64px)] bg-gray-50">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
               Absensi Staff
             </h1>
-            <p className="mt-2 text-sm text-gray-600 md:text-base">
-              Clock in dan clock out dari akun staff yang sedang login.
+            <p className="mt-1 text-sm text-gray-600 md:text-base">
+              Lakukan presensi dengan QR resmi yang tersedia di outlet.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm">
             <p className="font-semibold text-gray-900">{formatDate(today)}</p>
-            <p className="text-gray-500">Validasi QR + lokasi + shift</p>
+            <p className="text-gray-500">Presensi terverifikasi</p>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mx-auto px-4 py-4 md:px-6">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[420px_1fr]">
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-900 text-white">
                 <ClockIcon className="h-8 w-8" />
@@ -927,7 +929,7 @@ export default function AttendancePage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl bg-gray-50 p-4">
+            <div className="mt-4 rounded-2xl bg-gray-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Shift Kerja
               </p>
@@ -962,7 +964,7 @@ export default function AttendancePage() {
               )}
             </div>
 
-            <div className="mt-6 rounded-2xl border border-gray-200 p-4">
+            <div className="mt-4 rounded-2xl border border-gray-200 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1023,21 +1025,26 @@ export default function AttendancePage() {
               )}
             </div>
 
-            <div className="mt-6 space-y-3">
-              <label className="block text-sm font-semibold text-gray-700">
-                Kode QR Presensi
-              </label>
+            <div className="mt-4 space-y-2.5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">
+                  Presensi QR
+                </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  Scan QR resmi di outlet untuk mencatat kehadiran.
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto]">
-                <button
-                  type="button"
-                  onClick={startQrScanner}
-                  disabled={submitting || Boolean(isCompletedToday)}
-                  className="h-12 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Buka Kamera
-                </button>
+              <button
+                type="button"
+                onClick={startQrScanner}
+                disabled={submitting || Boolean(isCompletedToday)}
+                className="flex h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Buka Kamera
+              </button>
 
+              <div className="grid grid-cols-[1fr_auto] gap-2">
                 <input
                   type="text"
                   value={presenceCode}
@@ -1045,8 +1052,8 @@ export default function AttendancePage() {
                     setPresenceCode(event.target.value.toUpperCase());
                     setCodeError("");
                   }}
-                  placeholder="Scan QR atau masukkan kode manual"
-                  className="h-12 rounded-xl border border-gray-300 px-4 font-mono text-sm uppercase outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  placeholder="Kode QR"
+                  className="h-11 min-w-0 rounded-xl border border-gray-300 px-4 font-mono text-sm uppercase outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
                   disabled={submitting || Boolean(isCompletedToday)}
                 />
 
@@ -1059,7 +1066,7 @@ export default function AttendancePage() {
                     !presenceCode.trim() ||
                     !staff?.shift
                   }
-                  className="h-12 rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-11 rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? "Memproses..." : currentActionLabel}
                 </button>
@@ -1077,26 +1084,25 @@ export default function AttendancePage() {
                 </div>
               )}
 
-              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-500">
-                QR yang discan adalah QR live dari halaman <strong>/absensi</strong>.
-                Kamera memakai scanner <strong>html5-qrcode</strong> agar lebih stabil di iPhone/iOS.
-              </div>
+              <p className="text-xs text-gray-500">
+                Pastikan Anda berada di area outlet saat melakukan presensi.
+              </p>
             </div>
           </section>
 
-          <section className="space-y-6">
+          <section className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <KeyIcon className="h-6 w-6 text-gray-500" />
                   <div>
-                    <p className="text-sm text-gray-500">Mode</p>
-                    <p className="font-bold text-gray-900">QR Dinamis</p>
+                    <p className="text-sm text-gray-500">Metode</p>
+                    <p className="font-bold text-gray-900">QR Presensi</p>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <MapPinIcon className="h-6 w-6 text-gray-500" />
                   <div>
@@ -1108,7 +1114,7 @@ export default function AttendancePage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <QrCodeIcon className="h-6 w-6 text-gray-500" />
                   <div>
@@ -1121,15 +1127,15 @@ export default function AttendancePage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <h2 className="text-lg font-bold text-gray-900">
                 Riwayat Absensi
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                Menampilkan maksimal 30 data absensi terbaru.
+                Riwayat presensi staff terbaru.
               </p>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-4 space-y-3 xl:max-h-[calc(100vh-370px)] xl:overflow-y-auto xl:pr-1">
                 {attendanceList.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
                     Belum ada riwayat absensi.
@@ -1138,7 +1144,7 @@ export default function AttendancePage() {
                   attendanceList.map((attendance) => (
                     <div
                       key={attendance.id}
-                      className="rounded-xl border border-gray-200 p-4"
+                      className="rounded-xl border border-gray-200 p-3"
                     >
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
@@ -1163,7 +1169,7 @@ export default function AttendancePage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-xl bg-gray-50 p-3">
                           <p className="text-xs text-gray-500">Clock In</p>
                           <p className="mt-1 font-semibold text-gray-900">
@@ -1206,7 +1212,7 @@ export default function AttendancePage() {
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Scan QR Presensi</h3>
-                  <p className="text-sm text-gray-500">Arahkan kamera ke QR live.</p>
+                  <p className="text-sm text-gray-500">Arahkan kamera ke QR presensi.</p>
                 </div>
 
                 <button
@@ -1239,7 +1245,7 @@ export default function AttendancePage() {
                 )}
 
                 <p className="mt-4 text-xs text-gray-500">
-                  Di iPhone, buka lewat HTTPS dan pastikan izin kamera untuk Safari/Chrome sudah aktif.
+                  Pastikan izin kamera aktif sebelum melakukan scan.
                 </p>
               </div>
             </div>
@@ -1251,8 +1257,7 @@ export default function AttendancePage() {
             <div className="flex gap-3">
               <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
               <p>
-                Lokasi cafe belum lengkap. Owner perlu mengatur latitude,
-                longitude, dan radius di Staff Manager bagian Presensi.
+                Lokasi outlet belum lengkap. Lengkapi pengaturan lokasi dan radius presensi terlebih dahulu.
               </p>
             </div>
           </div>

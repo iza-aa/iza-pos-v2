@@ -6,12 +6,30 @@ import { supabase } from '@/lib/config/supabaseClient'
 import { showError } from '@/lib/services/errorHandling'
 import type { MenuItem, VariantGroup } from '@/lib/types'
 
-type MenuType = 'food' | 'drink'
-type VariantSelectionType = 'single' | 'multiple'
+interface MenuModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (menu: Omit<MenuItem, 'id'>) => void
+  onUpdate?: (menu: MenuItem) => void
+  editMenu?: MenuItem | null
+  categories: Array<{ id: string; name: string }>
+  defaultCategoryId?: string
+}
 
-type CategoryOption = {
+type ProductType = 'food' | 'drink'
+
+type VariantGroupRow = {
   id: string
   name: string
+  type?: string | null
+  is_required?: boolean | null
+}
+
+type VariantOptionRow = {
+  id: string
+  name: string
+  price_modifier?: number | null
+  price_adjustment?: number | null
 }
 
 type MenuFormData = {
@@ -21,79 +39,69 @@ type MenuFormData = {
   price: number
   image: string
   available: boolean
-  is_available: boolean
   hasVariants: boolean
   variantGroups: string[]
-  type: MenuType
+  type: ProductType
 }
 
-type RawVariantGroup = {
-  id: string
-  name: string
-  type?: string | null
-  is_required?: boolean | null
-}
-
-type RawVariantOption = {
-  id: string
-  name: string
-  price_modifier?: number | string | null
-  price_adjustment?: number | string | null
-}
-
-interface MenuModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (menu: Omit<MenuItem, 'id'>) => void
-  onUpdate?: (menu: MenuItem) => void
-  editMenu?: MenuItem | null
-  categories: CategoryOption[]
-  defaultCategoryId?: string
-}
-
-const normalizeMenuType = (value: unknown): MenuType => {
+const normalizeProductType = (value: unknown): ProductType => {
   return value === 'drink' ? 'drink' : 'food'
 }
 
-const normalizeString = (value: unknown): string => {
+const toSafeString = (value: unknown): string => {
   return typeof value === 'string' ? value : ''
 }
 
-const normalizeNumber = (value: unknown): number => {
+const toSafeNumber = (value: unknown): number => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
+    const parsedValue = Number(value)
+    return Number.isFinite(parsedValue) ? parsedValue : 0
   }
   return 0
 }
 
-const normalizeBoolean = (value: unknown, fallback = false): boolean => {
+const toSafeBoolean = (value: unknown, fallback = false): boolean => {
   return typeof value === 'boolean' ? value : fallback
 }
 
-const normalizeVariantGroupIds = (value: unknown): string[] => {
+const getMenuVariantGroups = (value: unknown): string[] => {
   if (!Array.isArray(value)) return []
-
-  return value
-    .map((item) => (typeof item === 'string' ? item : ''))
-    .filter(Boolean)
+  return value.filter((item): item is string => typeof item === 'string')
 }
 
-const buildMenuPayload = (formData: MenuFormData): Omit<MenuItem, 'id'> => {
-  const image = formData.image.trim()
+const getMenuAvailable = (menu: MenuItem | null | undefined): boolean => {
+  if (!menu) return true
+
+  const menuWithLegacyAvailability = menu as MenuItem & {
+    available?: boolean
+  }
+
+  if (typeof menuWithLegacyAvailability.available === 'boolean') {
+    return menuWithLegacyAvailability.available
+  }
+
+  return toSafeBoolean(menu.is_available, true)
+}
+
+const getInitialFormData = (
+  categories: Array<{ id: string; name: string }>,
+  defaultCategoryId?: string,
+): MenuFormData => {
+  const selectedCategory = defaultCategoryId
+    ? categories.find((category) => category.id === defaultCategoryId) ?? categories[0]
+    : categories[0]
 
   return {
-    name: formData.name.trim(),
-    category: formData.category,
-    categoryId: formData.categoryId,
-    price: formData.price,
-    image: image || undefined,
-    available: formData.available,
-    is_available: formData.available,
-    hasVariants: formData.hasVariants,
-    variantGroups: formData.hasVariants ? formData.variantGroups : [],
-    type: formData.type,
+    name: '',
+    category: selectedCategory?.name ?? '',
+    categoryId: selectedCategory?.id ?? '',
+    price: 0,
+    image: '',
+    available: true,
+    hasVariants: false,
+    variantGroups: [],
+    type: 'food',
   }
 }
 
@@ -106,20 +114,10 @@ export default function MenuModal({
   categories,
   defaultCategoryId,
 }: MenuModalProps) {
-  const [formData, setFormData] = useState<MenuFormData>({
-    name: '',
-    category: '',
-    categoryId: '',
-    price: 0,
-    image: '',
-    available: true,
-    is_available: true,
-    hasVariants: false,
-    variantGroups: [],
-    type: 'food',
-  })
-
-  const [imagePreview, setImagePreview] = useState('')
+  const [formData, setFormData] = useState<MenuFormData>(() =>
+    getInitialFormData(categories, defaultCategoryId),
+  )
+  const [imagePreview, setImagePreview] = useState<string>('')
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
   const [loadingVariants, setLoadingVariants] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -141,7 +139,7 @@ export default function MenuModal({
         }
 
         const formattedGroups: VariantGroup[] = await Promise.all(
-          ((groups ?? []) as RawVariantGroup[]).map(async (group) => {
+          ((groups ?? []) as VariantGroupRow[]).map(async (group) => {
             const { data: options, error: optionsError } = await supabase
               .from('variant_options')
               .select('id, name, price_modifier, price_adjustment')
@@ -160,17 +158,17 @@ export default function MenuModal({
               id: group.id,
               name: group.name,
               type: group.type === 'multiple' ? 'multiple' : 'single',
-              is_required: normalizeBoolean(group.is_required),
-              options: ((options ?? []) as RawVariantOption[]).map((option) => {
-                const priceAdjustment = normalizeNumber(
+              is_required: Boolean(group.is_required),
+              options: ((options ?? []) as VariantOptionRow[]).map((option) => {
+                const priceAdjustment = toSafeNumber(
                   option.price_adjustment ?? option.price_modifier,
                 )
 
                 return {
                   id: option.id,
                   name: option.name,
-                  price_adjustment: priceAdjustment,
                   price_modifier: priceAdjustment,
+                  price_adjustment: priceAdjustment,
                 }
               }),
             }
@@ -195,49 +193,24 @@ export default function MenuModal({
     if (!isOpen) return
 
     if (editMenu) {
-      const image = normalizeString(editMenu.image)
-      const available = normalizeBoolean(
-        editMenu.available,
-        normalizeBoolean(editMenu.is_available, true),
-      )
-
       setFormData({
-        name: normalizeString(editMenu.name),
-        category: normalizeString(editMenu.category),
-        categoryId: normalizeString(editMenu.categoryId),
-        price: normalizeNumber(editMenu.price),
-        image,
-        available,
-        is_available: available,
-        hasVariants: normalizeBoolean(editMenu.hasVariants),
-        variantGroups: normalizeVariantGroupIds(editMenu.variantGroups),
-        type: normalizeMenuType(editMenu.type),
+        name: toSafeString(editMenu.name),
+        category: toSafeString(editMenu.category),
+        categoryId: toSafeString(editMenu.categoryId),
+        price: toSafeNumber(editMenu.price),
+        image: toSafeString(editMenu.image),
+        available: getMenuAvailable(editMenu),
+        hasVariants: toSafeBoolean(editMenu.hasVariants, false),
+        variantGroups: getMenuVariantGroups(editMenu.variantGroups),
+        type: normalizeProductType(editMenu.type),
       })
-
-      setImagePreview(image)
+      setImagePreview(toSafeString(editMenu.image))
       return
     }
 
-    if (categories.length > 0) {
-      const selectedCategory =
-        (defaultCategoryId
-          ? categories.find((category) => category.id === defaultCategoryId)
-          : undefined) ?? categories[0]
-
-      setFormData({
-        name: '',
-        category: selectedCategory.name,
-        categoryId: selectedCategory.id,
-        price: 0,
-        image: '',
-        available: true,
-        is_available: true,
-        hasVariants: false,
-        variantGroups: [],
-        type: 'food',
-      })
-      setImagePreview('')
-    }
+    const initialFormData = getInitialFormData(categories, defaultCategoryId)
+    setFormData(initialFormData)
+    setImagePreview('')
   }, [editMenu, isOpen, categories, defaultCategoryId])
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,13 +229,11 @@ export default function MenuModal({
     }
 
     const reader = new FileReader()
-
     reader.onloadend = () => {
       const result = typeof reader.result === 'string' ? reader.result : ''
       setImagePreview(result)
       setFormData((prev) => ({ ...prev, image: result }))
     }
-
     reader.readAsDataURL(file)
   }
 
@@ -277,23 +248,12 @@ export default function MenuModal({
 
   const handleCategoryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const categoryId = event.target.value
-    const selectedCategory = categories.find(
-      (category) => category.id === categoryId,
-    )
-
-    if (!selectedCategory) {
-      setFormData((prev) => ({
-        ...prev,
-        categoryId: '',
-        category: '',
-      }))
-      return
-    }
+    const selectedCategory = categories.find((category) => category.id === categoryId)
 
     setFormData((prev) => ({
       ...prev,
       categoryId,
-      category: selectedCategory.name,
+      category: selectedCategory?.name ?? '',
     }))
   }
 
@@ -306,34 +266,26 @@ export default function MenuModal({
     }))
   }
 
-  const handleAvailableChange = (checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      available: checked,
-      is_available: checked,
-    }))
-  }
-
-  const handleHasVariantsChange = (checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      hasVariants: checked,
-      variantGroups: checked ? prev.variantGroups : [],
-    }))
-  }
-
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const payload = buildMenuPayload(formData)
+    const menuPayload = {
+      name: formData.name.trim(),
+      category: formData.category,
+      categoryId: formData.categoryId,
+      price: formData.price,
+      image: formData.image || undefined,
+      available: formData.available,
+      is_available: formData.available,
+      hasVariants: formData.hasVariants,
+      variantGroups: formData.hasVariants ? formData.variantGroups : [],
+      type: formData.type,
+    }
 
     if (editMenu && onUpdate) {
-      onUpdate({
-        ...payload,
-        id: editMenu.id,
-      })
+      onUpdate({ ...menuPayload, id: editMenu.id })
     } else {
-      onSave(payload)
+      onSave(menuPayload)
     }
 
     onClose()
@@ -342,26 +294,27 @@ export default function MenuModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-800">
             {editMenu ? 'Edit Menu' : 'Add Menu'}
           </h2>
+
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            className="rounded-lg p-2 transition hover:bg-gray-100"
             aria-label="Close menu modal"
           >
-            <XMarkIcon className="w-6 h-6 text-gray-600" />
+            <XMarkIcon className="h-6 w-6 text-gray-600" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Menu Name
               </label>
               <input
@@ -371,20 +324,20 @@ export default function MenuModal({
                 onChange={(event) =>
                   setFormData((prev) => ({ ...prev, name: event.target.value }))
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter menu name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Category
               </label>
               <select
                 required
                 value={formData.categoryId}
                 onChange={handleCategoryChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select category</option>
                 {categories.map((category) => (
@@ -396,7 +349,7 @@ export default function MenuModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Product Type
               </label>
               <select
@@ -405,15 +358,15 @@ export default function MenuModal({
                 onChange={(event) =>
                   setFormData((prev) => ({
                     ...prev,
-                    type: normalizeMenuType(event.target.value),
+                    type: normalizeProductType(event.target.value),
                   }))
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="food">Food (Kitchen)</option>
                 <option value="drink">Drink (Barista/Waiter)</option>
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-xs text-gray-500">
                 Food orders go to kitchen, drinks are handled by barista/waiter
               </p>
             </div>
@@ -421,7 +374,7 @@ export default function MenuModal({
             <div>
               <label
                 htmlFor="price"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="mb-2 block text-sm font-medium text-gray-700"
               >
                 Price (Rp)
               </label>
@@ -435,16 +388,16 @@ export default function MenuModal({
                 onChange={(event) =>
                   setFormData((prev) => ({
                     ...prev,
-                    price: normalizeNumber(event.target.value),
+                    price: toSafeNumber(event.target.value),
                   }))
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter price"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Menu Image
               </label>
 
@@ -453,25 +406,25 @@ export default function MenuModal({
                   <img
                     src={imagePreview}
                     alt="Menu preview"
-                    className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                    className="h-48 w-full rounded-xl border-2 border-gray-200 object-cover"
                   />
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg"
-                    aria-label="Remove menu image"
+                    className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white shadow-lg transition hover:bg-red-600"
+                    aria-label="Remove image"
                   >
-                    <XMarkIcon className="w-5 h-5" />
+                    <XMarkIcon className="h-5 w-5" />
                   </button>
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition"
+                  className="w-full rounded-xl border-2 border-dashed border-gray-300 p-8 text-center transition hover:border-blue-500 hover:bg-blue-50"
                 >
-                  <PhotoIcon className="w-12 h-12 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600 mb-1">
+                  <PhotoIcon className="mx-auto mb-2 h-12 w-12 text-gray-400" />
+                  <p className="mb-1 text-sm text-gray-600">
                     Click to upload menu image
                   </p>
                   <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
@@ -492,13 +445,15 @@ export default function MenuModal({
                 type="checkbox"
                 id="available"
                 checked={formData.available}
-                onChange={(event) => handleAvailableChange(event.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                onChange={(event) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    available: event.target.checked,
+                  }))
+                }
+                className="h-5 w-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
               />
-              <label
-                htmlFor="available"
-                className="text-sm font-medium text-gray-700"
-              >
+              <label htmlFor="available" className="text-sm font-medium text-gray-700">
                 Available for sale
               </label>
             </div>
@@ -509,9 +464,13 @@ export default function MenuModal({
                 id="hasVariantsMenu"
                 checked={formData.hasVariants}
                 onChange={(event) =>
-                  handleHasVariantsChange(event.target.checked)
+                  setFormData((prev) => ({
+                    ...prev,
+                    hasVariants: event.target.checked,
+                    variantGroups: event.target.checked ? prev.variantGroups : [],
+                  }))
                 }
-                className="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                className="h-5 w-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
               />
               <label
                 htmlFor="hasVariantsMenu"
@@ -522,47 +481,48 @@ export default function MenuModal({
             </div>
 
             {formData.hasVariants && (
-              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <label className="mb-3 block text-sm font-medium text-gray-700">
                   Select Variant Groups
                 </label>
+
                 {loadingVariants ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" />
-                    <p className="text-sm text-gray-500 mt-2">
+                  <div className="py-8 text-center">
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500" />
+                    <p className="mt-2 text-sm text-gray-500">
                       Loading variant groups...
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                  <div className="max-h-60 space-y-2 overflow-y-auto">
                     {variantGroups.map((group) => {
-                      const options = group.options ?? []
+                      const optionCount = group.options?.length ?? 0
 
                       return (
                         <div
                           key={group.id}
-                          className="flex items-start gap-3 p-2 bg-white rounded-lg"
+                          className="flex items-start gap-3 rounded-lg bg-white p-2"
                         >
                           <input
                             type="checkbox"
                             id={`variant-${group.id}`}
                             checked={formData.variantGroups.includes(group.id)}
                             onChange={() => handleToggleVariantGroup(group.id)}
-                            className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
                           />
+
                           <div className="flex-1">
                             <label
                               htmlFor={`variant-${group.id}`}
-                              className="text-sm font-medium text-gray-700 cursor-pointer"
+                              className="cursor-pointer text-sm font-medium text-gray-700"
                             >
                               {group.name}
                               {group.is_required && (
                                 <span className="ml-1 text-red-500">*</span>
                               )}
                             </label>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {options.length} option
-                              {options.length !== 1 ? 's' : ''} •{' '}
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {optionCount} option{optionCount !== 1 ? 's' : ''} •{' '}
                               {group.type === 'single'
                                 ? 'Single select'
                                 : 'Multiple select'}
@@ -573,8 +533,8 @@ export default function MenuModal({
                     })}
 
                     {variantGroups.length === 0 && (
-                      <div className="text-center py-4">
-                        <p className="text-sm text-gray-500 mb-2">
+                      <div className="py-4 text-center">
+                        <p className="mb-2 text-sm text-gray-500">
                           No variant groups available
                         </p>
                         <p className="text-xs text-gray-400">
@@ -588,17 +548,17 @@ export default function MenuModal({
             )}
           </div>
 
-          <div className="flex items-center gap-3 mt-6">
+          <div className="mt-6 flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition font-medium"
+              className="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium transition hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium"
+              className="flex-1 rounded-xl bg-blue-500 px-4 py-2 font-medium text-white transition hover:bg-blue-600"
             >
               {editMenu ? 'Update' : 'Add'} Menu
             </button>
