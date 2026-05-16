@@ -906,7 +906,7 @@ export default function AttendancePage() {
     ? "Clock In"
     : canClockOut
       ? "Clock Out"
-      : "Selesai Hari Ini";
+      : "Absensi Selesai";
 
   if (loading) {
     return (
@@ -921,7 +921,7 @@ export default function AttendancePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto ">
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
