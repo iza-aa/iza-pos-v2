@@ -143,7 +143,7 @@ export default function ManagerDashboardPage() {
             {greeting}, {userName}! 👋
           </h1>
           <p className="text-gray-600 mt-2">
-            Welcome to your manager dashboard. Here's what you can manage today.
+            Welcome to your manager dashboard. Here is what you can manage today.
           </p>
         </div>
 
@@ -190,7 +190,7 @@ export default function ManagerDashboardPage() {
         {/* Today's Summary */}
         <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Today's Summary
+            Todays Summary
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-4 bg-gray-50 rounded-lg">

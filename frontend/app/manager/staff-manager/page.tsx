@@ -399,7 +399,7 @@ export default function ManagerStaffPage() {
         {/* Presensi Tab Content */}
         {activeTab === 'presensi' && (
           <AttendanceSection 
-            viewMode={viewMode}
+            // viewMode={viewMode}
             dateRangeMode={dateRangeMode}
             customStartDate={customStartDate}
             customEndDate={customEndDate}

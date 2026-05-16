@@ -1,7 +1,7 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import type { ElementType } from 'react'
 import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
 import { formatCurrency } from '@/lib/constants'
 import { getCurrentUser } from '@/lib/utils'
@@ -11,7 +11,6 @@ import {
   PlusIcon, 
   Squares2X2Icon, 
   ListBulletIcon, 
-  FunnelIcon,
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/react/24/outline'
@@ -34,8 +33,43 @@ import CategoryModal from '@/app/components/manager/menu/CategoryModal'
 import { DeleteModal, ProductImagePlaceholder } from '@/app/components/ui'
 import type { MenuItem } from '@/lib/types'
 
+type Category = {
+  id: string
+  name: string
+  icon?: string | null
+  type?: string | null
+  count?: number
+}
+
+type ProductVariantGroupRelation = {
+  variant_group_id: string
+}
+
+type ProductCategoryRelation = {
+  name?: string | null
+}
+
+type ProductRow = {
+  id: string
+  name: string
+  category_id: string
+  price: number
+  image?: string | null
+  available?: boolean | null
+  is_available?: boolean | null
+  has_variants?: boolean | null
+  type?: string | null
+  category?: ProductCategoryRelation | ProductCategoryRelation[] | null
+  product_variant_groups?: ProductVariantGroupRelation[] | null
+}
+
+const getRelationObject = <T,>(relation: T | T[] | null | undefined): T | null => {
+  if (!relation) return null
+  return Array.isArray(relation) ? relation[0] ?? null : relation
+}
+
 // Icon mapping for categories - maps icon name to Lucide components
-const iconNameToComponent: Record<string, any> = {
+const iconNameToComponent: Record<string, ElementType> = {
   'Coffee': Coffee,
   'UtensilsCrossed': UtensilsCrossed,
   'Cookie': Cookie,
@@ -54,34 +88,31 @@ const iconNameToComponent: Record<string, any> = {
   '🍵': Milk,
 }
 
-const categoryIcons: Record<string, any> = {
+const categoryIcons: Record<string, ElementType> = {
   'all': LayoutGrid,
 }
 
 export default function MenuPage() {
   useSessionValidation();
   
-  const searchParams = useSearchParams()
-  
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
-  const [showFilterModal, setShowFilterModal] = useState(false)
   const [showAddMenuModal, setShowAddMenuModal] = useState(false)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<any>(null)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [editingMenu, setEditingMenu] = useState<MenuItem | null>(null)
   const [deletingMenu, setDeletingMenu] = useState<MenuItem | null>(null)
-  const [deletingCategory, setDeletingCategory] = useState<any>(null)
-  const [categories, setCategories] = useState<any[]>([])
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [showCategorySidebar, setShowCategorySidebar] = useState(false)
 
   // Fetch categories from Supabase
   useEffect(() => {
     async function fetchCategories() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('categories')
         .select('*')
         .eq('is_active', true)
@@ -139,21 +170,33 @@ export default function MenuPage() {
         query = query.eq('category_id', selectedCategory)
       }
       
-      const { data, error } = await query
+      const { data } = await query
       
       if (data) {
-        setMenuItems(data.map((p) => ({
-          id: p.id,
-          name: p.name,
-          category: p.category?.name || 'Unknown',
-          categoryId: p.category_id,
-          price: p.price,
-          image: p.image || null,
-          available: p.available,
-          hasVariants: p.has_variants,
-          variantGroups: p.product_variant_groups?.map((pvg) => pvg.variant_group_id) || [],
-          type: p.type || 'food',
-        })))
+        const products = (data as ProductRow[]).map((product) => {
+          const categoryRelation = getRelationObject(product.category)
+          const available = product.available ?? product.is_available ?? true
+
+          return {
+            id: product.id,
+            name: product.name,
+            category: categoryRelation?.name || 'Unknown',
+            categoryId: product.category_id,
+            price: product.price,
+            image: product.image || undefined,
+            available,
+            is_available: available,
+            hasVariants: Boolean(product.has_variants),
+            variantGroups:
+              product.product_variant_groups?.map(
+                (productVariantGroup: ProductVariantGroupRelation) =>
+                  productVariantGroup.variant_group_id,
+              ) || [],
+            type: product.type === 'drink' ? 'drink' : 'food',
+          } satisfies MenuItem
+        })
+
+        setMenuItems(products)
       }
       
       setLoading(false)
@@ -183,7 +226,7 @@ export default function MenuPage() {
   const handleSaveNewCategory = async (name: string, icon: string, type: string) => {
     if (editingCategory) {
       // Update existing category
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('categories')
         .update({
           name: name,
@@ -206,7 +249,7 @@ export default function MenuPage() {
       }
     } else {
       // Save new category to Supabase
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('categories')
         .insert([{
           name: name,
@@ -247,7 +290,7 @@ export default function MenuPage() {
     const currentUser = getCurrentUser()
     if (!currentUser) return
     
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('products')
       .insert([{
         name: newMenu.name,
@@ -265,8 +308,10 @@ export default function MenuPage() {
     
     if (data) {
       // Save product variant groups relationship
-      if (newMenu.hasVariants && newMenu.variantGroups.length > 0) {
-        const variantGroupsData = newMenu.variantGroups.map(vgId => ({
+      const selectedVariantGroups = newMenu.variantGroups ?? []
+
+      if (newMenu.hasVariants && selectedVariantGroups.length > 0) {
+        const variantGroupsData = selectedVariantGroups.map((vgId) => ({
           product_id: data.id,
           variant_group_id: vgId
         }))
@@ -282,16 +327,20 @@ export default function MenuPage() {
         .eq('id', data.category_id)
         .single()
       
+      const menuAvailability = data.available ?? data.is_available ?? true
+
       const menu: MenuItem = {
         id: data.id,
         name: data.name,
         category: categoryData?.name || 'Unknown',
         categoryId: data.category_id,
         price: data.price,
-        image: data.image,
-        available: data.available,
-        hasVariants: data.has_variants,
-        variantGroups: newMenu.variantGroups
+        image: data.image || null,
+        available: menuAvailability,
+        is_available: menuAvailability,
+        hasVariants: data.has_variants ?? false,
+        variantGroups: selectedVariantGroups,
+        type: data.type || 'food'
       }
       
       setMenuItems(prev => [...prev, menu])
@@ -345,8 +394,10 @@ export default function MenuPage() {
         .eq('product_id', updatedMenu.id)
       
       // Then insert new ones if has variants
-      if (updatedMenu.hasVariants && updatedMenu.variantGroups.length > 0) {
-        const variantGroupsData = updatedMenu.variantGroups.map(vgId => ({
+      const selectedVariantGroups = updatedMenu.variantGroups ?? []
+
+      if (updatedMenu.hasVariants && selectedVariantGroups.length > 0) {
+        const variantGroupsData = selectedVariantGroups.map((vgId) => ({
           product_id: updatedMenu.id,
           variant_group_id: vgId
         }))
@@ -396,7 +447,7 @@ export default function MenuPage() {
           price: updatedMenu.price,
           available: updatedMenu.available
         },
-        changesSummary: changesSummary || undefined,
+        changesSummary: changesSummary ? [changesSummary] : undefined,
         severity,
         tags: ['menu', 'update', priceChangePercent > 20 ? 'price-alert' : undefined].filter(Boolean) as string[]
       })
@@ -439,19 +490,6 @@ export default function MenuPage() {
       }
     }
   }
-
-interface Category {
-  id: string
-  name: string
-  icon?: string
-  type?: string
-  count?: number
-}
-
-const handleFilter = () => {
-  setShowFilterModal(true)
-  console.log('Opening filter modal')
-}
 
 const handleDeleteCategory = (category: Category) => {
     if (category.id === 'all') return // Cannot delete 'All Menu'
@@ -507,14 +545,14 @@ const handleDeleteCategory = (category: Category) => {
           <XMarkIcon className="w-6 h-6 text-gray-600" />
         </button>
 
-        <h2 className="text-lg font-bold text-gray-900 mb-4 flex-shrink-0">Menu Category</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-4 shrink-0">Menu Category</h2>
         
         <div className="space-y-1.5 flex-1 overflow-y-auto">
           {categories.map((category) => {
             // Map icon name/emoji to Lucide component
             const IconComponent = category.id === 'all' 
               ? categoryIcons['all']
-              : iconNameToComponent[category.icon] || Cookie
+              : iconNameToComponent[category.icon ?? ''] || Cookie
             
             const isSelected = selectedCategory === category.id
             
@@ -578,7 +616,7 @@ const handleDeleteCategory = (category: Category) => {
 
         <button 
           onClick={handleAddNewCategory}
-          className="w-full mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white px-3 py-2.5 rounded-lg hover:bg-gray-800 transition font-medium flex-shrink-0 text-sm"
+          className="w-full mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white px-3 py-2.5 rounded-lg hover:bg-gray-800 transition font-medium shrink-0 text-sm"
         >
           <PlusIcon className="w-4 h-4" />
           Add New Category
@@ -588,7 +626,7 @@ const handleDeleteCategory = (category: Category) => {
       {/* Section 2 & 3: Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Section 2: Header - Fixed, tidak bisa scroll */}
-        <section className="bg-white p-4 md:p-6 border-b border-gray-200 flex-shrink-0 overflow-hidden">
+        <section className="bg-white p-4 md:p-6 border-b border-gray-200 shrink-0 overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
                <div className="flex flex-col gap-1">
@@ -642,7 +680,7 @@ const handleDeleteCategory = (category: Category) => {
             {/* Add New Menu Card */}
             <button 
               onClick={handleAddNewMenu}
-              className="border-2 border-dashed border-gray-300 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center gap-2 md:gap-3 hover:border-gray-900 hover:bg-gray-100 transition min-h-[200px] md:min-h-[250px]"
+              className="border-2 border-dashed border-gray-300 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center gap-2 md:gap-3 hover:border-gray-900 hover:bg-gray-100 transition min-h-50 md:min-h-62.5"
             >
               <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-900 rounded-full flex items-center justify-center">
                 <PlusIcon className="w-6 h-6 md:w-8 md:h-8 text-white" />
@@ -658,7 +696,7 @@ const handleDeleteCategory = (category: Category) => {
               return (
               <div key={menu.id} className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition flex flex-col">
                 {/* Menu Image */}
-                <div className="relative p-[3px]">
+                <div className="relative p-0.75">
                   <div className="w-full h-20 md:h-24 bg-gray-200 rounded-xl overflow-hidden">
                     <ProductImagePlaceholder
                       name={menu.name}
@@ -759,7 +797,16 @@ const handleDeleteCategory = (category: Category) => {
           setEditingCategory(null)
         }}
         onSave={handleSaveNewCategory}
-        category={editingCategory}
+        category={
+          editingCategory
+            ? {
+                id: editingCategory.id,
+                name: editingCategory.name,
+                icon: editingCategory.icon ?? 'Coffee',
+                type: editingCategory.type ?? 'food',
+              }
+            : null
+        }
       />
 
       {/* Delete Menu Modal */}

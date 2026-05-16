@@ -6,13 +6,11 @@ import { getCurrentUser } from "@/lib/utils";
 import { supabase } from "@/lib/config/supabaseClient";
 import { showSuccess, showError } from "@/lib/services/errorHandling";
 import {
-  CheckCircleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   KeyIcon,
   MapPinIcon,
   QrCodeIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 type CheckInStatus = "early" | "on_time" | "late" | null;
@@ -1269,7 +1267,7 @@ export default function AttendancePage() {
                 <div className="relative overflow-hidden rounded-2xl bg-black">
                   <video
                     ref={videoRef}
-                    className="h-[360px] w-full object-cover"
+                    className="h-90 w-full object-cover"
                     playsInline
                     muted
                   />

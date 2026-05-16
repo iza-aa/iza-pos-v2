@@ -95,7 +95,7 @@ export default function ManagerLoginPage() {
           <div className="absolute inset-0 bg-black/40 rounded-2xl z-10"></div>
           <div className="relative z-20 p-8 text-white w-full">
             <p className="text-xl font-medium mb-4 leading-snug">
-              "{slides[current].quote}"
+              {slides[current].quote}
             </p>
             <div className="font-semibold text-sm mb-2">
               {slides[current].author}

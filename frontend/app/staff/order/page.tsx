@@ -885,7 +885,7 @@ export default function ManagerOrderPage() {
                       </div>
                     </div>
 
-                     <div className="p-3 space-y-3 min-h-[520px]">
+                     <div className="p-3 space-y-3 min-h-130">
                       {columnOrders.length > 0 ? (
                         columnOrders.map((order) => (
                           <OrderCard
