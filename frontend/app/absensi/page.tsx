@@ -39,7 +39,7 @@ type AttendanceResult = {
 };
 
 const QR_REFRESH_SECONDS = 60;
-const KIOSK_RESYNC_SECONDS = 5;
+const KIOSK_RESYNC_SECONDS = 1;
 
 const normalizeCredential = (value: string) => value.trim();
 
@@ -351,7 +351,7 @@ export default function AbsensiPage() {
 
               <p className="mt-4 max-w-xl text-base leading-7 text-gray-300 md:text-lg">
                 Scan QR ini untuk clock in atau clock out. QR otomatis berubah
-                setiap 1 menit dan token lama tidak bisa digunakan kembali.
+                setiap 1 menit. Token lama otomatis tidak valid setelah QR berganti.
               </p>
 
               <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -542,8 +542,7 @@ export default function AbsensiPage() {
 
           <p className="text-center text-xs leading-5 text-gray-500">
             Tombol otomatis terkunci saat proses berjalan untuk mencegah double
-            submit. Sistem menentukan clock in atau clock out dari data presensi
-            hari ini.
+            submit. Jika QR sudah berganti, scan ulang QR terbaru dari layar outlet.
           </p>
         </form>
       </section>
