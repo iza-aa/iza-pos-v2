@@ -89,6 +89,7 @@ type Html5QrcodeConstructor = new (elementId: string) => Html5QrcodeInstance;
 type RawRelationValue = Record<string, unknown> | Record<string, unknown>[] | null;
 
 const QR_READER_ELEMENT_ID = "staff-attendance-qr-reader";
+const MAX_LOCATION_ACCURACY_METERS = 100;
 
 const toSafeString = (value: unknown) => {
   return typeof value === "string" ? value : "";
@@ -239,10 +240,44 @@ const getCurrentLocation = () => {
 
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       enableHighAccuracy: true,
-      timeout: 15000,
+      timeout: 20000,
       maximumAge: 0,
     });
   });
+};
+
+const getLocationErrorMessage = (error: unknown) => {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = Number((error as { code?: unknown }).code);
+
+    if (code === 1) {
+      return "Akses lokasi ditolak. Aktifkan izin lokasi browser untuk melakukan absensi.";
+    }
+
+    if (code === 2) {
+      return "Lokasi perangkat belum tersedia. Aktifkan GPS/lokasi perangkat lalu coba lagi.";
+    }
+
+    if (code === 3) {
+      return "Membaca lokasi terlalu lama. Pastikan GPS aktif lalu coba lagi.";
+    }
+  }
+
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
+  if (/permission|notallowed|denied/i.test(errorMessage)) {
+    return "Akses lokasi ditolak. Aktifkan izin lokasi browser untuk melakukan absensi.";
+  }
+
+  if (/timeout/i.test(errorMessage)) {
+    return "Membaca lokasi terlalu lama. Pastikan GPS aktif lalu coba lagi.";
+  }
+
+  if (/unavailable|position/i.test(errorMessage)) {
+    return "Lokasi perangkat belum tersedia. Aktifkan GPS/lokasi perangkat lalu coba lagi.";
+  }
+
+  return errorMessage || "Gagal membaca lokasi perangkat. Aktifkan izin lokasi lalu coba lagi.";
 };
 
 const formatDate = (value: string) => {
@@ -619,6 +654,21 @@ export default function AttendancePage() {
       return;
     }
 
+    if (!storeSettings) {
+      showError("Pengaturan lokasi outlet belum tersedia. Hubungi owner/manager.");
+      return;
+    }
+
+    if (storeSettings.store_latitude === null || storeSettings.store_longitude === null) {
+      showError("Lokasi outlet belum diatur. Hubungi owner/manager.");
+      return;
+    }
+
+    if (!storeSettings.attendance_radius_meters || storeSettings.attendance_radius_meters <= 0) {
+      showError("Radius absensi outlet belum valid. Hubungi owner/manager.");
+      return;
+    }
+
     const normalizedCode = presenceCode.trim();
 
     if (!normalizedCode) {
@@ -633,14 +683,41 @@ export default function AttendancePage() {
     try {
       setLocationMessage("Memeriksa lokasi Anda...");
 
-      const position = await getCurrentLocation();
+      let position: GeolocationPosition;
+
+      try {
+        position = await getCurrentLocation();
+      } catch (locationError) {
+        throw new Error(getLocationErrorMessage(locationError));
+      }
+
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
       const accuracy = Number.isFinite(position.coords.accuracy)
         ? position.coords.accuracy
         : null;
 
-      setLocationMessage("Lokasi berhasil dibaca. Memproses absensi...");
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        throw new Error("Data lokasi tidak valid. Aktifkan lokasi perangkat lalu coba lagi.");
+      }
+
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        throw new Error("Data lokasi tidak valid. Aktifkan lokasi perangkat lalu coba lagi.");
+      }
+
+      if (accuracy === null) {
+        throw new Error("Akurasi lokasi tidak tersedia. Aktifkan mode lokasi akurat lalu coba lagi.");
+      }
+
+      if (accuracy > MAX_LOCATION_ACCURACY_METERS) {
+        throw new Error(
+          `Akurasi lokasi belum cukup. Akurasi saat ini sekitar ${Math.round(accuracy)} m, maksimal ${MAX_LOCATION_ACCURACY_METERS} m. Coba aktifkan GPS/lokasi akurat lalu scan ulang.`,
+        );
+      }
+
+      setLocationMessage(
+        `Lokasi berhasil dibaca dengan akurasi ±${Math.round(accuracy)} m. Memproses absensi...`,
+      );
 
       const { data, error } = await supabase.rpc("submit_qr_attendance", {
         p_code: normalizedCode,
@@ -668,9 +745,13 @@ export default function AttendancePage() {
       setLocationMessage("");
       await fetchPageData();
 
+      const formattedDistance = result.distanceMeters
+        ? ` Jarak: ${formatDistance(result.distanceMeters)}.`
+        : "";
+
       const successMessage = result.statusLabel
-        ? `${result.title ?? "Absensi berhasil"}. Status: ${result.statusLabel}.`
-        : result.message ?? "Absensi berhasil.";
+        ? `${result.title ?? "Absensi berhasil"}. Status: ${result.statusLabel}.${formattedDistance}`
+        : `${result.message ?? "Absensi berhasil."}${formattedDistance}`;
 
       showSuccess(successMessage);
     } catch (error) {
@@ -875,7 +956,10 @@ export default function AttendancePage() {
                     submitting ||
                     Boolean(isCompletedToday) ||
                     !presenceCode.trim() ||
-                    !staff?.shift
+                    !staff?.shift ||
+                    !storeSettings ||
+                    storeSettings.store_latitude === null ||
+                    storeSettings.store_longitude === null
                   }
                   className="h-11 rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -919,7 +1003,7 @@ export default function AttendancePage() {
                   <div>
                     <p className="text-sm text-gray-500">Radius</p>
                     <p className="font-bold text-gray-900">
-                      {storeSettings?.attendance_radius_meters ?? 0} m
+                      {storeSettings?.attendance_radius_meters ? `${storeSettings.attendance_radius_meters} m` : "Belum diset"}
                     </p>
                   </div>
                 </div>
@@ -1063,7 +1147,7 @@ export default function AttendancePage() {
           </div>
         )}
 
-        {!storeSettings?.store_latitude || !storeSettings?.store_longitude ? (
+        {!storeSettings || storeSettings.store_latitude === null || storeSettings.store_longitude === null ? (
           <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
             <div className="flex gap-3">
               <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />

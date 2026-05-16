@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ViewModeToggle, DeleteModal } from "@/app/components/ui";
 import { StaffCard, StaffTable } from "@/app/components/shared";
@@ -377,7 +377,7 @@ export default function StaffManagerPage() {
     }
   };
 
-  async function fetchStaff() {
+  const fetchStaff = useCallback(async () => {
     const { data, error } = await supabase
       .from("staff")
       .select(
@@ -403,9 +403,9 @@ export default function StaffManagerPage() {
     }
 
     setStaffList((data ?? []) as StaffRecord[]);
-  }
+  }, []);
 
-  async function fetchShifts() {
+  const fetchShifts = useCallback(async () => {
     const { data, error } = await supabase
       .from("shifts")
       .select(
@@ -419,12 +419,11 @@ export default function StaffManagerPage() {
     }
 
     setShiftList((data ?? []) as ShiftRecord[]);
-  }
+  }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  async function refreshStaffAndShifts() {
+  const refreshStaffAndShifts = useCallback(async () => {
     await Promise.all([fetchStaff(), fetchShifts()]);
-  }
+  }, [fetchStaff, fetchShifts]);
 
   useEffect(() => {
     refreshStaffAndShifts();
