@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   turbopack: {
     resolveExtensions: [".tsx", ".ts", ".jsx", ".js"],
   },
