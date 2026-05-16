@@ -65,14 +65,6 @@ type StoreSettings = {
   is_active: boolean;
 };
 
-type PresenceCode = {
-  id: string;
-  code: string;
-  expires_at: string;
-  used_count?: number | null;
-  is_active?: boolean | null;
-  attendance_date?: string | null;
-};
 
 type Html5QrcodeConfig = {
   fps?: number;
@@ -220,50 +212,6 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
-const getLocalTimestampForDb = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hour = String(now.getHours()).padStart(2, "0");
-  const minute = String(now.getMinutes()).padStart(2, "0");
-  const second = String(now.getSeconds()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-};
-
-const timeToMinutes = (timeValue: string) => {
-  const [hour = "0", minute = "0"] = timeValue.split(":");
-  return Number(hour) * 60 + Number(minute);
-};
-
-const getNowMinutes = () => {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-};
-
-const getCheckInStatus = (shift: ShiftRecord): Exclude<CheckInStatus, null> => {
-  const nowMinutes = getNowMinutes();
-  const startMinutes = timeToMinutes(shift.start_time);
-  const graceMinutes = timeToMinutes(shift.check_in_grace_until);
-
-  if (nowMinutes < startMinutes) return "early";
-  if (nowMinutes <= graceMinutes) return "on_time";
-  return "late";
-};
-
-const getCheckOutStatus = (
-  shift: ShiftRecord,
-): Exclude<CheckOutStatus, null> => {
-  const nowMinutes = getNowMinutes();
-  const endMinutes = timeToMinutes(shift.end_time);
-  const graceMinutes = timeToMinutes(shift.check_out_grace_until);
-
-  if (nowMinutes < endMinutes) return "early_leave";
-  if (nowMinutes <= graceMinutes) return "on_time";
-  return "overtime";
-};
-
 const getStatusLabel = (status?: CheckInStatus | CheckOutStatus) => {
   if (status === "early") return "Datang Lebih Awal";
   if (status === "late") return "Terlambat";
@@ -280,29 +228,6 @@ const getStatusClassName = (status?: CheckInStatus | CheckOutStatus) => {
   if (status === "early") return "bg-blue-100 text-blue-700";
   if (status === "on_time") return "bg-green-100 text-green-700";
   return "bg-gray-100 text-gray-700";
-};
-
-const calculateDistanceMeters = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
-  const earthRadiusMeters = 6371000;
-  const toRadians = (degree: number) => (degree * Math.PI) / 180;
-  const deltaLatitude = toRadians(lat2 - lat1);
-  const deltaLongitude = toRadians(lon2 - lon1);
-
-  const a =
-    Math.sin(deltaLatitude / 2) * Math.sin(deltaLatitude / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(deltaLongitude / 2) *
-      Math.sin(deltaLongitude / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return earthRadiusMeters * c;
 };
 
 const getCurrentLocation = () => {
@@ -385,10 +310,6 @@ const getDuration = (start?: string | null, end?: string | null) => {
   return `${hour}j ${minute}m`;
 };
 
-const generateRandomCode = () => {
-  return Math.random().toString(36).slice(2, 12).toUpperCase();
-};
-
 const extractPresenceCodeFromQrText = (text: string) => {
   const trimmedText = text.trim();
 
@@ -399,7 +320,7 @@ const extractPresenceCodeFromQrText = (text: string) => {
     const code = url.searchParams.get("code");
 
     if (code) {
-      return code.trim().toUpperCase();
+      return code.trim();
     }
   } catch {
     // QR may contain only the raw code, not a full URL.
@@ -408,31 +329,10 @@ const extractPresenceCodeFromQrText = (text: string) => {
   const codeMatch = trimmedText.match(/[?&]code=([^&]+)/i);
 
   if (codeMatch?.[1]) {
-    return decodeURIComponent(codeMatch[1]).trim().toUpperCase();
+    return decodeURIComponent(codeMatch[1]).trim();
   }
 
-  return trimmedText.trim().toUpperCase();
-};
-
-const createNextPresenceCode = async () => {
-  const tomorrow = new Date();
-  tomorrow.setMinutes(tomorrow.getMinutes() + 1);
-
-  const expiresAt = `${tomorrow.getFullYear()}-${String(
-    tomorrow.getMonth() + 1,
-  ).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")} ${String(
-    tomorrow.getHours(),
-  ).padStart(2, "0")}:${String(tomorrow.getMinutes()).padStart(2, "0")}:${String(
-    tomorrow.getSeconds(),
-  ).padStart(2, "0")}`;
-
-  await supabase.from("presence_code").insert({
-    code: generateRandomCode(),
-    expires_at: expiresAt,
-    attendance_date: getTodayDateString(),
-    is_active: true,
-    used_count: 0,
-  });
+  return trimmedText.trim();
 };
 
 const getScannerErrorMessage = (error: unknown) => {
@@ -685,87 +585,6 @@ export default function AttendancePage() {
     };
   }, [stopQrScanner]);
 
-  const validatePresenceCode = async () => {
-    const normalizedCode = presenceCode.trim().toUpperCase();
-
-    if (!normalizedCode) {
-      throw new Error("Masukkan kode QR presensi terlebih dahulu.");
-    }
-
-    const { data, error } = await supabase
-      .from("presence_code")
-      .select("id, code, expires_at, used_count, is_active, attendance_date")
-      .eq("code", normalizedCode)
-      .eq("is_active", true)
-      .eq("attendance_date", today)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (!data) {
-      throw new Error("Kode QR tidak valid atau sudah tidak aktif.");
-    }
-
-    const presenceCodeData = data as PresenceCode;
-    const expiresAt = new Date(
-      presenceCodeData.expires_at.includes("T")
-        ? presenceCodeData.expires_at
-        : presenceCodeData.expires_at.replace(" ", "T"),
-    );
-
-    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
-      throw new Error("QR presensi sudah kedaluwarsa. Silakan scan QR terbaru.");
-    }
-
-    return presenceCodeData;
-  };
-
-  const validateLocation = async () => {
-    if (!storeSettings) {
-      throw new Error("Lokasi outlet belum diatur.");
-    }
-
-    if (
-      storeSettings.store_latitude === null ||
-      storeSettings.store_longitude === null
-    ) {
-      throw new Error("Lokasi outlet belum lengkap.");
-    }
-
-    setLocationMessage("Memeriksa lokasi Anda...");
-
-    const position = await getCurrentLocation();
-    const latitude = position.coords.latitude;
-    const longitude = position.coords.longitude;
-
-    const distance = calculateDistanceMeters(
-      latitude,
-      longitude,
-      storeSettings.store_latitude,
-      storeSettings.store_longitude,
-    );
-
-    const allowedRadius = storeSettings.attendance_radius_meters || 150;
-
-    if (distance > allowedRadius) {
-      throw new Error(
-        `Lokasi Anda di luar radius absensi. Jarak saat ini ${Math.round(
-          distance,
-        )} m, radius maksimal ${allowedRadius} m.`,
-      );
-    }
-
-    setLocationMessage(
-      `Lokasi berhasil diverifikasi.`,
-    );
-
-    return {
-      latitude,
-      longitude,
-      distance,
-    };
-  };
-
   const handleAttendanceSubmit = async () => {
     setCodeError("");
     setLocationMessage("");
@@ -785,6 +604,11 @@ export default function AttendancePage() {
       return;
     }
 
+    if (!staff.staff_code) {
+      showError("Kode staff tidak ditemukan. Hubungi owner/manager.");
+      return;
+    }
+
     if (!staff.shift_id || !staff.shift) {
       showError("Staff belum memiliki shift kerja. Hubungi owner/manager.");
       return;
@@ -795,77 +619,64 @@ export default function AttendancePage() {
       return;
     }
 
+    const normalizedCode = presenceCode.trim();
+
+    if (!normalizedCode) {
+      const message = "Scan QR presensi terlebih dahulu.";
+      setCodeError(message);
+      showError(message);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const codeData = await validatePresenceCode();
-      const location = await validateLocation();
-      const nowTimestamp = getLocalTimestampForDb();
-      let actionLabel = "";
-      let statusLabel = "";
+      setLocationMessage("Memeriksa lokasi Anda...");
 
-      if (!todayAttendance) {
-        const checkInStatus = getCheckInStatus(staff.shift);
+      const position = await getCurrentLocation();
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      const accuracy = Number.isFinite(position.coords.accuracy)
+        ? position.coords.accuracy
+        : null;
 
-        const { error } = await supabase.from("attendance").insert({
-          staff_id: staff.id,
-          shift_id: staff.shift_id,
-          presence_code_id: codeData.id,
-          attendance_date: today,
-          clock_in_at: nowTimestamp,
-          clock_in_latitude: location.latitude,
-          clock_in_longitude: location.longitude,
-          clock_in_distance_meters: Number(location.distance.toFixed(2)),
-          clock_in_method: "manual_code",
-          check_in_status: checkInStatus,
-          notes: "Clock in melalui QR presensi.",
-        });
+      setLocationMessage("Lokasi berhasil dibaca. Memproses absensi...");
 
-        if (error) throw error;
+      const { data, error } = await supabase.rpc("submit_qr_attendance", {
+        p_code: normalizedCode,
+        p_credential: staff.staff_code,
+        p_latitude: latitude,
+        p_longitude: longitude,
+        p_accuracy: accuracy,
+      });
 
-        actionLabel = "Clock in";
-        statusLabel = getStatusLabel(checkInStatus);
-      } else if (!todayAttendance.clock_out_at) {
-        const checkOutStatus = getCheckOutStatus(staff.shift);
+      if (error) throw error;
 
-        const { error } = await supabase
-          .from("attendance")
-          .update({
-            clock_out_at: nowTimestamp,
-            clock_out_latitude: location.latitude,
-            clock_out_longitude: location.longitude,
-            clock_out_distance_meters: Number(location.distance.toFixed(2)),
-            clock_out_method: "manual_code",
-            check_out_status: checkOutStatus,
-            notes: todayAttendance.notes
-              ? `${todayAttendance.notes} | Clock out melalui QR presensi.`
-              : "Clock out melalui QR presensi.",
-            updated_at: nowTimestamp,
-          })
-          .eq("id", todayAttendance.id);
+      const result = data as {
+        success?: boolean;
+        title?: string;
+        message?: string;
+        statusLabel?: string;
+        distanceMeters?: number | string | null;
+      } | null;
 
-        if (error) throw error;
-
-        actionLabel = "Clock out";
-        statusLabel = getStatusLabel(checkOutStatus);
+      if (!result?.success) {
+        throw new Error("Absensi gagal diproses. Silakan scan QR terbaru.");
       }
 
-      await supabase
-        .from("presence_code")
-        .update({
-          used_count: (codeData.used_count ?? 0) + 1,
-          is_active: false,
-        })
-        .eq("id", codeData.id);
-
-      await createNextPresenceCode();
-
       setPresenceCode("");
+      setLocationMessage("");
       await fetchPageData();
-      showSuccess(`${actionLabel} berhasil. Status: ${statusLabel}.`);
+
+      const successMessage = result.statusLabel
+        ? `${result.title ?? "Absensi berhasil"}. Status: ${result.statusLabel}.`
+        : result.message ?? "Absensi berhasil.";
+
+      showSuccess(successMessage);
     } catch (error) {
-      const message =
+      const rawMessage =
         error instanceof Error ? error.message : "Gagal melakukan absensi.";
+      const message = rawMessage.replace(/^ERROR:\s*/i, "");
 
       setCodeError(message);
       showError(message);
@@ -1049,7 +860,7 @@ export default function AttendancePage() {
                   type="text"
                   value={presenceCode}
                   onChange={(event) => {
-                    setPresenceCode(event.target.value.toUpperCase());
+                    setPresenceCode(event.target.value.trim());
                     setCodeError("");
                   }}
                   placeholder="Kode QR"
