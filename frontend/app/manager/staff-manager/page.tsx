@@ -284,7 +284,7 @@ export default function ManagerStaffPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto ">
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">

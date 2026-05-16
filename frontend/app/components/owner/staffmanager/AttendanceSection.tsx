@@ -1,6 +1,7 @@
+
 "use client";
 
-import { ReactNode, useCallback, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/config/supabaseClient";
 import {
   CalendarDaysIcon,
@@ -63,6 +64,10 @@ type AttendanceStaff = {
   staff_code: string;
   staff_type?: string | null;
   role?: string | null;
+};
+
+type ActiveStaffRecord = AttendanceStaff & {
+  shift_id: string | null;
 };
 
 type AttendanceShift = {
@@ -139,6 +144,7 @@ const EMPTY_STORE_SETTINGS_FORM: StoreSettingsFormData = {
 
 type AttendanceDataSnapshot = {
   shiftList: ShiftRecord[];
+  staffList: ActiveStaffRecord[];
   storeSettings: StoreSettingsRecord | null;
   storeFormData: StoreSettingsFormData;
   attendanceList: AttendanceRecord[];
@@ -238,6 +244,26 @@ const normalizeStaff = (value: unknown): AttendanceStaff | null => {
     staff_code: staffCode,
     staff_type: toNullableString(staff.staff_type),
     role: toNullableString(staff.role),
+  };
+};
+
+const normalizeActiveStaff = (value: unknown): ActiveStaffRecord | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const staff = value as Record<string, unknown>;
+  const id = toSafeString(staff.id);
+  const name = toSafeString(staff.name);
+  const staffCode = toSafeString(staff.staff_code);
+
+  if (!id || !name || !staffCode) return null;
+
+  return {
+    id,
+    name,
+    staff_code: staffCode,
+    staff_type: toNullableString(staff.staff_type),
+    role: toNullableString(staff.role),
+    shift_id: toNullableString(staff.shift_id),
   };
 };
 
@@ -391,37 +417,58 @@ const getCheckOutStatusClassName = (status: CheckOutStatus) => {
   return "border-gray-200 bg-gray-50 text-gray-600";
 };
 
+const getJakartaDateString = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+
+  return `${year}-${month}-${day}`;
+};
+
+const addDaysToDateString = (dateString: string, days: number) => {
+  const date = new Date(`${dateString}T00:00:00+07:00`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return getJakartaDateString(date);
+};
+
+const addMonthsToDateString = (dateString: string, months: number) => {
+  const date = new Date(`${dateString}T00:00:00+07:00`);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return getJakartaDateString(date);
+};
+
 const getDateRange = (
   dateRangeMode: DateRangeMode,
   customStartDate: string,
   customEndDate: string,
 ) => {
-  const today = new Date();
-  const end = new Date(today);
-  const start = new Date(today);
+  const today = getJakartaDateString();
 
   if (dateRangeMode === "today") {
     return {
-      startDate: today.toISOString().split("T")[0],
-      endDate: today.toISOString().split("T")[0],
+      startDate: today,
+      endDate: today,
     };
   }
 
   if (dateRangeMode === "week") {
-    start.setDate(start.getDate() - 7);
-
     return {
-      startDate: start.toISOString().split("T")[0],
-      endDate: end.toISOString().split("T")[0],
+      startDate: addDaysToDateString(today, -7),
+      endDate: today,
     };
   }
 
   if (dateRangeMode === "month") {
-    start.setMonth(start.getMonth() - 1);
-
     return {
-      startDate: start.toISOString().split("T")[0],
-      endDate: end.toISOString().split("T")[0],
+      startDate: addMonthsToDateString(today, -1),
+      endDate: today,
     };
   }
 
@@ -562,6 +609,83 @@ const buildStoreSettingsFormData = (
   };
 };
 
+const buildAttendanceListWithAbsentStaff = ({
+  attendanceList,
+  staffList,
+  shiftList,
+  startDate,
+  endDate,
+}: {
+  attendanceList: AttendanceRecord[];
+  staffList: ActiveStaffRecord[];
+  shiftList: ShiftRecord[];
+  startDate: string | null;
+  endDate: string | null;
+}) => {
+  if (!startDate || !endDate || startDate !== endDate) {
+    return attendanceList;
+  }
+
+  const shiftMap = new Map<string, ShiftRecord>(
+    shiftList.map((shift) => [shift.id, shift]),
+  );
+
+  const existingStaffIds = new Set(
+    attendanceList
+      .filter((attendance) => attendance.attendance_date === startDate)
+      .map((attendance) => attendance.staff_id),
+  );
+
+  const absentAttendanceList: AttendanceRecord[] = staffList
+    .filter((staff) => !existingStaffIds.has(staff.id))
+    .map((staff) => {
+      const staffShift = staff.shift_id ? shiftMap.get(staff.shift_id) : null;
+
+      return {
+        id: `absent-${staff.id}-${startDate}`,
+        staff_id: staff.id,
+        shift_id: staff.shift_id,
+        attendance_date: startDate,
+        clock_in_at: null,
+        clock_out_at: null,
+        check_in_status: null,
+        check_out_status: null,
+        clock_in_distance_meters: null,
+        clock_out_distance_meters: null,
+        late_reason: null,
+        early_leave_reason: null,
+        overtime_reason: null,
+        notes: null,
+        staff: {
+          id: staff.id,
+          name: staff.name,
+          staff_code: staff.staff_code,
+          staff_type: staff.staff_type,
+          role: staff.role,
+        },
+        shift: staffShift
+          ? {
+              id: staffShift.id,
+              shift_name: staffShift.shift_name,
+              start_time: staffShift.start_time,
+              check_in_grace_until: staffShift.check_in_grace_until,
+              end_time: staffShift.end_time,
+              check_out_grace_until: staffShift.check_out_grace_until,
+            }
+          : null,
+      };
+    });
+
+  return [...attendanceList, ...absentAttendanceList].sort((a, b) => {
+    const aClock = a.clock_in_at ?? "";
+    const bClock = b.clock_in_at ?? "";
+
+    if (!!aClock !== !!bClock) return aClock ? -1 : 1;
+
+    return (a.staff?.name ?? "").localeCompare(b.staff?.name ?? "", "id-ID");
+  });
+};
+
 const loadAttendanceSnapshot = async ({
   dateRangeMode,
   customStartDate,
@@ -603,6 +727,13 @@ const loadAttendanceSnapshot = async ({
         "id, shift_name, start_time, check_in_grace_until, end_time, check_out_grace_until, is_active",
       )
       .order("start_time", { ascending: true });
+
+    const staffPromise = supabase
+      .from("staff")
+      .select("id, name, staff_code, staff_type, role, shift_id")
+      .eq("status", "active")
+      .not("shift_id", "is", null)
+      .order("name", { ascending: true });
 
     const storeSettingsPromise = supabase
       .from("store_settings")
@@ -658,11 +789,20 @@ const loadAttendanceSnapshot = async ({
         .lte("attendance_date", endDate);
     }
 
-    const [shiftsResult, attendanceResult, storeSettingsResult] =
-      await Promise.all([shiftsPromise, attendanceQuery, storeSettingsPromise]);
+    const [shiftsResult, staffResult, attendanceResult, storeSettingsResult] =
+      await Promise.all([
+        shiftsPromise,
+        staffPromise,
+        attendanceQuery,
+        storeSettingsPromise,
+      ]);
 
     if (shiftsResult.error) {
       throw shiftsResult.error;
+    }
+
+    if (staffResult.error) {
+      throw staffResult.error;
     }
 
     if (attendanceResult.error) {
@@ -675,14 +815,33 @@ const loadAttendanceSnapshot = async ({
 
     const storeSettingsData =
       storeSettingsResult.data as StoreSettingsRecord | null;
+    const shiftList = (shiftsResult.data ?? []) as ShiftRecord[];
+    const staffList = ((staffResult.data ?? []) as unknown[])
+      .map(normalizeActiveStaff)
+      .filter((staff): staff is ActiveStaffRecord => !!staff);
+    const eligibleStaffIds = new Set(staffList.map((staff) => staff.id));
+
+    const normalizedAttendanceList = (
+      (attendanceResult.data ?? []) as RawAttendanceRecord[]
+    )
+      .map(normalizeAttendanceRecord)
+      .filter(
+        (attendance) =>
+          attendance.id && eligibleStaffIds.has(attendance.staff_id),
+      );
 
     const snapshot: AttendanceDataSnapshot = {
-      shiftList: (shiftsResult.data ?? []) as ShiftRecord[],
+      shiftList,
+      staffList,
       storeSettings: storeSettingsData,
       storeFormData: buildStoreSettingsFormData(storeSettingsData),
-      attendanceList: ((attendanceResult.data ?? []) as RawAttendanceRecord[])
-        .map(normalizeAttendanceRecord)
-        .filter((attendance) => attendance.id),
+      attendanceList: buildAttendanceListWithAbsentStaff({
+        attendanceList: normalizedAttendanceList,
+        staffList,
+        shiftList,
+        startDate,
+        endDate,
+      }),
     };
 
     attendanceDataCache = snapshot;
@@ -709,13 +868,15 @@ export default function AttendanceSection({
 }: AttendanceSectionProps) {
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
   const [shiftList, setShiftList] = useState<ShiftRecord[]>([]);
+  const [staffList, setStaffList] = useState<ActiveStaffRecord[]>([]);
   const [storeSettings, setStoreSettings] =
     useState<StoreSettingsRecord | null>(null);
   const [storeFormData, setStoreFormData] = useState<StoreSettingsFormData>(
     EMPTY_STORE_SETTINGS_FORM,
   );
   const [selectedShiftId, setSelectedShiftId] = useState("all");
-  const [loading, setLoading] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState("all");
+  const [loading, setLoading] = useState(true);
   const [shiftLoading, setShiftLoading] = useState(false);
   const [storeLoading, setStoreLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -725,12 +886,15 @@ export default function AttendanceSection({
     useState<ShiftFormData>(EMPTY_SHIFT_FORM);
 
   const filteredAttendanceList = useMemo(() => {
-    if (selectedShiftId === "all") return attendanceList;
+    return attendanceList.filter((attendance) => {
+      const matchShift =
+        selectedShiftId === "all" || attendance.shift_id === selectedShiftId;
+      const matchStaff =
+        selectedStaffId === "all" || attendance.staff_id === selectedStaffId;
 
-    return attendanceList.filter(
-      (attendance) => attendance.shift_id === selectedShiftId,
-    );
-  }, [attendanceList, selectedShiftId]);
+      return matchShift && matchStaff;
+    });
+  }, [attendanceList, selectedShiftId, selectedStaffId]);
 
   const summary = useMemo(() => {
     const total = filteredAttendanceList.length;
@@ -755,6 +919,10 @@ export default function AttendanceSection({
       (attendance) => attendance.check_out_status === "overtime",
     ).length;
 
+    const notClockedIn = filteredAttendanceList.filter(
+      (attendance) => !attendance.clock_in_at,
+    ).length;
+
     return {
       total,
       clockedIn,
@@ -762,6 +930,7 @@ export default function AttendanceSection({
       late,
       earlyLeave,
       overtime,
+      notClockedIn,
     };
   }, [filteredAttendanceList]);
 
@@ -784,6 +953,7 @@ export default function AttendanceSection({
         });
 
         setShiftList(snapshot.shiftList);
+        setStaffList(snapshot.staffList);
         setStoreSettings(snapshot.storeSettings);
         setStoreFormData(snapshot.storeFormData);
         setAttendanceList(snapshot.attendanceList);
@@ -801,6 +971,10 @@ export default function AttendanceSection({
     },
     [dateRangeMode, customStartDate, customEndDate],
   );
+
+  useEffect(() => {
+    void fetchAttendanceData(false);
+  }, [fetchAttendanceData]);
 
   const openCreateShiftForm = () => {
     setEditingShift(null);
@@ -1565,32 +1739,6 @@ export default function AttendanceSection({
     );
   }
 
-  const hasLoadedAnyData =
-    shiftList.length > 0 || attendanceList.length > 0 || storeSettings !== null;
-
-  if (!hasLoadedAnyData && !fetchError) {
-    return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <CalendarDaysIcon className="mx-auto h-10 w-10 text-gray-400" />
-        <h3 className="mt-4 text-base font-bold text-gray-900">
-          Data presensi belum dimuat
-        </h3>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">
-          Klik tombol di bawah untuk memuat shift, lokasi cafe, dan data presensi.
-          Data tidak dimuat otomatis agar browser tidak menembak request Supabase
-          berulang saat tab Presensi dibuka.
-        </p>
-        <button
-          type="button"
-          onClick={() => fetchAttendanceData(true)}
-          className="mt-5 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
-        >
-          Muat Data Presensi
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       {fetchError && (
@@ -1612,12 +1760,19 @@ export default function AttendanceSection({
 
       {renderShiftManagement()}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-7">
         {renderSummaryCard(
-          "Total Record",
+          "Total Staff",
           summary.total,
           <CalendarDaysIcon className="h-5 w-5" />,
-          "Data presensi pada rentang tanggal ini.",
+          "User aktif yang memiliki shift pada rentang tanggal ini.",
+        )}
+
+        {renderSummaryCard(
+          "Belum Hadir",
+          summary.notClockedIn,
+          <ExclamationTriangleIcon className="h-5 w-5" />,
+          "User aktif dengan shift yang belum melakukan clock in.",
         )}
 
         {renderSummaryCard(
@@ -1663,11 +1818,25 @@ export default function AttendanceSection({
               Monitor Presensi Staff
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Pantau clock in dan clock out staff berdasarkan shift yang aktif.
+              Pantau clock in dan clock out user aktif yang sudah memiliki shift.
             </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              value={selectedStaffId}
+              onChange={(event) => setSelectedStaffId(event.target.value)}
+              className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+            >
+              <option value="all">Semua Staff</option>
+
+              {staffList.map((staff) => (
+                <option key={staff.id} value={staff.id}>
+                  {staff.name} ({staff.staff_code})
+                </option>
+              ))}
+            </select>
+
             <select
               value={selectedShiftId}
               onChange={(event) => setSelectedShiftId(event.target.value)}
