@@ -3,28 +3,32 @@
  * Handles individual floor operations
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getFloorById, updateFloor, deleteFloor, toggleFloorStatus } from '@/lib/services/table';
-import type { FloorUpdateInput } from '@/lib/types/floor';
+import { NextRequest, NextResponse } from "next/server";
+import { getFloorById, updateFloor, deleteFloor } from "@/lib/services/table";
+import type { FloorUpdateInput } from "@/lib/types/floor";
+
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
 
 /**
  * GET /api/manager/floors/[id]
  * Get a single floor by ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
-    const floor = await getFloorById(params.id);
+    const { id } = await params;
+    const floor = await getFloorById(id);
 
     if (!floor) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Floor not found',
+          error: "Floor not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -33,13 +37,14 @@ export async function GET(
       data: floor,
     });
   } catch (error) {
-    console.error('Error fetching floor:', error);
+    console.error("Error fetching floor:", error);
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch floor',
+        error: error instanceof Error ? error.message : "Failed to fetch floor",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -48,34 +53,40 @@ export async function GET(
  * PATCH /api/manager/floors/[id]
  * Update a floor
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const input: FloorUpdateInput = {};
 
-    // Only update provided fields
-    if (body.name !== undefined) input.name = body.name;
-    if (body.floor_number !== undefined) input.floor_number = body.floor_number;
-    if (body.is_active !== undefined) input.is_active = body.is_active;
+    if (body.name !== undefined) {
+      input.name = body.name;
+    }
 
-    const floor = await updateFloor(params.id, input);
+    if (body.floor_number !== undefined) {
+      input.floor_number = body.floor_number;
+    }
+
+    if (body.is_active !== undefined) {
+      input.is_active = body.is_active;
+    }
+
+    const floor = await updateFloor(id, input);
 
     return NextResponse.json({
       success: true,
       data: floor,
-      message: 'Floor updated successfully',
+      message: "Floor updated successfully",
     });
   } catch (error) {
-    console.error('Error updating floor:', error);
+    console.error("Error updating floor:", error);
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to update floor',
+        error: error instanceof Error ? error.message : "Failed to update floor",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -84,25 +95,25 @@ export async function PATCH(
  * DELETE /api/manager/floors/[id]
  * Delete a floor (soft delete)
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
-    await deleteFloor(params.id);
+    const { id } = await params;
+
+    await deleteFloor(id);
 
     return NextResponse.json({
       success: true,
-      message: 'Floor deleted successfully',
+      message: "Floor deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting floor:', error);
+    console.error("Error deleting floor:", error);
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete floor',
+        error: error instanceof Error ? error.message : "Failed to delete floor",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
