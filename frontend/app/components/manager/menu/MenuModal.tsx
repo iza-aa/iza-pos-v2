@@ -26,6 +26,7 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
     available: true,
     hasVariants: false,
     variantGroups: [] as string[],
+    type: 'food' as 'food' | 'drink',
   })
   const [imagePreview, setImagePreview] = useState<string>('')
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
@@ -102,6 +103,7 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
         available: editMenu.available,
         hasVariants: editMenu.hasVariants || false,
         variantGroups: editMenu.variantGroups || [],
+        type: (editMenu as any).type || 'food',
       })
       setImagePreview(editMenu.image)
     } else if (categories.length > 0) {
@@ -119,6 +121,7 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
         available: true,
         hasVariants: false,
         variantGroups: [],
+        type: 'food',
       })
       setImagePreview('')
     }
@@ -243,6 +246,25 @@ export default function MenuModal({ isOpen, onClose, onSave, onUpdate, editMenu,
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product Type
+              </label>
+              <select
+                required
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'food' | 'drink' })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="food">Food (Kitchen)</option>
+                <option value="drink">Drink (Barista/Waiter)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Food orders go to kitchen, drinks are handled by barista/waiter
+              </p>
             </div>
 
             {/* Price */}

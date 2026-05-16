@@ -96,40 +96,23 @@ export function analyzeQueryComplexity(query: string): ComplexityScore {
 }
 
 /**
- * Route query to appropriate model
+ * Route query to Ollama Qwen model
+ * Semua complexity level diarahkan ke qwen2.5:7b
  */
 export function routeToModel(query: string): { model: ChatbotModel; complexity: ComplexityScore } {
   const complexity = analyzeQueryComplexity(query)
 
-  let model: ChatbotModel
-
-  switch (complexity.complexity) {
-    case 'simple':
-      model = 'gemini-2.5-flash-lite'
-      break
-    case 'medium':
-      model = 'gemini-2.5-flash'
-      break
-    case 'complex':
-      model = 'gemini-2.5-pro'
-      break
-  }
+  // Default Ollama model dari env, fallback ke qwen2.5:7b
+  const model: ChatbotModel = (process.env.OLLAMA_MODEL as ChatbotModel) || 'qwen2.5:7b'
 
   return { model, complexity }
 }
 
 /**
- * Fallback strategy if model fails
+ * Fallback strategy jika model gagal
+ * Untuk Ollama single-model setup, tidak ada fallback
  */
 export function getFallbackModel(currentModel: ChatbotModel): ChatbotModel | null {
-  switch (currentModel) {
-    case 'gemini-2.5-flash-lite':
-      return 'gemini-2.5-flash' // Upgrade to Flash
-    case 'gemini-2.5-flash':
-      return 'gemini-2.5-pro' // Upgrade to Pro
-    case 'gemini-2.5-pro':
-      return null // Already at highest tier
-    default:
-      return null
-  }
+  // Untuk setup multi-model di masa depan, tambahkan logika di sini
+  return null
 }

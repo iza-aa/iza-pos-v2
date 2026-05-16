@@ -1,239 +1,351 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { XMarkIcon } from '@heroicons/react/24/outline'
-import { formatCurrency } from '@/lib/constants'
+import { useEffect, useState } from 'react';
+import {
+  BanknotesIcon,
+  BellAlertIcon,
+  ClipboardDocumentCheckIcon,
+  UserIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import { formatCurrency } from '@/lib/constants';
+
+type FulfillmentMethod = 'pager' | 'counter_pickup';
 
 interface PaymentModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
   onConfirm: (data: {
-    paymentMethod: string
-    customerName?: string
-    customerPhone?: string
-    tableNumber?: string
-    notes?: string
-  }) => void
-  totalAmount: number
+    paymentMethod: string;
+    customerName?: string;
+    customerPhone?: string;
+    notes?: string;
+    cashAmount?: number;
+    fulfillmentMethod: FulfillmentMethod;
+    pagerNumber?: string;
+  }) => void;
+  totalAmount: number;
 }
 
-export default function PaymentModal({ isOpen, onClose, onConfirm, totalAmount }: PaymentModalProps) {
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('dine-in')
-  const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [tableNumber, setTableNumber] = useState('')
-  const [notes, setNotes] = useState('')
-  const [cashReceived, setCashReceived] = useState('')
-  
-  // Reset form when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setPaymentMethod('cash')
-      setOrderType('dine-in')
-      setCustomerName('')
-      setCustomerPhone('')
-      setTableNumber('')
-      setNotes('')
-      setCashReceived('')
-    }
-  }, [isOpen])
+export default function PaymentModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  totalAmount,
+}: PaymentModalProps) {
+  const [paymentMethod] = useState('cash');
+  const [fulfillmentMethod, setFulfillmentMethod] =
+    useState<FulfillmentMethod>('pager');
+  const [pagerNumber, setPagerNumber] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [notes, setNotes] = useState('');
+  const [cashReceived, setCashReceived] = useState('');
 
-  const calculateChange = () => {
-    const received = parseFloat(cashReceived) || 0
-    return Math.max(0, received - totalAmount)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setFulfillmentMethod('pager');
+    setPagerNumber('');
+    setCustomerName('');
+    setCustomerPhone('');
+    setNotes('');
+    setCashReceived('');
+  }, [isOpen]);
+
+  if (!isOpen) {
+    return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Validate cash payment
-    if (paymentMethod === 'cash') {
-      const received = parseFloat(cashReceived) || 0
-      if (received < totalAmount) {
-        alert('Cash received must be greater than or equal to total amount')
-        return
-      }
+  const calculateChange = () => {
+    const received = Number(cashReceived) || 0;
+    return Math.max(0, received - totalAmount);
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const received = Number(cashReceived) || 0;
+    const trimmedPagerNumber = pagerNumber.trim();
+
+    if (fulfillmentMethod === 'pager' && !trimmedPagerNumber) {
+      window.alert('Nomor pager wajib diisi.');
+      return;
+    }
+
+    if (paymentMethod === 'cash' && received < totalAmount) {
+      window.alert('Cash received must be greater than or equal to total amount.');
+      return;
     }
 
     onConfirm({
       paymentMethod,
-      customerName: customerName || undefined,
-      customerPhone: customerPhone || undefined,
-      tableNumber: orderType === 'dine-in' ? tableNumber : undefined,
-      notes: notes || undefined,
-    })
-  }
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      notes: notes.trim() || undefined,
+      cashAmount: paymentMethod === 'cash' ? received : undefined,
+      fulfillmentMethod,
+      pagerNumber:
+        fulfillmentMethod === 'pager' ? trimmedPagerNumber : undefined,
+    });
+  };
 
-  if (!isOpen) return null
+  const fulfillmentOptions: Array<{
+    value: FulfillmentMethod;
+    title: string;
+    description: string;
+    icon: React.ElementType;
+  }> = [
+    {
+      value: 'pager',
+      title: 'Guest Pager',
+      description: 'Customer receives a pager and picks up the order when called.',
+      icon: BellAlertIcon,
+    },
+    {
+      value: 'counter_pickup',
+      title: 'Counter Pickup',
+      description: 'Use order number/customer name. Suitable when the shop is quiet.',
+      icon: ClipboardDocumentCheckIcon,
+    },
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Complete Order</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Complete Order</h2>
+            <p className="text-sm text-gray-500">
+              Confirm payment and choose how the customer will receive the order.
+            </p>
+          </div>
+
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Close payment modal"
           >
-            <XMarkIcon className="w-6 h-6 text-gray-600" />
+            <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Order Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Order Type
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5">
+          <section>
+            <label className="mb-3 block text-sm font-semibold text-gray-800">
+              Fulfillment Method
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setOrderType('dine-in')}
-                className={`px-4 py-3 rounded-xl font-medium transition ${
-                  orderType === 'dine-in'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                🍽️ Dine In
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderType('takeaway')}
-                className={`px-4 py-3 rounded-xl font-medium transition ${
-                  orderType === 'takeaway'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                🥡 Takeaway
-              </button>
-            </div>
-          </div>
 
-          {/* Table Number (only for dine-in) */}
-          {orderType === 'dine-in' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Table Number
-              </label>
-              <input
-                type="text"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Table 5"
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {fulfillmentOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = fulfillmentMethod === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setFulfillmentMethod(option.value);
+
+                      if (option.value === 'counter_pickup') {
+                        setPagerNumber('');
+                      }
+                    }}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      isSelected
+                        ? 'border-gray-900 bg-gray-900 text-white shadow-sm'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <Icon
+                        className={`h-5 w-5 ${
+                          isSelected ? 'text-white' : 'text-gray-500'
+                        }`}
+                      />
+                      <span className="font-semibold">{option.title}</span>
+                    </div>
+
+                    <p
+                      className={`text-xs leading-relaxed ${
+                        isSelected ? 'text-gray-200' : 'text-gray-500'
+                      }`}
+                    >
+                      {option.description}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
+          </section>
+
+          {fulfillmentMethod === 'pager' ? (
+            <section>
+              <label
+                htmlFor="pager-number"
+                className="mb-2 block text-sm font-semibold text-gray-800"
+              >
+                Pager Number <span className="text-red-500">*</span>
+              </label>
+
+              <input
+                id="pager-number"
+                type="text"
+                value={pagerNumber}
+                onChange={(event) => setPagerNumber(event.target.value)}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                placeholder="Example: 12"
+              />
+
+              <p className="mt-1 text-xs text-gray-500">
+                Staff will manually call this pager when the order is ready.
+              </p>
+            </section>
+          ) : (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                Counter Pickup uses the order number as the pickup code. This is
+                suitable when customers wait near the counter.
+              </p>
+            </section>
           )}
 
-          {/* Customer Name (optional) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Customer Name (Optional)
-            </label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter customer name"
-            />
-          </div>
+          <section className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="customer-name"
+                className="mb-2 block text-sm font-semibold text-gray-800"
+              >
+                Customer Name
+              </label>
 
-          {/* Customer Phone (optional) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number (Optional)
-            </label>
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="08123456789"
-            />
-          </div>
+              <div className="relative">
+                <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="customer-name"
+                  type="text"
+                  value={customerName}
+                  onChange={(event) => setCustomerName(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
 
-          {/* Payment Method - Cash Only for now */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div>
+              <label
+                htmlFor="customer-phone"
+                className="mb-2 block text-sm font-semibold text-gray-800"
+              >
+                Phone Number
+              </label>
+
+              <input
+                id="customer-phone"
+                type="tel"
+                value={customerPhone}
+                onChange={(event) => setCustomerPhone(event.target.value)}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                placeholder="Optional"
+              />
+            </div>
+          </section>
+
+          <section>
+            <label className="mb-2 block text-sm font-semibold text-gray-800">
               Payment Method
             </label>
-            <div className="px-4 py-3 bg-green-500 text-white rounded-xl font-medium text-center">
-              💵 Cash Payment
-            </div>
-            <p className="text-xs text-gray-500 mt-1 text-center">Other payment methods coming soon</p>
-          </div>
 
-          {/* Cash Amount (only for cash payment) */}
-          {paymentMethod === 'cash' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cash Received
-              </label>
-              <input
-                type="number"
-                required
-                min={totalAmount}
-                step="1000"
-                value={cashReceived}
-                onChange={(e) => setCashReceived(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={`Minimum ${formatCurrency(totalAmount)}`}
-              />
-              {cashReceived && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Change:</span>
-                    <span className="font-bold text-blue-600">
-                      {formatCurrency(calculateChange())}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                <BanknotesIcon className="h-5 w-5 text-green-700" />
+              </div>
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notes (Optional)
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Cash Payment</p>
+                <p className="text-xs text-gray-500">
+                  Other payment methods can be added later.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <label
+              htmlFor="cash-received"
+              className="mb-2 block text-sm font-semibold text-gray-800"
+            >
+              Cash Received <span className="text-red-500">*</span>
             </label>
+
+            <input
+              id="cash-received"
+              type="number"
+              required
+              min={totalAmount}
+              step="1000"
+              value={cashReceived}
+              onChange={(event) => setCashReceived(event.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+              placeholder={`Minimum ${formatCurrency(totalAmount)}`}
+            />
+
+            {cashReceived ? (
+              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Change</span>
+                  <span className="font-bold text-gray-900">
+                    {formatCurrency(calculateChange())}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section>
+            <label
+              htmlFor="order-notes"
+              className="mb-2 block text-sm font-semibold text-gray-800"
+            >
+              Notes
+            </label>
+
             <textarea
+              id="order-notes"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(event) => setNotes(event.target.value)}
               rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
               placeholder="Special requests, allergies, etc."
             />
-          </div>
+          </section>
 
-          {/* Total Summary */}
-          <div className="border-t border-gray-200 pt-4">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-lg font-medium text-gray-700">Total Amount:</span>
-              <span className="text-2xl font-bold text-blue-600">
+          <section className="rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold text-gray-700">
+                Total Amount
+              </span>
+
+              <span className="text-2xl font-bold text-gray-900">
                 {formatCurrency(totalAmount)}
               </span>
             </div>
-          </div>
+          </section>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition font-medium"
+              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium shadow-md"
+              className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
               Confirm Order
             </button>
@@ -241,5 +353,5 @@ export default function PaymentModal({ isOpen, onClose, onConfirm, totalAmount }
         </form>
       </div>
     </div>
-  )
+  );
 }

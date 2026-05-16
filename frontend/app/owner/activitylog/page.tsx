@@ -34,7 +34,7 @@ import {
 import { ArchiveBanner } from '@/app/components/owner/archives'
 import { SearchBar, ViewModeToggle } from '@/app/components/ui'
 import type { DateFilterType } from '@/app/components/owner/activitylog/DateFilterDropdown'
-import type { ViewMode } from '@/app/components/ui/Form/ViewModeToggle'
+import type { ViewMode } from '@/app/components/ui/Common/ViewModeToggle'
 
 // Transform database log (snake_case) to TypeScript interface (camelCase)
 function transformLog(dbLog: any): ActivityLog {

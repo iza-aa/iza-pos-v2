@@ -1,6 +1,8 @@
 // ==================== Chatbot Types ====================
 
-export type ChatbotModel = 'gemini-2.5-flash-lite' | 'gemini-2.5-flash' | 'gemini-2.5-pro'
+export type OllamaModel = 'qwen2.5:1.5b' | 'qwen2.5:7b' | 'qwen2.5:14b' | 'qwen2.5:72b'
+
+export type ChatbotModel = OllamaModel
 
 export type QueryComplexity = 'simple' | 'medium' | 'complex'
 
@@ -22,6 +24,7 @@ export interface ChatbotQuery {
 export interface ChatbotResponse {
   response: string
   model: ChatbotModel
+  provider: 'ollama'
   complexity: QueryComplexity
   tokensUsed?: {
     input: number

@@ -152,6 +152,7 @@ export default function MenuPage() {
           available: p.available,
           hasVariants: p.has_variants,
           variantGroups: p.product_variant_groups?.map((pvg) => pvg.variant_group_id) || [],
+          type: p.type || 'food',
         })))
       }
       
@@ -255,6 +256,7 @@ export default function MenuPage() {
         image: newMenu.image,
         available: newMenu.available,
         has_variants: newMenu.hasVariants,
+        type: newMenu.type || 'food',
         created_by: currentUser.id,
         updated_by: currentUser.id
       }])
@@ -328,7 +330,8 @@ export default function MenuPage() {
         image: updatedMenu.image,
         available: updatedMenu.available,
         has_variants: updatedMenu.hasVariants,
-        updated_by: managerId,
+        type: updatedMenu.type || 'food',
+        updated_by: currentUser.id,
         updated_at: new Date().toISOString()
       })
       .eq('id', updatedMenu.id)

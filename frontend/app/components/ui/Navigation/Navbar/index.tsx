@@ -22,7 +22,8 @@ import {
   ShoppingCartIcon,
   FireIcon,
   TicketIcon,
-  ClockIcon
+  ClockIcon,
+  SquaresPlusIcon
 } from '@heroicons/react/24/outline'
 import { 
   Squares2X2Icon as Squares2X2IconSolid,
@@ -37,7 +38,7 @@ import {
   TicketIcon as TicketIconSolid,
   ClockIcon as ClockIconSolid
 } from '@heroicons/react/24/solid'
-import ProfilePopout from '../../User/Profile'
+import ProfilePopout from '../../Common/Profile'
 
 // ============ MENU CONFIGURATIONS ============
 const menuConfig = {
@@ -54,6 +55,7 @@ const menuConfig = {
     { label: 'Inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
+    { label: 'Table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],
   staff: {
     kitchen: [
@@ -65,11 +67,13 @@ const menuConfig = {
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
       { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
       { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
+      { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     ],
     barista: [
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
       { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
       { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
+      { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     ],
     waiter: [
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
@@ -86,6 +90,7 @@ const ownerAccessMenu = {
     { label: 'Variants', path: '/manager/variants', icon: CubeIcon, iconSolid: CubeIconSolid },
     { label: 'Inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
+    { label: 'Table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],
   staff: [
     { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },

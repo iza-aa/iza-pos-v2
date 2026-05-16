@@ -7,7 +7,7 @@ import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import { DateFilterDropdown } from "@/app/components/owner/activitylog";
-import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle";
+import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/config/supabaseClient";
 import { parseSupabaseTimestamp, getJakartaNow, formatJakartaDate, formatJakartaTime, getMinutesDifference } from "@/lib/utils";
@@ -25,6 +25,7 @@ interface Order {
 	time: string;
 	status: "new" | "preparing" | "partially-served" | "served" | "completed";
 	table?: string;
+	tableNumber: string;
 	orderSource?: 'pos' | 'qr';
 	createdAt: string;
 	createdByName?: string;
@@ -106,7 +107,7 @@ export default function ManagerOrderPage() {
 		// Get unique served_by IDs from all order_items
 		const servedByIds = [...new Set(
 			ordersData?.flatMap(o => 
-				o.order_items?.map((item) => item.served_by).filter(Boolean) || []
+				o.order_items?.map((item: OrderItem) => item.served_by).filter(Boolean) || []
 			) || []
 		)];
 		
@@ -114,7 +115,7 @@ export default function ManagerOrderPage() {
 		const allStaffIds = [...new Set([...createdByIds, ...servedByIds])];
 		
 		// Fetch staff names if there are any created_by IDs
-		let staffMap = new Map();
+		const staffMap = new Map();
 		if (allStaffIds.length > 0) {
 		// Fetch all staff and filter on client side to avoid RLS issues
 		const { data: staffData, error: staffError } = await supabase
@@ -149,8 +150,8 @@ export default function ManagerOrderPage() {
 		}
 	}
 	console.log('Staff map:', staffMap);		// Transform data to match component format
-		const transformedOrders = ordersData?.map(order => {
-			const servedCount = order.order_items.filter((item) => item.served).length;
+		const transformedOrders = ordersData?.map((order) => {
+			const servedCount = (order.order_items as OrderItem[]).filter((item: OrderItem) => item.served).length;
 			const totalCount = order.order_items.length;
 				
 		// Calculate time difference in minutes (Jakarta timezone)
@@ -208,9 +209,9 @@ export default function ManagerOrderPage() {
 			}
 		}				// Get unique served_by staff from order_items
 				const servedByStaffIds = [...new Set(
-					order.order_items
-						?.filter((item) => item.served && item.served_by)
-						.map((item) => item.served_by) || []
+					(order.order_items as OrderItem[])
+						?.filter((item: OrderItem) => item.served && item.served_by)
+						.map((item: OrderItem) => item.served_by) || []
 				)];
 				
 				const servedByNames = servedByStaffIds
@@ -226,22 +227,24 @@ export default function ManagerOrderPage() {
 					customerName: order.customer_name || 'Guest',
 					orderNumber: order.order_number || `#${order.id.substring(0, 8).toUpperCase()}`,
 					orderType: order.order_type || 'Dine in',
-					items: order.order_items.map((item) => ({
+					items: (order.order_items as (OrderItem & { product_name?: string; products?: { name?: string }; base_price?: number; kitchen_status?: string; ready_at?: string })[]).map((item) => ({
 						id: item.id,
-					name: item.product_name || item.products?.name || 'Unknown Item',
+					name: item.product_name || item.products?.name || item.name || 'Unknown Item',
 					quantity: item.quantity,
-					price: item.base_price,
+					price: item.base_price ?? item.price ?? 0,
+			subtotal: item.subtotal,
 					served: item.served,
 					servedAt: item.served_at ? formatJakartaTime(parseSupabaseTimestamp(item.served_at)) : undefined,
 					variants: item.variants,
-					kitchenStatus: item.kitchen_status || 'not_required',
-					readyAt: item.ready_at,
+					kitchenStatus: item.kitchen_status || item.kitchenStatus || 'not_required',
+					readyAt: item.ready_at || item.readyAt,
 				})),
 				total: order.total || 0,
 				date: formatJakartaDate(orderCreatedAt),
 				time: formatJakartaTime(orderCreatedAt),
 				status,
 				table: order.table_number || undefined,
+				tableNumber: order.table_number || order.table || '',
 				orderSource: order.order_source || undefined,
 				createdByName: order.created_by ? staffMap.get(order.created_by)?.name : undefined,
 				createdByRole: order.created_by ? staffMap.get(order.created_by)?.type : order.created_by_role,
@@ -252,10 +255,8 @@ export default function ManagerOrderPage() {
 		}) || [];
 
 		setOrderList(transformedOrders);
-		} catch (error) {
+		} catch {
 			// Error fetching orders
-		} finally {
-			setLoading(false);
 		}
 	}
 
@@ -336,7 +337,7 @@ export default function ManagerOrderPage() {
 					notes: 'Order deleted by manager'
 				});
 			}
-		} catch (error) {
+		} catch {
 			showError('Gagal menghapus order. Silakan coba lagi.');
 		}
 	}
@@ -394,7 +395,7 @@ export default function ManagerOrderPage() {
 
 	return (
 		<div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
-			<div className="flex-shrink-0">
+			<div className="shrink-0">
 				<OrderHeader
 					description="Track and manage all customer orders in real-time"
 					searchBar={

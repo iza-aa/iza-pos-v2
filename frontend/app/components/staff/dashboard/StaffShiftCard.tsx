@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { BiQr, BiKey } from "react-icons/bi";
 import { CalendarIcon } from "@heroicons/react/24/outline";
-import { parseSupabaseTimestamp, formatJakartaDate, formatJakartaTime } from "@/lib/dateUtils";
+import { parseSupabaseTimestamp, formatJakartaDate, formatJakartaTime } from "@/lib/utils/date";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

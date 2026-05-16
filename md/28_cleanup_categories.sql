@@ -13,13 +13,13 @@ WHERE name IN ('Coffee Coffee', 'Utensils', 'Crossed Food')
 -- or run this when no critical data depends on category IDs
 DELETE FROM categories;
 
--- Step 3: Insert correct categories with Heroicon names
-INSERT INTO categories (name, icon, sort_order, is_active) VALUES
-  ('Coffee', 'Coffee', 1, true),
-  ('Food', 'UtensilsCrossed', 2, true),
-  ('Snack', 'Cookie', 3, true),
-  ('Dessert', 'Cake', 4, true),
-  ('Non Coffee', 'Milk', 5, true);
+-- Step 3: Insert correct categories with Heroicon names and proper types
+INSERT INTO categories (name, icon, sort_order, is_active, type) VALUES
+  ('Coffee', 'Coffee', 1, true, 'drink'),
+  ('Food', 'UtensilsCrossed', 2, true, 'food'),
+  ('Snack', 'Cookie', 3, true, 'food'),
+  ('Dessert', 'Cake', 4, true, 'food'),
+  ('Non Coffee', 'Milk', 5, true, 'drink');
 
 -- Verify the result
 SELECT * FROM categories WHERE is_active = true ORDER BY sort_order;

@@ -7,8 +7,8 @@ import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from "@/lib/constants
 import { supabase } from "@/lib/config/supabaseClient"
 import { SearchBar, ViewModeToggle } from "@/app/components/ui"
 import { StaffCard, StaffTable, QRPresenceModal } from "@/app/components/shared"
-import AttendanceSection from "@/app/components/owner/staff-manager/AttendanceSection"
-import type { ViewMode } from "@/app/components/ui/Form/ViewModeToggle"
+import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection"
+import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle"
 import type { Staff } from "@/lib/types"
 import { UsersIcon, ClockIcon, ChevronDownIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { BiQr } from 'react-icons/bi'

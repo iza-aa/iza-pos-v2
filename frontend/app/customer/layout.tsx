@@ -28,8 +28,8 @@ const navItems = [
     iconSolid: HomeIconSolid,
   },
   {
-    name: 'Order',
-    href: '/customer/order',
+    name: 'Menu',
+    href: '/customer/menu',
     icon: ShoppingBagIcon,
     iconSolid: ShoppingBagIconSolid,
   },
@@ -55,7 +55,7 @@ export default function CustomerLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [tableInfo, setTableInfo] = useState<any>(null);
-  const [showBottomNav, setShowBottomNav] = useState(true);
+  const [showBottomNav, setShowBottomNav] = useState(false); // Start hidden
   const [isClient, setIsClient] = useState(false);
 
   // Set isClient flag after mount to avoid hydration issues
@@ -82,19 +82,16 @@ export default function CustomerLayout({
       }
     }
 
-    // Check if we should hide bottom nav
-    if (pathname === '/customer/table') {
-      setShowBottomNav(false);
-    } else if (pathname === '/customer/menu' && !storedTable) {
-      // Hide bottom nav on menu page when loading (no localStorage)
-      setShowBottomNav(false);
-    } else {
-      setShowBottomNav(true);
-    }
+    // Determine if bottom nav should be shown
+    // Hide on: table page, or menu page without localStorage
+    const shouldHide = pathname === '/customer/table' || 
+                      (pathname === '/customer/menu' && !storedTable);
+    
+    setShowBottomNav(!shouldHide);
   }, [pathname, isClient]);
 
-  // Don't show bottom nav on table selection page
-  if (!showBottomNav) {
+  // Don't show bottom nav on table selection page or when not ready
+  if (!showBottomNav || !isClient) {
     return <>{children}</>;
   }
 

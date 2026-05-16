@@ -18,8 +18,24 @@ ADD COLUMN IF NOT EXISTS table_id UUID;
 ALTER TABLE orders 
 ADD COLUMN IF NOT EXISTS table_number VARCHAR(10);
 
+-- Add notes column for customer/staff notes
+ALTER TABLE orders 
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
 -- =====================================================
--- 2. ADD CONSTRAINTS
+-- 2. UPDATE PAYMENT METHOD CONSTRAINT
+-- =====================================================
+
+-- Drop old payment method constraint
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;
+
+-- Add new constraint with QRIS support
+ALTER TABLE orders 
+ADD CONSTRAINT orders_payment_method_check 
+CHECK (payment_method IN ('Cash', 'Card', 'E-Wallet', 'QRIS'));
+
+-- =====================================================
+-- 4. ADD CONSTRAINTS
 -- =====================================================
 
 -- Add check constraint for order_source
@@ -47,7 +63,7 @@ BEGIN
 END $$;
 
 -- =====================================================
--- 3. CREATE INDEXES
+-- 5. CREATE INDEXES
 -- =====================================================
 
 -- Index on order_source for filtering
@@ -65,7 +81,7 @@ ON orders(table_id, status)
 WHERE table_id IS NOT NULL;
 
 -- =====================================================
--- 4. UPDATE EXISTING ORDERS
+-- 6. UPDATE EXISTING ORDERS
 -- =====================================================
 
 -- Set all existing orders to 'pos' source (cashier orders)
@@ -74,7 +90,7 @@ SET order_source = 'pos'
 WHERE order_source IS NULL;
 
 -- =====================================================
--- 5. TRIGGER: Auto-update table status when order created
+-- 7. TRIGGER: Auto-update table status when order created
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION update_table_status_on_order()
@@ -105,7 +121,7 @@ CREATE TRIGGER trigger_update_table_on_order
   EXECUTE FUNCTION update_table_status_on_order();
 
 -- =====================================================
--- 6. TRIGGER: Clear table when order completed
+-- 8. TRIGGER: Clear table when order completed
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION clear_table_on_order_complete()

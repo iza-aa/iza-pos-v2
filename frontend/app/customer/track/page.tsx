@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/config/supabaseClient';
 import { ClockIcon, CheckCircleIcon, FireIcon } from '@heroicons/react/24/solid';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import OrderProgressBar from '@/app/components/customer/track/OrderProgressBar';
+import LoadingScreen from '@/app/components/customer/LoadingScreen';
 
 interface OrderItem {
   id: string;
@@ -84,11 +86,11 @@ const getStatusConfig = (status: string) => {
 const getKitchenStatusBadge = (status: string) => {
   switch (status) {
     case 'pending':
-      return { label: 'Pending', color: 'text-gray-700', bg: 'bg-gray-100' };
-    case 'preparing':
-      return { label: 'Preparing', color: 'text-orange-700', bg: 'bg-orange-100' };
+      return { label: 'Waiting Kitchen', color: 'text-gray-700', bg: 'bg-gray-100' };
+    case 'cooking':
+      return { label: 'Cooking', color: 'text-orange-700', bg: 'bg-orange-100' };
     case 'ready':
-      return { label: 'Ready', color: 'text-green-700', bg: 'bg-green-100' };
+      return { label: 'Ready to Serve', color: 'text-green-700', bg: 'bg-green-100' };
     case 'not_required':
       return { label: 'No Cooking', color: 'text-blue-700', bg: 'bg-blue-100' };
     default:
@@ -98,33 +100,44 @@ const getKitchenStatusBadge = (status: string) => {
 
 export default function CustomerTrackPage() {
   const router = useRouter();
-  const [order, setOrder] = useState<Order | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    const orderId = localStorage.getItem('current_order_id');
-    if (!orderId) {
-      // No active order, stay on track page (empty state)
+    const tableData = localStorage.getItem('customer_table');
+    if (!tableData) {
+      // No table session
       setLoading(false);
       setInitializing(false);
       return;
     }
 
-    fetchOrder(orderId);
+    let tableId;
+    try {
+      const parsed = JSON.parse(tableData);
+      tableId = parsed.id;
+    } catch (e) {
+      setLoading(false);
+      setInitializing(false);
+      return;
+    }
+
+    fetchOrders(tableId);
     setTimeout(() => setInitializing(false), 300);
 
-    // Set up real-time subscription
+    // Set up real-time subscription for all orders of this table
     const channel = supabase
-      .channel('customer-order-updates')
+      .channel('customer-table-orders')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
-        () => fetchOrder(orderId)
+        { event: '*', schema: 'public', table: 'orders', filter: `table_id=eq.${tableId}` },
+        () => fetchOrders(tableId)
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'order_items', filter: `order_id=eq.${orderId}` },
-        () => fetchOrder(orderId)
+        { event: '*', schema: 'public', table: 'order_items' },
+        () => fetchOrders(tableId)
       )
       .subscribe();
 
@@ -134,7 +147,7 @@ export default function CustomerTrackPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
-  const fetchOrder = async (orderId: string) => {
+  const fetchOrders = async (tableId: string) => {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -142,25 +155,21 @@ export default function CustomerTrackPage() {
           *,
           order_items (*)
         `)
-        .eq('id', orderId)
-        .single();
+        .eq('table_id', tableId)
+        .in('status', ['new', 'preparing', 'partially-served', 'served'])
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setOrder(data as Order);
+      const fetchedOrders = (data as Order[]) || [];
+      setOrders(fetchedOrders);
       
-      // Auto-clear session when order completed
-      if (data && data.status === 'completed') {
-        setTimeout(() => {
-          localStorage.removeItem('customer_table');
-          localStorage.removeItem('customer_cart');
-          localStorage.removeItem('customer_name');
-          localStorage.removeItem('current_order_id');
-          localStorage.removeItem('table_session_start');
-        }, 5000); // Give 5 seconds to see "Order Again" button
+      // Auto-expand first order if none expanded
+      if (!expandedOrderId && fetchedOrders.length > 0) {
+        setExpandedOrderId(fetchedOrders[0].id);
       }
     } catch (error) {
-      console.error('Error fetching order:', error);
+      console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -168,10 +177,15 @@ export default function CustomerTrackPage() {
   };
 
   const handleRefresh = () => {
-    const orderId = localStorage.getItem('current_order_id');
-    if (orderId) {
-      setRefreshing(true);
-      fetchOrder(orderId);
+    const tableData = localStorage.getItem('customer_table');
+    if (tableData) {
+      try {
+        const parsed = JSON.parse(tableData);
+        setRefreshing(true);
+        fetchOrders(parsed.id);
+      } catch (e) {
+        console.error('Failed to parse table data');
+      }
     }
   };
 
@@ -182,23 +196,7 @@ export default function CustomerTrackPage() {
 
   // Show initial loading screen with logo
   if (initializing) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-8 animate-pulse">
-            <img src="/logo/IZALogo1.png" alt="IZA POS" className="w-32 h-32 mx-auto object-contain" />
-          </div>
-          <div className="mb-6">
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
-          </div>
-          <p className="text-white text-lg font-medium">Loading Order Status...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen title="Loading Order Status..." hideBottomNav />;
   }
 
   if (loading) {
@@ -209,19 +207,19 @@ export default function CustomerTrackPage() {
     );
   }
 
-  if (!order) {
+  if (orders.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="px-4 py-4">
-            <h1 className="text-xl font-bold text-gray-900">Track Order</h1>
+            <h1 className="text-xl font-bold text-gray-900">Track Orders</h1>
           </div>
         </div>
         <div className="flex flex-col items-center justify-center px-4 py-20">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
             <ClockIcon className="w-10 h-10 text-gray-400" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">No Active Order</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">No Active Orders</h2>
           <p className="text-gray-500 text-center mb-6">
             You don't have any active orders at the moment.
           </p>
@@ -236,51 +234,111 @@ export default function CustomerTrackPage() {
     );
   }
 
-  const statusConfig = getStatusConfig(order.status);
-  const servedCount = order.order_items.filter(item => item.served).length;
-  const totalCount = order.order_items.length;
+  // Render single order card
+  const renderOrderCard = (order: Order, index: number) => {
+    const statusConfig = getStatusConfig(order.status);
+    const servedCount = order.order_items.filter(item => item.served).length;
+    const totalCount = order.order_items.length;
+    const isExpanded = expandedOrderId === order.id;
 
-  return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Track Order</h1>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
-          >
-            <ArrowPathIcon className={`w-5 h-5 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+    // Check if there are items that need kitchen preparation
+    const hasKitchenItems = order.order_items.some(item => item.kitchen_status !== 'not_required');
+    
+    // Determine current progress step
+    const getCurrentStep = () => {
+      if (order.status === 'completed') return hasKitchenItems ? 4 : 3;
+      if (servedCount === totalCount && totalCount > 0) return hasKitchenItems ? 3 : 2;
+      
+      if (hasKitchenItems) {
+        const allReady = order.order_items
+          .filter(item => item.kitchen_status !== 'not_required')
+          .every(item => item.kitchen_status === 'ready');
+        const someCooking = order.order_items.some(item => item.kitchen_status === 'cooking');
+        
+        if (allReady) return 3;
+        if (someCooking) return 2;
+        return 1;
+      }
+      
+      return 1;
+    };
 
-      <div className="px-4 py-4 space-y-4">
-        {/* Order Status */}
-        <div className={`${statusConfig.bg} rounded-lg p-4 border border-gray-200`}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className={statusConfig.color}>
-              {statusConfig.icon}
+    const currentStep = getCurrentStep();
+    const totalSteps = hasKitchenItems ? 4 : 3;
+
+    // Progress steps configuration
+    const getProgressSteps = () => {
+      if (hasKitchenItems) {
+        return [
+          { label: 'Order Placed', icon: '📝' },
+          { label: 'Kitchen Preparing', icon: '🍳' },
+          { label: 'Ready to Serve', icon: '✓' },
+          { label: 'Completed', icon: '✔️' }
+        ];
+      }
+      return [
+        { label: 'Order Placed', icon: '📝' },
+        { label: 'Ready to Serve', icon: '✓' },
+        { label: 'Completed', icon: '✔️' }
+      ];
+    };
+
+    const progressSteps = getProgressSteps();
+
+    return (
+      <div key={order.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        {/* Clickable Card Header */}
+        <div 
+          onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+          className="p-4 cursor-pointer hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${
+                order.status === 'completed' ? 'bg-green-500' :
+                order.status === 'served' ? 'bg-blue-500' :
+                'bg-orange-500 animate-pulse'
+              }`}></div>
+              <div>
+                <span className="text-sm font-bold text-gray-900">Order #{order.order_number}</span>
+                {index === 0 && (
+                  <span className="ml-2 text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full font-medium">Latest</span>
+                )}
+              </div>
             </div>
-            <h2 className={`text-lg font-bold ${statusConfig.color}`}>
-              {statusConfig.label}
-            </h2>
+            <svg 
+              className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
-          <p className="text-sm text-gray-600 mb-3">{statusConfig.description}</p>
           
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Order #{order.order_number}</span>
-            <span className="text-gray-600">Table {order.table_number}</span>
+          <div className="flex items-center justify-between">
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusConfig.bg}`}>
+              <span>{statusConfig.icon}</span>
+              <span className={`text-xs font-semibold ${statusConfig.color}`}>{statusConfig.label}</span>
+            </div>
+            <span className="text-sm text-gray-600">{servedCount}/{totalCount} served</span>
           </div>
         </div>
 
-        {/* Progress */}
+        {/* Expandable Content */}
+        {isExpanded && (
+          <div className="border-t border-gray-200 animate-slide-down">
+            <div className="p-4 space-y-4">
+
+              {/* Progress Steps */}
+              <OrderProgressBar currentStep={currentStep} steps={progressSteps} />
+
+        {/* Items Progress Bar */}
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-600">Items Progress</h3>
+            <h3 className="text-sm font-semibold text-gray-600">Items Served</h3>
             <span className="text-sm font-bold text-gray-900">
-              {servedCount}/{totalCount} served
+              {servedCount}/{totalCount}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -301,9 +359,27 @@ export default function CustomerTrackPage() {
                 <div key={item.id} className="flex items-start gap-3 pb-3 border-b border-gray-200 last:border-0">
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-1">
-                      <h4 className="font-semibold text-gray-900 text-sm">
-                        {item.quantity}x {item.product_name}
-                      </h4>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 text-sm">
+                          {item.quantity}x {item.product_name}
+                        </h4>
+                        {item.variants && typeof item.variants === 'string' && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {(() => {
+                              try {
+                                const variants = JSON.parse(item.variants);
+                                return variants.map((v: any, idx: number) => (
+                                  <span key={idx}>
+                                    {v.optionName}{idx < variants.length - 1 ? ', ' : ''}
+                                  </span>
+                                ));
+                              } catch (e) {
+                                return null;
+                              }
+                            })()}
+                          </div>
+                        )}
+                      </div>
                       {item.served ? (
                         <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
                       ) : (
@@ -337,15 +413,56 @@ export default function CustomerTrackPage() {
           </div>
         </div>
 
-        {/* Actions */}
-        {order.status === 'completed' && (
-          <button
-            onClick={handleNewOrder}
-            className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition"
-          >
-            Order Again
-          </button>
+              {/* Actions */}
+              {order.status === 'completed' && (
+                <button
+                  onClick={handleNewOrder}
+                  className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition"
+                >
+                  Order Again
+                </button>
+              )}
+            </div>
+          </div>
         )}
+        
+        <style jsx>{`
+          @keyframes slide-down {
+            from {
+              opacity: 0;
+              max-height: 0;
+            }
+            to {
+              opacity: 1;
+              max-height: 2000px;
+            }
+          }
+          .animate-slide-down {
+            animation: slide-down 0.3s ease-out;
+          }
+        `}</style>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="px-4 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900">Track Orders</h1>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
+          >
+            <ArrowPathIcon className={`w-5 h-5 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-4 py-4 space-y-3">
+        {orders.map((order, index) => renderOrderCard(order, index))}
       </div>
     </div>
   );

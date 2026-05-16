@@ -1,115 +1,317 @@
-'use client'
+"use client";
 
-import { getStaffStatusColor, getStaffStatusStyle, getStaffRoleColor, getStaffRoleStyle } from '@/lib/utils'
-import { getInitials, getAvatarColor } from '@/lib/utils'
-import { isLoginCodeValid } from '@/lib/constants'
-import type { Staff } from '@/lib/types'
+import {
+  CalendarDaysIcon,
+  ClockIcon,
+  EnvelopeIcon,
+  IdentificationIcon,
+  KeyIcon,
+  PhoneIcon,
+} from "@heroicons/react/24/outline";
+import {
+  getAvatarColor,
+  getInitials,
+  getStaffRoleColor,
+  getStaffRoleStyle,
+  getStaffStatusColor,
+  getStaffStatusStyle,
+} from "@/lib/utils";
+import { isLoginCodeValid } from "@/lib/constants";
+import type { Staff } from "@/lib/types";
+
+type ShiftRecord = {
+  id: string;
+  shift_name: string;
+  start_time?: string | null;
+  end_time?: string | null;
+};
+
+type StaffCardRecord = Staff & {
+  email?: string | null;
+  phone?: string | null;
+  staff_type?: string | null;
+  hired_date?: string | null;
+  shift_id?: string | null;
+  shift?: ShiftRecord | null;
+};
 
 interface StaffCardProps {
-  staff: Staff
-  onEdit: () => void
-  onDelete: () => void
-  onGeneratePass: () => void
-  onCopyCode: (code: string) => void
-  showActions?: boolean // Optional: show Edit/Delete buttons (default: true)
+  staff: StaffCardRecord;
+  onEdit: () => void;
+  onDelete?: () => void;
+  onGeneratePass: () => void;
+  onCopyCode: (code: string) => void;
+  showActions?: boolean;
 }
 
-export default function StaffCard({ 
-  staff, 
-  onEdit, 
-  onDelete, 
+const formatLabel = (value: unknown) => {
+  const text = String(value ?? "").trim();
+
+  if (!text) return "-";
+
+  return text
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const formatStaffType = (value: unknown) => {
+  const staffType = String(value ?? "").trim().toLowerCase();
+
+  if (!staffType) return "Not Assigned";
+  if (staffType === "cashier") return "Cashier";
+  if (staffType === "barista") return "Barista";
+  if (staffType === "kitchen") return "Kitchen";
+  if (staffType === "waiter") return "Waiter";
+
+  return formatLabel(staffType);
+};
+
+const formatRole = (value: unknown) => {
+  const role = String(value ?? "").trim().toLowerCase();
+
+  if (role === "owner") return "Owner";
+  if (role === "manager") return "Manager";
+  if (role === "staff") return "Staff";
+
+  return formatLabel(role);
+};
+
+const formatStatus = (value: unknown) => {
+  const status = String(value ?? "").trim().toLowerCase();
+
+  if (status === "active") return "Active";
+  if (status === "inactive") return "Inactive";
+  if (status === "on-leave") return "On Leave";
+  if (status === "terminated") return "Terminated";
+
+  return formatLabel(status);
+};
+
+const formatHiredDate = (value: unknown) => {
+  if (!value) return "-";
+
+  const date = new Date(String(value));
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
+const formatTime = (value?: string | null) => {
+  if (!value) return "--:--";
+
+  return value.slice(0, 5);
+};
+
+const getShiftLabel = (staff: StaffCardRecord) => {
+  if (staff.shift?.shift_name) return staff.shift.shift_name;
+
+  return "No Shift";
+};
+
+const getShiftTimeLabel = (staff: StaffCardRecord) => {
+  if (!staff.shift) return "-";
+
+  return `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`;
+};
+
+export default function StaffCard({
+  staff,
+  onEdit,
+  onDelete,
   onGeneratePass,
   onCopyCode,
-  showActions = true
+  showActions = true,
 }: StaffCardProps) {
-  const hasValidLoginCode = isLoginCodeValid(staff.login_code, staff.login_code_expires_at)
+  const hasValidLoginCode = isLoginCodeValid(
+    staff.login_code,
+    staff.login_code_expires_at,
+  );
+
+  const staffRole = String(staff.role ?? "").toLowerCase();
+  const shouldShowLoginCode = staffRole !== "manager" && staffRole !== "owner";
+  const shouldShowStaffType = staffRole === "staff";
+
+  const phoneText = staff.phone?.trim() || "-";
+  const emailText = staff.email?.trim() || "-";
+  const statusText = formatStatus(staff.status);
+  const roleText = formatRole(staff.role);
+  const staffTypeText = formatStaffType(staff.staff_type);
+  const hiredDateText = formatHiredDate(staff.hired_date);
+  const shiftText = getShiftLabel(staff);
+  const shiftTimeText = getShiftTimeLabel(staff);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow break-inside-avoid flex flex-col">
-      {/* Header with Avatar */}
-      <div className="relative p-4 pb-12 border-b border-gray-100 bg-gradient-to-r from-gray-100 to-white rounded-t-xl">
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex-1">
-            <p className="text-xs text-gray-500">ID: {staff.staff_code}</p>
+    <div className="flex break-inside-avoid flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="relative border-b border-gray-100 bg-gradient-to-r from-gray-100 to-white p-5 pb-14">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              Staff ID
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold text-gray-700">
+              {staff.staff_code || "-"}
+            </p>
           </div>
-          <span 
-            className={`px-3 py-1 rounded-full text-xs font-semibold ${getStaffStatusColor(staff.status)}`}
+
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${getStaffStatusColor(
+              staff.status,
+            )}`}
             style={getStaffStatusStyle(staff.status)}
           >
-            {staff.status}
+            {statusText}
           </span>
         </div>
 
-        {/* Centered Avatar */}
-        <div className="absolute left-1/2 -translate-x-1/2 -bottom-10">
-          <div className={`w-20 h-20 rounded-full ${getAvatarColor(staff.name)} flex items-center justify-center text-white text-xl font-bold border-4 border-white shadow-lg`}>
+        <div className="absolute bottom-0 left-1/2 translate-y-1/2 -translate-x-1/2">
+          <div
+            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white text-xl font-bold text-white shadow-lg ${getAvatarColor(
+              staff.name,
+            )}`}
+          >
             {getInitials(staff.name)}
           </div>
         </div>
       </div>
 
-      {/* Content with top padding for avatar */}
-      <div className="pt-14 px-4 pb-4 space-y-3 flex-1">
-        {/* Name and Role */}
-        <div className="text-center mb-3">
-          <h3 className="text-lg font-bold text-gray-800 mb-1">{staff.name}</h3>
-          <span 
-            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStaffRoleColor(staff.role)}`}
-            style={getStaffRoleStyle(staff.role)}
-          >
-            {staff.role}
-          </span>
-        </div>
-        {/* Phone */}
-        <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-          </svg>
-          <span className="text-sm text-gray-600">{staff.phone || '-'}</span>
-        </div>
+      <div className="flex flex-1 flex-col px-5 pb-5 pt-12">
+        <div className="text-center">
+          <h3 className="truncate text-lg font-bold text-gray-900">
+            {staff.name || "-"}
+          </h3>
 
-        {/* Login Code - Only for staff, not manager */}
-        {staff.role !== 'manager' && (
-          <div className="bg-gray-50 rounded-lg p-3 mb-3">
-            <div className="text-xs text-gray-500 mb-1">Kode Login</div>
-            {hasValidLoginCode ? (
-              <button
-                onClick={() => onCopyCode(staff.login_code!)}
-                className="font-mono text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline"
-                title="Klik untuk copy"
-              >
-                {staff.login_code}
-              </button>
-            ) : (
-              <button
-                onClick={onGeneratePass}
-                className="text-sm text-gray-700 hover:text-gray-900 font-medium hover:underline"
-              >
-                Generate Pass →
-              </button>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStaffRoleColor(
+                staff.role,
+              )}`}
+              style={getStaffRoleStyle(staff.role)}
+            >
+              {roleText}
+            </span>
+
+            {shouldShowStaffType && (
+              <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
+                {staffTypeText}
+              </span>
+            )}
+
+            {!shouldShowStaffType && (
+              <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                Management
+              </span>
             )}
           </div>
-        )}
+        </div>
+
+        <div className="mt-5 space-y-3">
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <ClockIcon className="h-4 w-4 text-gray-400" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Shift Kerja
+              </p>
+            </div>
+            <p className="text-sm font-semibold text-gray-900">{shiftText}</p>
+            <p className="mt-1 text-xs text-gray-500">{shiftTimeText}</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 text-sm">
+            <div className="flex items-center gap-3">
+              <PhoneIcon className="h-4 w-4 shrink-0 text-gray-400" />
+              <span className="min-w-0 truncate text-gray-700">
+                {phoneText}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <EnvelopeIcon className="h-4 w-4 shrink-0 text-gray-400" />
+              <span className="min-w-0 truncate text-gray-700">
+                {emailText}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <CalendarDaysIcon className="h-4 w-4 shrink-0 text-gray-400" />
+              <span className="min-w-0 truncate text-gray-700">
+                Masuk: {hiredDateText}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <IdentificationIcon className="h-4 w-4 shrink-0 text-gray-400" />
+              <span className="min-w-0 truncate text-gray-700">
+                {staff.staff_code || "-"}
+              </span>
+            </div>
+          </div>
+
+          {shouldShowLoginCode && (
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <KeyIcon className="h-4 w-4 text-gray-400" />
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Kode Login
+                </p>
+              </div>
+
+              {hasValidLoginCode ? (
+                <button
+                  type="button"
+                  onClick={() => onCopyCode(staff.login_code!)}
+                  className="font-mono text-sm font-semibold text-gray-700 transition hover:text-gray-900 hover:underline"
+                  title="Klik untuk copy"
+                >
+                  {staff.login_code}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onGeneratePass}
+                  className="text-sm font-semibold text-gray-700 transition hover:text-gray-900 hover:underline"
+                >
+                  Generate Pass →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
 
-      {/* Footer Actions - Always at bottom */}
       {showActions && (
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2 rounded-b-xl">
+        <div
+          className={`grid gap-2 border-t border-gray-100 bg-gray-50 p-4 ${
+            onDelete ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
           <button
+            type="button"
             onClick={onEdit}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-xl transition"
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
           >
             Edit
           </button>
-          <button
-            onClick={onDelete}
-            className="flex-1 px-4 py-2.5 text-sm font-medium bg-white border hover:bg-red-50 rounded-xl transition"
-            style={{ color: '#FF6859', borderColor: '#FF6859' }}
-          >
-            Hapus
-          </button>
+
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="w-full rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-red-50"
+              style={{ color: "#FF6859", borderColor: "#FF6859" }}
+            >
+              Hapus
+            </button>
+          )}
         </div>
       )}
     </div>
-  )
+  );
 }

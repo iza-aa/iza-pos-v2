@@ -3,24 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/config/supabaseClient';
-import { MagnifyingGlassIcon, ShoppingCartIcon, XMarkIcon, MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
-import { ProductImagePlaceholder } from '@/app/components/ui';
-import { Coffee, UtensilsCrossed, Cookie, Cake, Milk, Pizza, Sandwich, Soup, Salad, IceCream, LayoutGrid } from 'lucide-react';
-
-// Icon mapping for categories
-const iconNameToComponent: Record<string, any> = {
-  'All': LayoutGrid,
-  'Coffee': Coffee,
-  'UtensilsCrossed': UtensilsCrossed,
-  'Cookie': Cookie,
-  'Cake': Cake,
-  'Milk': Milk,
-  'Pizza': Pizza,
-  'Sandwich': Sandwich,
-  'Soup': Soup,
-  'Salad': Salad,
-  'IceCream': IceCream,
-};
+import { ShoppingCartIcon } from '@heroicons/react/24/outline';
+import VariantModal from '@/app/components/customer/menu/VariantModal';
+import SearchBar from '@/app/components/customer/menu/SearchBar';
+import CategoryTabs from '@/app/components/customer/menu/CategoryTabs';
+import ProductCard from '@/app/components/customer/menu/ProductCard';
+import CartDrawer from '@/app/components/customer/menu/CartDrawer';
+import LoadingScreen from '@/app/components/customer/LoadingScreen';
 
 interface Category {
   id: string;
@@ -61,6 +50,8 @@ export default function CustomerMenuPage() {
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(true);
   const [showCart, setShowCart] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showVariantModal, setShowVariantModal] = useState(false);
 
   // Check table session (run only once on mount)
   useEffect(() => {
@@ -163,11 +154,19 @@ export default function CustomerMenuPage() {
 
   // Add to cart
   const addToCart = (product: Product) => {
-    const existingItem = cart.find(item => item.productId === product.id);
+    // Check if product has variants
+    if (product.hasVariants) {
+      setSelectedProduct(product);
+      setShowVariantModal(true);
+      return;
+    }
+
+    // No variants - add directly
+    const existingItem = cart.find(item => item.productId === product.id && !item.variants);
     
     if (existingItem) {
       setCart(cart.map(item =>
-        item.productId === product.id
+        item.productId === product.id && !item.variants
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -184,26 +183,38 @@ export default function CustomerMenuPage() {
     }
   };
 
-  // Update quantity
+  // Add item with variants to cart
+  const addToCartWithVariants = (product: any, variants: any[], totalPrice: number, quantity: number) => {
+    const cartItem: CartItem = {
+      id: `${product.id}-${Date.now()}`,
+      productId: product.id,
+      name: product.name,
+      price: totalPrice,
+      quantity: quantity,
+      image: product.image,
+      variants: variants
+    };
+    setCart([...cart, cartItem]);
+    setShowVariantModal(false);
+    setSelectedProduct(null);
+  };
+
+  // Update quantity (can remove item when quantity reaches 0)
   const updateQuantity = (itemId: string, change: number) => {
     setCart(cart.map(item => {
       if (item.id === itemId) {
-        const newQuantity = item.quantity + change;
-        return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
+        return { ...item, quantity: item.quantity + change };
       }
       return item;
     }).filter(item => item.quantity > 0));
   };
 
-  // Remove from cart
-  const removeFromCart = (itemId: string) => {
-    setCart(cart.filter(item => item.id !== itemId));
-  };
-
-  // Calculate total
-  const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
+  // Auto-close cart when empty
+  useEffect(() => {
+    if (cart.length === 0 && showCart) {
+      setShowCart(false);
+    }
+  }, [cart.length, showCart]);
 
   // Go to checkout
   const goToCheckout = () => {
@@ -213,24 +224,7 @@ export default function CustomerMenuPage() {
 
   // Show initial loading screen without logo
   if (initializing) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          {/* Loading Animation */}
-          <div className="mb-6">
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
-          </div>
-
-          {/* Loading Text */}
-          <p className="text-white text-lg font-medium">Loading Menu...</p>
-          <p className="text-gray-400 text-sm mt-2">Preparing your experience</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen title="Loading Menu..." subtitle="Preparing your experience" hideBottomNav />;
   }
 
   return (
@@ -239,42 +233,14 @@ export default function CustomerMenuPage() {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-4 py-4">
           <h1 className="text-xl font-bold text-gray-900 mb-3">Menu</h1>
-          
-          {/* Search */}
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search menu..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-            />
-          </div>
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
 
-        {/* Categories */}
-        <div className="px-4 pb-3 overflow-x-auto">
-          <div className="flex gap-2">
-            {categories.map(cat => {
-              const IconComponent = iconNameToComponent[cat.icon] || Cookie;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition flex items-center gap-2 ${
-                    selectedCategory === cat.id
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <IconComponent className="w-4 h-4" />
-                  {cat.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <CategoryTabs 
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+        />
       </div>
 
       {/* Products Grid */}
@@ -290,35 +256,7 @@ export default function CustomerMenuPage() {
         ) : (
           <div className="grid grid-cols-2 gap-4">
             {filteredProducts.map(product => (
-              <div
-                key={product.id}
-                className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200"
-              >
-                <div className="aspect-square relative bg-gray-100">
-                  <ProductImagePlaceholder
-                    name={product.name}
-                    imageUrl={product.image}
-                    className="w-full h-full"
-                  />
-                </div>
-                <div className="p-3">
-                  <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-2">{product.category}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-gray-900">
-                      Rp {product.price.toLocaleString('id-ID')}
-                    </span>
-                    <button
-                      onClick={() => addToCart(product)}
-                      className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
             ))}
           </div>
         )}
@@ -338,78 +276,24 @@ export default function CustomerMenuPage() {
       )}
 
       {/* Cart Drawer */}
-      {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowCart(false)}>
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Cart Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-900">Your Order</h2>
-              <button
-                onClick={() => setShowCart(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
-                <XMarkIcon className="w-6 h-6 text-gray-600" />
-              </button>
-            </div>
+      <CartDrawer 
+        cart={cart}
+        isOpen={showCart}
+        onClose={() => setShowCart(false)}
+        onUpdateQuantity={updateQuantity}
+        onCheckout={goToCheckout}
+      />
 
-            {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {cart.map(item => (
-                <div key={item.id} className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200 last:border-0">
-                  <img
-                    src={item.image || ''}
-                    alt={item.name}
-                    className="w-16 h-16 object-cover rounded-lg"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-sm mb-1 truncate">
-                      {item.name}
-                    </h3>
-                    <p className="text-sm font-bold text-gray-900">
-                      Rp {(item.price * item.quantity).toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                    >
-                      <MinusIcon className="w-4 h-4 text-gray-600" />
-                    </button>
-                    <span className="w-8 text-center font-semibold text-gray-900">
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                    >
-                      <PlusIcon className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Cart Footer */}
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-600 font-medium">Total</span>
-                <span className="text-xl font-bold text-gray-900">
-                  Rp {calculateTotal().toLocaleString('id-ID')}
-                </span>
-              </div>
-              <button
-                onClick={goToCheckout}
-                className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition"
-              >
-                Checkout ({cart.length} items)
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Variant Selection Modal */}
+      {showVariantModal && selectedProduct && (
+        <VariantModal
+          product={selectedProduct}
+          onAddToCart={addToCartWithVariants}
+          onClose={() => {
+            setShowVariantModal(false);
+            setSelectedProduct(null);
+          }}
+        />
       )}
     </div>
   );

@@ -1,20 +1,19 @@
 /**
  * API Route: POST /api/chatbot
- * 
- * Main endpoint untuk chatbot queries
+ *
+ * Main endpoint untuk chatbot queries — powered by Ollama (Qwen 2.5)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import type { ChatbotQuery, ChatbotResponse } from '@/lib/types/chatbot'
 import {
   buildSystemPrompt,
-  callGemini,
   routeToModel,
-  getFallbackModel,
   checkRateLimit,
   validateQuery,
   sanitizeQuery
 } from '@/lib/services/chatbot'
+import { callOllama, isOllamaAvailable } from '@/lib/services/chatbot/ollama'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -49,60 +48,43 @@ export async function POST(request: NextRequest) {
     // 3. Sanitize query (remove PII for free tier)
     const sanitizedQuery = sanitizeQuery(query)
 
-    // 4. Route to appropriate model
+    // 4. Route to model
     const { model, complexity } = routeToModel(sanitizedQuery)
 
     console.log(`[Chatbot] Query routed to ${model} (complexity: ${complexity.complexity}, score: ${complexity.score})`)
 
-    // 5. Load database context
+    // 5. Cek Ollama tersedia
+    const ollamaReady = await isOllamaAvailable()
+    if (!ollamaReady) {
+      return NextResponse.json(
+        { error: 'Ollama tidak berjalan. Pastikan Ollama sudah diinstall dan aktif di localhost:11434' },
+        { status: 503 }
+      )
+    }
+
+    // 6. Load business context
     const systemPrompt = buildSystemPrompt()
 
-    // 6. Call Gemini with retry logic
-    let response
-    let currentModel = model
-    let attempt = 0
-    const maxAttempts = 3
+    // 7. Call Ollama
+    const response = await callOllama(
+      model,
+      systemPrompt,
+      sanitizedQuery,
+      conversationHistory
+    )
 
-    while (attempt < maxAttempts) {
-      try {
-        response = await callGemini(
-          currentModel,
-          systemPrompt,
-          sanitizedQuery,
-          conversationHistory
-        )
-        break // Success
-      } catch (error) {
-        attempt++
-        console.error(`[Chatbot] Attempt ${attempt} failed with ${currentModel}:`, error)
-
-        // Try fallback model
-        const fallback = getFallbackModel(currentModel)
-        if (fallback && attempt < maxAttempts) {
-          console.log(`[Chatbot] Falling back to ${fallback}`)
-          currentModel = fallback
-        } else {
-          throw error // No more fallbacks
-        }
-      }
-    }
-
-    if (!response) {
-      throw new Error('All model attempts failed')
-    }
-
-    // 7. Build response
+    // 8. Build response
     const processingTime = Date.now() - startTime
     const chatbotResponse: ChatbotResponse = {
       response: response.text,
-      model: currentModel,
+      model,
+      provider: 'ollama',
       complexity: complexity.complexity,
       tokensUsed: response.tokensUsed,
       processingTime
     }
 
-    // 8. Log usage (optional)
-    console.log(`[Chatbot] Success - Model: ${currentModel}, Time: ${processingTime}ms, Tokens: ${response.tokensUsed?.input}+${response.tokensUsed?.output}`)
+    console.log(`[Chatbot] Success - Model: ${model}, Time: ${processingTime}ms, Tokens: ${response.tokensUsed?.input}+${response.tokensUsed?.output}`)
 
     return NextResponse.json(chatbotResponse)
 
@@ -123,11 +105,15 @@ export async function POST(request: NextRequest) {
 
 // Health check endpoint
 export async function GET() {
+  const ollamaReady = await isOllamaAvailable()
+  const model = process.env.OLLAMA_MODEL || 'qwen2.5:7b'
   return NextResponse.json({
-    status: 'ok',
+    status: ollamaReady ? 'ok' : 'ollama_offline',
     service: 'IZA POS Database Chatbot',
-    version: '1.0.0',
-    models: ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'],
-    strategy: '3-tier smart routing'
+    version: '2.0.0',
+    provider: 'ollama',
+    model,
+    ollamaUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    strategy: 'local LLM via Ollama'
   })
 }
