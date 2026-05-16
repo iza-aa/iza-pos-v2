@@ -149,7 +149,7 @@ export default function StaffCard({
 
   return (
     <div className="flex break-inside-avoid flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative border-b border-gray-100 bg-gradient-to-r from-gray-100 to-white p-5 pb-14">
+      <div className="relative border-b border-gray-100 bg-linear-to-r from-gray-100 to-white p-5 pb-14">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">

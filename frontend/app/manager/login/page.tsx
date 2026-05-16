@@ -15,7 +15,7 @@ const slides = [
   },
   {
     img: "/logo/coffeelogin3.jpg",
-    quote: "Desain interiornya estetik, cocok buat foto-foto. Harganya juga terjangkau untuk kualitas kopi se-enak ini.",
+    quote: "Desain interiornya estetik, cocok buat photo-photo. Harganya juga terjangkau untuk kualitas kopi se-enak ini.",
     author: "Lia Kartika",
   },
 ];
@@ -85,7 +85,7 @@ export default function ManagerLoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Kiri: Slider */}
-      <div className="flex w-[70%] hidden md:block bg-white items-center justify-center py-8 pl-8">
+      <div className="w-[70%] hidden md:block bg-white items-center justify-center py-8 pl-8">
         <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl bg-black/70 flex items-end">
           <img
             src={slides[current].img}
@@ -106,7 +106,7 @@ export default function ManagerLoginPage() {
                   key={idx}
                   className={`h-1 w-full rounded-full transition-all duration-300 ${
                     idx === current
-                      ? "bg-gradient-to-r from-blue-500 via-white-500 to-red-500 w-16"
+                      ? "bg-linear-to-r from-blue-500 via-white-500 to-red-500 w-16"
                       : "bg-white/30 w-8"
                   }`}
                 ></span>
@@ -168,7 +168,7 @@ export default function ManagerLoginPage() {
             </div>
             <button
               type="submit"
-              className="w-full font-semibold bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="w-full font-semibold bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               disabled={loading}
             >
               {loading ? "Loading..." : "Sign In as Manager"}

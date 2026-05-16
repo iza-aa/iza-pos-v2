@@ -264,7 +264,7 @@ export default function StaffTable({
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
       <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-[1380px] table-fixed">
+        <table className="w-full min-w-345 table-fixed">
           <thead className="sticky top-0 z-10 bg-gray-50">
             <tr className="border-b border-gray-200">
               <th className="w-[10%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">

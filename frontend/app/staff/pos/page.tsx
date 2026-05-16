@@ -649,7 +649,7 @@ export default function POSPage() {
 	return (
 		<main className="h-[calc(100vh-55px)] bg-gray-100 flex flex-col lg:flex-row overflow-hidden relative">
 			<section className="flex-1 flex flex-col overflow-hidden">
-				<div className="bg-white px-4 md:px-6 py-4 md:py-6 border-b border-gray-200 min-h-[88px] md:min-h-[104px] flex items-center">
+				<div className="bg-white px-4 md:px-6 py-4 md:py-6 border-b border-gray-200 min-h-22 md:min-h-26 flex items-center">
 					<div className="w-full">
 						<FoodiesMenuHeader
 							searchQuery={searchQuery}
@@ -773,7 +773,7 @@ export default function POSPage() {
 					transition-all duration-300
 					${
 						orderDetailsOpen
-							? "translate-y-0 lg:translate-y-0 lg:w-[400px] xl:w-[450px]"
+							? "translate-y-0 lg:translate-y-0 lg:w-100 xl:w-112.5"
 							: "translate-y-full lg:translate-y-0 lg:w-0"
 					}
 				`}
@@ -814,7 +814,7 @@ export default function POSPage() {
 						</div>
 					) : (
 						<>
-							<div className="px-4 md:px-6 py-3 md:py-4 lg:py-6 border-b border-gray-200 min-h-[60px] md:min-h-[88px] lg:min-h-[104px] flex items-center justify-between">
+							<div className="px-4 md:px-6 py-3 md:py-4 lg:py-6 border-b border-gray-200 min-h-15 md:min-h-22 lg:min-h-26 flex items-center justify-between">
 								<h2 className="text-xl md:text-2xl font-bold text-gray-800">
 									Order Details
 								</h2>

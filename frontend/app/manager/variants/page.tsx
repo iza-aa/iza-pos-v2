@@ -408,7 +408,7 @@ export default function VariantsPage() {
             <button
               type="button"
               onClick={handleAddVariantGroup}
-              className="mb-3 flex min-h-[180px] w-full break-inside-avoid flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-white p-4 transition hover:border-gray-900 hover:bg-gray-100 md:mb-4 md:min-h-[200px] md:gap-3 md:p-6"
+              className="mb-3 flex min-h-45 w-full break-inside-avoid flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-white p-4 transition hover:border-gray-900 hover:bg-gray-100 md:mb-4 md:min-h-50 md:gap-3 md:p-6"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-900 md:h-12 md:w-12">
                 <PlusIcon className="h-5 w-5 text-white md:h-6 md:w-6" />

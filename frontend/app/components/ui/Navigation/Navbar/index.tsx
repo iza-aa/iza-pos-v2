@@ -17,7 +17,6 @@ import {
   ClipboardDocumentListIcon,
   QueueListIcon,
   CubeIcon,
-  TagIcon,
   ArchiveBoxIcon,
   ShoppingCartIcon,
   FireIcon,
@@ -31,7 +30,6 @@ import {
   ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
   QueueListIcon as QueueListIconSolid,
   CubeIcon as CubeIconSolid,
-  TagIcon as TagIconSolid,
   ArchiveBoxIcon as ArchiveBoxIconSolid,
   ShoppingCartIcon as ShoppingCartIconSolid,
   FireIcon as FireIconSolid,
@@ -189,8 +187,6 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
     }
   }
 
-  const currentRoleConfig = roleConfig[selectedRole]
-  const CurrentRoleIcon = currentRoleConfig.icon
 
   if (!mounted) return null
 
@@ -320,7 +316,7 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
 
       {/* Mobile Menu */}
       {showMobileMenu && (
-        <div className="md:hidden fixed inset-0 top-[57px] bg-white z-40 overflow-y-auto">
+        <div className="md:hidden fixed inset-0 top-14.25 bg-white z-40 overflow-y-auto">
           {/* Owner/Profile Section - Moved to Top */}
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center gap-3">

@@ -20,7 +20,7 @@ export default function ViewModeToggle({
   showMapView = true,
 }: ViewModeToggleProps) {
   return (
-    <div className="flex items-center h-[42px] border border-gray-300 rounded-xl overflow-hidden">
+    <div className="flex items-center h-10.5 border border-gray-300 rounded-xl overflow-hidden">
       <button
         type="button"
         onClick={() => onViewModeChange('card')}

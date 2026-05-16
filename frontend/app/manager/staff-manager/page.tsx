@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation"
 import { getCurrentUser, generateRandomCode } from "@/lib/utils"
-import { TIME_UNITS, EXPIRATION_TIMES, TIMEOUT_DURATIONS } from "@/lib/constants"
+import { TIME_UNITS, EXPIRATION_TIMES } from "@/lib/constants"
 import { supabase } from "@/lib/config/supabaseClient"
 import { SearchBar, ViewModeToggle } from "@/app/components/ui"
 import { StaffCard, StaffTable, QRPresenceModal } from "@/app/components/shared"
@@ -165,7 +165,7 @@ export default function ManagerStaffPage() {
               <div className="relative" ref={dateDropdownRef}>
                 <button
                   onClick={() => setShowDateDropdown(!showDateDropdown)}
-                  className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
+                  className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
                 >
                   <CalendarIcon className="w-4 h-4" />
                   <span className="font-medium">
@@ -281,7 +281,7 @@ export default function ManagerStaffPage() {
             {/* Generate QR Button */}
             <button
               onClick={handleGenerateQrAndCode}
-              className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-100 text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-200 transition"
+              className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-gray-100 text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-200 transition"
               title="Generate QR and Code"
             >
               <BiQr className="w-4 md:w-5 h-4 md:h-5" />
@@ -292,7 +292,7 @@ export default function ManagerStaffPage() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowTabDropdown(!showTabDropdown)}
-                className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition"
+                className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition"
               >
               {activeTab === 'staff' ? (
                 <>

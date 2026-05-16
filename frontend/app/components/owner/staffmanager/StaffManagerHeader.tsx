@@ -47,7 +47,7 @@ export default function StaffManagerHeader({
             <button
               type="button"
               onClick={onAddStaff}
-              className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-gray-800 md:h-[42px] md:w-[42px]"
+              className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-gray-800 md:h-10.5 md:w-10.5"
               title="Add New Staff"
               aria-label="Add New Staff"
             >
@@ -69,7 +69,7 @@ export default function StaffManagerHeader({
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Cari staff..."
-              className="h-[42px] w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+              className="h-10.5 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
             />
 
             {searchQuery && (

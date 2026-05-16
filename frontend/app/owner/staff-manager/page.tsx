@@ -421,13 +421,14 @@ export default function StaffManagerPage() {
     setShiftList((data ?? []) as ShiftRecord[]);
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   async function refreshStaffAndShifts() {
     await Promise.all([fetchStaff(), fetchShifts()]);
   }
 
   useEffect(() => {
     refreshStaffAndShifts();
-  }, []);
+  }, [refreshStaffAndShifts]);
 
   useEffect(() => {
     const identity =
@@ -442,7 +443,7 @@ export default function StaffManagerPage() {
   useEffect(() => {
     const interval = setInterval(refreshStaffAndShifts, POLLING_INTERVALS.SLOW);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshStaffAndShifts]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -874,7 +875,7 @@ export default function StaffManagerPage() {
               <button
                 type="button"
                 onClick={() => setShowDateDropdown(!showDateDropdown)}
-                className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
+                className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
               >
                 <CalendarIcon className="w-4 h-4" />
                 <span className="font-medium">
@@ -1008,7 +1009,7 @@ export default function StaffManagerPage() {
             <button
               type="button"
               onClick={() => setShowTabDropdown(!showTabDropdown)}
-              className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition"
+              className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition"
             >
               {activeTab === "staff" ? (
                 <>

@@ -280,7 +280,7 @@ export default function TableOrderMapView({ orders }: TableOrderMapViewProps) {
         </div>
       </div>
 
-      <div className="relative h-[600px] overflow-hidden bg-gray-50">
+      <div className="relative h-150 overflow-hidden bg-gray-50">
         {selectedFloorTables.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">

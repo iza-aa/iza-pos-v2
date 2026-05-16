@@ -559,7 +559,7 @@ export default function OrderCard({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 max-h-[400px]">
+            <div className="flex-1 overflow-y-auto px-4 py-3 max-h-100">
               {pendingItems.length > 0 && (
                 <div className="mb-4">
                   <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">

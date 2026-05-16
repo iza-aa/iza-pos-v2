@@ -90,7 +90,7 @@ function CustomerTableContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-900 to-gray-800 p-4">
         <div className="text-center">
           <div className="mb-6">
             <div className="flex items-center justify-center gap-2">
@@ -121,7 +121,7 @@ function CustomerTableContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-900 to-gray-800 p-4">
       <div className="w-full max-w-md">
         <div className="rounded-2xl bg-white p-8 text-center shadow-2xl">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
@@ -174,7 +174,7 @@ function CustomerTableContent() {
 
 function CustomerTableFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-900 to-gray-800 p-4">
       <div className="text-center">
         <div className="mb-6">
           <div className="flex items-center justify-center gap-2">

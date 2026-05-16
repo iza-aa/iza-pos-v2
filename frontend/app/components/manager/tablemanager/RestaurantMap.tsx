@@ -301,7 +301,7 @@ export default function RestaurantMap({
 
         <div
           ref={mapRef}
-          className="relative h-[600px] overflow-hidden bg-gray-50"
+          className="relative h-150 overflow-hidden bg-gray-50"
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
           onMouseLeave={handleDragEnd}

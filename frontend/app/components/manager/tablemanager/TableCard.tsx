@@ -101,7 +101,7 @@ export default function TableCard({
         </div>
 
         {isBusy && table.occupied_by_customer ? (
-          <span className="mt-1 max-w-[80px] truncate text-[10px] font-medium">
+          <span className="mt-1 max-w-20 truncate text-[10px] font-medium">
             {table.occupied_by_customer}
           </span>
         ) : null}
