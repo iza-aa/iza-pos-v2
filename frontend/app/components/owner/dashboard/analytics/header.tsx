@@ -1,31 +1,452 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect } from "react"
-import { CalendarIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline"
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownTrayIcon, CalendarIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { supabase } from "@/lib/config/supabaseClient";
 
 interface AnalyticsHeaderProps {
-  showDatePicker: boolean
-  setShowDatePicker: (show: boolean) => void
+  showDatePicker: boolean;
+  setShowDatePicker: (show: boolean) => void;
 }
+
+type OrderRow = {
+  id: string;
+  order_number: string | null;
+  customer_name: string | null;
+  status: string | null;
+  total: number | string | null;
+  payment_method: string | null;
+  payment_status: string | null;
+  order_date: string | null;
+  order_time: string | null;
+  created_at: string | null;
+  created_by_staff_name: string | null;
+  fulfillment_method: string | null;
+};
+
+type OrderItemRow = {
+  id: string;
+  order_id: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  quantity: number | null;
+  total_price: number | string | null;
+  created_at: string | null;
+};
+
+type ProductRow = {
+  id: string;
+  name: string | null;
+  type: string | null;
+  price: number | string | null;
+  stock: number | null;
+  available: boolean | null;
+  updated_at: string | null;
+};
+
+type CsvRow = Array<string | number | null | undefined>;
+
+type ReportData = {
+  generatedAt: string;
+  generatedBy: string;
+  today: string;
+  yesterday: string;
+  todaySales: number;
+  yesterdaySales: number;
+  todayTransactions: number;
+  todayProductsSold: number;
+  averageOrderValue: number;
+  weekDates: string[];
+  salesByDate: Map<string, number>;
+  topProducts: Array<{ name: string; quantity: number; revenue: number }>;
+  paymentRows: Array<{ method: string; count: number; total: number }>;
+  peakRows: Array<{ period: string; count: number }>;
+  lowStockProducts: ProductRow[];
+  recentOrders: OrderRow[];
+};
+
+const currencyFormatter = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
+
+const getLocalDate = (offsetDays = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthStart = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+};
+
+const getDateRange = (days: number) =>
+  Array.from({ length: days }, (_, index) => getLocalDate(index - (days - 1)));
+
+const parseNumber = (value: number | string | null | undefined) => Number(value ?? 0) || 0;
+
+const isValidSalesOrder = (order: OrderRow) => {
+  const status = String(order.status ?? "").toLowerCase();
+  const paymentStatus = String(order.payment_status ?? "").toLowerCase();
+
+  if (["cancelled", "canceled", "void", "refunded"].includes(status)) return false;
+  if (["cancelled", "canceled", "failed", "refunded", "void"].includes(paymentStatus)) return false;
+
+  return true;
+};
+
+const normalizePaymentMethod = (method: string | null | undefined) => {
+  const normalized = String(method ?? "Unknown").trim().toLowerCase();
+
+  if (["cash", "tunai"].includes(normalized)) return "Cash";
+  if (["card", "credit card", "debit", "debit card", "kartu"].includes(normalized)) return "Card";
+  if (["qris", "qr", "e-wallet", "ewallet", "wallet", "digital wallet"].includes(normalized)) {
+    return "QRIS / E-Wallet";
+  }
+
+  return method?.trim() || "Unknown";
+};
+
+const formatCurrency = (value: number | string | null | undefined) =>
+  currencyFormatter.format(parseNumber(value));
+
+
+
+const escapeHtml = (value: string | number | null | undefined) => {
+  const raw = value === null || value === undefined ? "" : String(value);
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+
+const downloadBlob = (filename: string, blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const sumOrderTotal = (orders: OrderRow[]) =>
+  orders.reduce((sum, order) => (isValidSalesOrder(order) ? sum + parseNumber(order.total) : sum), 0);
+
+const sumItemQuantity = (items: OrderItemRow[]) =>
+  items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
+
+const buildReportRows = (report: ReportData): CsvRow[] => [
+  ["IZA POS Owner Dashboard Report"],
+  ["Generated At", report.generatedAt],
+  ["Generated By", report.generatedBy],
+  ["Report Scope", "Dashboard overview: today, current month, last 7 days, last 30 days"],
+  [],
+  ["SUMMARY TODAY"],
+  ["Metric", "Value", "Comparison"],
+  ["Sales Today", formatCurrency(report.todaySales), `Yesterday: ${formatCurrency(report.yesterdaySales)}`],
+  ["Transactions Today", report.todayTransactions, "orders"],
+  ["Products Sold Today", report.todayProductsSold, "items"],
+  ["Average Order Value Today", formatCurrency(report.averageOrderValue), "per order"],
+  [],
+  ["SALES LAST 7 DAYS"],
+  ["Date", "Sales"],
+  ...report.weekDates.map((date) => [date, formatCurrency(report.salesByDate.get(date) ?? 0)]),
+  [],
+  ["TOP PRODUCTS THIS MONTH"],
+  ["Rank", "Product", "Qty Sold", "Revenue"],
+  ...report.topProducts.map((product, index) => [
+    index + 1,
+    product.name,
+    product.quantity,
+    formatCurrency(product.revenue),
+  ]),
+  [],
+  ["PAYMENT METHOD THIS MONTH"],
+  ["Method", "Transactions", "Total"],
+  ...report.paymentRows.map((payment) => [payment.method, payment.count, formatCurrency(payment.total)]),
+  [],
+  ["PEAK PERFORMANCE LAST 30 DAYS"],
+  ["Rank", "Period", "Orders"],
+  ...report.peakRows.map((peak, index) => [index + 1, peak.period, peak.count]),
+  [],
+  ["LOW STOCK PRODUCTS"],
+  ["Product", "Type", "Stock", "Price", "Available"],
+  ...report.lowStockProducts.map((product) => [
+    product.name,
+    product.type,
+    product.stock ?? 0,
+    formatCurrency(product.price),
+    product.available ? "Yes" : "No",
+  ]),
+  [],
+  ["RECENT ACTIVITY"],
+  ["Order Number", "Date", "Time", "Customer", "Status", "Payment", "Total", "Staff"],
+  ...report.recentOrders.map((order) => [
+    order.order_number,
+    order.order_date,
+    order.order_time,
+    order.customer_name,
+    order.status,
+    normalizePaymentMethod(order.payment_method),
+    formatCurrency(order.total),
+    order.created_by_staff_name,
+  ]),
+];
+
+
+
+
+const sheetName = (value: string) => value.replace(/[\\/?*\[\]:]/g, " ").slice(0, 31) || "Sheet";
+
+const buildExcelXml = (report: ReportData) => {
+  const rows = buildReportRows(report);
+  const sections: Array<{ title: string; rows: CsvRow[] }> = [];
+  let currentTitle = "Report";
+  let currentRows: CsvRow[] = [];
+
+  const flush = () => {
+    if (currentRows.length > 0) {
+      sections.push({ title: currentTitle, rows: currentRows });
+      currentRows = [];
+    }
+  };
+
+  rows.forEach((row) => {
+    if (row.length === 0) {
+      flush();
+      return;
+    }
+
+    if (row.length === 1) {
+      flush();
+      currentTitle = String(row[0] ?? "Report");
+      currentRows.push(row);
+      return;
+    }
+
+    currentRows.push(row);
+  });
+  flush();
+
+  const xmlEscape = (value: string | number | null | undefined) =>
+    escapeHtml(value).replace(/\r?\n/g, " ");
+
+  const worksheets = sections
+    .map((section, sectionIndex) => {
+      const worksheetRows = section.rows
+        .map((row, rowIndex) => {
+          const cells = row
+            .map((cell) => {
+              const raw = cell === null || cell === undefined ? "" : String(cell);
+              const isNumber = raw !== "" && !Number.isNaN(Number(raw)) && /^-?\d+(\.\d+)?$/.test(raw);
+              const type = isNumber ? "Number" : "String";
+              return `<Cell><Data ss:Type="${type}">${xmlEscape(cell)}</Data></Cell>`;
+            })
+            .join("");
+          const style = rowIndex === 0 ? ' ss:StyleID="Title"' : rowIndex === 1 ? ' ss:StyleID="Header"' : "";
+          return `<Row${style}>${cells}</Row>`;
+        })
+        .join("\n");
+
+      return `
+        <Worksheet ss:Name="${xmlEscape(sheetName(section.title || `Sheet ${sectionIndex + 1}`))}">
+          <Table>${worksheetRows}</Table>
+        </Worksheet>
+      `;
+    })
+    .join("\n");
+
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:html="http://www.w3.org/TR/REC-html40">
+  <Styles>
+    <Style ss:ID="Title">
+      <Font ss:Bold="1" ss:Size="14"/>
+      <Interior ss:Color="#E5E7EB" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="Header">
+      <Font ss:Bold="1"/>
+      <Interior ss:Color="#F3F4F6" ss:Pattern="Solid"/>
+    </Style>
+  </Styles>
+  ${worksheets}
+</Workbook>`;
+};
+
+const downloadExcel = (filename: string, report: ReportData) => {
+  const excelXml = buildExcelXml(report);
+  const blob = new Blob([excelXml], {
+    type: "application/vnd.ms-excel;charset=utf-8;",
+  });
+  downloadBlob(filename, blob);
+};
+
+const pdfEscape = (value: string) =>
+  value
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[^\x20-\x7E]/g, " ");
+
+const splitPdfLine = (line: string, maxLength = 96) => {
+  const words = line.split(" ");
+  const result: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxLength) {
+      if (current) result.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) result.push(current);
+  return result.length > 0 ? result : [""];
+};
+
+const buildPdfLines = (report: ReportData) => {
+  const rows = buildReportRows(report);
+  const lines: Array<{ text: string; bold?: boolean; gap?: boolean }> = [];
+
+  rows.forEach((row) => {
+    if (row.length === 0) {
+      lines.push({ text: "", gap: true });
+      return;
+    }
+
+    if (row.length === 1) {
+      lines.push({ text: String(row[0] ?? ""), bold: true });
+      return;
+    }
+
+    lines.push({ text: row.map((cell) => String(cell ?? "")).join("  |  ") });
+  });
+
+  return lines;
+};
+
+const buildSimplePdf = (report: ReportData) => {
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const marginX = 42;
+  const marginY = 44;
+  const lineHeight = 14;
+  const footerY = 24;
+  const maxY = pageHeight - marginY;
+  const pages: string[][] = [[]];
+  let y = marginY;
+
+  const addLine = (text: string, bold = false, gap = false) => {
+    const chunks = splitPdfLine(text, bold ? 72 : 94);
+    chunks.forEach((chunk) => {
+      if (y > maxY) {
+        pages.push([]);
+        y = marginY;
+      }
+      pages[pages.length - 1].push(
+        `BT /${bold ? "F2" : "F1"} ${bold ? 12 : 9} Tf ${marginX} ${pageHeight - y} Td (${pdfEscape(chunk)}) Tj ET`,
+      );
+      y += gap ? lineHeight * 1.35 : lineHeight;
+    });
+  };
+
+  buildPdfLines(report).forEach((line) => {
+    addLine(line.text, line.bold, line.gap);
+  });
+
+  const objects: string[] = [];
+  const addObject = (body: string) => {
+    objects.push(body);
+    return objects.length;
+  };
+
+  const fontRegularId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const fontBoldId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+  const pageIds: number[] = [];
+  const kidsPlaceholders: number[] = [];
+  const pagesIdPlaceholder = 999999;
+
+  pages.forEach((pageLines, index) => {
+    const footer = `BT /F1 8 Tf ${marginX} ${footerY} Td (Page ${index + 1} of ${pages.length}) Tj ET`;
+    const stream = `${pageLines.join("\n")}\n${footer}`;
+    const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    const pageId = addObject(
+      `<< /Type /Page /Parent ${pagesIdPlaceholder} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+    );
+    pageIds.push(pageId);
+    kidsPlaceholders.push(pageId);
+  });
+
+  const pagesId = addObject(
+    `<< /Type /Pages /Kids [${kidsPlaceholders.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`,
+  );
+  const catalogId = addObject(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+
+  const pdfObjects = objects.map((object) => object.replaceAll(`${pagesIdPlaceholder} 0 R`, `${pagesId} 0 R`));
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+
+  pdfObjects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${pdfObjects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${pdfObjects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+};
+
+const exportPdf = (filename: string, report: ReportData) => {
+  const blob = buildSimplePdf(report);
+  downloadBlob(filename, blob);
+};
 
 export default function AnalyticsHeader({ showDatePicker, setShowDatePicker }: AnalyticsHeaderProps) {
   const [userName, setUserName] = useState("");
   const [greeting, setGreeting] = useState("");
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [exportError, setExportError] = useState("");
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // Check if user is actually an owner
     const userRole = localStorage.getItem("user_role");
-    
-    // If not owner, don't show greeting
+
     if (userRole !== "owner") {
       return;
     }
 
-    // Get user name from localStorage
     const name = localStorage.getItem("user_name") || "Owner";
     setUserName(name);
 
-    // Set greeting based on time
     const hour = new Date().getHours();
     if (hour < 12) {
       setGreeting("Good Morning");
@@ -36,28 +457,236 @@ export default function AnalyticsHeader({ showDatePicker, setShowDatePicker }: A
     }
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const baseFilename = useMemo(() => `owner-dashboard-report-${getLocalDate()}`, []);
+
+  const getReportData = async (): Promise<ReportData> => {
+    const today = getLocalDate();
+    const yesterday = getLocalDate(-1);
+    const weekDates = getDateRange(7);
+    const last30Start = getLocalDate(-29);
+    const monthStart = getMonthStart();
+
+    const { data: ordersData, error: ordersError } = await supabase
+      .from("orders")
+      .select(
+        "id,order_number,customer_name,status,total,payment_method,payment_status,order_date,order_time,created_at,created_by_staff_name,fulfillment_method",
+      )
+      .gte("order_date", last30Start)
+      .order("created_at", { ascending: false });
+
+    if (ordersError) throw ordersError;
+
+    const orders = ((ordersData ?? []) as OrderRow[]).filter(isValidSalesOrder);
+    const orderIds = orders.map((order) => order.id);
+
+    let items: OrderItemRow[] = [];
+    if (orderIds.length > 0) {
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("order_items")
+        .select("id,order_id,product_id,product_name,quantity,total_price,created_at")
+        .in("order_id", orderIds);
+
+      if (itemsError) throw itemsError;
+      items = (itemsData ?? []) as OrderItemRow[];
+    }
+
+    const { data: productsData, error: productsError } = await supabase
+      .from("products")
+      .select("id,name,type,price,stock,available,updated_at")
+      .order("stock", { ascending: true })
+      .limit(10);
+
+    if (productsError) throw productsError;
+
+    const products = (productsData ?? []) as ProductRow[];
+    const todayOrders = orders.filter((order) => order.order_date === today);
+    const yesterdayOrders = orders.filter((order) => order.order_date === yesterday);
+    const todayOrderIds = new Set(todayOrders.map((order) => order.id));
+    const todayItems = items.filter((item) => item.order_id && todayOrderIds.has(item.order_id));
+    const monthOrders = orders.filter((order) => String(order.order_date ?? "") >= monthStart);
+    const monthOrderIds = new Set(monthOrders.map((order) => order.id));
+    const monthItems = items.filter((item) => item.order_id && monthOrderIds.has(item.order_id));
+
+    const todaySales = sumOrderTotal(todayOrders);
+    const yesterdaySales = sumOrderTotal(yesterdayOrders);
+    const todayTransactions = todayOrders.length;
+    const todayProductsSold = sumItemQuantity(todayItems);
+    const averageOrderValue = todayTransactions > 0 ? todaySales / todayTransactions : 0;
+
+    const salesByDate = new Map<string, number>();
+    weekDates.forEach((date) => salesByDate.set(date, 0));
+    orders.forEach((order) => {
+      const date = order.order_date ?? "";
+      if (salesByDate.has(date)) {
+        salesByDate.set(date, (salesByDate.get(date) ?? 0) + parseNumber(order.total));
+      }
+    });
+
+    const productMap = new Map<string, { quantity: number; revenue: number }>();
+    monthItems.forEach((item) => {
+      const name = item.product_name || "Unknown Product";
+      const current = productMap.get(name) ?? { quantity: 0, revenue: 0 };
+      productMap.set(name, {
+        quantity: current.quantity + Number(item.quantity ?? 0),
+        revenue: current.revenue + parseNumber(item.total_price),
+      });
+    });
+    const topProducts = Array.from(productMap.entries())
+      .map(([name, value]) => ({ name, ...value }))
+      .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+      .slice(0, 5);
+
+    const paymentMap = new Map<string, { count: number; total: number }>();
+    monthOrders.forEach((order) => {
+      const method = normalizePaymentMethod(order.payment_method);
+      const current = paymentMap.get(method) ?? { count: 0, total: 0 };
+      paymentMap.set(method, {
+        count: current.count + 1,
+        total: current.total + parseNumber(order.total),
+      });
+    });
+    const paymentRows = Array.from(paymentMap.entries())
+      .map(([method, value]) => ({ method, ...value }))
+      .sort((a, b) => b.count - a.count || b.total - a.total);
+
+    const peakMap = new Map<string, number>();
+    orders.forEach((order) => {
+      if (!order.order_date || !order.order_time) return;
+      const date = new Date(`${order.order_date}T00:00:00`);
+      const day = date.toLocaleDateString("en-US", { weekday: "short" });
+      const hour = String(order.order_time).slice(0, 2);
+      const key = `${day} ${hour}:00`;
+      peakMap.set(key, (peakMap.get(key) ?? 0) + 1);
+    });
+    const peakRows = Array.from(peakMap.entries())
+      .map(([period, count]) => ({ period, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return {
+      generatedAt: new Date().toLocaleString("id-ID"),
+      generatedBy: userName || localStorage.getItem("user_name") || "Owner",
+      today,
+      yesterday,
+      todaySales,
+      yesterdaySales,
+      todayTransactions,
+      todayProductsSold,
+      averageOrderValue,
+      weekDates,
+      salesByDate,
+      topProducts,
+      paymentRows,
+      peakRows,
+      lowStockProducts: products.slice(0, 5),
+      recentOrders: orders.slice(0, 5),
+    };
+  };
+
+  const handleExportExcel = async () => {
+    setExporting("excel");
+    setExportError("");
+
+    try {
+      const report = await getReportData();
+      downloadExcel(`${baseFilename}.xls`, report);
+    } catch (error) {
+      console.error("Gagal export Excel owner dashboard report:", error);
+      setExportError("Gagal export Excel. Periksa data dashboard lalu coba lagi.");
+    } finally {
+      setExporting(null);
+      setShowExportDropdown(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExporting("pdf");
+    setExportError("");
+
+    try {
+      const report = await getReportData();
+      exportPdf(`${baseFilename}.pdf`, report);
+    } catch (error) {
+      console.error("Gagal export PDF owner dashboard report:", error);
+      setExportError(
+        error instanceof Error ? error.message : "Gagal export PDF. Periksa data dashboard lalu coba lagi.",
+      );
+    } finally {
+      setExporting(null);
+      setShowExportDropdown(false);
+    }
+  };
+
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between bg-white px-4 md:px-6 py-4 md:py-6 border-b border-gray-200 -mx-4 md:-mx-6 -mt-4 mb-2 gap-4 md:gap-0">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center">
-          {greeting}, {userName} 👋
+          {greeting}, {userName}
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Here's your overview for today!</p>
+        <p className="text-gray-500 text-sm mt-1">Here&apos;s your overview for today!</p>
+        {exportError ? <p className="mt-2 text-xs font-medium text-red-600">{exportError}</p> : null}
       </div>
+
       <div className="flex items-center gap-2 md:gap-3">
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition text-sm"
+          type="button"
         >
           <CalendarIcon className="h-4 md:h-5 w-4 md:w-5" />
           <span className="hidden sm:inline text-sm font-medium">Date Period</span>
         </button>
-        <button className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition text-sm">
-          <ArrowDownTrayIcon className="h-4 md:h-5 w-4 md:w-5" />
-          <span className="hidden sm:inline text-sm font-medium">Export Report</span>
-          <span className="sm:hidden text-sm font-medium">Export</span>
-        </button>
+
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowExportDropdown((current) => !current)}
+            disabled={exporting !== null}
+            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ArrowDownTrayIcon className="h-4 md:h-5 w-4 md:w-5" />
+            <span className="hidden sm:inline text-sm font-medium">
+              {exporting ? "Exporting..." : "Export Report"}
+            </span>
+            <span className="sm:hidden text-sm font-medium">{exporting ? "..." : "Export"}</span>
+            <ChevronDownIcon className="h-4 w-4 text-white/80" />
+          </button>
+
+          {showExportDropdown ? (
+            <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-50">
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={exporting !== null}
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4 text-gray-500" />
+                Export as Excel
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exporting !== null}
+                className="flex w-full items-center gap-2 border-t border-gray-100 px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4 text-gray-500" />
+                Export as PDF
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
-  )
+  );
 }

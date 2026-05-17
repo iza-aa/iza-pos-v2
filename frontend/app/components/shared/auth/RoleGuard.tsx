@@ -28,8 +28,18 @@ const loginByRole: Record<UserRole, string> = {
   owner: "/owner/login",
 };
 
+const roleRank: Record<UserRole, number> = {
+  staff: 1,
+  manager: 2,
+  owner: 3,
+};
+
 const isKnownRole = (role: string | null | undefined): role is UserRole => {
   return role === "staff" || role === "manager" || role === "owner";
+};
+
+const canAccessRoleArea = (currentRole: UserRole, requiredRole: UserRole) => {
+  return roleRank[currentRole] >= roleRank[requiredRole];
 };
 
 function RoleGuardLoading() {
@@ -78,7 +88,7 @@ export default function RoleGuard({
         return;
       }
 
-      if (currentRole !== allowedRole) {
+      if (!canAccessRoleArea(currentRole, allowedRole)) {
         if (!isCancelled) {
           setGuardState("redirecting");
           router.replace(dashboardByRole[currentRole] ?? loginByRole[allowedRole]);
@@ -86,27 +96,25 @@ export default function RoleGuard({
         return;
       }
 
-      if (verifyActiveStaff && currentUser.id && allowedRole !== "owner") {
+      if (verifyActiveStaff && currentUser.id && currentRole !== "owner") {
         const { data, error } = await supabase
           .from("staff")
           .select("id, status, role")
           .eq("id", currentUser.id)
           .maybeSingle();
 
-        if (error || !data || data.status !== "active" || data.role !== allowedRole) {
+        if (error || !data || data.status !== "active" || data.role !== currentRole) {
           localStorage.clear();
 
           if (!isCancelled) {
             setGuardState("redirecting");
-            router.replace(loginPath);
+            router.replace(loginByRole[currentRole] ?? loginPath);
           }
           return;
         }
       }
 
-      if (!isCancelled) {
-        setGuardState("allowed");
-      }
+      if (!isCancelled) setGuardState("allowed");
     };
 
     void checkAccess();

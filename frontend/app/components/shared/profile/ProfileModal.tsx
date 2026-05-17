@@ -116,13 +116,13 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
         onClick={onClose}
       />
 
-      <div className="absolute right-4 top-16 w-[calc(100vw-2rem)] max-w-sm rounded-3xl border border-gray-100 bg-white p-4 shadow-2xl md:right-6">
+      <div className="absolute right-4 top-16 w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-gray-100 bg-white p-4 shadow-2xl md:right-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <img
               src={avatarSrc}
               alt={displayName}
-              className="h-12 w-12 rounded-2xl border border-gray-200 object-cover"
+              className="h-12 w-12 rounded-lg border border-gray-200 object-cover"
               onError={(event) => {
                 (event.currentTarget as HTMLImageElement).src = getFallbackAvatar(displayName);
               }}
@@ -136,7 +136,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
             aria-label="Tutup"
           >
             <XMarkIcon className="h-5 w-5" />
@@ -147,14 +147,14 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           <button
             type="button"
             onClick={() => handleNavigate(profilePath)}
-            className="flex w-full items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-left transition hover:bg-gray-100"
+            className="flex w-full items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-left transition hover:bg-gray-100"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-gray-700 shadow-sm">
               <UserCircleIcon className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-gray-900">Kelola Profil</span>
-              <span className="block text-xs text-gray-500">Edit data pribadi dan foto profil</span>
+              <span className="block text-xs text-gray-500">Edit data pribadi dan photo profil</span>
             </span>
           </button>
 
@@ -164,7 +164,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
           >
             <ArrowRightOnRectangleIcon className="h-5 w-5" />
             Logout

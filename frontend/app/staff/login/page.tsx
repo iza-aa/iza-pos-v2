@@ -19,7 +19,7 @@ const slides = [
   {
     img: "/logo/coffeelogin3.jpg",
     quote:
-      "Desain interiornya estetik, cocok buat foto-foto. Harganya juga terjangkau untuk kualitas kopi se-enak ini.",
+      "Desain interiornya estetik, cocok buat photo-photo. Harganya juga terjangkau untuk kualitas kopi se-enak ini.",
     author: "Lia Kartika",
   },
 ];
@@ -447,7 +447,7 @@ export default function LoginStaffPage() {
                   key={idx}
                   className={`h-1.5 transition-all duration-300 ${
                     idx === current
-                      ? "w-16 bg-gradient-to-r from-blue-500 via-white to-red-500"
+                      ? "w-16 bg-linear-to-r from-blue-500 via-white to-red-500"
                       : "w-8 bg-white/30"
                   }`}
                 />
@@ -516,7 +516,7 @@ export default function LoginStaffPage() {
 
               <button
                 type="submit"
-                className="w-full font-semibold bg-gradient-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:opacity-95 transition-opacity"
+                className="w-full font-semibold bg-linear-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:opacity-95 transition-opacity"
                 disabled={loading}
               >
                 {loading ? "Memproses..." : "Masuk"}
@@ -563,7 +563,7 @@ export default function LoginStaffPage() {
 
               <button
                 type="submit"
-                className="w-full rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 py-3.5 font-semibold text-white transition hover:from-blue-700 hover:to-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-2xl bg-linear-to-r from-blue-600 to-blue-700 py-3.5 font-semibold text-white transition hover:from-blue-700 hover:to-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={loading}
               >
                 {loading ? "Menyimpan..." : "Simpan PIN & Masuk"}

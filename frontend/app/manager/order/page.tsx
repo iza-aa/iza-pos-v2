@@ -396,12 +396,6 @@ export default function ManagerOrderPage() {
     }
   }
 
-  const canServeItem = (item: OrderItem) => {
-    return (
-      !item.served &&
-      (item.kitchenStatus === "not_required" || item.kitchenStatus === "ready")
-    );
-  };
 
   const canShowServeOrderButton = (order: Order) => {
     const hasUnservedItems = order.items.some((item) => !item.served);
@@ -412,9 +406,6 @@ export default function ManagerOrderPage() {
     );
   };
 
-  const hasServeableItems = (order: Order) => {
-    return order.items.some(canServeItem);
-  };
 
   async function handleMarkServed(orderId: string, itemIds: string[]) {
     try {
@@ -639,9 +630,7 @@ export default function ManagerOrderPage() {
   const weekAgo = getWeeksAgo(1);
   const monthAgo = getMonthsAgo(1);
 
-  const isKanbanView = viewMode === "card";
   const isTableListView = viewMode === "table";
-  const isTableOrderMapView = !isKanbanView && !isTableListView;
   const shouldShowOrderFilter = isTableListView;
   const shouldApplyOrderFilter = isTableListView;
 

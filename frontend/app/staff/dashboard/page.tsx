@@ -11,7 +11,6 @@ import {
   ClockIcon,
   ClipboardDocumentCheckIcon,
   ShoppingBagIcon,
-  UserCircleIcon,
 } from "@heroicons/react/24/outline";
 
 type CurrentUser = {
@@ -277,7 +276,7 @@ const MetricCard = ({
   iconBg?: string;
 }) => {
   return (
-    <div className="w-full rounded-2xl border border-gray-300 bg-gray-100 p-[3px] transition-shadow hover:shadow-lg">
+    <div className="w-full rounded-2xl border border-gray-300 bg-gray-100 p-0.75 transition-shadow hover:shadow-lg">
       <div className="mb-3 rounded-xl border border-gray-300 bg-white p-3 md:p-4">
         <div className="flex items-center gap-2 md:gap-3">
           <div className={`${iconBg} rounded-xl p-2 md:p-3`}>
@@ -299,7 +298,7 @@ const MetricCard = ({
 
       <div className="flex items-center justify-between px-2 pb-2">
         <span className="truncate text-xs text-gray-600 md:text-sm">{subtitle}</span>
-        <ArrowUpRightIcon className="h-3 w-3 flex-shrink-0 text-gray-400 md:h-4 md:w-4" />
+        <ArrowUpRightIcon className="h-3 w-3 shrink-0 text-gray-400 md:h-4 md:w-4" />
       </div>
     </div>
   );

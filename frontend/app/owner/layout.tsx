@@ -8,7 +8,7 @@ import { setupNetworkMonitoring } from "@/lib/services/errorHandling";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLoginPage = pathname === "/owner/login";
+  const isLogin = pathname === "/owner/login";
 
   useEffect(() => {
     setupNetworkMonitoring();
@@ -17,9 +17,9 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   return (
     <RoleGuard allowedRole="owner" loginPath="/owner/login" verifyActiveStaff={false}>
       <div>
-        {!isLoginPage && <Navbar role="owner" canSwitchRole={false} />}
+        {!isLogin && <Navbar role="owner" canSwitchRole={true} />}
         <main>{children}</main>
-        {!isLoginPage && <FloatingAIAssistant />}
+        {!isLogin && <FloatingAIAssistant />}
         <ToastContainer />
       </div>
     </RoleGuard>

@@ -36,15 +36,67 @@ import { SearchBar, ViewModeToggle } from '@/app/components/ui'
 import type { DateFilterType } from '@/app/components/owner/activitylog/DateFilterDropdown'
 import type { ViewMode } from '@/app/components/ui/Common/ViewModeToggle'
 
+type ActivityLogDbRow = {
+  id: string
+  timestamp: string
+  user_id: string
+  user_name: string
+  user_role: string
+  user_email: string | null
+  action: string
+  action_category: string
+  action_description: string
+  resource_type: string
+  resource_id: string | null
+  resource_name: string | null
+  previous_value: ActivityLog['previousValue']
+  new_value: ActivityLog['newValue']
+  changes_summary: ActivityLog['changesSummary'] | null
+  ip_address: string | null
+  device_info: string | null
+  session_id: string | null
+  location: ActivityLog['location']
+  severity: string
+  tags: string[] | null
+  notes: string | null
+  is_reversible: boolean
+  related_log_ids: ActivityLog['relatedLogIds']
+}
+
+type StaffUserRow = {
+  id: string
+  name: string
+  role: string
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+  }
+
+  return fallback
+}
+
+const normalizeRole = (role: string): UserRole => {
+  if (role === 'owner' || role === 'manager' || role === 'staff') {
+    return role as UserRole
+  }
+
+  return 'staff' as UserRole
+}
+
 // Transform database log (snake_case) to TypeScript interface (camelCase)
-function transformLog(dbLog: any): ActivityLog {
+function transformLog(dbLog: ActivityLogDbRow): ActivityLog {
   return {
     id: dbLog.id,
     timestamp: dbLog.timestamp,
     userId: dbLog.user_id,
     userName: dbLog.user_name,
-    userRole: dbLog.user_role as UserRole,
-    userEmail: dbLog.user_email,
+    userRole: normalizeRole(dbLog.user_role),
+    userEmail: dbLog.user_email ?? undefined,
     action: dbLog.action as ActivityAction,
     actionCategory: dbLog.action_category as ActivityCategory,
     actionDescription: dbLog.action_description,
@@ -60,7 +112,7 @@ function transformLog(dbLog: any): ActivityLog {
     location: dbLog.location,
     severity: dbLog.severity as SeverityLevel,
     tags: dbLog.tags || [],
-    notes: dbLog.notes,
+    notes: dbLog.notes ?? undefined,
     isReversible: dbLog.is_reversible,
     relatedLogIds: dbLog.related_log_ids
   }
@@ -111,32 +163,18 @@ export default function ActivityLogPage() {
   // Fetch staff users from database
   const fetchStaffUsers = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: staffError } = await supabase
         .from('staff')
-        .select('id, name, staff_type')
+        .select('id, name, role')
         .order('name')
       
-      if (error) throw error
+      if (staffError) throw staffError
       
-      const users = data.map(staff => ({
+      const users = ((data || []) as StaffUserRow[]).map(staff => ({
         id: staff.id,
         name: staff.name,
-        role: (staff.staff_type === 'manager' ? 'manager' : 'staff') as UserRole
+        role: normalizeRole(staff.role)
       }))
-      
-      // Add owner (from database or hardcoded)
-      const { data: ownerData } = await supabase
-        .from('owner')
-        .select('id, name')
-        .single()
-      
-      if (ownerData) {
-        users.unshift({
-          id: ownerData.id,
-          name: ownerData.name,
-          role: 'owner' as UserRole
-        })
-      }
       
       setStaffUsers(users)
     } catch (err) {
@@ -177,7 +215,7 @@ export default function ActivityLogPage() {
       
       if (fetchError) throw fetchError
       
-      const transformedLogs = (data || []).map(transformLog)
+      const transformedLogs = ((data || []) as ActivityLogDbRow[]).map(transformLog)
       
       if (reset) {
         setLogs(transformedLogs)
@@ -189,8 +227,8 @@ export default function ActivityLogPage() {
       // Check if there are more logs to load
       setHasMore(transformedLogs.length === LOGS_PER_PAGE)
       
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to load activity logs'
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err, 'Failed to load activity logs')
       setError(errorMessage)
       showError(errorMessage)
       console.error('Error fetching activity logs:', err)
@@ -203,49 +241,85 @@ export default function ActivityLogPage() {
   // Load more logs
   const loadMore = () => {
     if (!loadingMore && hasMore) {
-      fetchActivityLogs(false)
+      void fetchActivityLogs(false)
     }
   }
 
-  // Export to CSV
-  const exportToCSV = () => {
+  const escapeExcelValue = (value: unknown) => {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+
+  const buildExcelWorksheet = (rows: Array<Array<string | number>>) => {
+    return rows
+      .map((row) => {
+        const cells = row
+          .map((cell) => `<Cell><Data ss:Type="String">${escapeExcelValue(cell)}</Data></Cell>`)
+          .join('')
+
+        return `<Row>${cells}</Row>`
+      })
+      .join('')
+  }
+
+  // Export to Excel
+  const exportToExcel = () => {
     try {
-      // CSV Headers
-      const headers = ['Timestamp', 'User', 'Role', 'Action', 'Category', 'Description', 'Resource', 'Severity']
-      
-      // Map filtered logs to CSV rows
-      const rows = filteredLogs.map(log => [
-        new Date(log.timestamp).toLocaleString('id-ID'),
-        log.userName,
-        log.userRole,
-        log.action,
-        log.actionCategory,
-        log.actionDescription,
-        log.resourceName || log.resourceType || '-',
-        log.severity
-      ])
-      
-      // Create CSV content
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-      ].join('\n')
-      
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const rows: Array<Array<string | number>> = [
+        ['Timestamp', 'User', 'Role', 'Action', 'Category', 'Description', 'Resource', 'Severity', 'Notes'],
+        ...filteredLogs.map((log) => [
+          new Date(log.timestamp).toLocaleString('id-ID'),
+          log.userName,
+          log.userRole,
+          log.action,
+          log.actionCategory,
+          log.actionDescription,
+          log.resourceName || log.resourceType || '-',
+          log.severity,
+          log.notes || '-',
+        ]),
+      ]
+
+      const excelContent = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:html="http://www.w3.org/TR/REC-html40">
+  <Styles>
+    <Style ss:ID="Header">
+      <Font ss:Bold="1" />
+      <Interior ss:Color="#E5E7EB" ss:Pattern="Solid" />
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="Activity Logs">
+    <Table>
+      ${buildExcelWorksheet(rows)}
+    </Table>
+  </Worksheet>
+</Workbook>`
+
+      const blob = new Blob([excelContent], {
+        type: 'application/vnd.ms-excel;charset=utf-8;',
+      })
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
-      const filename = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`
-      
+      const filename = `activity-logs-${new Date().toISOString().split('T')[0]}.xls`
+
       link.setAttribute('href', url)
       link.setAttribute('download', filename)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+      URL.revokeObjectURL(url)
     } catch (err) {
-      showError('Failed to export CSV')
-      console.error('CSV export error:', err)
+      showError('Failed to export Excel')
+      console.error('Excel export error:', err)
     }
   }
 
@@ -304,9 +378,9 @@ export default function ActivityLogPage() {
 
   // Fetch logs and staff users on mount
   useEffect(() => {
-    fetchActivityLogs(true)
-    fetchStaffUsers()
-  }, [])
+    void fetchActivityLogs(true)
+    void fetchStaffUsers()
+  }, [fetchActivityLogs])
 
   // Real-time subscription for activity logs
   useEffect(() => {
@@ -320,7 +394,7 @@ export default function ActivityLogPage() {
           table: 'activity_logs'
         },
         (payload) => {
-          const newLog = transformLog(payload.new)
+          const newLog = transformLog(payload.new as ActivityLogDbRow)
           
           // Prepend new log to the state
           setLogs(prev => [newLog, ...prev])
@@ -331,7 +405,7 @@ export default function ActivityLogPage() {
           // Show toast notification for critical events
           if (newLog.severity === 'critical') {
             showWarning(
-              `🚨 Critical Activity: ${newLog.userName} - ${newLog.actionDescription}`,
+              `Critical Activity: ${newLog.userName} - ${newLog.actionDescription}`,
               5000
             )
           }
@@ -341,7 +415,7 @@ export default function ActivityLogPage() {
 
     // Cleanup subscription on unmount
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [])
 
@@ -466,7 +540,7 @@ export default function ActivityLogPage() {
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       {/* Header + Stats */}
-      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
+      <section className="shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -479,7 +553,7 @@ export default function ActivityLogPage() {
             {/* Toggle Stats */}
             <button 
               onClick={() => setShowStats(!showStats)}
-              className="flex items-center justify-center h-[38px] md:h-[42px] w-9 md:w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition flex-shrink-0"
+              className="flex items-center justify-center h-9.5 md:h-10.5 w-9 md:w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition shrink-0"
               title={showStats ? "Hide Statistics" : "Show Statistics"}
             >
               {showStats ? (
@@ -501,12 +575,13 @@ export default function ActivityLogPage() {
             <ViewModeToggle
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              showMapView={false}
             />
 
             {/* Toggle Filters */}
             <button 
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 border rounded-xl transition flex-shrink-0 ${
+              className={`flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 border rounded-xl transition shrink-0 ${
                 showFilters 
                   ? 'bg-gray-800 border-gray-800 text-white' 
                   : 'border-gray-300 hover:bg-gray-50'
@@ -525,7 +600,7 @@ export default function ActivityLogPage() {
             <div className="relative" ref={exportDropdownRef}>
               <button 
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="flex items-center gap-2 h-[38px] md:h-[42px] px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition flex-shrink-0"
+                className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition shrink-0"
               >
                 <ArrowDownTrayIcon className="w-4 md:w-5 h-4 md:h-5" />
                 <span className="text-xs md:text-sm font-medium hidden sm:inline">Export</span>
@@ -537,13 +612,13 @@ export default function ActivityLogPage() {
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
                   <button
                     onClick={() => {
-                      exportToCSV()
+                      exportToExcel()
                       setShowExportDropdown(false)
                     }}
                     className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 rounded-t-xl transition flex items-center gap-2"
                   >
                     <ArrowDownTrayIcon className="w-4 h-4" />
-                    Export as CSV
+                    Export as Excel
                   </button>
                   <button
                     onClick={() => {

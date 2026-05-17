@@ -1,90 +1,99 @@
 "use client";
 
-import { ExclamationTriangleIcon, CheckCircleIcon } from "@heroicons/react/24/solid";
-import { ArrowTopRightOnSquareIcon, CubeIcon } from "@heroicons/react/24/outline";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/solid";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/config/supabaseClient";
 
-interface LowStockItem {
+type ProductRow = {
+  id: string;
+  name: string | null;
+  stock: number | string | null;
+  available: boolean | null;
+  type: string | null;
+};
+
+type StockItem = {
   id: string;
   name: string;
-  current_stock: number;
-  minimum_stock: number;
-  unit: string;
-  percentage: number;
-}
+  stock: number;
+  type: string;
+  status: "Critical" | "Low" | "Good";
+};
+
+type StockState = {
+  items: StockItem[];
+  loading: boolean;
+  error: string;
+};
+
+const LOW_STOCK_THRESHOLD = 5;
+const CRITICAL_STOCK_THRESHOLD = 0;
+
+const getStockStatus = (stock: number): StockItem["status"] => {
+  if (stock <= CRITICAL_STOCK_THRESHOLD) return "Critical";
+  if (stock <= LOW_STOCK_THRESHOLD) return "Low";
+  return "Good";
+};
+
+const getStatusStyle = (status: StockItem["status"]) => {
+  if (status === "Critical") return "bg-gray-800 text-white";
+  if (status === "Low") return "bg-gray-200 text-gray-700";
+  return "bg-gray-100 text-gray-500";
+};
 
 export default function LowStockAlert() {
-  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [state, setState] = useState<StockState>({ items: [], loading: true, error: "" });
 
   useEffect(() => {
-    fetchLowStockItems();
-  }, []);
+    let mounted = true;
 
-  const fetchLowStockItems = async () => {
-    try {
-      // Fetch all inventory items with reorder_level
+    const fetchProducts = async () => {
       const { data, error } = await supabase
-        .from('inventory_items')
-        .select('id, name, current_stock, reorder_level, unit')
-        .order('current_stock', { ascending: true });
+        .from("products")
+        .select("id,name,stock,available,type")
+        .eq("available", true)
+        .order("stock", { ascending: true })
+        .limit(5);
+
+      if (!mounted) return;
 
       if (error) {
-        // RLS or other error - just show empty state, don't throw
-        console.warn('Could not fetch inventory (RLS may be enabled):', error.message || 'Unknown error');
-        setLowStockItems([]);
+        console.error("Gagal mengambil low stock:", error);
+        setState({ items: [], loading: false, error: "Gagal memuat stock" });
         return;
       }
 
-      if (data && data.length > 0) {
-        // Calculate how close each item is to reorder level
-        // Sort by: items at or below reorder first, then by percentage of stock remaining
-        const itemsWithPercentage = data
-          .map(item => {
-            const reorderLevel = item.reorder_level || 100;
-            const percentage = Math.round((item.current_stock / reorderLevel) * 100);
-            return {
-              ...item,
-              minimum_stock: reorderLevel,
-              percentage,
-              needsReorder: item.current_stock <= reorderLevel
-            };
-          })
-          // Sort: items needing reorder first, then by lowest percentage
-          .sort((a, b) => {
-            if (a.needsReorder && !b.needsReorder) return -1;
-            if (!a.needsReorder && b.needsReorder) return 1;
-            return a.percentage - b.percentage;
-          })
-          .slice(0, 5);
+      const items = ((data ?? []) as ProductRow[]).map((product) => {
+        const stock = Number(product.stock ?? 0);
+        return {
+          id: product.id,
+          name: product.name ?? "Produk Tanpa Nama",
+          stock,
+          type: product.type ?? "product",
+          status: getStockStatus(stock),
+        };
+      });
 
-        setLowStockItems(itemsWithPercentage);
-      } else {
-        setLowStockItems([]);
-      }
-    } catch (err) {
-      console.warn('Error fetching low stock items:', err);
-      setLowStockItems([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setState({ items, loading: false, error: "" });
+    };
 
-  const getStockStatus = (percentage: number) => {
-    if (percentage <= 50) return { color: 'bg-gray-800', bgColor: 'bg-gray-100', label: 'Critical', textColor: 'text-gray-700' };
-    if (percentage <= 100) return { color: 'bg-gray-500', bgColor: 'bg-gray-100', label: 'Low', textColor: 'text-gray-600' };
-    return { color: 'bg-gray-300', bgColor: 'bg-gray-100', label: 'Good', textColor: 'text-gray-500' };
-  };
+    void fetchProducts();
 
-  // Count items that actually need reorder
-  const needsAttentionCount = lowStockItems.filter(item => item.percentage <= 100).length;
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const needsAttentionCount = useMemo(
+    () => state.items.filter((item) => item.stock <= LOW_STOCK_THRESHOLD).length,
+    [state.items],
+  );
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
-      {/* Header */}
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden h-full">
       <div className="p-3 md:p-4 border-b border-gray-100">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="bg-gray-100 rounded-xl p-2">
               {needsAttentionCount > 0 ? (
@@ -96,93 +105,56 @@ export default function LowStockAlert() {
             <div>
               <h3 className="text-sm md:text-base font-semibold text-gray-800">Stock Levels</h3>
               <p className="text-[10px] md:text-xs font-medium text-gray-500">
-                {needsAttentionCount > 0 ? `${needsAttentionCount} items need reorder` : 'All stocks healthy'}
+                {state.loading
+                  ? "Memuat stock"
+                  : needsAttentionCount > 0
+                    ? `${needsAttentionCount} produk perlu dicek`
+                    : "Stock aman"}
               </p>
             </div>
           </div>
-          <a 
-            href="/manager/inventory" 
-            className="p-2 hover:bg-gray-100 rounded-xl transition group"
-            title="View Inventory"
+          <a
+            href="/owner/products"
+            className="p-2 hover:bg-gray-100 rounded-xl transition"
+            title="Lihat Produk"
           >
-            <ArrowTopRightOnSquareIcon className="h-3 md:h-4 w-3 md:w-4 text-gray-400 group-hover:text-gray-600" />
+            <ArrowTopRightOnSquareIcon className="h-3 md:h-4 w-3 md:w-4 text-gray-400" />
           </a>
         </div>
       </div>
 
-      {/* Stock List */}
-      <div className="divide-y divide-gray-50">
-        {isLoading ? (
-          // Loading skeleton
-          Array.from({ length: 5 }).map((_, idx) => (
-            <div key={idx} className="px-4 py-3 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-gray-100 rounded-xl"></div>
-                <div className="flex-1">
-                  <div className="h-4 bg-gray-100 rounded w-24"></div>
+      <div className="p-3 md:p-4 space-y-2.5">
+        {state.loading ? (
+          Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-12 rounded-xl bg-gray-50 animate-pulse" />
+          ))
+        ) : state.error ? (
+          <div className="py-8 text-center text-sm text-gray-500">{state.error}</div>
+        ) : state.items.length === 0 ? (
+          <div className="py-8 text-center text-sm text-gray-500">Belum ada data produk.</div>
+        ) : (
+          state.items.map((item) => (
+            <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{item.name}</p>
+                  <p className="text-[10px] text-gray-500 capitalize">{item.type}</p>
                 </div>
-                <div className="text-right">
-                  <div className="h-3 bg-gray-100 rounded w-20 mb-1.5"></div>
-                  <div className="h-1.5 bg-gray-100 rounded-full w-16"></div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-gray-900">{item.stock}</p>
+                  <span className={`inline-block mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-lg ${getStatusStyle(item.status)}`}>
+                    {item.status}
+                  </span>
                 </div>
-                <div className="h-6 bg-gray-100 rounded-lg w-14"></div>
+              </div>
+              <div className="mt-2 h-1.5 rounded-full bg-white overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gray-700"
+                  style={{ width: `${Math.min(100, Math.max(6, (item.stock / LOW_STOCK_THRESHOLD) * 100))}%` }}
+                />
               </div>
             </div>
           ))
-        ) : lowStockItems.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <CubeIcon className="h-6 w-6 text-gray-400" />
-            </div>
-            <p className="text-sm font-medium text-gray-500">No inventory data</p>
-            <p className="text-xs text-gray-400 mt-1">Add items to track stock levels</p>
-          </div>
-        ) : (
-          lowStockItems.map((item) => {
-            const status = getStockStatus(item.percentage);
-            return (
-              <div key={item.id} className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group">
-                {/* Icon */}
-                <div className={`w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
-                  <CubeIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-600" />
-                </div>
-
-                {/* Item Name - same height as Top Product (2 lines) */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-800 text-xs md:text-sm truncate">{item.name}</p>
-                  <span className="inline-block text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full mt-0.5 md:mt-1 text-gray-600 bg-gray-100 border border-gray-200">
-                    {item.unit}
-                  </span>
-                </div>
-
-                {/* Stock Info & Progress */}
-                <div className="text-right shrink-0 hidden sm:block">
-                  <div className="flex items-center gap-1 md:gap-1.5 justify-end">
-                    <span className="text-xs md:text-sm font-semibold text-gray-800">{item.current_stock.toLocaleString()}</span>
-                    <span className="text-[10px] md:text-xs text-gray-400">/ {item.minimum_stock.toLocaleString()}</span>
-                  </div>
-                  {/* Mini progress bar - same as Top Product */}
-                  <div className="w-12 md:w-16 h-1.5 bg-gray-100 rounded-full mt-1 md:mt-1.5 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-gray-400 to-gray-600 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(item.percentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Status Badge */}
-                <div 
-                  className="text-[10px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 md:py-1 rounded-lg shrink-0"
-                  style={{ 
-                    backgroundColor: status.label === 'Good' ? '#B2FF5E' : '#FF6859',
-                    color: status.label === 'Good' ? '#166534' : '#7f1d1d'
-                  }}
-                >
-                  {status.label}
-                </div>
-              </div>
-            );
-          })
         )}
       </div>
     </div>

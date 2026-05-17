@@ -1,219 +1,233 @@
 "use client";
 
-import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { ArrowUpRightIcon } from "@heroicons/react/24/outline";
+import { useEffect, useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowDownRightIcon, ArrowUpRightIcon } from "@heroicons/react/24/outline";
 import { ChartBarIcon } from "@heroicons/react/24/solid";
+import { supabase } from "@/lib/config/supabaseClient";
 
-const weeklyData = [
-  { day: "Mon", amount: 10000 },
-  { day: "Tue", amount: 25000 },
-  { day: "Wed", amount: 15000 },
-  { day: "Thu", amount: 35000 },
-  { day: "Fri", amount: 45000 },
-  { day: "Sat", amount: 20000 },
-  { day: "Sun", amount: 18000 },
-];
+type OrderRow = {
+  id: string;
+  total: number | string | null;
+  status: string | null;
+  payment_status: string | null;
+  order_date: string | null;
+};
 
-const categories = ["All", "Foods", "Desserts", "Drinks", "Snacks", "Pastries", "Beverages"];
+type ChartRow = {
+  day: string;
+  date: string;
+  amount: number;
+};
+
+type ReportState = {
+  rows: ChartRow[];
+  loading: boolean;
+  error: string;
+};
+
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const getLocalDate = (offsetDays = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getDateRange = () => Array.from({ length: 7 }, (_, index) => getLocalDate(index - 6));
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const formatShortCurrency = (value: number) => {
+  if (value >= 1_000_000) return `Rp ${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}jt`;
+  if (value >= 1_000) return `Rp ${(value / 1_000).toFixed(0)}k`;
+  return `Rp ${value}`;
+};
+
+const isValidSalesOrder = (order: OrderRow) => {
+  const status = String(order.status ?? "").toLowerCase();
+  const paymentStatus = String(order.payment_status ?? "").toLowerCase();
+
+  if (["cancelled", "canceled", "void", "refunded"].includes(status)) return false;
+  if (["cancelled", "canceled", "failed", "refunded", "void"].includes(paymentStatus)) return false;
+
+  return true;
+};
 
 export default function ReportAnalytics() {
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [selectedDay, setSelectedDay] = useState("Sat");
+  const [selectedDate, setSelectedDate] = useState(getLocalDate());
+  const [report, setReport] = useState<ReportState>({ rows: [], loading: true, error: "" });
 
-  // Calculate metrics
-  const totalAmount = weeklyData.reduce((sum, item) => sum + item.amount, 0);
-  const avgAmount = totalAmount / weeklyData.length;
-  const selectedDayData = weeklyData.find(item => item.day === selectedDay);
-  const growth = selectedDayData ? selectedDayData.amount - avgAmount : 0;
-  const growthPercentage = avgAmount > 0 ? (growth / avgAmount) * 100 : 0;
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchReport = async () => {
+      const dates = getDateRange();
+      const startDate = dates[0];
+      const endDate = dates[dates.length - 1];
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id,total,status,payment_status,order_date")
+        .gte("order_date", startDate)
+        .lte("order_date", endDate);
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error("Gagal mengambil report analytics:", error);
+        setReport({ rows: [], loading: false, error: "Gagal memuat report" });
+        return;
+      }
+
+      const rows = dates.map((date) => {
+        const parsedDate = new Date(`${date}T00:00:00`);
+        const amount = ((data ?? []) as OrderRow[])
+          .filter((order) => order.order_date === date && isValidSalesOrder(order))
+          .reduce((sum, order) => sum + Number(order.total ?? 0), 0);
+
+        return {
+          date,
+          day: dayNames[parsedDate.getDay()],
+          amount,
+        };
+      });
+
+      setReport({ rows, loading: false, error: "" });
+    };
+
+    void fetchReport();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const metrics = useMemo(() => {
+    const totalAmount = report.rows.reduce((sum, row) => sum + row.amount, 0);
+    const averageAmount = report.rows.length > 0 ? totalAmount / report.rows.length : 0;
+    const selectedRow = report.rows.find((row) => row.date === selectedDate) ?? report.rows[report.rows.length - 1];
+    const growth = selectedRow ? selectedRow.amount - averageAmount : 0;
+    const growthPercentage = averageAmount > 0 ? Math.round((growth / averageAmount) * 100) : selectedRow?.amount ? 100 : 0;
+
+    return {
+      totalAmount,
+      averageAmount,
+      selectedAmount: selectedRow?.amount ?? 0,
+      selectedDay: selectedRow?.day ?? "Today",
+      growth,
+      growthPercentage,
+      isPositive: growth >= 0,
+    };
+  }, [report.rows, selectedDate]);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
-      {/* Header */}
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden h-full">
       <div className="p-3 md:p-4 border-b border-gray-100">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="bg-gray-100 rounded-xl p-2">
               <ChartBarIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
             </div>
             <div>
               <h3 className="text-sm md:text-base font-semibold text-gray-800">Report Analytics</h3>
-              <p className="text-[10px] md:text-xs text-gray-500">Weekly revenue overview</p>
+              <p className="text-[10px] md:text-xs text-gray-500">Revenue 7 hari terakhir</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="px-2 md:px-3 py-1 md:py-1.5 bg-gray-100 text-gray-700 rounded-lg text-[10px] md:text-xs font-medium hover:bg-gray-200 transition">
-              Weekly
-            </button>
-            <ArrowUpRightIcon className="h-3 md:h-4 w-3 md:w-4 text-gray-400" />
-          </div>
+          <span className="text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 px-2 py-1 rounded-lg">
+            {report.loading ? "Memuat" : formatShortCurrency(metrics.totalAmount)}
+          </span>
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-3 md:p-4">
-        {/* Category Filter */}
-        <div className="flex gap-2 mb-3 md:mb-4 overflow-x-auto pb-1 scrollbar-hide">
-          {categories.map((category) => (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {report.rows.map((row) => (
             <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition ${
-                activeCategory === category
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              key={row.date}
+              type="button"
+              onClick={() => setSelectedDate(row.date)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                selectedDate === row.date
+                  ? "bg-gray-900 text-white border-gray-900"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
               }`}
             >
-              {category}
+              {row.day}
             </button>
           ))}
         </div>
 
-        {/* Chart */}
-        <div className="h-[150px] md:h-[180px] mb-3 md:mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weeklyData} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
-            <defs>
-              <pattern id="diagonalStripes" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                <line x1="0" y1="0" x2="0" y2="8" stroke="#d1d5db" strokeWidth="2" />
-              </pattern>
-              <pattern id="diagonalStripesSelected" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                <rect width="8" height="8" fill="#374151" />
-                <line x1="0" y1="0" x2="0" y2="8" stroke="white" strokeWidth="2" />
-              </pattern>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-            <XAxis 
-              dataKey="day" 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#9ca3af', fontSize: 12 }}
-            />
-            <YAxis 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#9ca3af', fontSize: 12 }}
-              tickFormatter={(value) => `${value / 1000}k`}
-              width={40}
-            />
-            <Tooltip
-              cursor={{ fill: 'rgba(55, 65, 81, 0.1)' }}
-              contentStyle={{
-                backgroundColor: '#1f2937',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-              }}
-              formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Amount']}
-            />
-            <Bar
-              dataKey="amount"
-              fill="#e5e7eb"
-              radius={[16, 16, 16, 16]}
-              maxBarSize={65}
-              onClick={(data: any) => setSelectedDay(data.day)}
-              shape={(props: any) => {
-                const { x, y, width, height, payload } = props;
-                const isSelected = payload.day === selectedDay;
-                const padding = 4;
-                return (
-                  <g>
-                    {/* Outline bar */}
-                    <rect
-                      x={x}
-                      y={y}
-                      width={width}
-                      height={height}
-                      fill="none"
-                      stroke={isSelected ? "#374151" : "#e0e0e0ff"}
-                      strokeWidth="2"
-                      rx={16}
-                      ry={16}
-                    />
-                    {/* Arsiran dengan padding */}
-                    <rect
-                      x={x + padding}
-                      y={y + padding}
-                      width={width - padding * 2}
-                      height={height - padding * 2}
-                      fill={isSelected ? "url(#diagonalStripesSelected)" : "url(#diagonalStripes)"}
-                      rx={14}
-                      ry={14}
-                    />
-                    {isSelected && (
-                      <>
-                        <text
-                          x={x + width / 2}
-                          y={y - 10}
-                          textAnchor="middle"
-                          fill="#1f2937"
-                          fontSize="12"
-                          fontWeight="600"
-                        >
-                          Rp {(payload.amount / 1000).toFixed(0)}k
-                        </text>
-                        <circle
-                          cx={x + width / 2}
-                          cy={y + height / 2}
-                          r={3}
-                          fill="#374151"
-                        />
-                      </>
-                    )}
-                  </g>
-                );
-              }}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+        <div className="h-48 md:h-56">
+          {report.loading ? (
+            <div className="h-full rounded-xl bg-gray-50 animate-pulse" />
+          ) : report.error ? (
+            <div className="flex h-full items-center justify-center rounded-xl bg-gray-50 text-sm text-gray-500">
+              {report.error}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={report.rows} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={formatShortCurrency}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(Number(value)), "Sales"]}
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ""}
+                  contentStyle={{ borderRadius: 12, borderColor: "#e5e7eb", fontSize: 12 }}
+                />
+                <Bar dataKey="amount" fill="#374151" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-2 md:gap-3">
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 md:p-3">
-            <div className="flex items-center gap-1 md:gap-2 mb-1">
-              <p className="text-xs md:text-sm text-gray-500">Amount</p>
-            </div>
-            <p className="text-sm md:text-base font-bold text-gray-900">Rp {(totalAmount / 1000).toFixed(0)}k</p>
+        <div className="mt-8 grid grid-cols-3 gap-2 md:gap-3">
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <p className="text-[10px] md:text-xs text-gray-500">Selected</p>
+            <p className="text-sm md:text-base font-bold text-gray-900 truncate">{formatShortCurrency(metrics.selectedAmount)}</p>
           </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 md:p-3">
-            <div className="flex items-center gap-1 md:gap-2 mb-1 flex-wrap">
-              <p className="text-xs md:text-sm text-gray-500">Growth</p>
-              <span 
-                className="text-[10px] md:text-xs font-semibold px-1.5 py-0.5 rounded"
-                style={{ 
-                  backgroundColor: growth >= 0 ? '#B2FF5E' : '#FF6859',
-                  color: growth >= 0 ? '#166534' : '#7f1d1d'
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <p className="text-[10px] md:text-xs text-gray-500">Daily Avg</p>
+            <p className="text-sm md:text-base font-bold text-gray-900 truncate">{formatShortCurrency(metrics.averageAmount)}</p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] md:text-xs text-gray-500">Vs Avg</p>
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: metrics.isPositive ? "#B2FF5E" : "#FECACA",
+                  color: metrics.isPositive ? "#166534" : "#991B1B",
                 }}
               >
-                {growth >= 0 ? '+' : ''}{((growth / avgAmount) * 100).toFixed(0)}%
+                {metrics.growthPercentage >= 0 ? "+" : ""}{metrics.growthPercentage}%
               </span>
             </div>
-            <p className="text-sm md:text-base font-bold text-gray-900">
-              {growth >= 0 ? '+' : '-'}Rp {(Math.abs(growth) / 1000).toFixed(0)}k
-            </p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 md:p-3">
-            <div className="flex items-center gap-1 md:gap-2 mb-1 flex-wrap">
-              <p className="text-xs md:text-sm text-gray-500">Growth %</p>
-              <span 
-                className="text-[10px] md:text-xs font-semibold px-1.5 py-0.5 rounded"
-                style={{ 
-                  backgroundColor: growthPercentage >= 0 ? '#B2FF5E' : '#FF6859',
-                  color: growthPercentage >= 0 ? '#166534' : '#7f1d1d'
-                }}
-              >
-                {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(0)}%
-              </span>
+            <div className="flex items-center gap-1">
+              <p className="text-sm md:text-base font-bold text-gray-900 truncate">{metrics.selectedDay}</p>
+              {metrics.isPositive ? (
+                <ArrowUpRightIcon className="h-3.5 w-3.5 text-gray-400" />
+              ) : (
+                <ArrowDownRightIcon className="h-3.5 w-3.5 text-gray-400" />
+              )}
             </div>
-            <p className="text-sm md:text-base font-bold text-gray-900">
-              {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
-            </p>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

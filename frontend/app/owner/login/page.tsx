@@ -86,7 +86,7 @@ export default function OwnerLoginPage() {
 	return (
 		<div className="flex min-h-screen">
 			{/* Kiri: Slider */}
-			<div className="flex w-[70%] hidden md:block bg-white items-center justify-center py-8 pl-8">
+			<div className="flex w-[70%] md:block bg-white items-center justify-center py-8 pl-8">
 				<div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl bg-black/70 flex items-end">
 					<img
 						src={slides[current].img}
@@ -107,7 +107,7 @@ export default function OwnerLoginPage() {
 									key={idx}
 									className={`h-1 w-full rounded-full transition-all duration-300 ${
 										idx === current
-											? "bg-gradient-to-r from-blue-500 to-red-500 w-16"
+											? "bg-linear-to-r from-blue-500 to-red-500 w-16"
 											: "bg-white/30 w-8"
 									}`}
 								></span>
@@ -178,7 +178,7 @@ export default function OwnerLoginPage() {
 						</div>
 						<button
 							type="submit"
-							className="w-full font-semibold bg-gradient-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:opacity-95 transition-opacity"
+							className="w-full font-semibold bg-linear-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:opacity-95 transition-opacity"
 							disabled={loading}
 						>
 							{loading ? "Loading..." : "Sign In"}

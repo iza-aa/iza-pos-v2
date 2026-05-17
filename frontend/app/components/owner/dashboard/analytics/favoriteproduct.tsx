@@ -1,99 +1,198 @@
 "use client";
 
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { StarIcon, FireIcon } from "@heroicons/react/24/solid";
+import { useEffect, useMemo, useState } from "react";
+import { StarIcon } from "@heroicons/react/24/solid";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import { supabase } from "@/lib/config/supabaseClient";
+
+type OrderRow = {
+  id: string;
+};
+
+type OrderItemRow = {
+  product_name: string | null;
+  quantity: number | string | null;
+  total_price: number | string | null;
+};
+
+type ProductItem = {
+  name: string;
+  quantity: number;
+  revenue: number;
+  rank: number;
+};
+
+type ProductState = {
+  products: ProductItem[];
+  loading: boolean;
+  error: string;
+};
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const getMonthRange = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  const toDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  return {
+    start: toDateString(start),
+    end: toDateString(end),
+  };
+};
+
+const getRankStyle = (rank: number) => {
+  if (rank === 1) return "bg-gray-900 text-white";
+  if (rank === 2) return "bg-gray-700 text-white";
+  if (rank === 3) return "bg-gray-500 text-white";
+  return "bg-gray-100 text-gray-700";
+};
 
 export default function FavoriteProduct() {
-  const products = [
-    { name: "Classic Burger Stack", category: "Foods", emoji: "🍔", orders: 250, trend: "+12%" },
-    { name: "Hazelnut Cappuccino", category: "Coffee", emoji: "☕", orders: 225, trend: "+8%" },
-    { name: "Chocolate Lava Cake", category: "Desserts", emoji: "🍰", orders: 180, trend: "+5%" },
-    { name: "Strawberry Banana Swirl", category: "Smoothies", emoji: "🍹", orders: 120, trend: "+3%" },
-    { name: "Spicy Chicken Wings", category: "Snacks", emoji: "🍗", orders: 96, trend: "-2%" },
-  ];
+  const [state, setState] = useState<ProductState>({ products: [], loading: true, error: "" });
 
-  const maxOrders = Math.max(...products.map(p => p.orders));
+  useEffect(() => {
+    let mounted = true;
 
-  const getCategoryStyle = () => {
-    return "text-gray-600 bg-gray-100 border border-gray-200";
-  };
+    const fetchProducts = async () => {
+      const { start, end } = getMonthRange();
 
-  const getEmojiBackground = () => {
-    return "from-gray-100 to-gray-50";
-  };
+      const { data: orders, error: orderError } = await supabase
+        .from("orders")
+        .select("id")
+        .gte("order_date", start)
+        .lt("order_date", end)
+        .neq("status", "cancelled");
+
+      if (!mounted) return;
+
+      if (orderError) {
+        console.error("Gagal mengambil order top products:", orderError);
+        setState({ products: [], loading: false, error: "Gagal memuat produk" });
+        return;
+      }
+
+      const orderIds = ((orders ?? []) as OrderRow[]).map((order) => order.id);
+
+      if (orderIds.length === 0) {
+        setState({ products: [], loading: false, error: "" });
+        return;
+      }
+
+      const { data: items, error: itemError } = await supabase
+        .from("order_items")
+        .select("product_name,quantity,total_price")
+        .in("order_id", orderIds);
+
+      if (!mounted) return;
+
+      if (itemError) {
+        console.error("Gagal mengambil item top products:", itemError);
+        setState({ products: [], loading: false, error: "Gagal memuat produk" });
+        return;
+      }
+
+      const grouped = new Map<string, { name: string; quantity: number; revenue: number }>();
+
+      ((items ?? []) as OrderItemRow[]).forEach((item) => {
+        const name = item.product_name || "Produk Tanpa Nama";
+        const current = grouped.get(name) ?? { name, quantity: 0, revenue: 0 };
+        current.quantity += Number(item.quantity ?? 0);
+        current.revenue += Number(item.total_price ?? 0);
+        grouped.set(name, current);
+      });
+
+      const products = Array.from(grouped.values())
+        .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+        .slice(0, 5)
+        .map((product, index) => ({ ...product, rank: index + 1 }));
+
+      setState({ products, loading: false, error: "" });
+    };
+
+    void fetchProducts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const maxQuantity = useMemo(
+    () => Math.max(1, ...state.products.map((product) => product.quantity)),
+    [state.products],
+  );
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
-      {/* Header */}
-      <div className="p-3 md:p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="bg-gray-100 rounded-xl p-2">
-            <StarIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden h-full flex flex-col">
+      <div className="p-3 md:p-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="bg-gray-100 rounded-xl p-2">
+              <StarIcon className="h-4 md:h-5 w-4 md:w-5 text-gray-700" />
+            </div>
+            <div>
+              <h3 className="text-sm md:text-base font-semibold text-gray-800">Top Products</h3>
+              <p className="text-[10px] md:text-xs font-medium text-gray-500">
+                {state.loading ? "Memuat produk" : `${state.products.length} produk terlaris bulan ini`}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm md:text-base font-semibold text-gray-800">Top Products</h3>
-            <p className="text-[10px] md:text-xs text-gray-500">Best sellers this month</p>
-          </div>
+          <a href="/owner/products" className="p-2 hover:bg-gray-100 rounded-xl transition" title="Lihat Produk">
+            <ArrowTopRightOnSquareIcon className="h-3 md:h-4 w-3 md:w-4 text-gray-400" />
+          </a>
         </div>
       </div>
 
-      {/* Product List */}
-      <div className="divide-y divide-gray-50">
-        {products.map((product, idx) => (
-          <div
-            key={idx}
-            className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 hover:bg-gray-50/50 transition-colors cursor-pointer group"
-          >
-            {/* Rank Badge */}
-            <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 ${
-              idx === 0 ? 'bg-gray-800 text-white' : 
-              idx === 1 ? 'bg-gray-600 text-white' : 
-              idx === 2 ? 'bg-gray-400 text-white' : 
-              'bg-gray-200 text-gray-600'
-            }`}>
-              {idx + 1}
-            </div>
-
-            {/* Product Icon */}
-            <div className={`w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br ${getEmojiBackground()} rounded-xl flex items-center justify-center text-base md:text-lg shrink-0 group-hover:scale-105 transition-transform`}>
-              {product.emoji}
-            </div>
-
-            {/* Product Info */}
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-800 text-xs md:text-sm truncate">{product.name}</p>
-              <span className={`inline-block text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full mt-0.5 md:mt-1 ${getCategoryStyle()}`}>
-                {product.category}
-              </span>
-            </div>
-
-            {/* Orders & Progress */}
-            <div className="text-right shrink-0">
-              <div className="flex items-center gap-1 md:gap-1.5 justify-end">
-                <span className="text-xs md:text-sm font-semibold text-gray-800">{product.orders}</span>
-                <span className="text-[10px] md:text-xs text-gray-400 hidden sm:inline">orders</span>
+      <div className="p-3 md:p-4 space-y-2.5 flex-1 overflow-hidden">
+        {state.loading ? (
+          Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-12 rounded-xl bg-gray-50 animate-pulse" />
+          ))
+        ) : state.error ? (
+          <div className="flex h-full items-center justify-center text-sm text-gray-500">{state.error}</div>
+        ) : state.products.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-gray-500">Belum ada penjualan produk bulan ini.</div>
+        ) : (
+          state.products.map((product) => (
+            <div key={product.name} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${getRankStyle(product.rank)}`}>
+                    {product.rank}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{product.name}</p>
+                    <p className="text-[10px] text-gray-500">{formatCurrency(product.revenue)}</p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-gray-900">{product.quantity}</p>
+                  <span className="inline-block mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600">
+                    sold
+                  </span>
+                </div>
               </div>
-              {/* Mini progress bar */}
-              <div className="w-12 md:w-16 h-1.5 bg-gray-100 rounded-full mt-1 md:mt-1.5 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-gray-400 to-gray-600 rounded-full transition-all"
-                  style={{ width: `${(product.orders / maxOrders) * 100}%` }}
+              <div className="mt-2 h-1.5 rounded-full bg-white overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gray-700"
+                  style={{ width: `${Math.min(100, Math.max(6, (product.quantity / maxQuantity) * 100))}%` }}
                 />
               </div>
             </div>
-
-            {/* Trend */}
-            <div 
-              className="text-xs font-semibold px-2 py-1 rounded-lg shrink-0"
-              style={{ 
-                backgroundColor: product.trend.startsWith('+') ? '#B2FF5E' : '#FF6859',
-                color: product.trend.startsWith('+') ? '#166534' : '#7f1d1d'
-              }}
-            >
-              {product.trend}
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

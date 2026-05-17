@@ -102,6 +102,12 @@ const getFallbackAvatar = (name: string) => {
   )}&background=e5e7eb&color=374151`;
 };
 
+
+const dispatchProfileUpdatedEvent = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("profile:updated"));
+};
+
 const getCurrentUserId = () => {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("user_id") || "";
@@ -128,7 +134,7 @@ const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error("Gagal mengompres foto."));
+          reject(new Error("Gagal mengompres photo."));
           return;
         }
 
@@ -148,7 +154,7 @@ const drawImageToCanvas = (image: HTMLImageElement, maxDimension: number) => {
   const context = canvas.getContext("2d");
 
   if (!context) {
-    throw new Error("Browser tidak mendukung kompresi foto.");
+    throw new Error("Browser tidak mendukung kompresi photo.");
   }
 
   canvas.width = width;
@@ -160,7 +166,7 @@ const drawImageToCanvas = (image: HTMLImageElement, maxDimension: number) => {
 
 const compressProfilePhoto = async (file: File) => {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-    throw new Error("Format foto harus JPG, PNG, atau WEBP.");
+    throw new Error("Format photo harus JPG, PNG, atau WEBP.");
   }
 
   const image = await readImageFile(file);
@@ -183,7 +189,7 @@ const compressProfilePhoto = async (file: File) => {
   }
 
   if (!bestBlob) {
-    throw new Error("Gagal mengompres foto.");
+    throw new Error("Gagal mengompres photo.");
   }
 
   return new File([bestBlob], "profile-photo.webp", { type: "image/webp" });
@@ -334,6 +340,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
         localStorage.setItem("staff_code", normalizedProfile.staff_code || "");
         localStorage.setItem("staff_type", normalizedProfile.staff_type || "");
         localStorage.setItem("profile_picture", normalizedProfile.profile_picture || "");
+        dispatchProfileUpdatedEvent();
       }
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Gagal memuat profil.";
@@ -402,6 +409,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       if (typeof window !== "undefined") {
         localStorage.setItem("user_name", trimmedName);
         localStorage.setItem("profile_picture", profilePicture || "");
+        dispatchProfileUpdatedEvent();
       }
 
       setSuccess("Profil berhasil diperbarui.");
@@ -437,7 +445,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       const result = (await response.json()) as ApiResult & { profile_picture?: string };
 
       if (!response.ok || !result.success || !result.profile_picture) {
-        throw new Error(result.error || "Gagal mengunggah foto profil.");
+        throw new Error(result.error || "Gagal mengunggah photo profil.");
       }
 
       const publicUrl = result.profile_picture;
@@ -447,12 +455,13 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
 
       if (typeof window !== "undefined") {
         localStorage.setItem("profile_picture", publicUrl);
+        dispatchProfileUpdatedEvent();
       }
 
       const sizeKb = Math.max(1, Math.round(compressedFile.size / 1024));
-      setSuccess(`Foto profil berhasil diperbarui dan dikompres menjadi sekitar ${sizeKb} KB.`);
+      setSuccess(`Photo profil berhasil diperbarui dan dikompres menjadi sekitar ${sizeKb} KB.`);
     } catch (uploadError) {
-      const message = uploadError instanceof Error ? uploadError.message : "Gagal mengunggah foto profil.";
+      const message = uploadError instanceof Error ? uploadError.message : "Gagal mengunggah photo profil.";
       setError(message);
     } finally {
       setUploadingPhoto(false);
@@ -556,8 +565,8 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                 onClick={() => photoInputRef.current?.click()}
                 disabled={uploadingPhoto}
                 className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Ganti foto profil"
-                title="Ganti foto profil"
+                aria-label="Ganti photo profil"
+                title="Ganti photo profil"
               >
                 {uploadingPhoto ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-800" />

@@ -103,22 +103,6 @@ const roleConfig = {
   staff: { label: 'Staff', icon: UserIcon, color: 'text-green-500' },
 }
 
-const getFallbackAvatar = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=e5e7eb&color=374151`
-
-const readNavbarUser = () => {
-  const currentUser = getCurrentUser() as {
-    name?: string | null
-    role?: string | null
-    profile_picture?: string | null
-  } | null
-
-  const name = currentUser?.name || localStorage.getItem('user_name') || 'User'
-  const profilePicture =
-    currentUser?.profile_picture || localStorage.getItem('profile_picture') || ''
-
-  return { name, profilePicture }
-}
-
 // ============ TYPES ============
 type Role = 'owner' | 'manager' | 'staff'
 type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter'
@@ -128,6 +112,33 @@ interface NavbarProps {
   staffType?: StaffType | null
   canSwitchRole?: boolean
 }
+
+
+const getFallbackAvatar = (name: string) => {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name || 'User',
+  )}&background=e5e7eb&color=374151`;
+};
+
+const readStoredProfile = () => {
+  if (typeof window === 'undefined') {
+    return {
+      name: 'User',
+      role: '',
+      staffCode: '',
+      profilePicture: '',
+    };
+  }
+
+  const currentUser = getCurrentUser();
+
+  return {
+    name: localStorage.getItem('user_name') || currentUser?.name || 'User',
+    role: localStorage.getItem('user_role') || currentUser?.role || '',
+    staffCode: localStorage.getItem('staff_code') || '',
+    profilePicture: localStorage.getItem('profile_picture') || '',
+  };
+};
 
 // ============ NAVBAR COMPONENT ============
 export default function Navbar({ role, staffType, canSwitchRole = false }: NavbarProps) {
@@ -141,35 +152,46 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role>(role)
   const [userName, setUserName] = useState('User')
+  const [storedUserRole, setStoredUserRole] = useState('')
+  const [storedStaffCode, setStoredStaffCode] = useState('')
   const [profilePicture, setProfilePicture] = useState('')
 
-  const refreshNavbarUser = () => {
-    const user = readNavbarUser()
-    setUserName(user.name)
-    setProfilePicture(user.profilePicture)
-  }
-
   useEffect(() => {
+    const syncProfileFromStorage = () => {
+      const storedProfile = readStoredProfile()
+      setUserName(storedProfile.name)
+      setStoredUserRole(storedProfile.role)
+      setStoredStaffCode(storedProfile.staffCode)
+      setProfilePicture(storedProfile.profilePicture)
+    }
+
     setMounted(true)
-    refreshNavbarUser()
-  }, [])
+    syncProfileFromStorage()
 
-  useEffect(() => {
-    if (!mounted) return
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || ['user_name', 'user_role', 'staff_code', 'profile_picture'].includes(event.key)) {
+        syncProfileFromStorage()
+      }
+    }
 
-    const handleProfileUpdated = () => refreshNavbarUser()
-    const handleWindowFocus = () => refreshNavbarUser()
+    const handleProfileUpdated = () => syncProfileFromStorage()
+    const handleFocus = () => syncProfileFromStorage()
+    const handleVisibilityChange = () => {
+      if (!document.hidden) syncProfileFromStorage()
+    }
 
-    window.addEventListener('profile-updated', handleProfileUpdated)
-    window.addEventListener('storage', handleProfileUpdated)
-    window.addEventListener('focus', handleWindowFocus)
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('profile:updated', handleProfileUpdated)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      window.removeEventListener('profile-updated', handleProfileUpdated)
-      window.removeEventListener('storage', handleProfileUpdated)
-      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('profile:updated', handleProfileUpdated)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [mounted])
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -213,6 +235,9 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
     pathname === item.path || pathname.startsWith(item.path + '/')
   )
 
+  const avatarSrc = profilePicture || getFallbackAvatar(userName)
+  const visibleRoleLabel = storedUserRole || selectedRole
+
   const handleRoleSwitch = (newRole: Role) => {
     setSelectedRole(newRole)
     setShowRoleDropdown(false)
@@ -228,8 +253,6 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
 
 
   if (!mounted) return null
-
-  const avatarSrc = profilePicture || getFallbackAvatar(userName)
 
   return (
     <>
@@ -327,16 +350,17 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
               className="hidden md:flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <img 
+                key={avatarSrc}
                 src={avatarSrc} 
-                alt={userName} 
+                alt="Avatar" 
                 className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = getFallbackAvatar(userName)
+                  (e.target as HTMLImageElement).src = getFallbackAvatar(userName)
                 }}
               />
               <div className="text-left">
                 <p className="text-sm font-semibold text-gray-900">{userName}</p>
-                <p className="text-xs text-gray-500 capitalize">{selectedRole}</p>
+                <p className="text-xs text-gray-500 capitalize">{visibleRoleLabel}</p>
               </div>
             </button>
 
@@ -372,16 +396,17 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
                 className="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-gray-100"
               >
                 <img 
+                  key={`mobile-${avatarSrc}`}
                   src={avatarSrc} 
-                  alt={userName} 
+                  alt="Avatar" 
                   className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = getFallbackAvatar(userName)
+                    (e.target as HTMLImageElement).src = getFallbackAvatar(userName)
                   }}
                 />
                 <div className="text-left">
                   <p className="text-sm font-medium text-gray-900">{userName}</p>
-                  <p className="text-xs text-gray-500">View & edit profile</p>
+                  <p className="text-xs text-gray-500 capitalize">{visibleRoleLabel}{storedStaffCode ? ` • ${storedStaffCode}` : ''}</p>
                 </div>
               </button>
             </div>
