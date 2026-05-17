@@ -36,7 +36,7 @@ import {
   TicketIcon as TicketIconSolid,
   ClockIcon as ClockIconSolid
 } from '@heroicons/react/24/solid'
-import ProfilePopout from '../../Common/Profile'
+import ProfilePopout from '../../../shared/profile/ProfileModal'
 
 // ============ MENU CONFIGURATIONS ============
 const menuConfig = {
@@ -103,6 +103,22 @@ const roleConfig = {
   staff: { label: 'Staff', icon: UserIcon, color: 'text-green-500' },
 }
 
+const getFallbackAvatar = (name: string) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=e5e7eb&color=374151`
+
+const readNavbarUser = () => {
+  const currentUser = getCurrentUser() as {
+    name?: string | null
+    role?: string | null
+    profile_picture?: string | null
+  } | null
+
+  const name = currentUser?.name || localStorage.getItem('user_name') || 'User'
+  const profilePicture =
+    currentUser?.profile_picture || localStorage.getItem('profile_picture') || ''
+
+  return { name, profilePicture }
+}
+
 // ============ TYPES ============
 type Role = 'owner' | 'manager' | 'staff'
 type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter'
@@ -125,12 +141,35 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role>(role)
   const [userName, setUserName] = useState('User')
+  const [profilePicture, setProfilePicture] = useState('')
+
+  const refreshNavbarUser = () => {
+    const user = readNavbarUser()
+    setUserName(user.name)
+    setProfilePicture(user.profilePicture)
+  }
 
   useEffect(() => {
     setMounted(true)
-    const currentUser = getCurrentUser()
-    setUserName(currentUser?.name || 'User')
+    refreshNavbarUser()
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const handleProfileUpdated = () => refreshNavbarUser()
+    const handleWindowFocus = () => refreshNavbarUser()
+
+    window.addEventListener('profile-updated', handleProfileUpdated)
+    window.addEventListener('storage', handleProfileUpdated)
+    window.addEventListener('focus', handleWindowFocus)
+
+    return () => {
+      window.removeEventListener('profile-updated', handleProfileUpdated)
+      window.removeEventListener('storage', handleProfileUpdated)
+      window.removeEventListener('focus', handleWindowFocus)
+    }
+  }, [mounted])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -189,6 +228,8 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
 
 
   if (!mounted) return null
+
+  const avatarSrc = profilePicture || getFallbackAvatar(userName)
 
   return (
     <>
@@ -286,11 +327,11 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
               className="hidden md:flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <img 
-                src="/avatar.jpg" 
-                alt="Avatar" 
+                src={avatarSrc} 
+                alt={userName} 
                 className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e5e7eb&color=374151`
+                  (e.currentTarget as HTMLImageElement).src = getFallbackAvatar(userName)
                 }}
               />
               <div className="text-left">
@@ -331,15 +372,15 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
                 className="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-gray-100"
               >
                 <img 
-                  src="/avatar.jpg" 
-                  alt="Avatar" 
+                  src={avatarSrc} 
+                  alt={userName} 
                   className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=User&background=f97316&color=fff'
+                    (e.currentTarget as HTMLImageElement).src = getFallbackAvatar(userName)
                   }}
                 />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">My Profile</p>
+                  <p className="text-sm font-medium text-gray-900">{userName}</p>
                   <p className="text-xs text-gray-500">View & edit profile</p>
                 </div>
               </button>

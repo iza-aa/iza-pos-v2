@@ -8,7 +8,7 @@ export { default as SearchBar } from './Common/SearchBar'
 export { default as ViewModeToggle } from './Common/ViewModeToggle'
 
 // User Components
-export { default as Profile } from './Common/Profile'
+export { default as Profile } from '../shared/profile/ProfileModal'
 
 // Navigation Components
 export { default as Navbar } from './Navigation/Navbar'

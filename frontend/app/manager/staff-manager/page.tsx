@@ -38,6 +38,13 @@ type ManagerStaffRecord = Staff & {
 
 type RawStaffRecord = Record<string, unknown>;
 
+type GeneratedLoginCodeModal = {
+  staffName: string;
+  staffCode: string;
+  loginCode: string;
+  expiresAt: string;
+};
+
 const getSingleRelation = <T extends Record<string, unknown>>(
   value: unknown,
 ): T | null => {
@@ -115,6 +122,9 @@ export default function ManagerStaffPage() {
   const [showTabDropdown, setShowTabDropdown] = useState(false);
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
   const [staffFetchError, setStaffFetchError] = useState("");
+  const [generatedLoginCode, setGeneratedLoginCode] =
+    useState<GeneratedLoginCodeModal | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
@@ -214,6 +224,28 @@ export default function ManagerStaffPage() {
     });
   }, [staffList, searchQuery]);
 
+  const sanitizedFilteredStaffForTable = useMemo<Staff[]>(() => {
+    return filteredStaff.map((staff) => {
+      const tableStaff: Staff = {
+        ...staff,
+        login_code: undefined,
+      };
+
+      return tableStaff;
+    });
+  }, [filteredStaff]);
+
+  const formatLoginCodeExpiry = (value: string) => {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return "-";
+
+    return new Intl.DateTimeFormat("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -237,24 +269,43 @@ export default function ManagerStaffPage() {
   }, []);
 
   const handleGeneratePass = async (id: string) => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    if (isGeneratingCode) return;
 
-    const { error } = await supabase
-      .from("staff")
-      .update({
-        login_code: code,
-        login_code_expires_at: expiresAt.toISOString(),
-      })
-      .eq("id", id);
+    setIsGeneratingCode(true);
 
-    if (error) {
-      alert(`Gagal generate kode login: ${error.message}`);
-      return;
+    try {
+      const response = await fetch("/api/staff/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reset_pin",
+          staff_id: id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal membuat kode login.");
+      }
+
+      await fetchStaff();
+      await handleCopyCode(result.login_code);
+
+      setGeneratedLoginCode({
+        staffName: result.staff_name || "Staff",
+        staffCode: result.staff_code || "-",
+        loginCode: result.login_code,
+        expiresAt: result.expires_at,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal membuat kode login.";
+
+      alert(message);
+    } finally {
+      setIsGeneratingCode(false);
     }
-
-    await fetchStaff();
-    await handleCopyCode(code);
   };
 
   const handleCopyCode = async (code: string) => {
@@ -284,6 +335,58 @@ export default function ManagerStaffPage() {
         </div>
       )}
 
+      {generatedLoginCode && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Kode Login Staff
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-gray-900">
+                {generatedLoginCode.staffName}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Staff ID: {generatedLoginCode.staffCode}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Kode
+              </p>
+              <p className="mt-2 font-mono text-4xl font-bold tracking-[0.35em] text-gray-900">
+                {generatedLoginCode.loginCode}
+              </p>
+              <p className="mt-3 text-sm text-gray-500">
+                Berlaku sampai {formatLoginCodeExpiry(generatedLoginCode.expiresAt)}
+              </p>
+            </div>
+
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              Berikan kode ini hanya kepada staff terkait. Setelah staff membuat PIN,
+              kode ini otomatis tidak bisa dipakai lagi.
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => void handleCopyCode(generatedLoginCode.loginCode)}
+                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                Copy Kode
+              </button>
+              <button
+                type="button"
+                onClick={() => setGeneratedLoginCode(null)}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto ">
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
@@ -292,7 +395,7 @@ export default function ManagerStaffPage() {
             </h1>
             <p className="text-sm text-gray-600 md:text-base">
               {activeTab === "staff"
-                ? "View staff list and generate login codes."
+                ? "View staff list and manage staff PIN access."
                 : "Pantau clock in dan clock out staff berdasarkan shift."}
             </p>
           </div>
@@ -515,7 +618,7 @@ export default function ManagerStaffPage() {
               </div>
             ) : (
               <StaffTable
-                staffList={filteredStaff}
+                staffList={sanitizedFilteredStaffForTable}
                 onGeneratePass={handleGeneratePass}
                 onCopyCode={handleCopyCode}
                 onEdit={() => undefined}

@@ -168,7 +168,7 @@ export default function ManagerLoginPage() {
             </div>
             <button
               type="submit"
-              className="w-full font-semibold bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="w-full font-semibold bg-gradient-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:opacity-95 transition-opacity"
               disabled={loading}
             >
               {loading ? "Loading..." : "Sign In as Manager"}

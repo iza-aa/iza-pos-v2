@@ -158,12 +158,6 @@ export default function TableList({
   return (
     <>
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Tables</h2>
-          <p className="text-sm text-gray-500">
-            Layout and QR management. Table status is read-only here.
-          </p>
-        </div>
 
         {tables.length === 0 ? (
           <div className="p-12 text-center">

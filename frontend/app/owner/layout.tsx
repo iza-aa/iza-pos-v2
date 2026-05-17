@@ -1,24 +1,27 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Navbar, FloatingAIAssistant, Toast as ToastContainer } from "../components/ui";
-import { setupNetworkMonitoring } from '@/lib/services/errorHandling';
+import RoleGuard from "../components/shared/auth/RoleGuard";
+import { setupNetworkMonitoring } from "@/lib/services/errorHandling";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLogin = pathname === "/owner/login";
+  const isLoginPage = pathname === "/owner/login";
 
   useEffect(() => {
     setupNetworkMonitoring();
   }, []);
 
   return (
-    <div>
-      {!isLogin && <Navbar role="owner" canSwitchRole={true} />}
-      <main>{children}</main>
-      {!isLogin && <FloatingAIAssistant />}
-      <ToastContainer />
-    </div>
+    <RoleGuard allowedRole="owner" loginPath="/owner/login" verifyActiveStaff={false}>
+      <div>
+        {!isLoginPage && <Navbar role="owner" canSwitchRole={false} />}
+        <main>{children}</main>
+        {!isLoginPage && <FloatingAIAssistant />}
+        <ToastContainer />
+      </div>
+    </RoleGuard>
   );
 }

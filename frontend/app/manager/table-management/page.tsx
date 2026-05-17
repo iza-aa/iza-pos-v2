@@ -8,7 +8,9 @@
 import { useState } from 'react';
 import {
   BuildingOffice2Icon,
+  MapIcon,
   PlusIcon,
+  TableCellsIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/config/supabaseClient';
@@ -201,25 +203,25 @@ export default function TableManagementPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode('map')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`px-2 py-2 text-sm font-medium transition-colors ${
                     viewMode === 'map'
                       ? 'bg-gray-900 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  Map View
+                  <MapIcon className="w-5 h-5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                  className={`px-2 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
                     viewMode === 'list'
                       ? 'bg-gray-900 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  List View
+                  <TableCellsIcon className="w-5 h-5" />
                 </button>
               </div>
 

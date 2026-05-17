@@ -45,6 +45,13 @@ type StaffRecord = Staff & {
   email?: string | null;
   phone?: string | null;
   password_hash?: string | null;
+  pin_hash?: string | null;
+  must_change_pin?: boolean | null;
+  login_code?: string;
+  login_code_expires_at?: string | null;
+  login_code_created_at?: string | null;
+  pin_updated_at?: string | null;
+  pin_reset_at?: string | null;
   shift_id?: string | null;
   shift?: ShiftRecord | null;
 };
@@ -79,6 +86,13 @@ type LoggedInStaffIdentity = {
   phone: string;
   name: string;
   role: string;
+};
+
+type GeneratedLoginCodeModal = {
+  staffName: string;
+  staffCode: string;
+  loginCode: string;
+  expiresAt: string;
 };
 
 const STAFF_ROLES_WITH_LOGIN: StaffRole[] = ["manager", "owner"];
@@ -184,7 +198,11 @@ const readIdentityFromRecord = (
   const identity: LoggedInStaffIdentity = {
     id: String(record.id ?? record.staff_id ?? record.staffId ?? ""),
     staffCode: String(
-      record.staff_code ?? record.staffCode ?? record.staffCodeId ?? record.code ?? "",
+      record.staff_code ??
+        record.staffCode ??
+        record.staffCodeId ??
+        record.code ??
+        "",
     ),
     email: String(record.email ?? record.user_email ?? record.userEmail ?? ""),
     phone: String(
@@ -345,7 +363,6 @@ const getCookieIdentity = () => {
   return null;
 };
 
-
 export default function StaffManagerPage() {
   const [staffList, setStaffList] = useState<StaffRecord[]>([]);
   const [shiftList, setShiftList] = useState<ShiftRecord[]>([]);
@@ -370,6 +387,9 @@ export default function StaffManagerPage() {
   const [selectedStaff, setSelectedStaff] = useState<StaffRecord | null>(null);
   const [currentStaffIdentity, setCurrentStaffIdentity] =
     useState<LoggedInStaffIdentity>(createEmptyLoggedInStaffIdentity);
+  const [generatedLoginCode, setGeneratedLoginCode] =
+    useState<GeneratedLoginCodeModal | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
 
   const handleViewModeChange = (mode: ViewMode) => {
     if (mode === "card" || mode === "table") {
@@ -402,7 +422,15 @@ export default function StaffManagerPage() {
       return;
     }
 
-    setStaffList((data ?? []) as StaffRecord[]);
+    const normalizedStaffList = (
+      (data ?? []) as Array<StaffRecord & { login_code?: string | null }>
+    ).map((staff) => ({
+      ...staff,
+      login_code:
+        typeof staff.login_code === "string" ? staff.login_code : undefined,
+    }));
+
+    setStaffList(normalizedStaffList);
   }, []);
 
   const fetchShifts = useCallback(async () => {
@@ -464,8 +492,6 @@ export default function StaffManagerPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-
 
   const isCurrentLoggedInStaff = (staff: StaffRecord) => {
     const currentId = normalizeText(currentStaffIdentity.id);
@@ -556,7 +582,9 @@ export default function StaffManagerPage() {
       getStaffTypeLabel(staff.staff_type),
       staff.status,
       getStatusLabel(staff.status),
-      staff.login_code,
+      staff.pin_hash || staff.password_hash ? "akses aktif" : "belum aktivasi",
+      staff.must_change_pin ? "reset pin" : "",
+      staff.login_code && staff.login_code_expires_at ? "kode login aktif" : "",
       staff.shift?.shift_name,
       staff.shift_id,
     ];
@@ -567,6 +595,11 @@ export default function StaffManagerPage() {
   };
 
   const visibleStaffList = sortedStaffList.filter(staffMatchesSearch);
+
+  const visibleStaffListForTable: Staff[] = visibleStaffList.map((staff) => ({
+    ...staff,
+    login_code: undefined,
+  }));
 
   const canDeleteStaff = (staff: StaffRecord) => {
     const isCurrentUser = isCurrentLoggedInStaff(staff);
@@ -581,20 +614,57 @@ export default function StaffManagerPage() {
     setTimeout(() => setCopyMsg(""), TIMEOUT_DURATIONS.SHORT);
   };
 
+  const formatLoginCodeExpiry = (value: string) => {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return "-";
+
+    return new Intl.DateTimeFormat("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
   const handleGeneratePass = async (id: string) => {
-    const res = await fetch(`/api/staff/${id}/generate-pass`, {
-      method: "POST",
-    });
+    if (isGeneratingCode) return;
 
-    const result = await res.json();
+    setIsGeneratingCode(true);
 
-    if (!res.ok) {
-      showError(result.error || "Gagal generate kode");
-      return;
+    try {
+      const response = await fetch("/api/staff/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reset_pin",
+          staff_id: id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal membuat kode login.");
+      }
+
+      await fetchStaff();
+      await handleCopy(result.login_code);
+
+      setGeneratedLoginCode({
+        staffName: result.staff_name || "Staff",
+        staffCode: result.staff_code || "-",
+        loginCode: result.login_code,
+        expiresAt: result.expires_at,
+      });
+
+      showSuccess("Kode login staff berhasil dibuat.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal membuat kode login.";
+
+      showError(message);
+    } finally {
+      setIsGeneratingCode(false);
     }
-
-    fetchStaff();
-    showSuccess("Kode login berhasil dikirim ke WhatsApp staff!");
   };
 
   const handleDelete = async (id: string) => {
@@ -603,7 +673,9 @@ export default function StaffManagerPage() {
     if (!staff) return;
 
     if (!canDeleteStaff(staff)) {
-      showError("Akun owner atau akun yang sedang digunakan tidak boleh dihapus.");
+      showError(
+        "Akun owner atau akun yang sedang digunakan tidak boleh dihapus.",
+      );
       return;
     }
 
@@ -615,7 +687,9 @@ export default function StaffManagerPage() {
     if (!selectedStaff) return;
 
     if (!canDeleteStaff(selectedStaff)) {
-      showError("Akun owner atau akun yang sedang digunakan tidak boleh dihapus.");
+      showError(
+        "Akun owner atau akun yang sedang digunakan tidak boleh dihapus.",
+      );
       setShowDeleteModal(false);
       setSelectedStaff(null);
       return;
@@ -687,7 +761,10 @@ export default function StaffManagerPage() {
       staffToUpdate.staff_type,
       selectedRole,
     );
-    const selectedShiftId = normalizeShiftId(staffToUpdate.shift_id, selectedRole);
+    const selectedShiftId = normalizeShiftId(
+      staffToUpdate.shift_id,
+      selectedRole,
+    );
     const selectedStatus = normalizeStaffStatus(staffToUpdate.status);
 
     const { error } = await supabase
@@ -788,7 +865,10 @@ export default function StaffManagerPage() {
         staffPayload.staff_type,
         selectedRole,
       );
-      const selectedShiftId = normalizeShiftId(staffPayload.shift_id, selectedRole);
+      const selectedShiftId = normalizeShiftId(
+        staffPayload.shift_id,
+        selectedRole,
+      );
       const staffCode = await generateUniqueStaffCode(selectedRole);
 
       const newStaffData: StaffInsert = {
@@ -806,7 +886,10 @@ export default function StaffManagerPage() {
       const roleCanLogin = STAFF_ROLES_WITH_LOGIN.includes(selectedRole);
 
       if (roleCanLogin && staffPayload.password) {
-        newStaffData.password_hash = await bcrypt.hash(staffPayload.password, 10);
+        newStaffData.password_hash = await bcrypt.hash(
+          staffPayload.password,
+          10,
+        );
       }
 
       const { data: insertedStaff, error } = await supabase
@@ -829,6 +912,10 @@ export default function StaffManagerPage() {
       setShowAddModal(false);
       showSuccess("Staff berhasil ditambahkan");
 
+      if (insertedStaff?.id && selectedRole === "staff") {
+        await handleGeneratePass(insertedStaff.id);
+      }
+
       await logActivity({
         action: "CREATE",
         category: "STAFF",
@@ -848,7 +935,9 @@ export default function StaffManagerPage() {
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Terjadi kesalahan tidak diketahui";
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan tidak diketahui";
 
       showError("Gagal menambahkan staff: " + message);
     }
@@ -960,7 +1049,9 @@ export default function StaffManagerPage() {
                         <input
                           type="date"
                           value={customStartDate}
-                          onChange={(event) => setCustomStartDate(event.target.value)}
+                          onChange={(event) =>
+                            setCustomStartDate(event.target.value)
+                          }
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                         />
                         <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -970,7 +1061,9 @@ export default function StaffManagerPage() {
                         <input
                           type="date"
                           value={customEndDate}
-                          onChange={(event) => setCustomEndDate(event.target.value)}
+                          onChange={(event) =>
+                            setCustomEndDate(event.target.value)
+                          }
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                         />
                         <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -1092,7 +1185,7 @@ export default function StaffManagerPage() {
             {viewMode === "table" && (
               <div className="h-full">
                 <StaffTable
-                  staffList={visibleStaffList}
+                  staffList={visibleStaffListForTable}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onGeneratePass={handleGeneratePass}
@@ -1104,7 +1197,9 @@ export default function StaffManagerPage() {
             {visibleStaffList.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500">
-                  {staffSearchQuery ? "Staff tidak ditemukan" : "Belum ada data staff"}
+                  {staffSearchQuery
+                    ? "Staff tidak ditemukan"
+                    : "Belum ada data staff"}
                 </p>
               </div>
             )}
@@ -1122,10 +1217,62 @@ export default function StaffManagerPage() {
         )}
       </section>
 
-
       {copyMsg && (
         <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow z-50">
           {copyMsg}
+        </div>
+      )}
+
+      {generatedLoginCode && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Kode Login Staff
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-gray-900">
+                {generatedLoginCode.staffName}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Staff ID: {generatedLoginCode.staffCode}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Kode
+              </p>
+              <p className="mt-2 font-mono text-4xl font-bold tracking-[0.35em] text-gray-900">
+                {generatedLoginCode.loginCode}
+              </p>
+              <p className="mt-3 text-sm text-gray-500">
+                Berlaku sampai{" "}
+                {formatLoginCodeExpiry(generatedLoginCode.expiresAt)}
+              </p>
+            </div>
+
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              Berikan kode ini hanya kepada staff terkait. Setelah staff membuat
+              PIN, kode ini otomatis tidak bisa dipakai lagi.
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => void handleCopy(generatedLoginCode.loginCode)}
+                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                Copy Kode
+              </button>
+              <button
+                type="button"
+                onClick={() => setGeneratedLoginCode(null)}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

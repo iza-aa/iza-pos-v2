@@ -33,6 +33,11 @@ type StaffCardRecord = Staff & {
   hired_date?: string | null;
   shift_id?: string | null;
   shift?: ShiftRecord | null;
+  login_code?: string | null;
+  login_code_expires_at?: string | null;
+  pin_hash?: string | null;
+  password_hash?: string | null;
+  must_change_pin?: boolean | null;
 };
 
 interface StaffCardProps {
@@ -109,6 +114,19 @@ const formatTime = (value?: string | null) => {
   return value.slice(0, 5);
 };
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
 const getShiftLabel = (staff: StaffCardRecord) => {
   if (staff.shift?.shift_name) return staff.shift.shift_name;
 
@@ -121,21 +139,73 @@ const getShiftTimeLabel = (staff: StaffCardRecord) => {
   return `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`;
 };
 
+const getAccessState = (staff: StaffCardRecord) => {
+  const hasPin = Boolean(staff.pin_hash || staff.password_hash);
+  const hasValidLoginCode = isLoginCodeValid(staff.login_code, staff.login_code_expires_at);
+  const hasAnyLoginCode = Boolean(staff.login_code);
+
+  if (hasValidLoginCode && staff.must_change_pin) {
+    return {
+      label: "Menunggu PIN Baru",
+      description: `Kode aktif sampai ${formatDateTime(staff.login_code_expires_at)}`,
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
+      actionLabel: "Salin / Buat Ulang Kode",
+    };
+  }
+
+  if (hasValidLoginCode) {
+    return {
+      label: "Kode Aktivasi Aktif",
+      description: `Berlaku sampai ${formatDateTime(staff.login_code_expires_at)}`,
+      badgeClass: "border-blue-200 bg-blue-50 text-blue-700",
+      actionLabel: "Salin / Buat Ulang Kode",
+    };
+  }
+
+  if (!hasPin && hasAnyLoginCode) {
+    return {
+      label: "Kode Expired",
+      description: "Buat ulang kode agar staff bisa aktivasi akun.",
+      badgeClass: "border-red-200 bg-red-50 text-red-700",
+      actionLabel: "Buat Ulang Kode",
+    };
+  }
+
+  if (!hasPin) {
+    return {
+      label: "Belum Aktivasi",
+      description: "Staff belum memiliki PIN login.",
+      badgeClass: "border-gray-200 bg-gray-50 text-gray-700",
+      actionLabel: "Buat Kode Login",
+    };
+  }
+
+  if (staff.must_change_pin) {
+    return {
+      label: "Perlu Reset PIN",
+      description: "Staff perlu login dengan kode sementara.",
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
+      actionLabel: "Buat Kode Reset",
+    };
+  }
+
+  return {
+    label: "Aktif",
+    description: "Staff dapat login menggunakan PIN.",
+    badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    actionLabel: "Reset PIN",
+  };
+};
+
 export default function StaffCard({
   staff,
   onEdit,
   onDelete,
   onGeneratePass,
-  onCopyCode,
   showActions = true,
 }: StaffCardProps) {
-  const hasValidLoginCode = isLoginCodeValid(
-    staff.login_code,
-    staff.login_code_expires_at,
-  );
-
   const staffRole = String(staff.role ?? "").toLowerCase();
-  const shouldShowLoginCode = staffRole !== "manager" && staffRole !== "owner";
+  const shouldShowLoginAccess = staffRole === "staff";
   const shouldShowStaffType = staffRole === "staff";
 
   const phoneText = staff.phone?.trim() || "-";
@@ -146,15 +216,14 @@ export default function StaffCard({
   const hiredDateText = formatHiredDate(staff.hired_date);
   const shiftText = getShiftLabel(staff);
   const shiftTimeText = getShiftTimeLabel(staff);
+  const accessState = getAccessState(staff);
 
   return (
     <div className="flex break-inside-avoid flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="relative border-b border-gray-100 bg-linear-to-r from-gray-100 to-white p-5 pb-14">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              Staff ID
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Staff ID</p>
             <p className="mt-1 truncate text-sm font-semibold text-gray-700">
               {staff.staff_code || "-"}
             </p>
@@ -170,7 +239,7 @@ export default function StaffCard({
           </span>
         </div>
 
-        <div className="absolute bottom-0 left-1/2 translate-y-1/2 -translate-x-1/2">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
           <div
             className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white text-xl font-bold text-white shadow-lg ${getAvatarColor(
               staff.name,
@@ -183,9 +252,7 @@ export default function StaffCard({
 
       <div className="flex flex-1 flex-col px-5 pb-5 pt-12">
         <div className="text-center">
-          <h3 className="truncate text-lg font-bold text-gray-900">
-            {staff.name || "-"}
-          </h3>
+          <h3 className="truncate text-lg font-bold text-gray-900">{staff.name || "-"}</h3>
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <span
@@ -226,64 +293,57 @@ export default function StaffCard({
           <div className="grid grid-cols-1 gap-3 text-sm">
             <div className="flex items-center gap-3">
               <PhoneIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">
-                {phoneText}
-              </span>
+              <span className="min-w-0 truncate text-gray-700">{phoneText}</span>
             </div>
 
             <div className="flex items-center gap-3">
               <EnvelopeIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">
-                {emailText}
-              </span>
+              <span className="min-w-0 truncate text-gray-700">{emailText}</span>
             </div>
 
             <div className="flex items-center gap-3">
               <CalendarDaysIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">
-                Masuk: {hiredDateText}
-              </span>
+              <span className="min-w-0 truncate text-gray-700">Masuk: {hiredDateText}</span>
             </div>
 
             <div className="flex items-center gap-3">
               <IdentificationIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">
-                {staff.staff_code || "-"}
-              </span>
+              <span className="min-w-0 truncate text-gray-700">{staff.staff_code || "-"}</span>
             </div>
           </div>
 
-          {shouldShowLoginCode && (
+          {shouldShowLoginAccess && (
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
               <div className="mb-2 flex items-center gap-2">
                 <KeyIcon className="h-4 w-4 text-gray-400" />
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Kode Login
+                  Akses Staff
                 </p>
               </div>
 
-              {hasValidLoginCode ? (
-                <button
-                  type="button"
-                  onClick={() => onCopyCode(staff.login_code!)}
-                  className="font-mono text-sm font-semibold text-gray-700 transition hover:text-gray-900 hover:underline"
-                  title="Klik untuk copy"
-                >
-                  {staff.login_code}
-                </button>
-              ) : (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <span
+                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${accessState.badgeClass}`}
+                  >
+                    {accessState.label}
+                  </span>
+                  <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                    {accessState.description}
+                  </p>
+                </div>
+
                 <button
                   type="button"
                   onClick={onGeneratePass}
-                  className="text-sm font-semibold text-gray-700 transition hover:text-gray-900 hover:underline"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                 >
-                  Generate Pass →
+                  {accessState.actionLabel}
                 </button>
-              )}
+              </div>
             </div>
           )}
         </div>
-
       </div>
 
       {showActions && (

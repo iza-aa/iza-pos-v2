@@ -33,33 +33,33 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       new: {
-        icon: '✨',
-        color: 'text-purple-600',
+        color: 'text-purple-700',
         bg: 'bg-purple-50',
+        border: 'border-purple-200',
         label: 'New Order',
       },
       preparing: {
-        icon: '🍳',
-        color: 'text-blue-600',
+        color: 'text-blue-700',
         bg: 'bg-blue-50',
+        border: 'border-blue-200',
         label: 'Preparing',
       },
       'partially-served': {
-        icon: '🍽️',
-        color: 'text-orange-600',
+        color: 'text-orange-700',
         bg: 'bg-orange-50',
+        border: 'border-orange-200',
         label: 'Partially Served',
       },
       served: {
-        icon: '✅',
-        color: 'text-green-600',
+        color: 'text-green-700',
         bg: 'bg-green-50',
+        border: 'border-green-200',
         label: 'Served',
       },
       completed: {
-        icon: '✔️',
-        color: 'text-gray-600',
+        color: 'text-gray-700',
         bg: 'bg-gray-50',
+        border: 'border-gray-200',
         label: 'Completed',
       },
     };
@@ -94,7 +94,7 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
 
     if (fulfillmentMethod === 'counter_pickup') {
       return {
-        label: `Pickup ${pickupCode || order.orderNumber}`,
+        label: pickupCode ? `Pickup ` : 'Pickup',
         description: 'Counter Pickup',
         badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
       };
@@ -221,9 +221,8 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
 
                   <td className="w-[12%] px-6 py-4 whitespace-nowrap">
                     <div
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${config.bg}`}
+                      className={`inline-flex items-center rounded-lg border px-3 py-1.5 ${config.bg} ${config.border}`}
                     >
-                      <span className="text-base">{config.icon}</span>
                       <span className={`text-xs font-medium ${config.color}`}>
                         {config.label}
                       </span>
