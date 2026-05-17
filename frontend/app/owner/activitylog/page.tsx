@@ -380,7 +380,7 @@ export default function ActivityLogPage() {
   useEffect(() => {
     void fetchActivityLogs(true)
     void fetchStaffUsers()
-  }, [fetchActivityLogs])
+  }, [])
 
   // Real-time subscription for activity logs
   useEffect(() => {
