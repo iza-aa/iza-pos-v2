@@ -1,468 +1,582 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, EyeIcon, EyeSlashIcon, ShoppingCartIcon, ArrowUpTrayIcon, AdjustmentsHorizontalIcon, UserCircleIcon } from '@heroicons/react/24/outline'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
+  ArrowUpTrayIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  MagnifyingGlassIcon,
+  ShoppingCartIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/config/supabaseClient'
 import { formatCurrency } from '@/lib/constants'
-import { COLORS } from '@/lib/constants'
 
-interface UsageTransaction {
+type UsageFilter = 'all' | 'sale' | 'restock' | 'adjustment'
+
+type UsageTransactionDetail = {
+  inventory_item_id: string
+  ingredient_name: string
+  quantity_used: number
+  unit: string
+  previous_stock?: number | null
+  new_stock?: number | null
+}
+
+type UsageTransaction = {
   id: string
   type: string
   timestamp: string
-  order_id?: string
+  order_id?: string | null
   order_number?: string
-  product_id?: string
-  product_name?: string
-  quantity_sold?: number
-  notes?: string
-  performed_by?: string
-  performed_by_name?: string
+  product_id?: string | null
+  product_name?: string | null
+  quantity_sold?: number | null
+  notes?: string | null
+  performed_by?: string | null
+  performed_by_name?: string | null
   staff_name?: string
   staff_role?: string
-  details: {
-    inventory_item_id: string
-    ingredient_name: string
-    quantity_used: number
-    unit: string
-    previous_stock?: number
-    new_stock?: number
-  }[]
+  details: UsageTransactionDetail[]
+}
+
+type UsageTransactionRow = {
+  id: string
+  transaction_type?: string | null
+  type?: string | null
+  timestamp?: string | null
+  created_at?: string | null
+  order_id?: string | null
+  product_id?: string | null
+  product_name?: string | null
+  quantity_sold?: number | null
+  notes?: string | null
+  performed_by?: string | null
+  performed_by_name?: string | null
+}
+
+type UsageDetailRow = {
+  usage_transaction_id: string
+  inventory_item_id: string
+  ingredient_name?: string | null
+  quantity_used: number
+  unit: string
+  previous_stock?: number | null
+  new_stock?: number | null
+}
+
+type OrderRow = {
+  id: string
+  order_number: string
+}
+
+type StaffRow = {
+  id: string
+  name: string
+  role: string
+}
+
+type InventoryItemRow = {
+  id: string
+  name: string
+}
+
+const FILTERS: { key: UsageFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'sale', label: 'Sales' },
+  { key: 'restock', label: 'Restocks' },
+  { key: 'adjustment', label: 'Adjustments' },
+]
+
+const normalizeType = (type?: string | null) => {
+  const raw = (type || 'sale').toLowerCase()
+  if (raw === 'order_usage') return 'sale'
+  if (raw === 'stock_in') return 'restock'
+  return raw
+}
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string') return message
+  }
+  return 'Unable to load usage history.'
+}
+
+const formatDateTime = (timestamp: string) => {
+  const date = new Date(timestamp)
+  return {
+    date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+  }
+}
+
+const formatNumber = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
+  return Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
+const parseRupiahText = (value: string) => {
+  const normalized = value.trim()
+  const hasCommaDecimal = /,\d{1,2}$/.test(normalized)
+  const withoutCurrencySeparators = normalized.replace(/\./g, '').replace(/,/g, '.')
+  const parsed = Number(withoutCurrencySeparators)
+
+  if (!Number.isFinite(parsed)) return null
+
+  // Some older restock notes were saved 100x too large because the value was
+  // formatted as cents before being written to the notes field. Keep the UI sane
+  // for those legacy notes without changing the database row.
+  if (hasCommaDecimal && parsed >= 1000000 && parsed % 100 === 0) {
+    return parsed / 100
+  }
+
+  return parsed
+}
+
+const formatNotesWithPrice = (notes: string) => {
+  return notes.replace(/Rp\s*([\d.]+(?:,\d{1,2})?)/g, (_match, number: string) => {
+    const parsed = parseRupiahText(number)
+
+    if (parsed === null) return `Rp ${number}`
+
+    return formatCurrency(parsed, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  })
+}
+
+const getTypeMeta = (type: string) => {
+  switch (type) {
+    case 'sale':
+      return {
+        label: 'Order Sale',
+        icon: ShoppingCartIcon,
+        badge: 'bg-slate-50 text-slate-700 border-slate-200',
+        dot: 'bg-slate-400',
+      }
+    case 'restock':
+      return {
+        label: 'Restock',
+        icon: ArrowUpTrayIcon,
+        badge: 'bg-green-50 text-green-700 border-green-200',
+        dot: 'bg-green-500',
+      }
+    case 'adjustment':
+      return {
+        label: 'Adjustment',
+        icon: AdjustmentsHorizontalIcon,
+        badge: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        dot: 'bg-yellow-500',
+      }
+    default:
+      return {
+        label: type || 'Transaction',
+        icon: ArrowPathIcon,
+        badge: 'bg-gray-100 text-gray-700 border-gray-200',
+        dot: 'bg-gray-400',
+      }
+  }
+}
+
+const getPerformedBy = (transaction: UsageTransaction) => {
+  if (transaction.performed_by_name) return transaction.performed_by_name
+  if (transaction.staff_name && transaction.staff_role) {
+    const roleLabel = transaction.staff_role.charAt(0).toUpperCase() + transaction.staff_role.slice(1)
+    return `${transaction.staff_name} · ${roleLabel}`
+  }
+  if (transaction.staff_name) return transaction.staff_name
+  return 'System Auto-Process'
+}
+
+const getTransactionTitle = (transaction: UsageTransaction) => {
+  if (transaction.type === 'sale') {
+    if (transaction.order_number) return `Order ${transaction.order_number}`
+    if (transaction.order_id) return `Order #${transaction.order_id.slice(-8)}`
+    return 'Order Sale'
+  }
+  if (transaction.type === 'restock') return 'Stock Replenishment'
+  if (transaction.type === 'adjustment') return 'Stock Adjustment'
+  return 'Inventory Transaction'
+}
+
+const getTotalQuantityUsed = (transaction: UsageTransaction) => {
+  return transaction.details.reduce((total, detail) => total + Math.abs(Number(detail.quantity_used || 0)), 0)
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
+    </div>
+  )
 }
 
 export default function UsageHistoryTab() {
-  const [filterType, setFilterType] = useState<'all' | 'sale' | 'restock' | 'adjustment'>('all')
+  const [filterType, setFilterType] = useState<UsageFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [showStats, setShowStats] = useState(true)
   const [transactions, setTransactions] = useState<UsageTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    fetchUsageHistory()
+    void fetchUsageHistory()
   }, [])
 
   async function fetchUsageHistory() {
     setLoading(true)
+    setError('')
+
     try {
-      // Fetch usage transactions first
       const { data: transactionsData, error: transError } = await supabase
         .from('usage_transactions')
-        .select('id, transaction_type, type, timestamp, order_id, product_id, product_name, quantity_sold, notes, performed_by, performed_by_name, created_at')
-        .order('timestamp', { ascending: false })
+        .select(
+          'id, transaction_type, type, timestamp, order_id, product_id, product_name, quantity_sold, notes, performed_by, performed_by_name, created_at',
+        )
+        .order('timestamp', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
 
-      if (transError) {
-        console.error('Transactions error:', transError)
-        throw transError
-      }
+      if (transError) throw transError
 
-      // Fetch orders data if there are order_ids
-      const orderIds = transactionsData
-        ?.filter((t) => t.order_id)
-        .map((t) => t.order_id) || []
-      
-      interface Order {
-        id: string
-        order_number: string
-      }
-      
-      interface Staff {
-        id: string
-        name: string
-        role: string
-      }
-      
-      let ordersMap: Record<string, Order> = {}
-      if (orderIds.length > 0) {
-        const { data: ordersData } = await supabase
-          .from('orders')
-          .select('id, order_number')
-          .in('id', orderIds)
-        
-        ordersData?.forEach((order) => {
-          ordersMap[order.id] = order
-        })
-      }
+      const transactionRows = (transactionsData || []) as UsageTransactionRow[]
+      const orderIds = Array.from(new Set(transactionRows.map((item) => item.order_id).filter(Boolean))) as string[]
+      const staffIds = Array.from(new Set(transactionRows.map((item) => item.performed_by).filter(Boolean))) as string[]
 
-      // Fetch staff data if there are performed_by ids
-      const staffIds = transactionsData
-        ?.filter((t) => t.performed_by)
-        .map((t) => t.performed_by) || []
-      
-      let staffMap: Record<string, Staff> = {}
-      if (staffIds.length > 0) {
-        const { data: staffData } = await supabase
-          .from('staff')
-          .select('id, name, role')
-          .in('id', staffIds)
-        
-        staffData?.forEach((staff) => {
-          staffMap[staff.id] = staff
-        })
-      }
+      const [ordersResult, staffResult, detailsResult, inventoryResult] = await Promise.all([
+        orderIds.length > 0
+          ? supabase.from('orders').select('id, order_number').in('id', orderIds)
+          : Promise.resolve({ data: [] as OrderRow[], error: null }),
+        staffIds.length > 0
+          ? supabase.from('staff').select('id, name, role').in('id', staffIds)
+          : Promise.resolve({ data: [] as StaffRow[], error: null }),
+        supabase
+          .from('usage_transaction_details')
+          .select('usage_transaction_id, inventory_item_id, ingredient_name, quantity_used, unit, previous_stock, new_stock'),
+        supabase.from('inventory_items').select('id, name'),
+      ])
 
-      // Fetch transaction details
-      const { data: detailsData, error: detailsError } = await supabase
-        .from('usage_transaction_details')
-        .select('usage_transaction_id, inventory_item_id, ingredient_name, quantity_used, unit, previous_stock, new_stock')
+      if (ordersResult.error) throw ordersResult.error
+      if (staffResult.error) throw staffResult.error
+      if (detailsResult.error) throw detailsResult.error
+      if (inventoryResult.error) throw inventoryResult.error
 
-      if (detailsError) {
-        console.error('Details error:', detailsError)
-        throw detailsError
-      }
+      const ordersMap = new Map<string, OrderRow>()
+      ;((ordersResult.data || []) as OrderRow[]).forEach((order) => ordersMap.set(order.id, order))
 
-      // Fetch inventory items for names
-      const { data: inventoryData, error: inventoryError } = await supabase
-        .from('inventory_items')
-        .select('id, name')
+      const staffMap = new Map<string, StaffRow>()
+      ;((staffResult.data || []) as StaffRow[]).forEach((staff) => staffMap.set(staff.id, staff))
 
-      if (inventoryError) {
-        console.error('Inventory error:', inventoryError)
-        throw inventoryError
-      }
+      const inventoryMap = new Map<string, InventoryItemRow>()
+      ;((inventoryResult.data || []) as InventoryItemRow[]).forEach((item) => inventoryMap.set(item.id, item))
 
-      // Transform data manually
-      const transformedTransactions: UsageTransaction[] = (transactionsData || []).map((trans) => {
-        const transDetails = (detailsData || [])
-          .filter((detail) => detail.usage_transaction_id === trans.id)
-          .map((detail) => {
-            const inventoryItem = (inventoryData || []).find((inv) => inv.id === detail.inventory_item_id)
-            return {
-              inventory_item_id: detail.inventory_item_id,
-              ingredient_name: inventoryItem?.name || detail.ingredient_name || 'Unknown',
-              quantity_used: detail.quantity_used,
-              unit: detail.unit,
-              previous_stock: detail.previous_stock,
-              new_stock: detail.new_stock
-            }
-          })
-
-        const order = trans.order_id ? ordersMap[trans.order_id] : null
-        const staff = trans.performed_by ? staffMap[trans.performed_by] : null
-
-        // Normalize transaction type
-        let transactionType = trans.transaction_type || trans.type || 'sale'
-        // Map custom types to standard types
-        if (transactionType === 'order_usage') {
-          transactionType = 'sale'
+      const detailsByTransaction = new Map<string, UsageTransactionDetail[]>()
+      ;((detailsResult.data || []) as UsageDetailRow[]).forEach((detail) => {
+        const inventoryItem = inventoryMap.get(detail.inventory_item_id)
+        const normalizedDetail: UsageTransactionDetail = {
+          inventory_item_id: detail.inventory_item_id,
+          ingredient_name: inventoryItem?.name || detail.ingredient_name || 'Unknown Item',
+          quantity_used: Number(detail.quantity_used || 0),
+          unit: detail.unit,
+          previous_stock: detail.previous_stock,
+          new_stock: detail.new_stock,
         }
 
+        const currentDetails = detailsByTransaction.get(detail.usage_transaction_id) || []
+        currentDetails.push(normalizedDetail)
+        detailsByTransaction.set(detail.usage_transaction_id, currentDetails)
+      })
+
+      const transformedTransactions = transactionRows.map((transaction) => {
+        const order = transaction.order_id ? ordersMap.get(transaction.order_id) : undefined
+        const staff = transaction.performed_by ? staffMap.get(transaction.performed_by) : undefined
+        const type = normalizeType(transaction.transaction_type || transaction.type)
+
         return {
-          id: trans.id,
-          type: transactionType,
-          timestamp: trans.timestamp,
-          order_id: trans.order_id,
+          id: transaction.id,
+          type,
+          timestamp: transaction.timestamp || transaction.created_at || new Date().toISOString(),
+          order_id: transaction.order_id,
           order_number: order?.order_number,
-          product_id: trans.product_id,
-          product_name: trans.product_name,
-          quantity_sold: trans.quantity_sold,
-          notes: trans.notes,
-          performed_by: trans.performed_by,
-          performed_by_name: trans.performed_by_name,
+          product_id: transaction.product_id,
+          product_name: transaction.product_name,
+          quantity_sold: transaction.quantity_sold,
+          notes: transaction.notes,
+          performed_by: transaction.performed_by,
+          performed_by_name: transaction.performed_by_name,
           staff_name: staff?.name,
           staff_role: staff?.role,
-          details: transDetails
+          details: detailsByTransaction.get(transaction.id) || [],
         }
       })
 
       setTransactions(transformedTransactions)
-    } catch (error) {
-      console.error('Error fetching usage history:', error)
+    } catch (fetchError) {
+      console.error('Error fetching usage history:', fetchError)
+      setError(getErrorMessage(fetchError))
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredTransactions = transactions
-    .filter(t => filterType === 'all' || t.type === filterType)
-    .filter(t => 
-      t.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.details.some(d => d.ingredient_name.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
+  const filteredTransactions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
 
-  const stats = {
-    totalTransactions: transactions.length,
-    sales: transactions.filter(t => t.type === 'sale').length,
-    restocks: transactions.filter(t => t.type === 'restock').length,
-    adjustments: transactions.filter(t => t.type === 'adjustment').length
-  }
+    return transactions
+      .filter((transaction) => filterType === 'all' || transaction.type === filterType)
+      .filter((transaction) => {
+        if (!query) return true
 
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  const formatNotesWithPrice = (notes: string) => {
-    // Format any number after "Rp " with thousand separator
-    return notes.replace(/Rp\s*([\d.]+)/g, (match, number) => {
-      const cleanNumber = number.replace(/\./g, '')
-      return formatCurrency(Number(cleanNumber), {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        return (
+          getTransactionTitle(transaction).toLowerCase().includes(query) ||
+          transaction.product_name?.toLowerCase().includes(query) ||
+          transaction.notes?.toLowerCase().includes(query) ||
+          transaction.order_number?.toLowerCase().includes(query) ||
+          getPerformedBy(transaction).toLowerCase().includes(query) ||
+          transaction.details.some((detail) => detail.ingredient_name.toLowerCase().includes(query))
+        )
       })
+  }, [filterType, searchQuery, transactions])
+
+  const stats = useMemo(
+    () => ({
+      totalTransactions: transactions.length,
+      sales: transactions.filter((transaction) => transaction.type === 'sale').length,
+      restocks: transactions.filter((transaction) => transaction.type === 'restock').length,
+      adjustments: transactions.filter((transaction) => transaction.type === 'adjustment').length,
+    }),
+    [transactions],
+  )
+
+  const toggleExpanded = (transactionId: string) => {
+    setExpandedIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(transactionId)) {
+        next.delete(transactionId)
+      } else {
+        next.add(transactionId)
+      }
+      return next
     })
   }
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'sale': return 'bg-gray-900 text-white'
-      case 'restock': return 'text-gray-900'
-      case 'adjustment': return 'bg-yellow-100 text-yellow-900 border border-yellow-300'
-      case 'waste': return 'text-white'
-      default: return 'bg-gray-100 text-gray-900'
-    }
-  }
-
-  const getTypeStyle = (type: string) => {
-    switch (type) {
-      case 'restock': return { backgroundColor: COLORS.PRIMARY_LIGHT }
-      case 'waste': return { backgroundColor: COLORS.DANGER }
-      default: return {}
-    }
-  }
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'sale': return <ShoppingCartIcon className="w-3.5 h-3.5" />
-      case 'restock': return <ArrowUpTrayIcon className="w-3.5 h-3.5" />
-      case 'adjustment': return <AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
-      default: return null
-    }
-  }
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'sale': return 'Order Sale'
-      case 'restock': return 'Stock In'
-      case 'adjustment': return 'Adjustment'
-      case 'waste': return 'Waste'
-      default: return type
-    }
-  }
-
-  const getTransactionTitle = (transaction: UsageTransaction) => {
-    if (transaction.type === 'sale') {
-      // Use order_number if available, otherwise fallback to order_id slice
-      if (transaction.order_number) {
-        return `Order ${transaction.order_number}`
-      } else if (transaction.order_id) {
-        return `Order #${transaction.order_id.slice(-8)}`
-      }
-      return 'Order Sale'
-    } else if (transaction.type === 'restock') {
-      return 'Stock Replenishment'
-    } else if (transaction.type === 'adjustment') {
-      return 'Stock Adjustment'
-    }
-    return 'Transaction'
-  }
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Header + Stats */}
-      <section className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 bg-white border-b border-gray-200">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg md:text-xl font-bold text-gray-800">Stock Usage History</h2>
-            <p className="text-xs md:text-sm text-gray-500">Track all inventory movements and transactions</p>
+    <div className="flex h-full flex-col bg-gray-50">
+      <section className="flex-shrink-0 border-b border-gray-200 bg-white px-4 pb-4 pt-4 md:px-6 md:pt-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Stock Usage History</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Track inventory usage from order sales, restocks, and stock adjustments.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Toggle Stats Button */}
-            <button 
-              onClick={() => setShowStats(!showStats)}
-              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-              title={showStats ? "Hide Statistics" : "Show Statistics"}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={() => void fetchUsageHistory()}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              disabled={loading}
             >
-              {showStats ? (
-                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
-              ) : (
-                <EyeIcon className="w-5 h-5 text-gray-600" />
-              )}
+              <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
 
-            {/* Search */}
-            <div className="relative flex-1 md:flex-initial">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="relative min-w-0 sm:w-80">
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search transactions..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full md:w-64"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100"
               />
             </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        {showStats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 pb-4 md:pb-6 gap-3 md:gap-4">
-          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
-            <p className="text-xs md:text-sm text-gray-600 mb-1">Total Transactions</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
-          </div>
-          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
-            <p className="text-xs md:text-sm text-gray-600 mb-1">Sales</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.sales}</p>
-          </div>
-          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
-            <p className="text-xs md:text-sm text-gray-600 mb-1">Restocks</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.restocks}</p>
-          </div>
-          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200">
-            <p className="text-xs md:text-sm text-gray-600 mb-1">Adjustments</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.adjustments}</p>
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <SummaryCard label="Total Transactions" value={stats.totalTransactions} />
+          <SummaryCard label="Order Sales" value={stats.sales} />
+          <SummaryCard label="Restocks" value={stats.restocks} />
+          <SummaryCard label="Adjustments" value={stats.adjustments} />
         </div>
-        )}
       </section>
 
-      {/* Timeline (Scrollable) */}
-      <section className="flex-1 overflow-hidden px-4 md:px-6 py-4 md:py-6 bg-gray-100 flex flex-col">
-        {/* Filter - Fixed at top */}
-        <div className="flex items-center gap-2 mb-4 flex-shrink-0 overflow-x-auto">
-          {['all', 'sale', 'restock', 'adjustment'].map(type => (
+      <section className="flex min-h-0 flex-1 flex-col px-4 py-4 md:px-6">
+        <div className="mb-3 flex flex-shrink-0 items-center gap-2 overflow-x-auto">
+          {FILTERS.map((filter) => (
             <button
-              key={type}
-              onClick={() => setFilterType(type as typeof filterType)}
-              className={`px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition whitespace-nowrap ${
-                filterType === type
+              key={filter.key}
+              type="button"
+              onClick={() => setFilterType(filter.key)}
+              className={`h-10 rounded-lg px-4 text-sm font-semibold transition ${
+                filterType === filter.key
                   ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+              {filter.label}
             </button>
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <p className="text-gray-500">Loading transactions...</p>
+            <div className="flex h-full min-h-64 items-center justify-center text-sm text-gray-500">
+              Loading transactions...
+            </div>
+          ) : error ? (
+            <div className="flex h-full min-h-64 flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-sm font-semibold text-gray-900">Unable to load usage history</p>
+              <p className="max-w-md text-sm text-gray-500">{error}</p>
+              <button
+                type="button"
+                onClick={() => void fetchUsageHistory()}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+              >
+                Try Again
+              </button>
             </div>
           ) : filteredTransactions.length === 0 ? (
-            <div className="flex items-center justify-center h-64">
-              <p className="text-gray-500">No transactions found</p>
+            <div className="flex h-full min-h-64 flex-col items-center justify-center px-6 text-center">
+              <p className="text-sm font-semibold text-gray-900">No transactions found</p>
+              <p className="mt-1 text-sm text-gray-500">Try changing the filter or search keyword.</p>
             </div>
           ) : (
-            <div className="columns-1 sm:columns-2 lg:columns-4 gap-4 space-y-4">
-              {filteredTransactions.map(transaction => (
-                <div key={transaction.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-4 hover:shadow-md transition-shadow">
-                  {/* Transaction Header with Badge */}
-                  <div className="p-3 border-b border-gray-200">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold ${getTypeColor(transaction.type)}`}
-                        style={getTypeStyle(transaction.type)}>
-                        {getTypeIcon(transaction.type)}
-                        {getTypeLabel(transaction.type)}
-                      </span>
-                      <div className="text-right">
-                        <p className="text-xs font-semibold text-gray-900">{formatTime(transaction.timestamp)}</p>
-                        <p className="text-[10px] text-gray-500">{formatDate(transaction.timestamp)}</p>
-                      </div>
-                    </div>
-                  </div>
+            <div className="h-full overflow-y-auto">
+              <div className="hidden grid-cols-[140px_150px_1.4fr_1fr_110px_56px] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-gray-500 lg:grid">
+                <span>Date</span>
+                <span>Type</span>
+                <span>Reference</span>
+                <span>Performed By</span>
+                <span className="text-right">Items</span>
+                <span />
+              </div>
 
-                  {/* Transaction Content */}
-                  <div className="p-3 flex-1 space-y-3">
-                    {/* Main Transaction Info */}
-                    <div className="pb-3 border-b border-gray-100">
-                      <h3 className="text-sm font-bold text-gray-900 mb-1">
-                        {getTransactionTitle(transaction)}
-                      </h3>
-                      {transaction.product_name && (
-                        <p className="text-xs text-gray-600">
-                          {transaction.product_name} {transaction.quantity_sold && `(${transaction.quantity_sold}x)`}
-                        </p>
-                      )}
-                    </div>
+              <div className="divide-y divide-gray-200">
+                {filteredTransactions.map((transaction) => {
+                  const meta = getTypeMeta(transaction.type)
+                  const Icon = meta.icon
+                  const dateTime = formatDateTime(transaction.timestamp)
+                  const isExpanded = expandedIds.has(transaction.id)
+                  const totalQuantity = getTotalQuantityUsed(transaction)
 
-                    {/* Performed By - Compact */}
-                    <div className="flex items-center gap-2 text-xs bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-200">
-                      <UserCircleIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                      <span className="text-gray-500">Performed by:</span>
-                      <span className="font-semibold text-gray-900 truncate">
-                        {(() => {
-                          // Priority: performed_by_name (for owners/managers) > staff_name + role (for staff) > fallback
-                          if (transaction.performed_by_name) {
-                            return transaction.performed_by_name
-                          }
-                          if (transaction.staff_name && transaction.staff_role) {
-                            const roleLabel = transaction.staff_role.charAt(0).toUpperCase() + transaction.staff_role.slice(1)
-                            return `${transaction.staff_name} - ${roleLabel}`
-                          }
-                          if (transaction.staff_name) {
-                            return transaction.staff_name
-                          }
-                          return 'System Auto-Process'
-                        })()}
-                      </span>
-                    </div>
+                  return (
+                    <div key={transaction.id} className="bg-white">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(transaction.id)}
+                        className="grid w-full grid-cols-1 gap-3 px-4 py-4 text-left transition hover:bg-gray-50 lg:grid-cols-[140px_150px_1.4fr_1fr_110px_56px] lg:items-center"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{dateTime.time}</p>
+                          <p className="text-xs text-gray-500">{dateTime.date}</p>
+                        </div>
 
-                    {/* Additional Notes */}
-                    {transaction.notes && !transaction.notes.toLowerCase().includes('auto-deduct') && (
-                      <div className={`p-2 rounded-lg border ${
-                        transaction.notes.toUpperCase().includes('DELETED')
-                          ? 'bg-red-50 border-red-200'
-                          : 'bg-yellow-50 border-yellow-200'
-                      }`}>
-                        <p className={`text-[10px] font-medium mb-0.5 ${
-                          transaction.notes.toUpperCase().includes('DELETED')
-                            ? 'text-red-700'
-                            : 'text-yellow-700'
-                        }`}>
-                          {transaction.notes.toUpperCase().includes('DELETED') ? '🗑️ ITEM DELETED' : 'REMARKS'}
-                        </p>
-                        <p className={`text-xs ${
-                          transaction.notes.toUpperCase().includes('DELETED')
-                            ? 'text-red-900 font-semibold'
-                            : 'text-yellow-900'
-                        }`}>
-                          {formatNotesWithPrice(transaction.notes)}
-                        </p>
-                      </div>
-                    )}
+                        <div>
+                          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold ${meta.badge}`}>
+                            <Icon className="h-4 w-4" />
+                            {meta.label}
+                          </span>
+                        </div>
 
-                    {/* Ingredients Detail - Improved */}
-                    <div>
-                      <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">
-                        Inventory Changes ({transaction.details.length})
-                      </h4>
-                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                        {transaction.details.map((detail, idx) => {
-                          // Determine if stock increased or decreased
-                          const isIncrease = detail.new_stock && detail.previous_stock 
-                            ? detail.new_stock > detail.previous_stock 
-                            : transaction.type === 'restock'
-                          
-                          return (
-                            <div key={idx} className="flex items-center justify-between py-1.5 px-2 bg-gray-50 rounded-lg border border-gray-100">
-                              <span className="text-xs text-gray-700 font-medium truncate flex-1">
-                                {detail.ingredient_name}
-                              </span>
-                              <span className={`text-xs font-bold flex-shrink-0 ml-2 px-2 py-0.5 rounded ${
-                                isIncrease
-                                  ? 'bg-green-100 text-green-700' 
-                                  : 'bg-red-100 text-red-700'
-                              }`}>
-                                {isIncrease ? '+' : '-'}{detail.quantity_used} {detail.unit}
-                              </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-gray-900">{getTransactionTitle(transaction)}</p>
+                          {transaction.product_name ? (
+                            <p className="truncate text-xs text-gray-500">
+                              {transaction.product_name}
+                              {transaction.quantity_sold ? ` · ${transaction.quantity_sold}x` : ''}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="flex min-w-0 items-center gap-2 text-sm text-gray-600">
+                          <UserCircleIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span className="truncate">{getPerformedBy(transaction)}</span>
+                        </div>
+
+                        <div className="text-left lg:text-right">
+                          <p className="text-sm font-semibold text-gray-900">{transaction.details.length} items</p>
+                          <p className="text-xs text-gray-500">{formatNumber(totalQuantity)} total</p>
+                        </div>
+
+                        <div className="flex justify-end">
+                          {isExpanded ? (
+                            <ChevronUpIcon className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded ? (
+                        <div className="border-t border-gray-100 bg-gray-50 px-4 py-4">
+                          <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+                            <div className="rounded-lg border border-gray-200 bg-white p-4">
+                              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Transaction Notes</p>
+                              <p className="mt-2 text-sm text-gray-700">
+                                {transaction.notes && !transaction.notes.toLowerCase().includes('auto-deduct')
+                                  ? formatNotesWithPrice(transaction.notes)
+                                  : 'No manual notes for this transaction.'}
+                              </p>
                             </div>
-                          )
-                        })}
-                      </div>
+
+                            <div className="rounded-lg border border-gray-200 bg-white p-4">
+                              <div className="mb-3 flex items-center justify-between">
+                                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                                  Inventory Changes ({transaction.details.length})
+                                </p>
+                              </div>
+
+                              {transaction.details.length === 0 ? (
+                                <p className="text-sm text-gray-500">No inventory detail recorded.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {transaction.details.map((detail, index) => {
+                                    const increased =
+                                      detail.previous_stock !== null &&
+                                      detail.previous_stock !== undefined &&
+                                      detail.new_stock !== null &&
+                                      detail.new_stock !== undefined
+                                        ? Number(detail.new_stock) > Number(detail.previous_stock)
+                                        : transaction.type === 'restock'
+
+                                    return (
+                                      <div
+                                        key={`${transaction.id}-${detail.inventory_item_id}-${index}`}
+                                        className="grid gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                                      >
+                                        <span className="font-semibold text-gray-800">{detail.ingredient_name}</span>
+                                        <span className="text-xs text-gray-500">
+                                          {formatNumber(detail.previous_stock)} → {formatNumber(detail.new_stock)} {detail.unit}
+                                        </span>
+                                        <span
+                                          className={`justify-self-start rounded-md px-2 py-1 text-xs font-bold sm:justify-self-end ${
+                                            increased ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                          }`}
+                                        >
+                                          {increased ? '+' : '-'}{formatNumber(detail.quantity_used)} {detail.unit}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                </div>
-              ))}
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

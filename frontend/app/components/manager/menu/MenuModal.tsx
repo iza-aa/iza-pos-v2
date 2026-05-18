@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowPathIcon,
+  CheckCircleIcon,
+  PhotoIcon,
+  Squares2X2Icon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/config/supabaseClient'
 import { showError } from '@/lib/services/errorHandling'
 import type { MenuItem, VariantGroup } from '@/lib/types'
@@ -22,14 +28,13 @@ type VariantGroupRow = {
   id: string
   name: string
   type?: string | null
-  is_required?: boolean | null
+  required?: boolean | null
 }
 
 type VariantOptionRow = {
   id: string
   name: string
-  price_modifier?: number | null
-  price_adjustment?: number | null
+  price_modifier?: number | string | null
 }
 
 type MenuFormData = {
@@ -105,6 +110,98 @@ const getInitialFormData = (
   }
 }
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+
+const MENU_IMAGE_MAX_DIMENSION = 1200
+const MENU_IMAGE_TARGET_SIZE_BYTES = 320 * 1024
+const MENU_IMAGE_MAX_SIZE_BYTES = 680 * 1024
+
+const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to compress menu image.'))
+          return
+        }
+
+        resolve(blob)
+      },
+      'image/webp',
+      quality,
+    )
+  })
+}
+
+const loadImageElement = (file: File) => {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(image)
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Failed to read menu image.'))
+    }
+
+    image.src = objectUrl
+  })
+}
+
+const compressMenuImage = async (file: File) => {
+  const image = await loadImageElement(file)
+  const scale = Math.min(1, MENU_IMAGE_MAX_DIMENSION / Math.max(image.width, image.height))
+  const width = Math.max(1, Math.round(image.width * scale))
+  const height = Math.max(1, Math.round(image.height * scale))
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    throw new Error('Browser does not support image compression.')
+  }
+
+  canvas.width = width
+  canvas.height = height
+  context.drawImage(image, 0, 0, width, height)
+
+  let quality = 0.86
+  let blob = await canvasToBlob(canvas, quality)
+
+  while (blob.size > MENU_IMAGE_TARGET_SIZE_BYTES && quality > 0.45) {
+    quality -= 0.08
+    blob = await canvasToBlob(canvas, quality)
+  }
+
+  if (blob.size > MENU_IMAGE_MAX_SIZE_BYTES) {
+    throw new Error('Image is still too large after compression. Please use another image.')
+  }
+
+  const compressedFileName = `${file.name.replace(/\.[^.]+$/, '') || 'menu-image'}.webp`
+
+  return new File([blob], compressedFileName, {
+    type: 'image/webp',
+    lastModified: Date.now(),
+  })
+}
+
+type MenuImageUploadResponse = {
+  success?: boolean
+  image_url?: string
+  error?: string
+}
+
 export default function MenuModal({
   isOpen,
   onClose,
@@ -120,6 +217,7 @@ export default function MenuModal({
   const [imagePreview, setImagePreview] = useState<string>('')
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
   const [loadingVariants, setLoadingVariants] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -129,7 +227,8 @@ export default function MenuModal({
       try {
         const { data: groups, error: groupsError } = await supabase
           .from('variant_groups')
-          .select('id, name, type, is_required')
+          .select('id, name, type, required')
+          .eq('is_active', true)
           .order('created_at', { ascending: true })
 
         if (groupsError) {
@@ -142,27 +241,22 @@ export default function MenuModal({
           ((groups ?? []) as VariantGroupRow[]).map(async (group) => {
             const { data: options, error: optionsError } = await supabase
               .from('variant_options')
-              .select('id, name, price_modifier, price_adjustment')
+              .select('id, name, price_modifier')
               .eq('variant_group_id', group.id)
+              .eq('is_active', true)
               .order('sort_order', { ascending: true })
 
             if (optionsError) {
-              console.error(
-                'Error fetching options for group:',
-                group.id,
-                optionsError,
-              )
+              console.error('Error fetching options for group:', group.id, optionsError)
             }
 
             return {
               id: group.id,
               name: group.name,
               type: group.type === 'multiple' ? 'multiple' : 'single',
-              is_required: Boolean(group.is_required),
+              is_required: Boolean(group.required),
               options: ((options ?? []) as VariantOptionRow[]).map((option) => {
-                const priceAdjustment = toSafeNumber(
-                  option.price_adjustment ?? option.price_modifier,
-                )
+                const priceAdjustment = toSafeNumber(option.price_modifier)
 
                 return {
                   id: option.id,
@@ -213,28 +307,47 @@ export default function MenuModal({
     setImagePreview('')
   }, [editMenu, isOpen, categories, defaultCategoryId])
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
 
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      showError('Pilih file gambar yang valid')
+      showError('Please select a valid image file.')
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      showError('Ukuran gambar harus kurang dari 5MB')
-      return
-    }
+    setUploadingImage(true)
 
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      const result = typeof reader.result === 'string' ? reader.result : ''
-      setImagePreview(result)
-      setFormData((prev) => ({ ...prev, image: result }))
+    try {
+      const compressedFile = await compressMenuImage(file)
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', compressedFile)
+      uploadFormData.append('menu_name', formData.name || editMenu?.name || 'menu-item')
+      uploadFormData.append('menu_id', editMenu?.id ?? '')
+
+      const response = await fetch('/api/staff/menu/photo', {
+        method: 'POST',
+        body: uploadFormData,
+      })
+
+      const result = (await response.json()) as MenuImageUploadResponse
+
+      if (!response.ok || !result.success || !result.image_url) {
+        throw new Error(result.error || 'Failed to upload menu image.')
+      }
+
+      setImagePreview(result.image_url)
+      setFormData((prev) => ({ ...prev, image: result.image_url ?? '' }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upload menu image.'
+      showError(message)
+    } finally {
+      setUploadingImage(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
-    reader.readAsDataURL(file)
   }
 
   const handleRemoveImage = () => {
@@ -294,273 +407,356 @@ export default function MenuModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">
-            {editMenu ? 'Edit Menu' : 'Add Menu'}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="flex shrink-0 items-start justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {editMenu ? 'Edit Menu Item' : 'Add Menu Item'}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage menu details, availability, image, and variant groups.
+            </p>
+          </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-gray-100"
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
             aria-label="Close menu modal"
           >
-            <XMarkIcon className="h-6 w-6 text-gray-600" />
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Menu Name
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(event) =>
-                  setFormData((prev) => ({ ...prev, name: event.target.value }))
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter menu name"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Category
-              </label>
-              <select
-                required
-                value={formData.categoryId}
-                onChange={handleCategoryChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Product Type
-              </label>
-              <select
-                required
-                value={formData.type}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    type: normalizeProductType(event.target.value),
-                  }))
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="food">Food (Kitchen)</option>
-                <option value="drink">Drink (Barista/Waiter)</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                Food orders go to kitchen, drinks are handled by barista/waiter
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="price"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Price (Rp)
-              </label>
-              <input
-                id="price"
-                type="number"
-                required
-                min="0"
-                step="0.01"
-                value={formData.price}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    price: toSafeNumber(event.target.value),
-                  }))
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter price"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Menu Image
-              </label>
-
-              {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Menu preview"
-                    className="h-48 w-full rounded-xl border-2 border-gray-200 object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="absolute right-2 top-2 rounded-full bg-red-500 p-2 text-white shadow-lg transition hover:bg-red-600"
-                    aria-label="Remove image"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full rounded-xl border-2 border-dashed border-gray-300 p-8 text-center transition hover:border-blue-500 hover:bg-blue-50"
-                >
-                  <PhotoIcon className="mx-auto mb-2 h-12 w-12 text-gray-400" />
-                  <p className="mb-1 text-sm text-gray-600">
-                    Click to upload menu image
-                  </p>
-                  <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
-                </button>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="available"
-                checked={formData.available}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    available: event.target.checked,
-                  }))
-                }
-                className="h-5 w-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-              />
-              <label htmlFor="available" className="text-sm font-medium text-gray-700">
-                Available for sale
-              </label>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="hasVariantsMenu"
-                checked={formData.hasVariants}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    hasVariants: event.target.checked,
-                    variantGroups: event.target.checked ? prev.variantGroups : [],
-                  }))
-                }
-                className="h-5 w-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-              />
-              <label
-                htmlFor="hasVariantsMenu"
-                className="text-sm font-medium text-gray-700"
-              >
-                This menu has variants
-              </label>
-            </div>
-
-            {formData.hasVariants && (
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <label className="mb-3 block text-sm font-medium text-gray-700">
-                  Select Variant Groups
-                </label>
-
-                {loadingVariants ? (
-                  <div className="py-8 text-center">
-                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500" />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Loading variant groups...
-                    </p>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="space-y-4">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="rounded-lg bg-gray-100 p-2">
+                      <Squares2X2Icon className="h-5 w-5 text-gray-700" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Menu Details</h3>
+                      <p className="text-xs text-gray-500">Basic product information.</p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="max-h-60 space-y-2 overflow-y-auto">
-                    {variantGroups.map((group) => {
-                      const optionCount = group.options?.length ?? 0
 
-                      return (
-                        <div
-                          key={group.id}
-                          className="flex items-start gap-3 rounded-lg bg-white p-2"
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                        Menu Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(event) =>
+                          setFormData((prev) => ({ ...prev, name: event.target.value }))
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
+                        placeholder="Enter menu name"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Category
+                        </label>
+                        <select
+                          required
+                          value={formData.categoryId}
+                          onChange={handleCategoryChange}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
                         >
-                          <input
-                            type="checkbox"
-                            id={`variant-${group.id}`}
-                            checked={formData.variantGroups.includes(group.id)}
-                            onChange={() => handleToggleVariantGroup(group.id)}
-                            className="mt-0.5 h-5 w-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                          />
+                          <option value="">Select category</option>
+                          {categories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                          <div className="flex-1">
-                            <label
-                              htmlFor={`variant-${group.id}`}
-                              className="cursor-pointer text-sm font-medium text-gray-700"
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Product Type
+                        </label>
+                        <select
+                          required
+                          value={formData.type}
+                          onChange={(event) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              type: normalizeProductType(event.target.value),
+                            }))
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
+                        >
+                          <option value="food">Food</option>
+                          <option value="drink">Drink</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="price" className="mb-2 block text-sm font-medium text-gray-700">
+                        Price
+                      </label>
+                      <input
+                        id="price"
+                        type="number"
+                        required
+                        min="0"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(event) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            price: toSafeNumber(event.target.value),
+                          }))
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
+                        placeholder="Enter price"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Current price: <span className="font-medium">{formatCurrency(formData.price)}</span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Available for sale</p>
+                          <p className="text-xs text-gray-500">Show this item on order menu.</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={formData.available}
+                          onChange={(event) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              available: event.target.checked,
+                            }))
+                          }
+                          className="h-5 w-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Has variants</p>
+                          <p className="text-xs text-gray-500">Enable size, topping, or options.</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={formData.hasVariants}
+                          onChange={(event) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              hasVariants: event.target.checked,
+                              variantGroups: event.target.checked ? prev.variantGroups : [],
+                            }))
+                          }
+                          className="h-5 w-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {formData.hasVariants && (
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">Variant Groups</h3>
+                        <p className="text-xs text-gray-500">
+                          Select which variant groups are available for this menu.
+                        </p>
+                      </div>
+                      <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                        {formData.variantGroups.length} selected
+                      </span>
+                    </div>
+
+                    {loadingVariants ? (
+                      <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center">
+                        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900" />
+                        <p className="mt-2 text-sm text-gray-500">Loading variant groups...</p>
+                      </div>
+                    ) : (
+                      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                        {variantGroups.map((group) => {
+                          const optionCount = group.options?.length ?? 0
+                          const checked = formData.variantGroups.includes(group.id)
+
+                          return (
+                            <button
+                              type="button"
+                              key={group.id}
+                              onClick={() => handleToggleVariantGroup(group.id)}
+                              className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition ${
+                                checked
+                                  ? 'border-gray-900 bg-gray-50'
+                                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                              }`}
                             >
-                              {group.name}
-                              {group.is_required && (
-                                <span className="ml-1 text-red-500">*</span>
-                              )}
-                            </label>
-                            <p className="mt-0.5 text-xs text-gray-500">
-                              {optionCount} option{optionCount !== 1 ? 's' : ''} •{' '}
-                              {group.type === 'single'
-                                ? 'Single select'
-                                : 'Multiple select'}
+                              <div
+                                className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border ${
+                                  checked ? 'border-gray-900 bg-gray-900' : 'border-gray-300 bg-white'
+                                }`}
+                              >
+                                {checked ? <CheckCircleIcon className="h-4 w-4 text-white" /> : null}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate text-sm font-medium text-gray-800">
+                                    {group.name}
+                                  </p>
+                                  {group.is_required ? (
+                                    <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                                      Required
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {optionCount} option{optionCount !== 1 ? 's' : ''} •{' '}
+                                  {group.type === 'single' ? 'Single select' : 'Multiple select'}
+                                </p>
+                              </div>
+                            </button>
+                          )
+                        })}
+
+                        {variantGroups.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-gray-200 py-6 text-center">
+                            <p className="text-sm font-medium text-gray-600">No variant groups available</p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              Create variant groups first from the Variants page.
                             </p>
                           </div>
-                        </div>
-                      )
-                    })}
-
-                    {variantGroups.length === 0 && (
-                      <div className="py-4 text-center">
-                        <p className="mb-2 text-sm text-gray-500">
-                          No variant groups available
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Go to Variants page to create variant groups first
-                        </p>
+                        ) : null}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
+
+              <div className="space-y-4">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900">Menu Image</h3>
+
+                  {imagePreview ? (
+                    <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                      <img
+                        src={imagePreview}
+                        alt="Menu preview"
+                        className="h-64 w-full object-cover"
+                      />
+
+                      {uploadingImage ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 text-white">
+                          <ArrowPathIcon className="h-7 w-7 animate-spin" />
+                          <p className="mt-2 text-sm font-medium">Uploading image...</p>
+                        </div>
+                      ) : null}
+
+                      <div className="absolute right-3 top-3 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition hover:bg-white"
+                          aria-label="Change image"
+                          disabled={uploadingImage}
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="rounded-lg bg-white/90 p-2 text-gray-700 shadow-sm transition hover:bg-white"
+                          aria-label="Remove image"
+                          disabled={uploadingImage}
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="flex h-64 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-center transition hover:border-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <ArrowPathIcon className="mb-2 h-10 w-10 animate-spin text-gray-500" />
+                          <p className="text-sm font-medium text-gray-700">Uploading image...</p>
+                          <p className="mt-1 text-xs text-gray-500">Compressing and saving to menu bucket</p>
+                        </>
+                      ) : (
+                        <>
+                          <PhotoIcon className="mb-2 h-10 w-10 text-gray-400" />
+                          <p className="text-sm font-medium text-gray-700">Upload menu image</p>
+                          <p className="mt-1 text-xs text-gray-500">JPG, PNG, or WEBP. Auto-compressed before upload.</p>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Summary</h3>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-gray-500">Status</span>
+                      <span className="font-medium text-gray-900">
+                        {formData.available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-gray-500">Type</span>
+                      <span className="font-medium capitalize text-gray-900">{formData.type}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-gray-500">Variants</span>
+                      <span className="font-medium text-gray-900">
+                        {formData.hasVariants ? `${formData.variantGroups.length} groups` : 'No variants'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-3">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium transition hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-xl bg-blue-500 px-4 py-2 font-medium text-white transition hover:bg-blue-600"
+              disabled={uploadingImage}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {editMenu ? 'Update' : 'Add'} Menu
+              {uploadingImage ? 'Uploading Image...' : editMenu ? 'Update Menu' : 'Add Menu'}
             </button>
           </div>
         </form>
