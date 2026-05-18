@@ -151,7 +151,7 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
 
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <div className="flex gap-3">
-                  <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-700" />
+                  <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
                   <div>
                     <p className="text-sm font-semibold text-amber-900">Use adjustment only for corrections</p>
                     <p className="mt-1 text-sm text-amber-800">
@@ -210,7 +210,7 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   placeholder="Add incident details, batch number, or count notes..."
-                  className="min-h-[120px] w-full resize-none rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100"
+                  className="min-h-30 w-full resize-none rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100"
                   rows={4}
                 />
               </div>

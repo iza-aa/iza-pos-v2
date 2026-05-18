@@ -70,10 +70,10 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <DetailItem label="User" value={`${log.userName} · ${log.userRole}`} />
+            <DetailItem label="User" value={`${log.userName} · ${formatLabel(log.userRole)}`} />
             <DetailItem label="Timestamp" value={formatJakartaDateTime(parseSupabaseTimestamp(log.timestamp))} />
             <DetailItem label="Action" value={formatLabel(log.action)} />
-            <DetailItem label="Resource" value={log.resourceName ? `${log.resourceType}: ${log.resourceName}` : log.resourceType} />
+            <DetailItem label="Resource" value={log.resourceName ? `${formatLabel(log.resourceType)}: ${log.resourceName}` : formatLabel(log.resourceType)} />
             <DetailItem label="IP Address" value={log.ipAddress} />
             <DetailItem label="Device" value={log.deviceInfo} />
           </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
 import { ArchiveBoxIcon, PlusIcon, FolderIcon, ClipboardDocumentListIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { ArchiveCard } from '@/app/components/owner/archives'
-import { generateMonthlyArchive, ArchiveMetadata, loadArchivesFromDB, deleteArchiveFromDB, downloadArchiveFile } from '@/lib/services/archiveService'
+import { generateMonthlyArchive, ArchiveMetadata, loadArchivesFromDB, deleteArchiveFromDB, downloadArchiveFile } from '@/lib/services/archive/archiveService'
 import { showSuccess, showError } from '@/lib/services/errorHandling'
 
 export default function ArchivesPage() {
@@ -44,8 +44,9 @@ export default function ArchivesPage() {
       } else {
         showError(result.message)
       }
-    } catch (error: any) {
-      showError(error.message || 'Failed to generate archive')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to generate archive'
+      showError(message || 'Failed to generate archive')
     } finally {
       setLoading(false)
     }
@@ -66,8 +67,9 @@ export default function ArchivesPage() {
       } else {
         showError(result.message)
       }
-    } catch (error: any) {
-      showError(error.message || 'Failed to download archive')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to download archive'
+      showError(message || 'Failed to download archive')
     } finally {
       setLoading(false)
     }
@@ -89,8 +91,9 @@ export default function ArchivesPage() {
         } else {
           showError(result.message)
         }
-      } catch (error: any) {
-        showError(error.message || 'Failed to delete archive')
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to delete archive'
+        showError(message || 'Failed to delete archive')
       } finally {
         setLoading(false)
       }
@@ -134,8 +137,8 @@ export default function ArchivesPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <ClipboardDocumentListIcon className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center shrink-0">
+                  <ClipboardDocumentListIcon className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 font-medium uppercase tracking-wide">Activity Logs</p>
@@ -149,8 +152,8 @@ export default function ArchivesPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <CurrencyDollarIcon className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center shrink-0">
+                  <CurrencyDollarIcon className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 font-medium uppercase tracking-wide">Sales Data</p>
@@ -164,8 +167,8 @@ export default function ArchivesPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <UserGroupIcon className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center shrink-0">
+                  <UserGroupIcon className="w-6 h-6 text-gray-700" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 font-medium uppercase tracking-wide">Staff Attendance</p>

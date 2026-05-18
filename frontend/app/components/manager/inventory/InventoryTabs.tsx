@@ -79,7 +79,7 @@ export default function InventoryTabs({
         </button>
       ) : null}
 
-      <h2 className="mb-4 flex-shrink-0 text-base font-bold text-gray-900 md:text-lg">
+      <h2 className="mb-4 shrink-0 text-base font-bold text-gray-900 md:text-lg">
         Inventory
       </h2>
 

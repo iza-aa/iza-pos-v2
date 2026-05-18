@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { XMarkIcon, ArchiveBoxIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { dismissArchiveReminder, generateMonthlyArchive, deleteArchivedData, getPreviousMonthRange } from '@/lib/services/archiveService'
+import { dismissArchiveReminder, generateMonthlyArchive, deleteArchivedData, getPreviousMonthRange } from '@/lib/services/archive/archiveService'
 import { showSuccess, showError } from '@/lib/services/errorHandling'
 
 interface ArchiveBannerProps {
@@ -40,8 +40,9 @@ export default function ArchiveBanner({ onDismiss }: ArchiveBannerProps) {
       } else {
         showError(result.message)
       }
-    } catch (error: any) {
-      showError(error.message || 'Failed to generate archive')
+    } catch (error: unknown) {
+      const errorMessage = typeof error === 'object' && error !== null && 'message' in error ? (error as { message: string }).message : 'Failed to generate archive'
+      showError(errorMessage || 'Failed to generate archive')
     } finally {
       setLoading(false)
     }

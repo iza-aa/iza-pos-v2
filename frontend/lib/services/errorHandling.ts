@@ -1,5 +1,3 @@
-
-
 // ==================== Toast Types ====================
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -10,6 +8,79 @@ export interface ToastOptions {
   duration?: number // milliseconds
   position?: 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left'
   dismissible?: boolean
+}
+
+// ==================== Utility Types ====================
+
+type UnknownRecord = Record<string, unknown>
+
+interface SupabaseLikeError {
+  message?: string
+  code?: string
+  details?: string
+  hint?: string
+}
+
+interface ApiErrorData {
+  error?: string
+  message?: string
+}
+
+type ErrorLogValue =
+  | {
+      message: string
+      stack?: string
+      name: string
+    }
+  | string
+  | number
+  | boolean
+  | null
+  | UnknownRecord
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null
+}
+
+function getStringProperty(value: unknown, property: string): string | undefined {
+  if (!isRecord(value)) return undefined
+
+  const propertyValue = value[property]
+  return typeof propertyValue === 'string' ? propertyValue : undefined
+}
+
+function normalizeApiErrorData(data: unknown): ApiErrorData {
+  if (!isRecord(data)) return {}
+
+  return {
+    error: typeof data.error === 'string' ? data.error : undefined,
+    message: typeof data.message === 'string' ? data.message : undefined
+  }
+}
+
+function normalizeErrorForLog(error: unknown): ErrorLogValue {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    }
+  }
+
+  if (
+    error === null ||
+    typeof error === 'string' ||
+    typeof error === 'number' ||
+    typeof error === 'boolean'
+  ) {
+    return error
+  }
+
+  if (isRecord(error)) {
+    return error
+  }
+
+  return String(error)
 }
 
 // ==================== Toast State Management ====================
@@ -23,7 +94,7 @@ const toastListeners: ToastListener[] = []
  */
 export function subscribeToToasts(listener: ToastListener): () => void {
   toastListeners.push(listener)
-  
+
   return () => {
     const index = toastListeners.indexOf(listener)
     if (index > -1) {
@@ -110,62 +181,70 @@ export function showToast(options: ToastOptions): void {
 /**
  * Parse Supabase error and return user-friendly message
  */
-export function parseSupabaseError(error: any): string {
+export function parseSupabaseError(error: unknown): string {
   if (!error) return 'Terjadi kesalahan yang tidak diketahui'
-  
-  // Check if it's a Supabase error
-  if (error.message) {
-    const message = error.message.toLowerCase()
-    
+
+  if (typeof error === 'string') {
+    return error
+  }
+
+  const supabaseError: SupabaseLikeError = {
+    message: getStringProperty(error, 'message'),
+    code: getStringProperty(error, 'code'),
+    details: getStringProperty(error, 'details'),
+    hint: getStringProperty(error, 'hint')
+  }
+
+  if (supabaseError.message) {
+    const message = supabaseError.message.toLowerCase()
+
     // Authentication errors
     if (message.includes('invalid login') || message.includes('invalid credentials')) {
       return 'Kode login tidak valid atau sudah kadaluarsa'
     }
-    
+
     if (message.includes('expired')) {
       return 'Sesi Anda telah berakhir, silakan login kembali'
     }
-    
+
     // Permission errors
     if (message.includes('permission denied') || message.includes('not authorized')) {
       return 'Anda tidak memiliki izin untuk melakukan aksi ini'
     }
-    
+
     // Duplicate errors
     if (message.includes('duplicate') || message.includes('unique')) {
       return 'Data sudah ada, tidak dapat membuat duplikat'
     }
-    
+
     // Foreign key errors
     if (message.includes('foreign key') || message.includes('violates')) {
       return 'Tidak dapat menghapus karena data masih digunakan'
     }
-    
+
     // Connection errors
     if (message.includes('network') || message.includes('fetch')) {
       return 'Koneksi terputus, periksa internet Anda'
     }
-    
+
     // Default to original message if no match
-    return error.message
+    return supabaseError.message
   }
-  
-  // Handle string errors
-  if (typeof error === 'string') {
-    return error
-  }
-  
+
   return 'Terjadi kesalahan, silakan coba lagi'
 }
 
 /**
  * Parse API error response
  */
-export function parseApiError(response: Response, data?: any): string {
+export function parseApiError(response: Response, data?: unknown): string {
+  const apiError = normalizeApiErrorData(data)
+  const dataMessage = apiError.error || apiError.message
+
   // Check response status
   switch (response.status) {
     case 400:
-      return data?.error || 'Permintaan tidak valid'
+      return dataMessage || 'Permintaan tidak valid'
     case 401:
       return 'Anda tidak memiliki akses, silakan login kembali'
     case 403:
@@ -175,13 +254,13 @@ export function parseApiError(response: Response, data?: any): string {
     case 409:
       return 'Konflik data, kemungkinan data sudah ada'
     case 422:
-      return data?.error || 'Data tidak valid'
+      return dataMessage || 'Data tidak valid'
     case 500:
       return 'Terjadi kesalahan pada server'
     case 503:
       return 'Layanan sedang tidak tersedia'
     default:
-      return data?.error || 'Terjadi kesalahan, silakan coba lagi'
+      return dataMessage || 'Terjadi kesalahan, silakan coba lagi'
   }
 }
 
@@ -191,7 +270,7 @@ export function parseApiError(response: Response, data?: any): string {
 export function parseValidationErrors(errors: string[]): string {
   if (errors.length === 0) return ''
   if (errors.length === 1) return errors[0]
-  
+
   return 'Terdapat beberapa kesalahan:\n' + errors.map((e, i) => `${i + 1}. ${e}`).join('\n')
 }
 
@@ -207,7 +286,7 @@ export async function handleAsync<T>(
 ): Promise<T | null> {
   try {
     return await fn()
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = errorMessage || parseSupabaseError(error)
     showError(message)
     console.error('Error:', error)
@@ -226,7 +305,7 @@ export async function withLoading<T>(
   try {
     setLoading(true)
     return await fn()
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = errorMessage || parseSupabaseError(error)
     showError(message)
     console.error('Error:', error)
@@ -240,21 +319,21 @@ export async function withLoading<T>(
  * Handle Supabase query with automatic error handling
  */
 export async function handleSupabaseQuery<T>(
-  query: Promise<{ data: T | null; error: any }>,
+  query: Promise<{ data: T | null; error: unknown }>,
   errorMessage?: string
 ): Promise<T | null> {
   try {
     const { data, error } = await query
-    
+
     if (error) {
       const message = errorMessage || parseSupabaseError(error)
       showError(message)
       console.error('Supabase error:', error)
       return null
     }
-    
+
     return data
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = errorMessage || parseSupabaseError(error)
     showError(message)
     console.error('Error:', error)
@@ -272,16 +351,16 @@ export async function handleApiFetch<T>(
 ): Promise<T | null> {
   try {
     const response = await fetch(url, options)
-    const data = await response.json().catch(() => ({}))
-    
+    const data: unknown = await response.json().catch(() => ({}))
+
     if (!response.ok) {
       const message = errorMessage || parseApiError(response, data)
       showError(message)
       return null
     }
-    
+
     return data as T
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = errorMessage || 'Gagal menghubungi server'
     showError(message)
     console.error('API error:', error)
@@ -325,7 +404,7 @@ export async function confirmDiscardChanges(): Promise<boolean> {
 
 interface ErrorLog {
   timestamp: string
-  error: any
+  error: ErrorLogValue
   context?: string
   userId?: string
   userRole?: string
@@ -337,31 +416,27 @@ const errorLogs: ErrorLog[] = []
  * Log error for debugging
  * In production, this should send to error tracking service
  */
-export function logError(error: any, context?: string, userId?: string, userRole?: string): void {
+export function logError(error: unknown, context?: string, userId?: string, userRole?: string): void {
   const log: ErrorLog = {
     timestamp: new Date().toISOString(),
-    error: error instanceof Error ? {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    } : error,
+    error: normalizeErrorForLog(error),
     context,
     userId,
     userRole
   }
-  
+
   errorLogs.push(log)
-  
+
   // Keep only last 100 errors
   if (errorLogs.length > 100) {
     errorLogs.shift()
   }
-  
+
   // Log to console in development
   if (process.env.NODE_ENV === 'development') {
     console.error('Error logged:', log)
   }
-  
+
   // TODO: Send to error tracking service (Sentry, LogRocket, etc.)
 }
 
@@ -384,10 +459,16 @@ export function clearErrorLogs(): void {
 /**
  * Check if error is a network error
  */
-export function isNetworkError(error: any): boolean {
+export function isNetworkError(error: unknown): boolean {
   if (!error) return false
-  
-  const message = (error.message || error.toString()).toLowerCase()
+
+  const rawMessage = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : String(error)
+
+  const message = rawMessage.toLowerCase()
   return (
     message.includes('network') ||
     message.includes('fetch') ||
@@ -428,14 +509,14 @@ let networkListenerSetup = false
  */
 export function setupNetworkMonitoring(): void {
   if (networkListenerSetup) return
-  
+
   window.addEventListener('online', () => {
     showOnlineNotification()
   })
-  
+
   window.addEventListener('offline', () => {
     showOfflineWarning()
   })
-  
+
   networkListenerSetup = true
 }

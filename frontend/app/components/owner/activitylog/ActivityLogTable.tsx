@@ -44,11 +44,14 @@ const getSeverityConfig = (severity: string) => {
   }
 }
 
-const formatCategory = (category: string) =>
-  category
+const formatLabel = (value: string) => {
+  if (!value) return 'Unknown'
+
+  return value
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(' ')
+}
 
 function TimeCell({ timestamp }: { timestamp: string }) {
   const [timeAgo, setTimeAgo] = useState('')
@@ -108,14 +111,14 @@ export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableP
                         {severity.label}
                       </span>
                       <span className="inline-flex w-fit rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">
-                        {formatCategory(log.actionCategory)}
+                        {formatLabel(log.actionCategory)}
                       </span>
                     </div>
                   </td>
 
                   <td className="px-4 py-4 align-top">
                     <p className="line-clamp-2 text-sm font-semibold text-gray-900">{log.actionDescription}</p>
-                    <p className="mt-1 text-xs text-gray-500">{log.action}</p>
+                    <p className="mt-1 text-xs text-gray-500">{formatLabel(log.action)}</p>
                     {log.notes ? <p className="mt-2 line-clamp-1 text-xs text-gray-500">{log.notes}</p> : null}
                   </td>
 
