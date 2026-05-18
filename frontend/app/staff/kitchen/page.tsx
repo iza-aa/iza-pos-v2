@@ -11,7 +11,7 @@ interface KitchenOrder {
   id: string;
   product_name: string;
   quantity: number;
-  kitchen_status: 'pending' | 'cooking' | 'ready';
+  kitchen_status: "pending" | "cooking" | "ready";
   variants?: Record<string, string>;
   created_at: string;
   ready_at?: string;
@@ -24,37 +24,218 @@ interface KitchenOrder {
   };
 }
 
+type KitchenFilter = "all" | "pending" | "cooking";
+
+interface KitchenColumn {
+  id: Exclude<KitchenFilter, "all">;
+  title: string;
+  description: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  count: number;
+  icon: typeof ClockIcon;
+}
+
+function formatOrderTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "--:--";
+  }
+
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatWaitingTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Just now";
+  }
+
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes} min`;
+
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  if (minutes === 0) return `${hours} hr`;
+  return `${hours} hr ${minutes} min`;
+}
+
+function getTableLabel(item: KitchenOrder) {
+  return item.orders?.table_number ? `Table ${item.orders.table_number}` : "Takeaway";
+}
+
+function getVariantLabel(variants?: Record<string, string>) {
+  if (!variants || Object.keys(variants).length === 0) {
+    return "";
+  }
+
+  return Object.values(variants).filter(Boolean).join(", ");
+}
+
+function EmptyKanbanColumn({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/60 px-6 py-8 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+        <CheckCircleIcon className="h-8 w-8 text-gray-400" />
+      </div>
+      <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+      <p className="mt-2 max-w-[260px] text-sm leading-6 text-gray-500">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function KitchenOrderCard({
+  item,
+  onUpdateStatus,
+}: {
+  item: KitchenOrder;
+  onUpdateStatus: (itemId: string, newStatus: "cooking" | "ready") => Promise<void>;
+}) {
+  const isPending = item.kitchen_status === "pending";
+  const variantLabel = getVariantLabel(item.variants);
+
+  return (
+    <article className="self-start rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-gray-300 hover:shadow-md">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+
+          <h3 className="line-clamp-2 text-base font-bold leading-snug text-gray-950">
+            {item.product_name}
+          </h3>
+
+          <p className="mt-1 truncate text-sm text-gray-500">
+            {item.orders?.order_number ?? "No order number"}
+          </p>
+        </div>
+
+        <div className="flex h-11 min-w-11 items-center justify-center rounded-2xl bg-gray-100 px-3">
+          <span className="text-lg font-black text-gray-800">{item.quantity}x</span>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Location
+          </p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">
+            {getTableLabel(item)}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Time
+          </p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">
+            {formatOrderTime(item.created_at)}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Waiting
+          </p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">
+            {formatWaitingTime(item.created_at)}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Customer
+          </p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">
+            {item.orders?.customer_name ?? "-"}
+          </p>
+        </div>
+      </div>
+
+      {variantLabel && (
+        <div className="mb-4 rounded-xl border border-gray-200 bg-white px-3 py-2">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Variants
+          </p>
+          <p className="text-sm font-medium leading-5 text-gray-800">
+            {variantLabel}
+          </p>
+        </div>
+      )}
+
+      {isPending ? (
+        <button
+          onClick={() => onUpdateStatus(item.id, "cooking")}
+          className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+        >
+          Start Cooking
+        </button>
+      ) : (
+        <button
+          onClick={() => onUpdateStatus(item.id, "ready")}
+          className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-offset-2"
+          style={{ backgroundColor: COLORS.PRIMARY }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.backgroundColor = "#7AB839";
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.backgroundColor = COLORS.PRIMARY;
+          }}
+        >
+          Mark Ready
+        </button>
+      )}
+    </article>
+  );
+}
+
 export default function KitchenPage() {
   useSessionValidation();
-  
+
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'cooking'>('all');
+  const [filter, setFilter] = useState<KitchenFilter>("all");
 
   // Page protection - only for Owner, Kitchen staff
   useEffect(() => {
-    const currentUser = getCurrentUser()
-    const staffType = localStorage.getItem('staff_type');
-    
+    const currentUser = getCurrentUser();
+    const staffType = localStorage.getItem("staff_type");
+
     // Allow: Owner OR Kitchen
-    if (currentUser?.role !== 'owner' && staffType !== 'kitchen') {
-      window.location.href = '/staff/dashboard';
+    if (currentUser?.role !== "owner" && staffType !== "kitchen") {
+      window.location.href = "/staff/dashboard";
     }
   }, []);
 
   useEffect(() => {
-    fetchKitchenOrders();
+    void fetchKitchenOrders();
 
     // Real-time subscription
     const subscription = supabase
-      .channel('kitchen-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-        fetchKitchenOrders();
+      .channel("kitchen-orders")
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
+        void fetchKitchenOrders();
       })
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      void subscription.unsubscribe();
     };
   }, []);
 
@@ -63,7 +244,7 @@ export default function KitchenPage() {
     try {
       // Fetch order items yang butuh kitchen (kitchen_status = pending or cooking)
       const { data, error } = await supabase
-        .from('order_items')
+        .from("order_items")
         .select(`
           *,
           orders (
@@ -74,44 +255,84 @@ export default function KitchenPage() {
             created_at
           )
         `)
-        .in('kitchen_status', ['pending', 'cooking'])
-        .order('created_at', { ascending: true });
+        .in("kitchen_status", ["pending", "cooking"])
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
 
       setOrders(data || []);
     } catch (error) {
-      console.error('Error fetching kitchen orders:', error);
+      console.error("Error fetching kitchen orders:", error);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleUpdateStatus(itemId: string, newStatus: 'cooking' | 'ready') {
+  async function handleUpdateStatus(itemId: string, newStatus: "cooking" | "ready") {
     try {
       const { error } = await supabase
-        .from('order_items')
-        .update({ 
+        .from("order_items")
+        .update({
           kitchen_status: newStatus,
-          ready_at: newStatus === 'ready' ? new Date().toISOString() : null
+          ready_at: newStatus === "ready" ? new Date().toISOString() : null,
         })
-        .eq('id', itemId);
+        .eq("id", itemId);
 
       if (error) throw error;
 
       await fetchKitchenOrders();
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error("Error updating status:", error);
     }
   }
 
-  const filteredOrders = orders.filter(order => {
-    if (filter === 'all') return true;
+  const filteredOrders = orders.filter((order) => {
+    if (filter === "all") return true;
     return order.kitchen_status === filter;
   });
 
-  const pendingCount = orders.filter(o => o.kitchen_status === 'pending').length;
-  const cookingCount = orders.filter(o => o.kitchen_status === 'cooking').length;
+  const pendingCount = orders.filter((order) => order.kitchen_status === "pending").length;
+  const cookingCount = orders.filter((order) => order.kitchen_status === "cooking").length;
+
+  const filteredPendingOrders = filteredOrders.filter(
+    (order) => order.kitchen_status === "pending",
+  );
+
+  const filteredCookingOrders = filteredOrders.filter(
+    (order) => order.kitchen_status === "cooking",
+  );
+
+  const columns: KitchenColumn[] = [
+    {
+      id: "pending",
+      title: "Pending",
+      description: "New orders waiting to be cooked",
+      emptyTitle: "No Pending Orders",
+      emptyDescription:
+        filter === "cooking"
+          ? "Switch to All Orders or Pending to see pending items."
+          : "New kitchen orders will appear here.",
+      count: filteredPendingOrders.length,
+      icon: ClockIcon,
+    },
+    {
+      id: "cooking",
+      title: "Cooking Orders",
+      description: "Orders currently being prepared",
+      emptyTitle: "No Cooking Orders",
+      emptyDescription:
+        filter === "pending"
+          ? "Switch to All Orders or Cooking to see cooking items."
+          : "Orders in progress will appear here.",
+      count: filteredCookingOrders.length,
+      icon: FireIcon,
+    },
+  ];
+
+  function getColumnOrders(columnId: KitchenColumn["id"]) {
+    if (columnId === "pending") return filteredPendingOrders;
+    return filteredCookingOrders;
+  }
 
   if (loading) {
     return (
@@ -130,7 +351,7 @@ export default function KitchenPage() {
             <h1 className="text-2xl font-bold text-gray-800">Kitchen Orders</h1>
             <p className="text-sm text-gray-500 mt-1">Manage and track cooking orders in real-time</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg border border-gray-300">
               <ClockIcon className="w-5 h-5 text-gray-600" />
@@ -152,31 +373,31 @@ export default function KitchenPage() {
       <div className="flex-shrink-0 bg-gray-100 px-6 pt-6 pb-4">
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setFilter('all')}
+            onClick={() => setFilter("all")}
             className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-              filter === 'all'
-                ? 'bg-gray-900 text-white shadow-md'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              filter === "all"
+                ? "bg-gray-900 text-white shadow-md"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             }`}
           >
             All Orders ({orders.length})
           </button>
           <button
-            onClick={() => setFilter('pending')}
+            onClick={() => setFilter("pending")}
             className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-              filter === 'pending'
-                ? 'bg-gray-900 text-white shadow-md'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              filter === "pending"
+                ? "bg-gray-900 text-white shadow-md"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             }`}
           >
             Pending ({pendingCount})
           </button>
           <button
-            onClick={() => setFilter('cooking')}
+            onClick={() => setFilter("cooking")}
             className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-              filter === 'cooking'
-                ? 'bg-gray-900 text-white shadow-md'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              filter === "cooking"
+                ? "bg-gray-900 text-white shadow-md"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             }`}
           >
             Cooking ({cookingCount})
@@ -185,90 +406,74 @@ export default function KitchenPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto bg-gray-100 px-6 pb-6">
-        {filteredOrders.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircleIcon className="w-8 h-8 text-gray-400" />
+      <div className="flex-1 overflow-hidden bg-gray-100 px-6 pb-6">
+        {orders.length === 0 ? (
+          <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white/60">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircleIcon className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Orders</h3>
+              <p className="text-sm text-gray-500">No pending orders in kitchen</p>
             </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">No Orders</h3>
-            <p className="text-sm text-gray-500">
-              {filter === 'all' ? 'No pending orders in kitchen' : `No ${filter} orders`}
-            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredOrders.map((item) => (
-              <div 
-                key={item.id} 
-                className="bg-white rounded-xl border-2 border-gray-200 p-4 hover:border-gray-300 transition"
-              >
-                {/* Status Badge */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    item.kitchen_status === 'pending' 
-                      ? 'bg-gray-100 text-gray-700 border border-gray-300'
-                      : 'bg-gray-900 text-white'
-                  }`}>
-                    {item.kitchen_status === 'pending' ? 'Pending' : 'Cooking'}
-                  </span>
-                  
-                  <div className="text-xs text-gray-500">
-                    {new Date(item.created_at).toLocaleTimeString('id-ID', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
+          <div className="grid h-full min-h-0 grid-cols-1 gap-4 2xl:grid-cols-2">
+            {columns.map((column) => {
+              const Icon = column.icon;
+              const columnOrders = getColumnOrders(column.id);
+
+              return (
+                <section
+                  key={column.id}
+                  className="flex min-h-0 flex-col rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
+                >
+                  <div className="mb-3 flex-shrink-0 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100">
+                          <Icon className="h-5 w-5 text-gray-600" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <h2 className="text-base font-bold text-gray-950">
+                            {column.title}
+                          </h2>
+                          <p className="mt-0.5 text-sm text-gray-500">
+                            {column.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-gray-900 px-3">
+                        <span className="text-sm font-black text-white">
+                          {column.count}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Product Info */}
-                <h3 className="font-bold text-lg text-gray-900 mb-1">{item.product_name}</h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  {item.orders?.order_number} • Table {item.orders?.table_number || 'Takeaway'}
-                </p>
-
-                {/* Quantity */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                  <span className="px-3 py-1 bg-gray-100 rounded-lg text-sm font-bold text-gray-900">
-                    {item.quantity}x
-                  </span>
-                </div>
-
-                {/* Variants */}
-                {item.variants && Object.keys(item.variants).length > 0 && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-xs font-semibold text-gray-700 mb-1">Variants:</p>
-                    <p className="text-sm text-gray-900">
-                      {Object.entries(item.variants).map(([key, value]) => value).join(', ')}
-                    </p>
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    {columnOrders.length === 0 ? (
+                      <EmptyKanbanColumn
+                        title={column.emptyTitle}
+                        description={column.emptyDescription}
+                      />
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                        {columnOrders.map((item) => (
+                          <KitchenOrderCard
+                            key={item.id}
+                            item={item}
+                            onUpdateStatus={handleUpdateStatus}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  {item.kitchen_status === 'pending' && (
-                    <button
-                      onClick={() => handleUpdateStatus(item.id, 'cooking')}
-                      className="flex-1 bg-gray-900 text-white px-4 py-2.5 rounded-xl hover:bg-black transition font-medium text-sm"
-                    >
-                      Start Cooking
-                    </button>
-                  )}
-                  {item.kitchen_status === 'cooking' && (
-                    <button
-                      onClick={() => handleUpdateStatus(item.id, 'ready')}
-                      className="flex-1 px-4 py-2.5 rounded-xl transition font-medium text-sm"
-                      style={{ backgroundColor: COLORS.PRIMARY, color: 'white' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7AB839'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = COLORS.PRIMARY}
-                    >
-                      Mark Ready
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+                </section>
+              );
+            })}
           </div>
         )}
       </div>

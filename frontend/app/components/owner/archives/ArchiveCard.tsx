@@ -140,8 +140,8 @@ export default function ArchiveCard({
   ]
 
   return (
-    <article className="self-start overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="border-b border-gray-100 bg-gradient-to-br from-white to-gray-50 p-4">
+    <article className="self-start overflow-hidden rounded-2xl border border-gray-200 bg-white  transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="border-b border-gray-100 bg-linear-to-br from-white to-gray-50 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-sm">

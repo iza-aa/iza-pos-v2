@@ -3,7 +3,7 @@
 interface Category {
 	id: string;
 	label: string;
-	icon: any; // Lucide icon component
+	icon: React.ComponentType<{ className?: string }>; 
 	count: number;
 	isSpecial?: boolean;
 }
@@ -28,7 +28,7 @@ export default function MenuCategories({
 					<button
 						key={cat.id}
 						onClick={() => setActiveCategory(cat.id)}
-						className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition border ${
+						className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition border ${
 							activeCategory === cat.id
 								? "bg-gray-900 text-white border-gray-900"
 								: "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"

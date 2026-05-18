@@ -134,7 +134,7 @@ export default function ArchivesPage() {
         {/* Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
           {/* Activity Logs Card */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center shrink-0">
@@ -149,7 +149,7 @@ export default function ArchivesPage() {
           </div>
 
           {/* Sales Data Card */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center shrink-0">
@@ -164,7 +164,7 @@ export default function ArchivesPage() {
           </div>
 
           {/* Staff Attendance Card */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-all">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center shrink-0">

@@ -54,10 +54,10 @@ export default function ArchiveBanner({ onDismiss }: ArchiveBannerProps) {
   }
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-4 mb-6 shadow-sm">
+    <div className="bg-linear-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-4 mb-6 ">
       <div className="flex items-start gap-3">
         {/* Icon */}
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <ArchiveBoxIcon className="w-6 h-6 text-blue-600" />
         </div>
 
@@ -147,7 +147,7 @@ export default function ArchiveBanner({ onDismiss }: ArchiveBannerProps) {
             <button
               onClick={handleRemindLater}
               disabled={loading}
-              className="flex-shrink-0 p-1 hover:bg-white/50 rounded-lg transition disabled:opacity-50"
+              className="shrink-0 p-1 hover:bg-white/50 rounded-lg transition disabled:opacity-50"
               title="Dismiss"
             >
               <XMarkIcon className="w-5 h-5 text-gray-600" />
