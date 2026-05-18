@@ -1,7 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ActivityLog, getSeverityIcon, getSeverityColor, getCategoryColor, formatTimeAgo } from '@/lib/types'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ClockIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  ShieldCheckIcon,
+  UserCircleIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline'
+import { ActivityLog, formatTimeAgo } from '@/lib/types'
 import { parseSupabaseTimestamp, formatJakartaTime } from '@/lib/utils'
 import { POLLING_INTERVALS } from '@/lib/constants'
 
@@ -10,8 +18,40 @@ interface ActivityLogTableProps {
   onLogClick: (log: ActivityLog) => void
 }
 
-function TimeAgoCell({ timestamp }: { timestamp: string }) {
-  const [timeAgo, setTimeAgo] = useState<string>('')
+const getSeverityConfig = (severity: string) => {
+  const normalized = severity.toLowerCase()
+
+  if (normalized === 'critical' || normalized === 'error') {
+    return {
+      label: normalized === 'critical' ? 'Critical' : 'Error',
+      icon: XCircleIcon,
+      className: 'bg-red-50 text-red-700 border-red-200',
+    }
+  }
+
+  if (normalized === 'warning') {
+    return {
+      label: 'Warning',
+      icon: ExclamationTriangleIcon,
+      className: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    }
+  }
+
+  return {
+    label: 'Info',
+    icon: InformationCircleIcon,
+    className: 'bg-gray-100 text-gray-700 border-gray-200',
+  }
+}
+
+const formatCategory = (category: string) =>
+  category
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+
+function TimeCell({ timestamp }: { timestamp: string }) {
+  const [timeAgo, setTimeAgo] = useState('')
 
   useEffect(() => {
     setTimeAgo(formatTimeAgo(timestamp))
@@ -22,121 +62,106 @@ function TimeAgoCell({ timestamp }: { timestamp: string }) {
   }, [timestamp])
 
   return (
-    <td className="w-[14%] px-3 md:px-4 py-2 md:py-3 whitespace-nowrap">
-      <div className="text-[10px] md:text-xs text-gray-900">{timeAgo || 'Loading...'}</div>
-      <div className="text-[10px] md:text-xs text-gray-500">
-        {formatJakartaTime(parseSupabaseTimestamp(timestamp))}
+    <div className="min-w-0">
+      <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+        <ClockIcon className="h-4 w-4 text-gray-400" />
+        <span>{timeAgo || 'Loading...'}</span>
       </div>
-    </td>
+      <p className="mt-1 text-xs text-gray-500">{formatJakartaTime(parseSupabaseTimestamp(timestamp))}</p>
+    </div>
   )
 }
 
 export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableProps) {
+  const rows = useMemo(() => logs, [logs])
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col h-full">
-      <div className="overflow-auto flex-1">
-        <table className="w-full min-w-[900px] md:min-w-[1200px] table-fixed">
-          <thead className="bg-gray-50 sticky top-0 z-10">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <table className="w-full min-w-[1100px] table-fixed">
+          <thead className="sticky top-0 z-10 bg-gray-50">
             <tr className="border-b border-gray-200">
-              <th className="w-[12%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Severity
-              </th>
-              <th className="w-[12%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Category
-              </th>
-              <th className="w-[20%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Action
-              </th>
-              <th className="w-[12%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                User
-              </th>
-              <th className="w-[14%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Resource
-              </th>
-              <th className="w-[16%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Changes
-              </th>
-              <th className="w-[14%] px-3 md:px-4 py-2 md:py-3 text-left text-[10px] md:text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Time
-              </th>
+              <th className="w-[17%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Event</th>
+              <th className="w-[25%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Description</th>
+              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">User</th>
+              <th className="w-[18%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resource</th>
+              <th className="w-[14%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Changes</th>
+              <th className="w-[10%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Time</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {logs.map((log) => (
-              <tr 
-                key={log.id}
-                onClick={() => onLogClick(log)}
-                className="hover:bg-gray-50 cursor-pointer transition"
-              >
-                {/* Severity */}
-                <td className="w-[12%] px-3 md:px-4 py-2 md:py-3 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5 md:gap-2">
-                    <span className="text-base md:text-lg">{getSeverityIcon(log.severity)}</span>
-                    <span className={`text-[10px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 rounded ${getSeverityColor(log.severity)}`}>
-                      {log.severity.toUpperCase()}
-                    </span>
-                  </div>
-                </td>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {rows.map((log) => {
+              const severity = getSeverityConfig(log.severity)
+              const SeverityIcon = severity.icon
+              const changesSummary = log.changesSummary ?? []
 
-                {/* Category */}
-                <td className="w-[12%] px-3 md:px-4 py-2 md:py-3 whitespace-nowrap">
-                  <span className={`text-[10px] md:text-xs font-medium px-1.5 md:px-2 py-0.5 md:py-1 rounded ${getCategoryColor(log.actionCategory)}`}>
-                    {log.actionCategory}
-                  </span>
-                </td>
+              return (
+                <tr
+                  key={log.id}
+                  onClick={() => onLogClick(log)}
+                  className="cursor-pointer transition hover:bg-gray-50"
+                >
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex min-w-0 flex-col gap-2">
+                      <span className={`inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold ${severity.className}`}>
+                        <SeverityIcon className="h-4 w-4" />
+                        {severity.label}
+                      </span>
+                      <span className="inline-flex w-fit rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">
+                        {formatCategory(log.actionCategory)}
+                      </span>
+                    </div>
+                  </td>
 
-                {/* Action */}
-                <td className="w-[20%] px-3 md:px-4 py-2 md:py-3">
-                  <div className="max-w-xs">
-                    <div className="text-xs md:text-sm font-medium text-gray-900 truncate">{log.actionDescription}</div>
-                    {log.notes && (
-                      <div className="text-[10px] md:text-xs text-gray-500 truncate mt-1">💬 {log.notes}</div>
-                    )}
-                  </div>
-                </td>
+                  <td className="px-4 py-4 align-top">
+                    <p className="line-clamp-2 text-sm font-semibold text-gray-900">{log.actionDescription}</p>
+                    <p className="mt-1 text-xs text-gray-500">{log.action}</p>
+                    {log.notes ? <p className="mt-2 line-clamp-1 text-xs text-gray-500">{log.notes}</p> : null}
+                  </td>
 
-                {/* User */}
-                <td className="w-[12%] px-3 md:px-4 py-2 md:py-3 whitespace-nowrap">
-                  <div className="text-xs md:text-sm text-gray-900">{log.userName}</div>
-                  <div className="text-[10px] md:text-xs text-gray-500 capitalize">{log.userRole}</div>
-                </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <UserCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-900">{log.userName}</p>
+                        <p className="text-xs capitalize text-gray-500">{log.userRole}</p>
+                      </div>
+                    </div>
+                  </td>
 
-                {/* Resource */}
-                <td className="w-[14%] px-3 md:px-4 py-2 md:py-3">
-                  <div className="max-w-xs">
+                  <td className="px-4 py-4 align-top">
                     {log.resourceName ? (
-                      <>
-                        <div className="text-xs md:text-sm text-gray-900 truncate">{log.resourceName}</div>
-                        <div className="text-[10px] md:text-xs text-gray-500">{log.resourceType}</div>
-                      </>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-gray-900">{log.resourceName}</p>
+                          <p className="text-xs text-gray-500">{log.resourceType}</p>
+                        </div>
+                      </div>
                     ) : (
-                      <span className="text-[10px] md:text-xs text-gray-400">—</span>
+                      <span className="text-sm text-gray-400">—</span>
                     )}
-                  </div>
-                </td>
+                  </td>
 
-                {/* Changes */}
-                <td className="w-[16%] px-3 md:px-4 py-2 md:py-3">
-                  <div className="max-w-xs">
-                    {log.changesSummary && log.changesSummary.length > 0 ? (
-                      <>
-                        <div className="text-[10px] md:text-xs text-gray-700">{log.changesSummary[0]}</div>
-                        {log.changesSummary.length > 1 && (
-                          <div className="text-[10px] md:text-xs text-blue-600 font-medium mt-1">
-                            +{log.changesSummary.length - 1} more
-                          </div>
-                        )}
-                      </>
+                  <td className="px-4 py-4 align-top">
+                    {changesSummary.length > 0 ? (
+                      <div className="min-w-0">
+                        <p className="line-clamp-1 text-sm text-gray-700">{changesSummary[0]}</p>
+                        {changesSummary.length > 1 ? (
+                          <p className="mt-1 text-xs font-medium text-gray-500">+{changesSummary.length - 1} more</p>
+                        ) : null}
+                      </div>
                     ) : (
-                      <span className="text-[10px] md:text-xs text-gray-400">—</span>
+                      <span className="text-sm text-gray-400">—</span>
                     )}
-                  </div>
-                </td>
+                  </td>
 
-                {/* Time */}
-                <TimeAgoCell timestamp={log.timestamp} />
-              </tr>
-            ))}
+                  <td className="px-4 py-4 align-top">
+                    <TimeCell timestamp={log.timestamp} />
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

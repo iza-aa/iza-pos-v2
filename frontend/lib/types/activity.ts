@@ -1,10 +1,10 @@
 // Activity Log System - Type Definitions
 
-export type ActivityAction = 
-  | 'CREATE' 
-  | 'UPDATE' 
-  | 'DELETE' 
-  | 'LOGIN' 
+export type ActivityAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
   | 'LOGOUT'
   | 'VOID'
   | 'REFUND'
@@ -14,63 +14,56 @@ export type ActivityAction =
   | 'ARCHIVE_GENERATED'
   | 'ARCHIVE_DELETED'
 
-export type ActivityCategory = 
-  | 'AUTH'           // Authentication & Authorization
-  | 'SALES'          // Sales transactions
-  | 'INVENTORY'      // Inventory management
-  | 'MENU'           // Menu management
-  | 'STAFF'          // Staff management
-  | 'FINANCIAL'      // Financial operations
-  | 'SYSTEM'         // System operations
-  | 'REPORT'         // Reports & exports
+export type ActivityCategory =
+  | 'AUTH'
+  | 'SALES'
+  | 'INVENTORY'
+  | 'MENU'
+  | 'STAFF'
+  | 'FINANCIAL'
+  | 'SYSTEM'
+  | 'REPORT'
 
 export type UserRole = 'owner' | 'manager' | 'staff' | 'cashier'
 
 export type SeverityLevel = 'info' | 'warning' | 'critical'
 
+export type ActivityValue = Record<string, unknown>
+
 export interface ActivityLog {
-  // Identifiers
   id: string
   timestamp: string
-  
-  // Actor (Who)
+
   userId: string
   userName: string
   userRole: UserRole
   userEmail?: string
-  
-  // Action (What)
+
   action: ActivityAction
   actionCategory: ActivityCategory
   actionDescription: string
-  
-  // Target (Where/What Resource)
-  resourceType: string              // 'order' | 'product' | 'inventory' | 'user' | 'menu' | 'shift'
+
+  resourceType: string
   resourceId: string | null
   resourceName: string | null
-  
-  // Changes (Before/After)
-  previousValue?: Record<string, any>
-  newValue?: Record<string, any>
-  changesSummary?: string[]         // ["price: 10000 → 12000", "stock: 50 → 45"]
-  
-  // Context
+
+  previousValue?: ActivityValue
+  newValue?: ActivityValue
+  changesSummary?: string[]
+
   ipAddress: string
   deviceInfo: string
   sessionId: string
   location?: string
-  
-  // Metadata
+
   severity: SeverityLevel
   tags: string[]
   notes?: string
-  
-  // Audit Trail
+
   isReversible: boolean
   relatedLogIds?: string[]
 }
 
-// Filter options for activity log
 export interface ActivityLogFilters {
   userId?: string
   userRole?: UserRole
@@ -83,7 +76,6 @@ export interface ActivityLogFilters {
   searchQuery?: string
 }
 
-// Stats for activity log page
 export interface ActivityLogStats {
   totalLogs: number
   todayLogs: number
@@ -99,7 +91,6 @@ export interface ActivityLogStats {
   }
 }
 
-// Helper function to get severity color
 export function getSeverityColor(severity: SeverityLevel): string {
   switch (severity) {
     case 'critical':
@@ -113,21 +104,19 @@ export function getSeverityColor(severity: SeverityLevel): string {
   }
 }
 
-// Helper function to get severity icon
 export function getSeverityIcon(severity: SeverityLevel): string {
   switch (severity) {
     case 'critical':
-      return '🔴'
+      return 'Critical'
     case 'warning':
-      return '🟡'
+      return 'Warning'
     case 'info':
-      return '🟢'
+      return 'Info'
     default:
-      return '⚪'
+      return 'Info'
   }
 }
 
-// Helper function to get category color
 export function getCategoryColor(category: ActivityCategory): string {
   switch (category) {
     case 'AUTH':
@@ -151,7 +140,6 @@ export function getCategoryColor(category: ActivityCategory): string {
   }
 }
 
-// Helper function to format time ago
 export function formatTimeAgo(timestamp: string): string {
   const now = new Date()
   const past = new Date(timestamp)
@@ -164,10 +152,10 @@ export function formatTimeAgo(timestamp: string): string {
   if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
-  
-  return past.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    year: past.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+
+  return past.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: past.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
   })
 }

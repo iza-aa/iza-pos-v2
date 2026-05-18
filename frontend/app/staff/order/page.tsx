@@ -55,6 +55,28 @@ type OrderFilter =
   | "pos"
   | "qr";
 
+type KanbanFilter = "all" | KanbanColumnKey;
+
+const kanbanFilterOptions: { key: KanbanFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "new", label: "New Order" },
+  { key: "preparing", label: "On Process" },
+  { key: "partially-served", label: "Partially Served" },
+  { key: "completed", label: "Completed" },
+];
+
+const tableFilterOptions: { key: OrderFilter; label: string }[] = [
+  { key: "all", label: "All Items" },
+  { key: "dine-in", label: "Dine In" },
+  { key: "takeaway", label: "Takeaway" },
+  { key: "new", label: "New Order" },
+  { key: "preparing", label: "On Process" },
+  { key: "partially-served", label: "Partially Served" },
+  { key: "completed", label: "Completed" },
+  { key: "pos", label: "POS Only" },
+  { key: "qr", label: "QR Only" },
+];
+
 const kanbanColumns: {
   key: KanbanColumnKey;
   title: string;
@@ -86,7 +108,7 @@ const isValidStaffId = (id: unknown): id is string => {
   return typeof id === "string" && id.length > 0;
 };
 
-export default function ManagerOrderPage() {
+export default function StaffOrderPage() {
   useSessionValidation();
 
   const [orderList, setOrderList] = useState<Order[]>([]);
@@ -101,6 +123,7 @@ export default function ManagerOrderPage() {
     end: "",
   });
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
+  const [kanbanFilter, setKanbanFilter] = useState<KanbanFilter>("all");
 
   useEffect(() => {
     fetchOrders();
@@ -643,7 +666,12 @@ export default function ManagerOrderPage() {
   const isTableListView = viewMode === "table";
   const isTableOrderMapView = !isKanbanView && !isTableListView;
   const shouldShowOrderFilter = isTableListView;
+  const shouldShowKanbanFilter = isKanbanView;
   const shouldApplyOrderFilter = isTableListView;
+  const visibleKanbanColumns =
+    kanbanFilter === "all"
+      ? kanbanColumns
+      : kanbanColumns.filter((column) => column.key === kanbanFilter);
 
   const filteredOrders = orderList.filter((order) => {
     const matchesSearch =
@@ -737,137 +765,76 @@ export default function ManagerOrderPage() {
         </OrderHeader>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-gray-100">
-        {shouldShowOrderFilter && (
-          <div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6 pb-4">
+      <div className="flex-1 min-h-0 overflow-hidden bg-gray-100 flex flex-col">
+        {shouldShowKanbanFilter && (
+          <div className="shrink-0 bg-gray-100 px-6 pt-6 pb-4">
             <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setOrderFilter("all")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "all"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              All Items
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("dine-in")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "dine-in"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Dine In
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("takeaway")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "takeaway"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Takeaway
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("new")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "new"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              New Order
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("preparing")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "preparing"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              On Process
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("partially-served")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "partially-served"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Partially Served
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("completed")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "completed"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Completed
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("pos")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "pos"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              POS Only
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("qr")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "qr"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              QR Only
-            </button>
+              {kanbanFilterOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setKanbanFilter(option.key)}
+                  className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+                    kanbanFilter === option.key
+                      ? "bg-gray-900 text-white shadow-md"
+                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        <div className="px-6 pb-6">
+        {shouldShowOrderFilter && (
+          <div className="shrink-0 bg-gray-100 px-6 pt-6 pb-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              {tableFilterOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setOrderFilter(option.key)}
+                  className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
+                    orderFilter === option.key
+                      ? "bg-gray-900 text-white shadow-md"
+                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
             </div>
           ) : viewMode === "card" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-              {kanbanColumns.map((column) => {
+            <div
+              className={
+                kanbanFilter === "all"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2"
+                  : "h-full min-h-0 mt-2"
+              }
+            >
+              {visibleKanbanColumns.map((column) => {
                 const columnOrders = getOrdersByKanbanColumn(column.key);
+                const isSingleFilteredColumn = kanbanFilter !== "all";
 
                 return (
                   <section
                     key={column.key}
-                    className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden"
+                    className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${
+                      isSingleFilteredColumn
+                        ? "h-full min-h-0 flex flex-col"
+                        : ""
+                    }`}
                   >
-                    <div className="bg-white border-b border-gray-200 px-4 py-3">
+                    <div className="bg-white border-b border-gray-200 px-4 py-3 shrink-0">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-semibold text-gray-900">
@@ -885,38 +852,94 @@ export default function ManagerOrderPage() {
                       </div>
                     </div>
 
-                     <div className="p-3 space-y-3 min-h-130">
+                    <div
+                      className={
+                        isSingleFilteredColumn
+                          ? columnOrders.length > 0
+                            ? "flex-1 min-h-0 p-4 overflow-y-auto"
+                            : "flex-1 min-h-0 p-4"
+                          : "p-3 space-y-3 min-h-130"
+                      }
+                    >
                       {columnOrders.length > 0 ? (
-                        columnOrders.map((order) => (
-                          <OrderCard
-                            key={order.id}
-                            order={order}
-                            showDeleteButton={true}
-                            onDelete={handleDeleteOrder}
-                            enableFlipCard={canShowServeOrderButton(order)}
-                            showServeOrderAction={canShowServeOrderButton(order)}
-                            serveOrderLabel="Serve Order"
-                            disabledServeOrderLabel="Waiting for Kitchen"
-                            onMarkServed={handleMarkServed}
-                            customActions={
-                              order.status === "new" ? (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleProcessOrder(order.id);
-                                  }}
-                                  className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
-                                >
-                                  Process
-                                </button>
-                              ) : null
-                            }
-                          />
-                        ))
+                        isSingleFilteredColumn ? (
+                          <div className="columns-1 md:columns-2 xl:columns-4 gap-4 [column-fill:_balance]">
+                            {columnOrders.map((order) => (
+                              <div
+                                key={order.id}
+                                className="mb-4 break-inside-avoid"
+                              >
+                                <OrderCard
+                                  order={order}
+                                  showDeleteButton={true}
+                                  onDelete={handleDeleteOrder}
+                                  enableFlipCard={canShowServeOrderButton(
+                                    order,
+                                  )}
+                                  showServeOrderAction={canShowServeOrderButton(
+                                    order,
+                                  )}
+                                  serveOrderLabel="Serve Order"
+                                  disabledServeOrderLabel="Waiting for Kitchen"
+                                  onMarkServed={handleMarkServed}
+                                  customActions={
+                                    order.status === "new" ? (
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          handleProcessOrder(order.id);
+                                        }}
+                                        className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
+                                      >
+                                        Process
+                                      </button>
+                                    ) : null
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          columnOrders.map((order) => (
+                            <OrderCard
+                              key={order.id}
+                              order={order}
+                              showDeleteButton={true}
+                              onDelete={handleDeleteOrder}
+                              enableFlipCard={canShowServeOrderButton(order)}
+                              showServeOrderAction={canShowServeOrderButton(
+                                order,
+                              )}
+                              serveOrderLabel="Serve Order"
+                              disabledServeOrderLabel="Waiting for Kitchen"
+                              onMarkServed={handleMarkServed}
+                              customActions={
+                                order.status === "new" ? (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleProcessOrder(order.id);
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
+                                  >
+                                    Process
+                                  </button>
+                                ) : null
+                              }
+                            />
+                          ))
+                        )
                       ) : (
-                        <div className="h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4">
-                          Tidak ada pesanan pada status ini
+                        <div
+                          className={
+                            isSingleFilteredColumn
+                              ? "h-full min-h-[520px] rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
+                              : "h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
+                          }
+                        >
+                          No orders in this status
                         </div>
                       )}
                     </div>

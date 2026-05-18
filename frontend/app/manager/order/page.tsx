@@ -86,6 +86,46 @@ const isValidStaffId = (id: unknown): id is string => {
   return typeof id === "string" && id.length > 0;
 };
 
+const statusFilterOptions: { key: "all" | KanbanColumnKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "new", label: "New Order" },
+  { key: "preparing", label: "On Process" },
+  { key: "partially-served", label: "Partially Served" },
+  { key: "completed", label: "Completed" },
+];
+
+const tableFilterOptions: { key: OrderFilter; label: string }[] = [
+  { key: "all", label: "All Items" },
+  { key: "dine-in", label: "Dine In" },
+  { key: "takeaway", label: "Takeaway" },
+  { key: "new", label: "New Order" },
+  { key: "preparing", label: "On Process" },
+  { key: "partially-served", label: "Partially Served" },
+  { key: "completed", label: "Completed" },
+  { key: "pos", label: "POS Only" },
+  { key: "qr", label: "QR Only" },
+];
+
+const isStatusFilter = (
+  filter: OrderFilter,
+): filter is "all" | KanbanColumnKey => {
+  return (
+    filter === "all" ||
+    filter === "new" ||
+    filter === "preparing" ||
+    filter === "partially-served" ||
+    filter === "completed"
+  );
+};
+
+const getFilterButtonClassName = (isActive: boolean) => {
+  return `px-4 py-2 rounded-lg text-sm font-medium transition border ${
+    isActive
+      ? "bg-gray-900 text-white border-gray-900"
+      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+  }`;
+};
+
 export default function ManagerOrderPage() {
   useSessionValidation();
 
@@ -130,6 +170,12 @@ export default function ManagerOrderPage() {
       clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    if (viewMode === "card" && !isStatusFilter(orderFilter)) {
+      setOrderFilter("all");
+    }
+  }, [orderFilter, viewMode]);
 
   async function fetchOrders() {
     setLoading(true);
@@ -396,7 +442,6 @@ export default function ManagerOrderPage() {
     }
   }
 
-
   const canShowServeOrderButton = (order: Order) => {
     const hasUnservedItems = order.items.some((item) => !item.served);
 
@@ -405,7 +450,6 @@ export default function ManagerOrderPage() {
       (order.status === "preparing" || order.status === "partially-served")
     );
   };
-
 
   async function handleMarkServed(orderId: string, itemIds: string[]) {
     try {
@@ -630,9 +674,13 @@ export default function ManagerOrderPage() {
   const weekAgo = getWeeksAgo(1);
   const monthAgo = getMonthsAgo(1);
 
+  const isCardView = viewMode === "card";
   const isTableListView = viewMode === "table";
-  const shouldShowOrderFilter = isTableListView;
-  const shouldApplyOrderFilter = isTableListView;
+  const shouldShowOrderFilter = isCardView || isTableListView;
+  const shouldApplyOrderFilter = isCardView || isTableListView;
+  const activeFilterOptions = isCardView
+    ? statusFilterOptions
+    : tableFilterOptions;
 
   const filteredOrders = orderList.filter((order) => {
     const matchesSearch =
@@ -697,6 +745,20 @@ export default function ManagerOrderPage() {
     return filteredOrders.filter((order) => order.status === columnKey);
   };
 
+  const visibleKanbanColumns =
+    isCardView && isStatusFilter(orderFilter) && orderFilter !== "all"
+      ? kanbanColumns.filter((column) => column.key === orderFilter)
+      : kanbanColumns;
+
+  const kanbanGridClassName =
+    visibleKanbanColumns.length === 1
+      ? "grid grid-cols-1 gap-4 mt-6 min-h-[calc(100vh-190px)]"
+      : visibleKanbanColumns.length === 2
+        ? "grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"
+        : visibleKanbanColumns.length === 3
+          ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6"
+          : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6";
+
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
       <div className="shrink-0">
@@ -728,115 +790,20 @@ export default function ManagerOrderPage() {
 
       <div className="flex-1 overflow-y-auto bg-gray-100">
         {shouldShowOrderFilter && (
-          <div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6 pb-4">
+          <div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6">
             <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setOrderFilter("all")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "all"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              All Items
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("dine-in")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "dine-in"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Dine In
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("takeaway")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "takeaway"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Takeaway
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("new")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "new"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              New Order
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("preparing")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "preparing"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              On Process
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("partially-served")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "partially-served"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Partially Served
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("completed")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "completed"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Completed
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("pos")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "pos"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              POS Only
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOrderFilter("qr")}
-              className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                orderFilter === "qr"
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              QR Only
-            </button>
+              {activeFilterOptions.map((filterOption) => (
+                <button
+                  key={filterOption.key}
+                  type="button"
+                  onClick={() => setOrderFilter(filterOption.key)}
+                  className={getFilterButtonClassName(
+                    orderFilter === filterOption.key,
+                  )}
+                >
+                  {filterOption.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -847,16 +814,20 @@ export default function ManagerOrderPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
             </div>
           ) : viewMode === "card" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-              {kanbanColumns.map((column) => {
+            <div className={kanbanGridClassName}>
+              {visibleKanbanColumns.map((column) => {
                 const columnOrders = getOrdersByKanbanColumn(column.key);
 
                 return (
                   <section
                     key={column.key}
-                    className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden"
+                    className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${
+                      visibleKanbanColumns.length === 1
+                        ? "flex min-h-[calc(100vh-190px)] flex-col"
+                        : ""
+                    }`}
                   >
-                    <div className="bg-white border-b border-gray-200 px-4 py-3">
+                    <div className="shrink-0 bg-white border-b border-gray-200 px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-semibold text-gray-900">
@@ -874,38 +845,62 @@ export default function ManagerOrderPage() {
                       </div>
                     </div>
 
-                     <div className="p-3 space-y-3 min-h-130">
+                    <div
+                      className={
+                        visibleKanbanColumns.length === 1 && columnOrders.length > 0
+                          ? "flex-1 p-3 columns-1 md:columns-2 xl:columns-4 gap-3"
+                          : visibleKanbanColumns.length === 1
+                            ? "flex-1 p-3"
+                            : "p-3 space-y-3 min-h-130"
+                      }
+                    >
                       {columnOrders.length > 0 ? (
                         columnOrders.map((order) => (
-                          <OrderCard
+                          <div
                             key={order.id}
-                            order={order}
-                            showDeleteButton={true}
-                            onDelete={handleDeleteOrder}
-                            enableFlipCard={canShowServeOrderButton(order)}
-                            showServeOrderAction={canShowServeOrderButton(order)}
-                            serveOrderLabel="Serve Order"
-                            disabledServeOrderLabel="Waiting for Kitchen"
-                            onMarkServed={handleMarkServed}
-                            customActions={
-                              order.status === "new" ? (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleProcessOrder(order.id);
-                                  }}
-                                  className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
-                                >
-                                  Process
-                                </button>
-                              ) : null
+                            className={
+                              visibleKanbanColumns.length === 1
+                                ? "mb-3 break-inside-avoid"
+                                : undefined
                             }
-                          />
+                          >
+                            <OrderCard
+                              order={order}
+                              showDeleteButton={true}
+                              onDelete={handleDeleteOrder}
+                              enableFlipCard={canShowServeOrderButton(order)}
+                              showServeOrderAction={canShowServeOrderButton(
+                                order,
+                              )}
+                              serveOrderLabel="Serve Order"
+                              disabledServeOrderLabel="Waiting for Kitchen"
+                              onMarkServed={handleMarkServed}
+                              customActions={
+                                order.status === "new" ? (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleProcessOrder(order.id);
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
+                                  >
+                                    Process
+                                  </button>
+                                ) : null
+                              }
+                            />
+                          </div>
                         ))
                       ) : (
-                        <div className="h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4">
-                          Tidak ada pesanan pada status ini
+                        <div
+                          className={
+                            visibleKanbanColumns.length === 1
+                              ? "flex h-full min-h-[520px] w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center text-sm text-gray-400"
+                              : "h-32 w-full rounded-xl border border-dashed border-gray-300 bg-white flex items-center justify-center text-sm text-gray-400 text-center px-4"
+                          }
+                        >
+                          No orders in this status
                         </div>
                       )}
                     </div>

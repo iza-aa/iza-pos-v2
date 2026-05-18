@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { logActivity } from "@/lib/services/activityLogger";
+import { logActivity } from "@/lib/services/activity/activityLogger";
 
 const slides = [
   {

@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { PlusIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+} from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/config/supabaseClient'
-import { showSuccess, showError } from '@/lib/services/errorHandling'
+import { showError, showSuccess } from '@/lib/services/errorHandling'
 import { logActivity } from '@/lib/services/activity/activityLogger'
 import RecipeModal from './RecipeModal'
 
@@ -26,13 +31,82 @@ interface Recipe {
 interface Product {
   id: string
   name: string
-  category_id: string
+  category_id: string | null
+  type: string | null
 }
 
-interface InventoryItem {
+interface ProductRecipeState {
+  product: Product
+  baseRecipe: Recipe | undefined
+  hasRecipe: boolean
+}
+
+interface RecipeFormPayload {
+  product_id: string
+  ingredients: RecipeIngredient[]
+}
+
+interface RecipeUpdatePayload extends RecipeFormPayload {
+  id: string
+}
+
+interface RecipeDbRow {
+  id: string
+  product_id: string
+  product_name?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  recipe_type?: string | null
+}
+
+interface RecipeIngredientDbRow {
+  recipe_id: string
+  inventory_item_id: string
+  ingredient_name?: string | null
+  quantity_needed: number
+  unit: string
+}
+
+interface InventoryLookupRow {
   id: string
   name: string
 }
+
+const formatDate = (value?: string) => {
+  if (!value) return 'Unknown'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown'
+
+  return date.toLocaleDateString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+  }
+  return fallback
+}
+
+const buildRecipeActivityValue = (recipe: {
+  productName?: string
+  ingredients: RecipeIngredient[]
+}): Record<string, unknown> => ({
+  productName: recipe.productName ?? 'Product',
+  ingredientsCount: recipe.ingredients.length,
+  ingredients: recipe.ingredients.map((ingredient) => ({
+    inventoryItemId: ingredient.inventory_item_id,
+    name: ingredient.ingredient_name,
+    quantity: ingredient.quantity_needed,
+    unit: ingredient.unit,
+  })),
+})
 
 export default function RecipeDishesTab() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -42,410 +116,390 @@ export default function RecipeDishesTab() {
   const [loading, setLoading] = useState(true)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState<{ id: string, name: string } | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
-    fetchData()
+    void fetchData()
   }, [])
 
   async function fetchData() {
     setLoading(true)
+
     try {
-      // Fetch products
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, name, category_id')
+        .select('id, name, category_id, type')
         .order('name')
 
-      if (productsError) {
-        console.error('Products error:', productsError)
-        throw productsError
-      }
+      if (productsError) throw productsError
 
-      console.log('Products fetched:', productsData)
-      setProducts(productsData || [])
+      const normalizedProducts = (productsData ?? []) as Product[]
+      setProducts(normalizedProducts)
 
-      // Fetch recipes with ingredients - simplified query
       const { data: recipesData, error: recipesError } = await supabase
         .from('recipes')
-        .select('*')
+        .select('id, product_id, product_name, recipe_type, created_at, updated_at')
+        .eq('recipe_type', 'base')
 
-      if (recipesError) {
-        console.error('Recipes error:', recipesError)
-        throw recipesError
-      }
+      if (recipesError) throw recipesError
 
-      console.log('Recipes fetched:', recipesData)
-
-      // Fetch all recipe ingredients
       const { data: ingredientsData, error: ingredientsError } = await supabase
         .from('recipe_ingredients')
-        .select('*')
+        .select('recipe_id, inventory_item_id, ingredient_name, quantity_needed, unit')
 
-      if (ingredientsError) {
-        console.error('Recipe ingredients error:', ingredientsError)
-        throw ingredientsError
-      }
+      if (ingredientsError) throw ingredientsError
 
-      console.log('Recipe ingredients fetched:', ingredientsData)
-
-      // Fetch inventory items for ingredient names
       const { data: inventoryData, error: inventoryError } = await supabase
         .from('inventory_items')
         .select('id, name')
 
-      if (inventoryError) {
-        console.error('Inventory error:', inventoryError)
-        throw inventoryError
-      }
+      if (inventoryError) throw inventoryError
 
-      console.log('Inventory items fetched:', inventoryData)
+      const recipeRows = (recipesData ?? []) as RecipeDbRow[]
+      const ingredientRows = (ingredientsData ?? []) as RecipeIngredientDbRow[]
+      const inventoryRows = (inventoryData ?? []) as InventoryLookupRow[]
 
-      // Transform data manually
-      const transformedRecipes: Recipe[] = (recipesData || []).map(recipe => {
-        const recipeIngredients = (ingredientsData || [])
-          .filter((ing) => ing.recipe_id === recipe.id)
-          .map((ing) => {
-            const inventoryItem = (inventoryData || []).find((inv) => inv.id === ing.inventory_item_id)
+      const transformedRecipes: Recipe[] = recipeRows.map((recipe) => {
+        const recipeIngredients = ingredientRows
+          .filter((ingredient) => ingredient.recipe_id === recipe.id)
+          .map((ingredient) => {
+            const inventoryItem = inventoryRows.find(
+              (item) => item.id === ingredient.inventory_item_id,
+            )
+
             return {
-              inventory_item_id: ing.inventory_item_id,
-              ingredient_name: inventoryItem?.name || ing.ingredient_name || 'Unknown',
-              quantity_needed: ing.quantity_needed,
-              unit: ing.unit
+              inventory_item_id: ingredient.inventory_item_id,
+              ingredient_name: inventoryItem?.name || ingredient.ingredient_name || 'Unknown item',
+              quantity_needed: Number(ingredient.quantity_needed) || 0,
+              unit: ingredient.unit,
             }
           })
 
-        const product = productsData?.find(p => p.id === recipe.product_id)
+        const product = normalizedProducts.find((item) => item.id === recipe.product_id)
 
         return {
           id: recipe.id,
           product_id: recipe.product_id,
-          product_name: product?.name || 'Unknown',
+          product_name: product?.name || recipe.product_name || 'Unknown product',
           ingredients: recipeIngredients,
-          createdAt: recipe.created_at,
-          updatedAt: recipe.updated_at
+          createdAt: recipe.created_at ?? '',
+          updatedAt: recipe.updated_at ?? recipe.created_at ?? '',
         }
       })
 
-      console.log('Transformed recipes:', transformedRecipes)
       setRecipes(transformedRecipes)
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error('Failed to load base recipes:', error)
+      showError(getErrorMessage(error, 'Failed to load base recipes.'))
     } finally {
       setLoading(false)
     }
   }
 
-  // Group products with their recipes
-  const productRecipes = products.map(product => {
-    const recipe = recipes.find(r => r.product_id === product.id)
-    
-    return {
-      product,
-      baseRecipe: recipe,
-      hasRecipe: !!recipe
-    }
-  })
-
-  const filteredProducts = productRecipes.filter(pr =>
-    pr.product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const productRecipes: ProductRecipeState[] = useMemo(
+    () =>
+      products.map((product) => {
+        const baseRecipe = recipes.find((recipe) => recipe.product_id === product.id)
+        return {
+          product,
+          baseRecipe,
+          hasRecipe: Boolean(baseRecipe),
+        }
+      }),
+    [products, recipes],
   )
 
-  const stats = {
-    totalProducts: products.length,
-    withRecipe: productRecipes.filter(pr => pr.hasRecipe).length,
-    withoutRecipe: productRecipes.filter(pr => !pr.hasRecipe).length,
-  }
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    if (!query) return productRecipes
+
+    return productRecipes.filter(({ product }) => product.name.toLowerCase().includes(query))
+  }, [productRecipes, searchQuery])
+
+  const stats = useMemo(
+    () => ({
+      totalProducts: products.length,
+      withRecipe: productRecipes.filter((item) => item.hasRecipe).length,
+      withoutRecipe: productRecipes.filter((item) => !item.hasRecipe).length,
+    }),
+    [productRecipes, products.length],
+  )
+
+  const coverage = stats.totalProducts > 0 ? Math.round((stats.withRecipe / stats.totalProducts) * 100) : 0
 
   const handleSetRecipe = (product: Product) => {
-    setSelectedProduct({
-      id: product.id,
-      name: product.name
-    })
+    setSelectedProduct({ id: product.id, name: product.name })
     setEditingRecipe(null)
     setShowRecipeModal(true)
   }
 
   const handleEditRecipe = (recipe: Recipe) => {
-    const product = products.find(p => p.id === recipe.product_id)
-    if (product) {
-      setSelectedProduct({
-        id: product.id,
-        name: product.name
-      })
-      setEditingRecipe(recipe)
-      setShowRecipeModal(true)
-    }
+    const product = products.find((item) => item.id === recipe.product_id)
+    if (!product) return
+
+    setSelectedProduct({ id: product.id, name: product.name })
+    setEditingRecipe(recipe)
+    setShowRecipeModal(true)
   }
 
-  const handleSaveRecipe = async (newRecipe: { product_id: string, ingredients: { inventory_item_id: string, quantity_needed: number, unit: string, ingredient_name: string }[] }) => {
+  const handleSaveRecipe = async (newRecipe: RecipeFormPayload) => {
     try {
-      // Create recipe
       const { data: recipeData, error: recipeError } = await supabase
         .from('recipes')
-        .insert([{
-          product_id: newRecipe.product_id,
-          product_name: selectedProduct?.name || '',
-          recipe_type: 'base'
-        }])
-        .select()
+        .insert([
+          {
+            product_id: newRecipe.product_id,
+            product_name: selectedProduct?.name || '',
+            recipe_type: 'base',
+          },
+        ])
+        .select('id')
         .single()
 
       if (recipeError) throw recipeError
+      if (!recipeData?.id) throw new Error('Recipe was created without an id.')
 
-      // Create recipe ingredients
-      const ingredients = newRecipe.ingredients.map(ing => ({
+      const ingredients = newRecipe.ingredients.map((ingredient) => ({
         recipe_id: recipeData.id,
-        inventory_item_id: ing.inventory_item_id,
-        ingredient_name: ing.ingredient_name,
-        quantity_needed: ing.quantity_needed,
-        unit: ing.unit
+        inventory_item_id: ingredient.inventory_item_id,
+        ingredient_name: ingredient.ingredient_name,
+        quantity_needed: ingredient.quantity_needed,
+        unit: ingredient.unit,
       }))
 
-      const { error: ingredientsError } = await supabase
-        .from('recipe_ingredients')
-        .insert(ingredients)
-
+      const { error: ingredientsError } = await supabase.from('recipe_ingredients').insert(ingredients)
       if (ingredientsError) throw ingredientsError
 
-      // Log recipe creation
       await logActivity({
         action: 'CREATE',
         category: 'INVENTORY',
-        description: `Created recipe for ${selectedProduct?.name || 'product'}`,
+        description: `Created base recipe for ${selectedProduct?.name || 'product'}`,
         severity: 'warning',
         resourceType: 'recipe',
         resourceId: recipeData.id,
         resourceName: selectedProduct?.name || '',
-        newValue: JSON.stringify({
-          product_name: selectedProduct?.name,
-          ingredients_count: newRecipe.ingredients.length,
-          ingredients: newRecipe.ingredients.map(ing => `${ing.ingredient_name} (${ing.quantity_needed} ${ing.unit})`)
+        newValue: buildRecipeActivityValue({
+          productName: selectedProduct?.name,
+          ingredients: newRecipe.ingredients,
         }),
         notes: `Recipe with ${newRecipe.ingredients.length} ingredients`,
-        tags: ['recipe', 'create', 'inventory']
+        tags: ['recipe', 'create', 'inventory'],
       })
 
       await fetchData()
       setShowRecipeModal(false)
       setSelectedProduct(null)
       setEditingRecipe(null)
-      showSuccess('Recipe berhasil disimpan')
+      showSuccess('Recipe saved successfully.')
     } catch (error) {
-      showError('Gagal menyimpan recipe')
+      console.error('Failed to save recipe:', error)
+      showError(getErrorMessage(error, 'Failed to save recipe.'))
     }
   }
 
-  const handleUpdateRecipe = async (updatedRecipe: { id: string, product_id: string, ingredients: { inventory_item_id: string, quantity_needed: number, unit: string, ingredient_name: string }[] }) => {
+  const handleUpdateRecipe = async (updatedRecipe: RecipeUpdatePayload) => {
     try {
-      // Update recipe timestamp
-      console.log('Updating recipe timestamp for recipe_id:', updatedRecipe.id)
       const { error: updateError } = await supabase
         .from('recipes')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', updatedRecipe.id)
 
-      if (updateError) {
-        console.error('Update timestamp error:', updateError)
-        throw updateError
-      }
-      console.log('Recipe timestamp updated')
+      if (updateError) throw updateError
 
-      // Delete old ingredients
-      console.log('Deleting old ingredients for recipe_id:', updatedRecipe.id)
       const { error: deleteError } = await supabase
         .from('recipe_ingredients')
         .delete()
         .eq('recipe_id', updatedRecipe.id)
 
-      if (deleteError) {
-        console.error('Delete error:', deleteError)
-        throw deleteError
-      }
-      console.log('Old ingredients deleted successfully')
+      if (deleteError) throw deleteError
 
-      // Insert new ingredients
-      const ingredients = updatedRecipe.ingredients.map(ing => ({
+      const ingredients = updatedRecipe.ingredients.map((ingredient) => ({
         recipe_id: updatedRecipe.id,
-        inventory_item_id: ing.inventory_item_id,
-        ingredient_name: ing.ingredient_name,
-        quantity_needed: ing.quantity_needed,
-        unit: ing.unit
+        inventory_item_id: ingredient.inventory_item_id,
+        ingredient_name: ingredient.ingredient_name,
+        quantity_needed: ingredient.quantity_needed,
+        unit: ingredient.unit,
       }))
 
-      console.log('Inserting new ingredients:', ingredients)
-      const { error: ingredientsError } = await supabase
-        .from('recipe_ingredients')
-        .insert(ingredients)
+      const { error: ingredientsError } = await supabase.from('recipe_ingredients').insert(ingredients)
+      if (ingredientsError) throw ingredientsError
 
-      if (ingredientsError) {
-        console.error('Insert error:', ingredientsError)
-        throw ingredientsError
-      }
+      const product = products.find((item) => item.id === updatedRecipe.product_id)
 
-      // Get product name for logging
-      const product = products.find(p => p.id === updatedRecipe.product_id)
-      
-      // Log recipe update
       await logActivity({
         action: 'UPDATE',
         category: 'INVENTORY',
-        description: `Updated recipe for ${product?.name || 'product'}`,
+        description: `Updated base recipe for ${product?.name || 'product'}`,
         severity: 'warning',
         resourceType: 'recipe',
         resourceId: updatedRecipe.id,
         resourceName: product?.name || '',
-        previousValue: editingRecipe ? JSON.stringify({
-          ingredients_count: editingRecipe.ingredients.length,
-          ingredients: editingRecipe.ingredients.map(ing => `${ing.ingredient_name} (${ing.quantity_needed} ${ing.unit})`)
-        }) : undefined,
-        newValue: JSON.stringify({
-          ingredients_count: updatedRecipe.ingredients.length,
-          ingredients: updatedRecipe.ingredients.map(ing => `${ing.ingredient_name} (${ing.quantity_needed} ${ing.unit})`)
+        previousValue: editingRecipe
+          ? buildRecipeActivityValue({
+              productName: product?.name,
+              ingredients: editingRecipe.ingredients,
+            })
+          : undefined,
+        newValue: buildRecipeActivityValue({
+          productName: product?.name,
+          ingredients: updatedRecipe.ingredients,
         }),
-        notes: `Recipe ingredients updated`,
-        tags: ['recipe', 'update', 'inventory']
+        notes: 'Recipe ingredients updated.',
+        tags: ['recipe', 'update', 'inventory'],
       })
 
       await fetchData()
       setShowRecipeModal(false)
       setSelectedProduct(null)
       setEditingRecipe(null)
-      showSuccess('Recipe berhasil diupdate')
+      showSuccess('Recipe updated successfully.')
     } catch (error) {
-      showError('Gagal mengupdate recipe')
+      console.error('Failed to update recipe:', error)
+      showError(getErrorMessage(error, 'Failed to update recipe.'))
     }
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Section 1: Header + Stats */}
-      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+    <div className="flex h-full flex-col">
+      <section className="shrink-0 border-b border-gray-200 bg-white p-4 md:p-6">
+        <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Dishes (Base Recipes)</h2>
-            <p className="text-xs md:text-sm text-gray-500">Manage base recipes for your menu dishes</p>
+            <h2 className="text-lg font-bold text-gray-900 md:text-xl">Dishes (Base Recipes)</h2>
+            <p className="text-xs text-gray-500 md:text-sm">
+              Manage default ingredients for each menu product before variant adjustments are applied.
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
-            {/* Toggle Stats Button */}
-            <button 
-              onClick={() => setShowStats(!showStats)}
-              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-              title={showStats ? "Hide Statistics" : "Show Statistics"}
+          <div className="flex w-full flex-wrap items-center gap-2 md:gap-4 lg:w-auto">
+            <button
+              type="button"
+              onClick={() => setShowStats((current) => !current)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition hover:bg-gray-50"
+              title={showStats ? 'Hide statistics' : 'Show statistics'}
             >
               {showStats ? (
-                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+                <EyeSlashIcon className="h-5 w-5 text-gray-600" />
               ) : (
-                <EyeIcon className="w-5 h-5 text-gray-600" />
+                <EyeIcon className="h-5 w-5 text-gray-600" />
               )}
             </button>
 
-            {/* Search */}
             <div className="relative flex-1 lg:flex-none">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 md:h-5 md:w-5" />
               <input
                 type="text"
                 placeholder="Search dishes..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 md:pl-10 lg:w-64"
               />
             </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
         {showStats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 pt-4 md:pt-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
-              <div className="text-xs md:text-sm text-gray-600 mb-1">Total Dishes</div>
-              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalProducts}</div>
+          <div className="grid grid-cols-2 gap-3 pt-4 md:gap-4 md:pt-6 lg:grid-cols-4">
+            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
+              <div className="mb-1 text-xs text-gray-600 md:text-sm">Total Dishes</div>
+              <div className="text-xl font-bold text-gray-900 md:text-2xl">{stats.totalProducts}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
-              <div className="text-xs md:text-sm text-gray-600 mb-1">With Recipe</div>
-              <div className="text-xl md:text-2xl font-bold" style={{ color: '#B2FF5E' }}>{stats.withRecipe}</div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
+              <div className="mb-1 text-xs text-gray-600 md:text-sm">With Recipe</div>
+              <div className="text-xl font-bold text-gray-900 md:text-2xl">{stats.withRecipe}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
-              <div className="text-xs md:text-sm text-gray-600 mb-1">Without Recipe</div>
-              <div className="text-xl md:text-2xl font-bold" style={{ color: '#FF6859' }}>{stats.withoutRecipe}</div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
+              <div className="mb-1 text-xs text-gray-600 md:text-sm">Without Recipe</div>
+              <div className="text-xl font-bold text-gray-900 md:text-2xl">{stats.withoutRecipe}</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
-              <div className="text-xs md:text-sm text-gray-600 mb-1">Coverage</div>
-              <div className="text-xl md:text-2xl font-bold text-gray-900">
-                {stats.totalProducts > 0 ? Math.round((stats.withRecipe / stats.totalProducts) * 100) : 0}%
-              </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
+              <div className="mb-1 text-xs text-gray-600 md:text-sm">Coverage</div>
+              <div className="text-xl font-bold text-gray-900 md:text-2xl">{coverage}%</div>
             </div>
           </div>
         )}
       </section>
 
-      {/* Section 2: Products List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 bg-gray-50">
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 md:gap-4 space-y-3 md:space-y-4">
-        {filteredProducts.map(({ product, baseRecipe, hasRecipe }) => (
-          <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col break-inside-avoid mb-3 md:mb-4">
-            {/* Product Header */}
-            <div className="p-3 md:p-4 border-b border-gray-200">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <h3 className="text-base md:text-lg font-bold text-gray-900">{product.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{product.category}</p>
-                </div>
-                <button
-                  onClick={() => hasRecipe && baseRecipe ? handleEditRecipe(baseRecipe) : handleSetRecipe(product)}
-                  className="p-1.5 rounded-lg transition hover:bg-gray-100"
-                  title={hasRecipe ? "Edit Recipe" : "Set Recipe"}
-                >
-                  <PlusIcon className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-              
-              {/* Status Badge */}
-              <div className="flex items-center gap-2">
-                <span 
-                  className="text-xs px-2 py-1 rounded-full font-semibold"
-                  style={{
-                    backgroundColor: hasRecipe ? '#B2FF5E' : '#FF6859',
-                    color: hasRecipe ? '#000000' : '#FFFFFF'
-                  }}
-                >
-                  {hasRecipe ? 'Has Recipe' : 'No Recipe'}
-                </span>
-              </div>
-            </div>
-
-            {/* Recipe Info */}
-            <div className="p-3 md:p-4 flex-1">
-              {baseRecipe ? (
-                <div className="space-y-3">
-                  <div className="text-xs font-medium text-gray-600 uppercase">Ingredients:</div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {baseRecipe.ingredients.map((ing, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 px-2 py-2 rounded">
-                        <span className="text-gray-700 truncate flex-1">{ing.ingredient_name}</span>
-                        <span className="font-medium text-gray-900 ml-2">{ing.quantity_needed} {ing.unit}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-xs text-gray-400 pt-2 border-t">
-                    Updated: {new Date(baseRecipe.updatedAt).toLocaleDateString()}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <div className="text-xs">No recipe set</div>
-                  <div className="text-xs mt-1">Click + to add</div>
-                </div>
-              )}
-            </div>
+      <section className="flex-1 overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
+        {loading ? (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">
+            Loading base recipes...
           </div>
-        ))}
-        </div>
+        ) : filteredProducts.length > 0 ? (
+          <div className="columns-1 gap-3 space-y-3 md:gap-4 md:space-y-4 sm:columns-2 lg:columns-3 xl:columns-4">
+            {filteredProducts.map(({ product, baseRecipe, hasRecipe }) => (
+              <div
+                key={product.id}
+                className="mb-3 flex break-inside-avoid flex-col overflow-hidden rounded-lg border border-gray-200 bg-white md:mb-4"
+              >
+                <div className="border-b border-gray-200 p-3 md:p-4">
+                  <div className="mb-2 flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-base font-bold text-gray-900 md:text-lg">{product.name}</h3>
+                      <p className="mt-1 text-xs capitalize text-gray-500">{product.type || 'Menu item'}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => (hasRecipe && baseRecipe ? handleEditRecipe(baseRecipe) : handleSetRecipe(product))}
+                      className="rounded-lg p-1.5 transition hover:bg-gray-100"
+                      title={hasRecipe ? 'Edit recipe' : 'Set recipe'}
+                    >
+                      <PlusIcon className="h-4 w-4 text-gray-600" />
+                    </button>
+                  </div>
+
+                  <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      hasRecipe ? 'bg-lime-200 text-gray-900' : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {hasRecipe ? 'Has Recipe' : 'No Recipe'}
+                  </span>
+                </div>
+
+                <div className="flex-1 p-3 md:p-4">
+                  {baseRecipe ? (
+                    <div className="space-y-3">
+                      <div className="text-xs font-medium uppercase text-gray-600">Ingredients</div>
+                      <div className="max-h-40 space-y-2 overflow-y-auto">
+                        {baseRecipe.ingredients.map((ingredient) => (
+                          <div
+                            key={`${baseRecipe.id}-${ingredient.inventory_item_id}`}
+                            className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-2 text-xs"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-gray-700">
+                              {ingredient.ingredient_name}
+                            </span>
+                            <span className="ml-2 font-medium text-gray-900">
+                              {ingredient.quantity_needed} {ingredient.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t pt-2 text-xs text-gray-400">
+                        Updated: {formatDate(baseRecipe.updatedAt)}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSetRecipe(product)}
+                      className="flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 py-8 text-center text-gray-400 transition hover:border-gray-400 hover:bg-gray-50"
+                    >
+                      <span className="text-xs font-medium">No recipe set</span>
+                      <span className="mt-1 text-xs">Click to add base ingredients</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+            No dishes match your search.
+          </div>
+        )}
       </section>
 
-      {/* Recipe Modal */}
       {showRecipeModal && selectedProduct && (
         <RecipeModal
           isOpen={showRecipeModal}
