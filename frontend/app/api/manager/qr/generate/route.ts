@@ -1,10 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server';
-import QRCode from 'qrcode';
-import { supabase } from '@/lib/config/supabaseClient';
+import { NextRequest, NextResponse } from "next/server";
+import QRCode from "qrcode";
+import { supabase } from "@/lib/config/supabaseClient";
 
 interface GenerateQRBody {
   table_id?: string;
   table_number?: string;
+}
+
+interface GenerateQRSuccessResponse {
+  success: true;
+  message: string;
+  data: {
+    id: string;
+    table_number: string;
+    qr_code_url: string | null;
+    qr_code_image: string | null;
+    qr_generated_at: string | null;
+  };
+}
+
+interface GenerateQRErrorResponse {
+  success: false;
+  message: string;
+}
+
+type GenerateQRResponse = GenerateQRSuccessResponse | GenerateQRErrorResponse;
+
+function createErrorResponse(message: string, status: number) {
+  const response: GenerateQRResponse = {
+    success: false,
+    message,
+  };
+
+  return NextResponse.json(response, { status });
+}
+
+function getAppUrl(): string {
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+
+  return appUrl.replace(/\/$/, "");
+}
+
+function createCustomerTableUrl(tableId: string): string {
+  return `${getAppUrl()}/customer/table/${encodeURIComponent(tableId)}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -15,79 +56,52 @@ export async function POST(request: NextRequest) {
     const tableNumber = body.table_number?.trim();
 
     if (!tableId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Table ID is required.',
-        },
-        { status: 400 }
-      );
+      return createErrorResponse("Table ID is required.", 400);
     }
 
     if (!tableNumber) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Table number is required.',
-        },
-        { status: 400 }
-      );
+      return createErrorResponse("Table number is required.", 400);
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      'http://localhost:3000';
-
-    const customerUrl = `${appUrl}/menu?table_id=${encodeURIComponent(
-      tableId
-    )}`;
+    const customerUrl = createCustomerTableUrl(tableId);
 
     const qrCodeImage = await QRCode.toDataURL(customerUrl, {
       width: 512,
       margin: 2,
-      errorCorrectionLevel: 'H',
+      errorCorrectionLevel: "H",
     });
 
     const { data, error } = await supabase
-      .from('tables')
+      .from("tables")
       .update({
         qr_code_url: customerUrl,
         qr_code_image: qrCodeImage,
         qr_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', tableId)
-      .select(
-        'id, table_number, qr_code_url, qr_code_image, qr_generated_at'
-      )
+      .eq("id", tableId)
+      .select("id, table_number, qr_code_url, qr_code_image, qr_generated_at")
       .single();
 
     if (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: error.message,
-        },
-        { status: 500 }
-      );
+      return createErrorResponse(error.message, 500);
     }
 
-    return NextResponse.json({
+    if (!data) {
+      return createErrorResponse("Failed to generate QR code.", 500);
+    }
+
+    const response: GenerateQRResponse = {
       success: true,
-      message: 'QR code generated successfully.',
+      message: "QR code generated successfully.",
       data,
-    });
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'Failed to generate QR code.';
+      error instanceof Error ? error.message : "Failed to generate QR code.";
 
-    return NextResponse.json(
-      {
-        success: false,
-        message,
-      },
-      { status: 500 }
-    );
+    return createErrorResponse(message, 500);
   }
 }

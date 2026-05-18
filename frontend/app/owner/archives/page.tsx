@@ -2,25 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
-import { ArchiveBoxIcon, PlusIcon, FolderIcon, ClipboardDocumentListIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import {
+  ArchiveBoxIcon,
+  PlusIcon,
+  FolderIcon,
+  ClipboardDocumentListIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon
+} from '@heroicons/react/24/outline'
 import { ArchiveCard } from '@/app/components/owner/archives'
-import { generateMonthlyArchive, ArchiveMetadata, loadArchivesFromDB, deleteArchiveFromDB, downloadArchiveFile } from '@/lib/services/archive/archiveService'
+import GenerateArchiveModal, {
+  GenerateArchivePayload
+} from '@/app/components/owner/archives/GenerateArchiveModal'
+import {
+  generateArchive,
+  ArchiveMetadata,
+  loadArchivesFromDB,
+  deleteArchiveFromDB,
+  downloadArchiveFile
+} from '@/lib/services/archive/archiveService'
 import { showSuccess, showError } from '@/lib/services/errorHandling'
 
 export default function ArchivesPage() {
   useSessionValidation()
-  
+
   const [archives, setArchives] = useState<ArchiveMetadata[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingArchives, setLoadingArchives] = useState(true)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
 
-  // Load archived data from database
   useEffect(() => {
-    loadArchives()
+    void loadArchives()
   }, [])
 
   const loadArchives = async () => {
     setLoadingArchives(true)
+
     try {
       const data = await loadArchivesFromDB()
       setArchives(data)
@@ -32,14 +49,32 @@ export default function ArchivesPage() {
     }
   }
 
-  const handleGenerateArchive = async () => {
+  const handleOpenGenerateModal = () => {
+    setShowGenerateModal(true)
+  }
+
+  const handleCloseGenerateModal = () => {
+    if (loading) return
+    setShowGenerateModal(false)
+  }
+
+  const handleGenerateArchive = async ({
+    startDate,
+    endDate,
+    dataTypes
+  }: GenerateArchivePayload) => {
     setLoading(true)
+
     try {
-      const result = await generateMonthlyArchive(['activity_logs', 'sales', 'staff_attendance'])
-      
+      const result = await generateArchive({
+        startDate,
+        endDate,
+        types: dataTypes
+      })
+
       if (result.success) {
         showSuccess(result.message)
-        // Reload archives from database
+        setShowGenerateModal(false)
         await loadArchives()
       } else {
         showError(result.message)
@@ -52,17 +87,26 @@ export default function ArchivesPage() {
     }
   }
 
-  const handleDownload = async (archiveId: string, fileType?: string, format: 'pdf' | 'excel' = 'pdf') => {
+  const handleDownload = async (
+    archiveId: string,
+    fileType?: string,
+    format: 'pdf' | 'excel' = 'pdf'
+  ) => {
     setLoading(true)
+
     try {
-      // Download without regenerating/saving to DB
       const result = await downloadArchiveFile(archiveId, fileType, format)
-      
+
       if (result.success) {
         const formatName = format === 'pdf' ? 'PDF' : 'Excel'
-        const fileName = fileType ? 
-          (fileType === 'activity_logs' ? 'Activity Logs' : fileType === 'sales' ? 'Sales Report' : 'Staff Attendance') :
-          'All files'
+        const fileName = fileType
+          ? fileType === 'activity_logs'
+            ? 'Activity Logs'
+            : fileType === 'sales'
+              ? 'Sales Report'
+              : 'Staff Attendance'
+          : 'All files'
+
         showSuccess(`${fileName} (${formatName}) downloaded successfully`)
       } else {
         showError(result.message)
@@ -76,27 +120,28 @@ export default function ArchivesPage() {
   }
 
   const handleDelete = async (archiveId: string) => {
-    // Show confirmation dialog
-    const confirmed = window.confirm('Are you sure you want to delete this archive? This action cannot be undone.')
-    
-    if (confirmed) {
-      setLoading(true)
-      try {
-        const result = await deleteArchiveFromDB(archiveId)
-        
-        if (result.success) {
-          showSuccess(result.message)
-          // Reload archives from database
-          await loadArchives()
-        } else {
-          showError(result.message)
-        }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to delete archive'
-        showError(message || 'Failed to delete archive')
-      } finally {
-        setLoading(false)
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this archive? This action cannot be undone.'
+    )
+
+    if (!confirmed) return
+
+    setLoading(true)
+
+    try {
+      const result = await deleteArchiveFromDB(archiveId)
+
+      if (result.success) {
+        showSuccess(result.message)
+        await loadArchives()
+      } else {
+        showError(result.message)
       }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete archive'
+      showError(message || 'Failed to delete archive')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -108,12 +153,12 @@ export default function ArchivesPage() {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Data Archives</h1>
             <p className="text-sm text-gray-600 mt-1">
-              Monthly archives for Activity Logs, Sales, and Staff Attendance
+              Range-based archives for Activity Logs, Sales, and Staff Attendance
             </p>
           </div>
 
           <button
-            onClick={handleGenerateArchive}
+            onClick={handleOpenGenerateModal}
             disabled={loading}
             className="px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -133,7 +178,6 @@ export default function ArchivesPage() {
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          {/* Activity Logs Card */}
           <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -148,7 +192,6 @@ export default function ArchivesPage() {
             </div>
           </div>
 
-          {/* Sales Data Card */}
           <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -163,7 +206,6 @@ export default function ArchivesPage() {
             </div>
           </div>
 
-          {/* Staff Attendance Card */}
           <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -194,10 +236,10 @@ export default function ArchivesPage() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Archives Yet</h3>
             <p className="text-sm text-gray-600 mb-4 max-w-md">
-              Generate your first monthly archive to create backups of your activity logs, sales data, and staff attendance.
+              Generate your first archive by selecting a date range and the data types you want to include.
             </p>
             <button
-              onClick={handleGenerateArchive}
+              onClick={handleOpenGenerateModal}
               disabled={loading}
               className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition flex items-center gap-2 font-medium disabled:opacity-50"
             >
@@ -206,7 +248,7 @@ export default function ArchivesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
             {archives.map((archive) => (
               <ArchiveCard
                 key={archive.archive_id}
@@ -214,6 +256,9 @@ export default function ArchivesPage() {
                 month={archive.period.month}
                 year={archive.period.year}
                 generatedAt={archive.generated_at}
+                periodStartDate={archive.period.start}
+                periodEndDate={archive.period.end}
+                archiveType={archive.archive_type}
                 totalRecords={archive.total_records}
                 keyMetrics={archive.key_metrics}
                 onDownload={handleDownload}
@@ -223,6 +268,13 @@ export default function ArchivesPage() {
           </div>
         )}
       </section>
+
+      <GenerateArchiveModal
+        open={showGenerateModal}
+        loading={loading}
+        onClose={handleCloseGenerateModal}
+        onGenerate={handleGenerateArchive}
+      />
     </div>
   )
 }

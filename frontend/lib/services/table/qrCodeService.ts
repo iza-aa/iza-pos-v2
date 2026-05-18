@@ -3,124 +3,109 @@
  * Handles QR code generation and management
  */
 
-import QRCode from 'qrcode';
-import { createClient } from '@/lib/supabase/client';
-import type { Table } from '@/lib/types/table';
+import QRCode from "qrcode";
+import { createClient } from "@/lib/supabase/client";
+import type { Table } from "@/lib/types/table";
+
+type BulkGenerateResult = {
+  success: number;
+  failed: number;
+  errors: string[];
+};
+
+type TableQRLookup = {
+  qr_code_image: string | null;
+};
+
+function getBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    return window.location.origin.replace(/\/$/, "");
+  }
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+
+  return appUrl.replace(/\/$/, "");
+}
+
+/**
+ * Generate customer URL for a table.
+ * Current professional QR flow:
+ * /customer/table/{tableId}
+ */
+export function generateCustomerUrl(tableId: string): string {
+  return `${getBaseUrl()}/customer/table/${encodeURIComponent(tableId)}`;
+}
 
 /**
  * Generate QR code data URL
  */
 export async function generateQRCode(data: string): Promise<string> {
   try {
-    const qrDataUrl = await QRCode.toDataURL(data, {
+    return await QRCode.toDataURL(data, {
       width: 512,
       margin: 2,
       color: {
-        dark: '#111827', // gray-900
-        light: '#FFFFFF',
+        dark: "#111827",
+        light: "#FFFFFF",
       },
-      errorCorrectionLevel: 'H', // High error correction
+      errorCorrectionLevel: "H",
     });
-    return qrDataUrl;
   } catch (error) {
-    console.error('Error generating QR code:', error);
-    throw new Error('Failed to generate QR code');
+    console.error("Error generating QR code:", error);
+    throw new Error("Failed to generate QR code");
   }
-}
-
-/**
- * Generate customer URL for a table
- */
-export function generateCustomerUrl(tableNumber: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-  return `${baseUrl}/customer?table=${tableNumber}`;
 }
 
 /**
  * Generate QR code for a table
  */
-export async function generateTableQR(tableNumber: string): Promise<string> {
-  const customerUrl = generateCustomerUrl(tableNumber);
+export async function generateTableQR(tableId: string): Promise<string> {
+  const customerUrl = generateCustomerUrl(tableId);
   return generateQRCode(customerUrl);
 }
 
 /**
- * Upload QR code to Supabase Storage
- */
-export async function uploadQRCode(
-  tableNumber: string, 
-  qrDataUrl: string
-): Promise<string> {
-  const supabase = createClient();
-  
-  // Convert data URL to blob
-  const response = await fetch(qrDataUrl);
-  const blob = await response.blob();
-  
-  // Create file name
-  const fileName = `table-${tableNumber}-${Date.now()}.png`;
-  const filePath = `qr-codes/${fileName}`;
-  
-  // Upload to storage
-  const { data, error } = await supabase.storage
-    .from('restaurant')
-    .upload(filePath, blob, {
-      contentType: 'image/png',
-      upsert: true,
-    });
-  
-  if (error) {
-    console.error('Error uploading QR code:', error);
-    throw new Error(`Failed to upload QR code: ${error.message}`);
-  }
-  
-  // Get public URL
-  const { data: publicUrlData } = supabase.storage
-    .from('restaurant')
-    .getPublicUrl(filePath);
-  
-  return publicUrlData.publicUrl;
-}
-
-/**
- * Generate and save QR code for a table
+ * Generate and save QR code for a table.
+ * qr_code_url stores the customer URL.
+ * qr_code_image stores the generated QR data image.
  */
 export async function generateAndSaveTableQR(
-  tableId: string, 
-  tableNumber: string
+  tableId: string,
+  tableNumber: string,
 ): Promise<Table> {
   const supabase = createClient();
-  
+
   try {
-    // Generate QR code
-    const qrDataUrl = await generateTableQR(tableNumber);
-    
-    // Upload to storage
-    const qrCodeUrl = await uploadQRCode(tableNumber, qrDataUrl);
-    
-    // Generate customer URL
-    const customerUrl = generateCustomerUrl(tableNumber);
-    
-    // Update table with QR code info
+    const customerUrl = generateCustomerUrl(tableId);
+    const qrCodeImage = await generateQRCode(customerUrl);
+
     const { data, error } = await supabase
-      .from('tables')
+      .from("tables")
       .update({
-        qr_code_url: qrCodeUrl,
-        qr_customer_url: customerUrl,
+        qr_code_url: customerUrl,
+        qr_code_image: qrCodeImage,
         qr_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', tableId)
+      .eq("id", tableId)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error saving QR code to table:', error);
+      console.error("Error saving QR code to table:", error);
       throw new Error(`Failed to save QR code: ${error.message}`);
     }
-    
-    return data;
+
+    if (!data) {
+      throw new Error(`Failed to save QR code for table ${tableNumber}`);
+    }
+
+    return data as Table;
   } catch (error) {
-    console.error('Error in generateAndSaveTableQR:', error);
+    console.error("Error in generateAndSaveTableQR:", error);
     throw error;
   }
 }
@@ -129,35 +114,9 @@ export async function generateAndSaveTableQR(
  * Regenerate QR code for a table
  */
 export async function regenerateTableQR(
-  tableId: string, 
-  tableNumber: string
+  tableId: string,
+  tableNumber: string,
 ): Promise<Table> {
-  const supabase = createClient();
-  
-  // Get current table data
-  const { data: table } = await supabase
-    .from('tables')
-    .select('qr_code_url')
-    .eq('id', tableId)
-    .single();
-  
-  // Delete old QR code from storage if exists
-  if (table?.qr_code_url) {
-    try {
-      const urlParts = table.qr_code_url.split('/');
-      const fileName = urlParts[urlParts.length - 1];
-      const filePath = `qr-codes/${fileName}`;
-      
-      await supabase.storage
-        .from('restaurant')
-        .remove([filePath]);
-    } catch (error) {
-      console.error('Error deleting old QR code:', error);
-      // Continue anyway
-    }
-  }
-  
-  // Generate new QR code
   return generateAndSaveTableQR(tableId, tableNumber);
 }
 
@@ -165,71 +124,51 @@ export async function regenerateTableQR(
  * Generate QR codes for multiple tables
  */
 export async function generateBulkTableQR(
-  tables: Array<{ id: string; table_number: string }>
-): Promise<{ success: number; failed: number; errors: string[] }> {
-  const results = {
+  tables: Array<{ id: string; table_number: string }>,
+): Promise<BulkGenerateResult> {
+  const results: BulkGenerateResult = {
     success: 0,
     failed: 0,
-    errors: [] as string[],
+    errors: [],
   };
-  
+
   for (const table of tables) {
     try {
       await generateAndSaveTableQR(table.id, table.table_number);
-      results.success++;
+      results.success += 1;
     } catch (error) {
-      results.failed++;
+      results.failed += 1;
       results.errors.push(
-        `Table ${table.table_number}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Table ${table.table_number}: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       );
     }
   }
-  
+
   return results;
 }
 
 /**
- * Delete QR code for a table
+ * Delete QR code for a table.
+ * Since QR images are stored as data URLs in qr_code_image,
+ * no storage file deletion is required here.
  */
 export async function deleteTableQR(tableId: string): Promise<void> {
   const supabase = createClient();
-  
-  // Get table data
-  const { data: table } = await supabase
-    .from('tables')
-    .select('qr_code_url')
-    .eq('id', tableId)
-    .single();
-  
-  if (!table?.qr_code_url) {
-    return; // No QR code to delete
-  }
-  
-  // Delete from storage
-  try {
-    const urlParts = table.qr_code_url.split('/');
-    const fileName = urlParts[urlParts.length - 1];
-    const filePath = `qr-codes/${fileName}`;
-    
-    await supabase.storage
-      .from('restaurant')
-      .remove([filePath]);
-  } catch (error) {
-    console.error('Error deleting QR code from storage:', error);
-  }
-  
-  // Clear QR code fields in table
+
   const { error } = await supabase
-    .from('tables')
+    .from("tables")
     .update({
       qr_code_url: null,
-      qr_customer_url: null,
+      qr_code_image: null,
       qr_generated_at: null,
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', tableId);
-  
+    .eq("id", tableId);
+
   if (error) {
-    console.error('Error clearing QR code fields:', error);
+    console.error("Error clearing QR code fields:", error);
     throw new Error(`Failed to clear QR code: ${error.message}`);
   }
 }
@@ -237,11 +176,10 @@ export async function deleteTableQR(tableId: string): Promise<void> {
 /**
  * Download QR code as PNG
  */
-export async function downloadQRCode(tableNumber: string): Promise<void> {
-  const qrDataUrl = await generateTableQR(tableNumber);
-  
-  // Create download link
-  const link = document.createElement('a');
+export async function downloadQRCode(tableId: string, tableNumber: string): Promise<void> {
+  const qrDataUrl = await generateTableQR(tableId);
+
+  const link = document.createElement("a");
   link.href = qrDataUrl;
   link.download = `table-${tableNumber}-qr.png`;
   document.body.appendChild(link);
@@ -252,15 +190,24 @@ export async function downloadQRCode(tableNumber: string): Promise<void> {
 /**
  * Print QR code
  */
-export async function printQRCode(tableNumber: string): Promise<void> {
-  const qrDataUrl = await generateTableQR(tableNumber);
-  
-  // Create print window
-  const printWindow = window.open('', '_blank');
+export async function printQRCode(tableId: string, tableNumber: string): Promise<void> {
+  const supabase = createClient();
+
+  const { data } = await supabase
+    .from("tables")
+    .select("qr_code_image")
+    .eq("id", tableId)
+    .maybeSingle();
+
+  const tableQrLookup = data as TableQRLookup | null;
+  const qrDataUrl = tableQrLookup?.qr_code_image || (await generateTableQR(tableId));
+
+  const printWindow = window.open("", "_blank");
+
   if (!printWindow) {
-    throw new Error('Failed to open print window. Please allow pop-ups.');
+    throw new Error("Failed to open print window. Please allow pop-ups.");
   }
-  
+
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
@@ -315,10 +262,9 @@ export async function printQRCode(tableNumber: string): Promise<void> {
       </body>
     </html>
   `);
-  
+
   printWindow.document.close();
-  
-  // Wait for image to load before printing
+
   printWindow.onload = () => {
     setTimeout(() => {
       printWindow.print();

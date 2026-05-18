@@ -10,11 +10,21 @@ export type ArchiveFormat = 'pdf' | 'excel'
 
 
 
+type ArchivePeriodType = 'monthly' | 'custom_range'
+
 type PeriodRange = {
   start: string
   end: string
   month: string
   year: string
+  archiveType?: ArchivePeriodType
+}
+
+export type ArchiveGenerationOptions = {
+  startDate?: string
+  endDate?: string
+  types?: ArchiveType[]
+  format?: ArchiveFormat
 }
 
 type CellValue = string | number
@@ -134,6 +144,9 @@ type ArchiveDbRecord = {
   generated_at: string
   period_month: string
   period_year: string
+  period_start_date?: string | null
+  period_end_date?: string | null
+  archive_type?: ArchivePeriodType | string | null
   data_types?: string[] | null
   total_records?: unknown
   key_metrics?: ArchiveMetadata['key_metrics'] | null
@@ -146,6 +159,9 @@ type ExistingArchiveRecord = {
   archive_id: string
   period_month: string
   period_year: string
+  period_start_date?: string | null
+  period_end_date?: string | null
+  archive_type?: ArchivePeriodType | string | null
   deleted_at?: string | null
 }
 
@@ -172,6 +188,13 @@ function getArchiveMonthNumber(monthName: string): number {
 }
 
 function getArchiveRecordPeriod(record: ArchiveDbRecord): Pick<PeriodRange, 'start' | 'end'> {
+  if (record.period_start_date && record.period_end_date) {
+    return {
+      start: record.period_start_date,
+      end: record.period_end_date
+    }
+  }
+
   const year = Number(record.period_year)
   const month = getArchiveMonthNumber(record.period_month)
   const safeYear = Number.isFinite(year) ? year : new Date().getFullYear()
@@ -182,6 +205,81 @@ function getArchiveRecordPeriod(record: ArchiveDbRecord): Pick<PeriodRange, 'sta
     start: `${safeYear}-${paddedMonth}-01`,
     end: `${safeYear}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`
   }
+}
+
+function normalizeDateInput(value: string): string {
+  const date = new Date(`${value}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('Invalid archive date range')
+  }
+
+  return date.toISOString().split('T')[0]
+}
+
+function getMonthNameFromDate(value: string): string {
+  return new Date(`${value}T00:00:00`).toLocaleString('en-US', { month: 'long' })
+}
+
+function getYearFromDate(value: string): string {
+  return String(new Date(`${value}T00:00:00`).getFullYear())
+}
+
+function getLastDayOfMonth(value: string): string {
+  const date = new Date(`${value}T00:00:00`)
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+
+  return lastDay.toISOString().split('T')[0]
+}
+
+function isFullMonthRange(startDate: string, endDate: string): boolean {
+  const normalizedStart = normalizeDateInput(startDate)
+  const normalizedEnd = normalizeDateInput(endDate)
+  const start = new Date(`${normalizedStart}T00:00:00`)
+
+  return normalizedStart.endsWith('-01') && normalizedEnd === getLastDayOfMonth(normalizedStart) && start.getDate() === 1
+}
+
+function createArchiveId(startDate: string, endDate: string): string {
+  if (isFullMonthRange(startDate, endDate)) {
+    return `${startDate.slice(0, 7)}`
+  }
+
+  return `archive_${startDate}_to_${endDate}`
+}
+
+function buildPeriodRange(startDate: string, endDate: string): PeriodRange {
+  const start = normalizeDateInput(startDate)
+  const end = normalizeDateInput(endDate)
+
+  if (new Date(`${start}T00:00:00`).getTime() > new Date(`${end}T00:00:00`).getTime()) {
+    throw new Error('Start date cannot be later than end date')
+  }
+
+  return {
+    start,
+    end,
+    month: getMonthNameFromDate(start),
+    year: getYearFromDate(start),
+    archiveType: isFullMonthRange(start, end) ? 'monthly' : 'custom_range'
+  }
+}
+
+function getArchivePeriodLabel(period: PeriodRange): string {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric'
+  })
+
+  const start = formatter.format(new Date(`${period.start}T00:00:00`))
+  const end = formatter.format(new Date(`${period.end}T00:00:00`))
+
+  if (period.archiveType === 'monthly') {
+    return `${period.month} ${period.year}`
+  }
+
+  return `${start} - ${end}`
 }
 
 type TotalRecords = ArchiveMetadata['total_records']
@@ -250,6 +348,7 @@ export interface ArchiveMetadata {
     month: string
     year: string
   }
+  archive_type?: ArchivePeriodType | string
   data_types: string[]
   total_records: {
     activities?: number
@@ -309,14 +408,28 @@ export function dismissArchiveReminder() {
 export function getCurrentMonthRange(): PeriodRange {
   const now = new Date()
   const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const today = now.toISOString().split('T')[0]
+
+  return buildPeriodRange(currentMonth.toISOString().split('T')[0], today)
+}
+
+export function getFullCurrentMonthRange(): PeriodRange {
+  const now = new Date()
+  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  return {
-    start: currentMonth.toISOString().split('T')[0],
-    end: lastDayOfMonth.toISOString().split('T')[0],
-    month: currentMonth.toLocaleString('en-US', { month: 'long' }),
-    year: String(currentMonth.getFullYear())
+  return buildPeriodRange(
+    currentMonth.toISOString().split('T')[0],
+    lastDayOfMonth.toISOString().split('T')[0]
+  )
+}
+
+export function getArchiveRange(startDate?: string, endDate?: string): PeriodRange {
+  if (startDate && endDate) {
+    return buildPeriodRange(startDate, endDate)
   }
+
+  return getCurrentMonthRange()
 }
 
 /**
@@ -541,11 +654,12 @@ function generateMetadata(
   records: ArchiveData
 ): ArchiveMetadata {
   const currentUser = getCurrentUser()
-  
+
   return {
-    archive_id: `${period.year}-${String(new Date(`${period.month} 1, ${period.year}`).getMonth() + 1).padStart(2, '0')}`,
+    archive_id: createArchiveId(period.start, period.end),
     generated_at: new Date().toISOString(),
     period,
+    archive_type: period.archiveType,
     data_types: dataTypes,
     total_records: {
       activities: records.activities?.length || 0,
@@ -576,7 +690,7 @@ function generateActivityLogPDF(data: ActivityLogRecord[], period: PeriodRange):
   // Period
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Period: ${period.month} ${period.year}`, 14, 28)
+  doc.text(`Period: ${getArchivePeriodLabel(period)}`, 14, 28)
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34)
   
   // Table
@@ -614,7 +728,7 @@ function generateSalesPDF(data: SalesArchiveData, period: PeriodRange): Blob {
   // Period
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Period: ${period.month} ${period.year}`, 14, 28)
+  doc.text(`Period: ${getArchivePeriodLabel(period)}`, 14, 28)
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34)
   
   // Summary
@@ -663,7 +777,7 @@ function generateAttendancePDF(data: AttendanceArchiveData, period: PeriodRange)
   // Period
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Period: ${period.month} ${period.year}`, 14, 28)
+  doc.text(`Period: ${getArchivePeriodLabel(period)}`, 14, 28)
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34)
   
   // Summary
@@ -696,7 +810,7 @@ function generateAttendancePDF(data: AttendanceArchiveData, period: PeriodRange)
 function generateActivityLogExcel(data: ActivityLogRecord[], period: PeriodRange): Blob {
   const ws_data: CellValue[][] = [
     ['Activity Logs Archive'],
-    [`Period: ${period.month} ${period.year}`],
+    [`Period: ${getArchivePeriodLabel(period)}`],
     [`Generated: ${new Date().toLocaleString()}`],
     [],
     ['Timestamp', 'User', 'Role', 'Action', 'Category', 'Description', 'Resource', 'Severity']
@@ -743,7 +857,7 @@ function generateSalesExcel(data: SalesArchiveData, period: PeriodRange): Blob {
   // Summary sheet
   const summary_data: CellValue[][] = [
     ['Sales Report Archive'],
-    [`Period: ${period.month} ${period.year}`],
+    [`Period: ${getArchivePeriodLabel(period)}`],
     [`Generated: ${new Date().toLocaleString()}`],
     [],
     ['Metric', 'Value'],
@@ -816,7 +930,7 @@ function generateSalesExcel(data: SalesArchiveData, period: PeriodRange): Blob {
 function generateAttendanceExcel(data: AttendanceArchiveData, period: PeriodRange): Blob {
   const ws_data: CellValue[][] = [
     ['Staff Attendance Archive'],
-    [`Period: ${period.month} ${period.year}`],
+    [`Period: ${getArchivePeriodLabel(period)}`],
     [`Generated: ${new Date().toLocaleString()}`],
     [],
     ['Staff Name', 'Days Present', 'Late Count', 'Early Leave', 'Total Hours']
@@ -851,92 +965,99 @@ function generateAttendanceExcel(data: AttendanceArchiveData, period: PeriodRang
 /**
  * Main Archive Function - Generate all archives for a period
  */
-export async function generateMonthlyArchive(
-  types: ArchiveType[] = ['activity_logs', 'sales', 'staff_attendance'],
-  format: ArchiveFormat = 'pdf'
-): Promise<ArchiveResult> {
+async function collectArchiveData(period: PeriodRange, types: ArchiveType[]): Promise<ArchiveData> {
+  const archiveData: ArchiveData = {}
+
+  if (types.includes('all') || types.includes('activity_logs')) {
+    try {
+      console.log('Fetching activity logs...')
+      archiveData.activities = await archiveActivityLogs(period.start, period.end)
+      console.log('Activity logs fetched:', archiveData.activities?.length || 0)
+    } catch (err) {
+      console.error('Error fetching activity logs:', err)
+      throw new Error(`Failed to fetch activity logs: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  if (types.includes('all') || types.includes('sales')) {
+    try {
+      console.log('Fetching sales data...')
+      archiveData.sales = await archiveSalesData(period.start, period.end)
+      console.log('Sales data fetched:', archiveData.sales?.orders?.length || 0)
+    } catch (err) {
+      console.error('Error fetching sales data:', err)
+      throw new Error(`Failed to fetch sales data: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  if (types.includes('all') || types.includes('staff_attendance')) {
+    try {
+      console.log('Fetching staff attendance...')
+      archiveData.attendance = await archiveStaffAttendance(period.start, period.end)
+      console.log('Attendance fetched:', archiveData.attendance?.attendance?.length || 0)
+    } catch (err) {
+      console.error('Error fetching attendance:', err)
+      throw new Error(`Failed to fetch attendance: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  return archiveData
+}
+
+function getNormalizedArchiveTypes(types: ArchiveType[]): ArchiveType[] {
+  if (types.includes('all')) {
+    return ['activity_logs', 'sales', 'staff_attendance']
+  }
+
+  return types
+}
+
+/**
+ * Main Archive Function - Generate all archives for a selected period.
+ */
+export async function generateArchive(options: ArchiveGenerationOptions = {}): Promise<ArchiveResult> {
   try {
+    const types = getNormalizedArchiveTypes(options.types ?? ['activity_logs', 'sales', 'staff_attendance'])
+    const format = options.format ?? 'pdf'
+    const period = getArchiveRange(options.startDate, options.endDate)
+
     console.log('Starting archive generation for types:', types)
-    const period = getCurrentMonthRange()
     console.log('Archive period:', period)
-    
-    // Get current user for tracking
+
     const user = await getCurrentUser()
     if (!user) {
       throw new Error('User not authenticated')
     }
-    
-    const archiveData: ArchiveData = {}
-    
-    // Fetch data based on types
-    if (types.includes('activity_logs')) {
-      try {
-        console.log('Fetching activity logs...')
-        archiveData.activities = await archiveActivityLogs(period.start, period.end)
-        console.log('Activity logs fetched:', archiveData.activities?.length || 0)
-      } catch (err) {
-        console.error('Error fetching activity logs:', err)
-        throw new Error(`Failed to fetch activity logs: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-    
-    if (types.includes('sales')) {
-      try {
-        console.log('Fetching sales data...')
-        archiveData.sales = await archiveSalesData(period.start, period.end)
-        console.log('Sales data fetched:', archiveData.sales?.orders?.length || 0)
-      } catch (err) {
-        console.error('Error fetching sales data:', err)
-        throw new Error(`Failed to fetch sales data: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-    
-    if (types.includes('staff_attendance')) {
-      try {
-        console.log('Fetching staff attendance...')
-        archiveData.attendance = await archiveStaffAttendance(period.start, period.end)
-        console.log('Attendance fetched:', archiveData.attendance?.attendance?.length || 0)
-      } catch (err) {
-        console.error('Error fetching attendance:', err)
-        throw new Error(`Failed to fetch attendance: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-    
-    // Generate metadata
+
+    const archiveData = await collectArchiveData(period, types)
+
     console.log('Generating metadata...')
     const metadata = generateMetadata(period, types, archiveData)
-    
-    // Check if archive for this period already exists (using archive_id)
+
     console.log('Checking for existing archive with ID:', metadata.archive_id)
-    
     const { data: existingArchives, error: checkError } = await supabase
       .from('archives')
-      .select('archive_id, period_month, period_year, deleted_at')
+      .select('archive_id, period_month, period_year, period_start_date, period_end_date, archive_type, deleted_at')
       .eq('archive_id', metadata.archive_id)
-    
-    console.log('Existing archives found:', existingArchives)
-    console.log('Check error:', checkError)
-    
+
+    if (checkError) {
+      throw checkError
+    }
+
     const checkedArchives = (existingArchives || []) as ExistingArchiveRecord[]
 
     if (checkedArchives.length > 0) {
       const archive = checkedArchives[0]
-      
-      // If archive is soft deleted, allow regeneration by restoring it
-      if (archive.deleted_at) {
-        console.log('Archive was soft deleted, will restore and regenerate')
-        // We'll update the existing record instead of inserting new
-      } else {
-        console.log('Archive already exists and is active')
+
+      if (!archive.deleted_at) {
         return {
           success: false,
-          message: `Archive for ${period.month} ${period.year} already exists. Please delete the existing archive first if you want to regenerate it.`,
+          message: `Archive for ${getArchivePeriodLabel(period)} already exists. Please delete the existing archive first if you want to regenerate it.`,
           archiveId: archive.archive_id
         }
       }
     }
-    
-    // Save to database (upsert: restore if deleted, insert if new)
+
     console.log('Saving archive metadata to database...')
     const { data: archiveRecord, error: archiveError } = await supabase
       .from('archives')
@@ -944,6 +1065,9 @@ export async function generateMonthlyArchive(
         archive_id: metadata.archive_id,
         period_month: period.month,
         period_year: period.year,
+        period_start_date: period.start,
+        period_end_date: period.end,
+        archive_type: period.archiveType,
         generated_by: user.id,
         data_types: types,
         total_records: metadata.total_records,
@@ -954,82 +1078,71 @@ export async function generateMonthlyArchive(
           has_attendance: !!archiveData.attendance,
           generated_at: new Date().toISOString()
         },
-        deleted_at: null, // Restore if was deleted
+        deleted_at: null,
         deleted_by: null,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'archive_id' // Use archive_id as unique key for upsert
+        onConflict: 'archive_id'
       })
       .select()
       .single()
-    
+
     if (archiveError) {
       console.error('Error saving to database:', archiveError)
       throw new Error(`Failed to save archive: ${archiveError.message}`)
     }
-    
+
     console.log('Archive saved to database:', archiveRecord)
-    
-    // Generate files
+
     console.log('Generating files with format:', format)
     const files: ArchiveFiles = {}
-    
+
     if (archiveData.activities) {
       try {
         console.log('Creating activity logs file...')
-        if (format === 'excel') {
-          files.activity_logs = generateActivityLogExcel(archiveData.activities, period)
-        } else {
-          files.activity_logs = generateActivityLogPDF(archiveData.activities, period)
-        }
+        files.activity_logs = format === 'excel'
+          ? generateActivityLogExcel(archiveData.activities, period)
+          : generateActivityLogPDF(archiveData.activities, period)
       } catch (err) {
         console.error('Error creating activity log file:', err)
         throw new Error(`Failed to create activity log file: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
-    
+
     if (archiveData.sales) {
       try {
         console.log('Creating sales file...')
-        if (format === 'excel') {
-          files.sales = generateSalesExcel(archiveData.sales, period)
-        } else {
-          files.sales = generateSalesPDF(archiveData.sales, period)
-        }
+        files.sales = format === 'excel'
+          ? generateSalesExcel(archiveData.sales, period)
+          : generateSalesPDF(archiveData.sales, period)
       } catch (err) {
         console.error('Error creating sales file:', err)
         throw new Error(`Failed to create sales file: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
-    
+
     if (archiveData.attendance) {
       try {
         console.log('Creating attendance file...')
-        if (format === 'excel') {
-          files.attendance = generateAttendanceExcel(archiveData.attendance, period)
-        } else {
-          files.attendance = generateAttendancePDF(archiveData.attendance, period)
-        }
+        files.attendance = format === 'excel'
+          ? generateAttendanceExcel(archiveData.attendance, period)
+          : generateAttendancePDF(archiveData.attendance, period)
       } catch (err) {
         console.error('Error creating attendance file:', err)
         throw new Error(`Failed to create attendance file: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
-    
-    // Don't auto-download, user will download manually from card
-    console.log('Files ready for download')
-    
-    // Mark as archived
+
     const archiveId = metadata.archive_id
     localStorage.setItem('last_month_archived', archiveId)
     localStorage.setItem('last_archive_check', new Date().toISOString().split('T')[0])
-    
+
     console.log('Archive generation completed successfully')
     return {
       success: true,
-      message: `Successfully archived ${period.month} ${period.year} data`,
+      message: `Successfully archived ${getArchivePeriodLabel(period)} data`,
       files,
-      archiveId: metadata.archive_id
+      archiveId
     }
   } catch (error: unknown) {
     console.error('Archive generation error (detailed):', error)
@@ -1038,6 +1151,23 @@ export async function generateMonthlyArchive(
       message: getErrorMessage(error, 'Failed to generate archive. Check console for details.')
     }
   }
+}
+
+/**
+ * Backward-compatible monthly archive function.
+ * Pass a custom date range through the optional third argument.
+ */
+export async function generateMonthlyArchive(
+  types: ArchiveType[] = ['activity_logs', 'sales', 'staff_attendance'],
+  format: ArchiveFormat = 'pdf',
+  range?: { startDate?: string; endDate?: string }
+): Promise<ArchiveResult> {
+  return generateArchive({
+    types,
+    format,
+    startDate: range?.startDate,
+    endDate: range?.endDate
+  })
 }
 
 /**
@@ -1116,6 +1246,7 @@ export async function loadArchivesFromDB(): Promise<ArchiveMetadata[]> {
           month: record.period_month,
           year: record.period_year
         },
+        archive_type: record.archive_type ?? (record.period_start_date || record.period_end_date ? 'custom_range' : 'monthly'),
         data_types: record.data_types || [],
         total_records: totalRecords,
         key_metrics: record.key_metrics || {},
@@ -1167,69 +1298,92 @@ export async function deleteArchiveFromDB(archiveId: string): Promise<{ success:
  * Download archive file without saving to database
  * Fetches data, generates file, and triggers download
  */
+async function resolveArchivePeriodForDownload(archiveId: string): Promise<PeriodRange> {
+  const { data, error } = await supabase
+    .from('archives')
+    .select('archive_id, period_month, period_year, period_start_date, period_end_date, archive_type')
+    .eq('archive_id', archiveId)
+    .maybeSingle()
+
+  if (!error && data) {
+    const record = data as ArchiveDbRecord
+    const periodDates = getArchiveRecordPeriod(record)
+
+    return {
+      start: periodDates.start,
+      end: periodDates.end,
+      month: record.period_month,
+      year: record.period_year,
+      archiveType: record.archive_type === 'monthly' ? 'monthly' : 'custom_range'
+    }
+  }
+
+  const rangeMatch = archiveId.match(/^archive_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})$/)
+  if (rangeMatch) {
+    return buildPeriodRange(rangeMatch[1], rangeMatch[2])
+  }
+
+  const monthlyMatch = archiveId.match(/^(\d{4})-(\d{2})$/)
+  if (monthlyMatch) {
+    const startDate = `${archiveId}-01`
+    const endDate = getLastDayOfMonth(startDate)
+    return buildPeriodRange(startDate, endDate)
+  }
+
+  throw new Error('Unable to resolve archive period')
+}
+
+/**
+ * Download archived files
+ */
 export async function downloadArchiveFile(
   archiveId: string, 
   fileType?: string, 
   format: 'pdf' | 'excel' = 'pdf'
 ): Promise<{ success: boolean, message: string }> {
   try {
-    // Extract period from archiveId (format: YYYY-MM)
-    const [year, month] = archiveId.split('-')
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    const monthName = monthNames[parseInt(month) - 1]
-    
-    // Calculate date range
-    const startDate = `${archiveId}-01`
-    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate()
-    const endDate = `${archiveId}-${lastDay}`
-    
-    const period = { month: monthName, year, start: startDate, end: endDate }
-    
-    // Determine which files to download
-    let filesToDownload: string[] = []
-    if (fileType) {
-      filesToDownload = [fileType]
-    } else {
-      filesToDownload = ['activity_logs', 'sales', 'staff_attendance']
-    }
-    
-    // Fetch and generate files
+    const period = await resolveArchivePeriodForDownload(archiveId)
+    const safeArchiveId = archiveId.replace(/[^a-zA-Z0-9_-]/g, '_')
+
+    const filesToDownload = fileType
+      ? [fileType]
+      : ['activity_logs', 'sales', 'staff_attendance']
+
     for (const type of filesToDownload) {
       let blob: Blob
       let fileName: string
-      
+
       if (type === 'activity_logs') {
         const data = await archiveActivityLogs(period.start, period.end)
         if (format === 'excel') {
           blob = generateActivityLogExcel(data, period)
-          fileName = `${archiveId}_activity_logs.xlsx`
+          fileName = `${safeArchiveId}_activity_logs.xlsx`
         } else {
           blob = generateActivityLogPDF(data, period)
-          fileName = `${archiveId}_activity_logs.pdf`
+          fileName = `${safeArchiveId}_activity_logs.pdf`
         }
       } else if (type === 'sales') {
         const data = await archiveSalesData(period.start, period.end)
         if (format === 'excel') {
           blob = generateSalesExcel(data, period)
-          fileName = `${archiveId}_sales.xlsx`
+          fileName = `${safeArchiveId}_sales.xlsx`
         } else {
           blob = generateSalesPDF(data, period)
-          fileName = `${archiveId}_sales.pdf`
+          fileName = `${safeArchiveId}_sales.pdf`
         }
       } else if (type === 'staff_attendance') {
         const data = await archiveStaffAttendance(period.start, period.end)
         if (format === 'excel') {
           blob = generateAttendanceExcel(data, period)
-          fileName = `${archiveId}_attendance.xlsx`
+          fileName = `${safeArchiveId}_attendance.xlsx`
         } else {
           blob = generateAttendancePDF(data, period)
-          fileName = `${archiveId}_attendance.pdf`
+          fileName = `${safeArchiveId}_attendance.pdf`
         }
       } else {
         continue
       }
-      
-      // Trigger download
+
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -1239,7 +1393,7 @@ export async function downloadArchiveFile(
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     }
-    
+
     return {
       success: true,
       message: 'Files downloaded successfully'
