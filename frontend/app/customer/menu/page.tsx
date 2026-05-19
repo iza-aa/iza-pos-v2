@@ -10,6 +10,10 @@ import CategoryTabs from "@/app/components/customer/menu/CategoryTabs";
 import ProductCard from "@/app/components/customer/menu/ProductCard";
 import CartDrawer from "@/app/components/customer/menu/CartDrawer";
 import LoadingScreen from "@/app/components/customer/LoadingScreen";
+import {
+  type CustomerTableSession,
+  validateStoredCustomerTableSession,
+} from "@/lib/customer/customerSession";
 
 interface Category {
   id: string;
@@ -50,17 +54,6 @@ interface StoredCartItem {
   variants?: unknown;
 }
 
-interface TableInfo {
-  id: string;
-  table_id?: string;
-  table_number: string;
-  floor_id?: string | null;
-  floor_name?: string | null;
-  capacity?: number;
-  status?: string | null;
-  is_active?: boolean;
-}
-
 interface ProductCategoryRelation {
   name: string | null;
 }
@@ -86,47 +79,34 @@ const DEFAULT_CATEGORIES: Category[] = [
   },
 ];
 
-const CATEGORY_ICON_MAP: Record<string, string> = {
-  coffee: "☕",
-  "non coffee": "🥤",
-  noncoffee: "🥤",
-  snack: "🍟",
-  dessert: "🍰",
-  food: "🍽️",
-  tea: "🍵",
-  beverage: "🥤",
-  drinks: "🥤",
-  drink: "🥤",
-};
-
 function getCategoryIcon(categoryName: string): string {
   const normalizedName = categoryName.trim().toLowerCase();
 
-  if (CATEGORY_ICON_MAP[normalizedName]) {
-    return CATEGORY_ICON_MAP[normalizedName];
-  }
-
   if (normalizedName.includes("coffee") && !normalizedName.includes("non")) {
-    return "☕";
+    return "Coffee";
   }
 
   if (normalizedName.includes("non") && normalizedName.includes("coffee")) {
-    return "🥤";
+    return "Non Coffee";
   }
 
   if (normalizedName.includes("snack")) {
-    return "🍟";
+    return "Snack";
   }
 
   if (normalizedName.includes("dessert") || normalizedName.includes("cake")) {
-    return "🍰";
+    return "Dessert";
   }
 
-  if (normalizedName.includes("food") || normalizedName.includes("meal")) {
-    return "🍽️";
+  if (
+    normalizedName.includes("drink") ||
+    normalizedName.includes("tea") ||
+    normalizedName.includes("beverage")
+  ) {
+    return "Drink";
   }
 
-  return "🍽️";
+  return "Food";
 }
 
 function getCategoryType(categoryName: string): string {
@@ -142,10 +122,6 @@ function getCategoryType(categoryName: string): string {
   }
 
   return "food";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function normalizeCartItem(item: StoredCartItem): CartItem | null {
@@ -188,42 +164,6 @@ function parseStoredCart(value: string | null): CartItem[] {
   } catch {
     localStorage.removeItem("customer_cart");
     return [];
-  }
-}
-
-function parseStoredTable(value: string | null): TableInfo | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    if (!isRecord(parsed)) {
-      return null;
-    }
-
-    const id = parsed.id;
-    const tableNumber = parsed.table_number;
-
-    if (typeof id !== "string" || typeof tableNumber !== "string") {
-      return null;
-    }
-
-    return {
-      id,
-      table_id: typeof parsed.table_id === "string" ? parsed.table_id : undefined,
-      table_number: tableNumber,
-      floor_id: typeof parsed.floor_id === "string" ? parsed.floor_id : null,
-      floor_name: typeof parsed.floor_name === "string" ? parsed.floor_name : null,
-      capacity: typeof parsed.capacity === "number" ? parsed.capacity : undefined,
-      status: typeof parsed.status === "string" ? parsed.status : null,
-      is_active: typeof parsed.is_active === "boolean" ? parsed.is_active : undefined,
-    };
-  } catch {
-    localStorage.removeItem("customer_table");
-    localStorage.removeItem("table_session_start");
-    return null;
   }
 }
 
@@ -270,7 +210,7 @@ export default function CustomerMenuPage() {
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
+  const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -279,15 +219,32 @@ export default function CustomerMenuPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
 
-  const isDineInFromQr = Boolean(tableInfo);
+  const isDineInFromQr = Boolean(tableSession);
 
   useEffect(() => {
-    const storedTable = parseStoredTable(localStorage.getItem("customer_table"));
-    const storedCart = parseStoredCart(localStorage.getItem("customer_cart"));
+    let isMounted = true;
 
-    setTableInfo(storedTable);
-    setCart(storedCart);
-    setInitializing(false);
+    const initialize = async () => {
+      const [validSession] = await Promise.all([
+        validateStoredCustomerTableSession(),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      const storedCart = parseStoredCart(localStorage.getItem("customer_cart"));
+
+      setTableSession(validSession);
+      setCart(storedCart);
+      setInitializing(false);
+    };
+
+    void initialize();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -462,11 +419,11 @@ export default function CustomerMenuPage() {
             <h1 className="text-xl font-bold text-gray-900">Menu</h1>
             {isDineInFromQr ? (
               <p className="text-xs text-gray-500 mt-1">
-                Ordering for {tableInfo?.table_number}
+                Ordering for {tableSession?.table_number}
               </p>
             ) : (
               <p className="text-xs text-gray-500 mt-1">
-                Browse menu without table. Checkout will continue as takeaway.
+                Browse menu without table. Checkout will continue as take away.
               </p>
             )}
           </div>

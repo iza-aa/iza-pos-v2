@@ -1,51 +1,74 @@
-/**
- * Customer Layout with Bottom Navigation
- * Mobile-first PWA layout with bottom nav bar
- */
+"use client";
 
-'use client';
-
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  HomeIcon,
-  ShoppingBagIcon,
   ClockIcon,
   Cog6ToothIcon,
-} from '@heroicons/react/24/outline';
+  HomeIcon,
+  ShoppingBagIcon,
+} from "@heroicons/react/24/outline";
 import {
-  HomeIcon as HomeIconSolid,
-  ShoppingBagIcon as ShoppingBagIconSolid,
   ClockIcon as ClockIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
-} from '@heroicons/react/24/solid';
+  HomeIcon as HomeIconSolid,
+  ShoppingBagIcon as ShoppingBagIconSolid,
+} from "@heroicons/react/24/solid";
+import {
+  type CustomerTableSession,
+  validateStoredCustomerTableSession,
+} from "@/lib/customer/customerSession";
 
-const navItems = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: typeof HomeIcon;
+  iconSolid: typeof HomeIconSolid;
+}
+
+const navItems: NavItem[] = [
   {
-    name: 'Home',
-    href: '/customer',
+    name: "Home",
+    href: "/customer",
     icon: HomeIcon,
     iconSolid: HomeIconSolid,
   },
   {
-    name: 'Menu',
-    href: '/customer/menu',
+    name: "Menu",
+    href: "/customer/menu",
     icon: ShoppingBagIcon,
     iconSolid: ShoppingBagIconSolid,
   },
   {
-    name: 'Track',
-    href: '/customer/track',
+    name: "Track",
+    href: "/customer/track",
     icon: ClockIcon,
     iconSolid: ClockIconSolid,
   },
   {
-    name: 'Settings',
-    href: '/customer/settings',
+    name: "Settings",
+    href: "/customer/settings",
     icon: Cog6ToothIcon,
     iconSolid: Cog6ToothIconSolid,
   },
 ];
+
+function shouldHideCustomerNavigation(pathname: string): boolean {
+  return (
+    pathname.startsWith("/customer/table/") ||
+    pathname === "/customer/login" ||
+    pathname === "/customer/register" ||
+    pathname === "/customer/menu/checkout"
+  );
+}
+
+function isActivePath(pathname: string, href: string): boolean {
+  if (href === "/customer") {
+    return pathname === "/customer";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function CustomerLayout({
   children,
@@ -54,82 +77,120 @@ export default function CustomerLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [tableInfo, setTableInfo] = useState<any>(null);
-  const [showBottomNav, setShowBottomNav] = useState(false); // Start hidden
+
+  const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
   const [isClient, setIsClient] = useState(false);
 
-  // Set isClient flag after mount to avoid hydration issues
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (!isClient) return;
-
-    // Check if user has selected a table (use localStorage, not sessionStorage)
-    const storedTable = localStorage.getItem('customer_table');
-    
-    if (!storedTable && pathname !== '/customer/table') {
-      // No table session - just don't show table info, but DON'T redirect
-      // Let each page handle their own redirect logic
-      setTableInfo(null);
-    } else if (storedTable) {
-      try {
-        setTableInfo(JSON.parse(storedTable));
-      } catch (e) {
-        console.error('Failed to parse table info:', e);
-        setTableInfo(null);
-      }
+    if (!isClient) {
+      return;
     }
 
-    // Determine if bottom nav should be shown
-    // Hide on: table page, or menu page without localStorage
-    const shouldHide = pathname === '/customer/table' || 
-                      (pathname === '/customer/menu' && !storedTable);
-    
-    setShowBottomNav(!shouldHide);
-  }, [pathname, isClient]);
+    let isMounted = true;
 
-  // Don't show bottom nav on table selection page or when not ready
-  if (!showBottomNav || !isClient) {
+    const validateSession = async () => {
+      const validSession = await validateStoredCustomerTableSession();
+
+      if (isMounted) {
+        setTableSession(validSession);
+      }
+    };
+
+    void validateSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isClient, pathname]);
+
+  if (!isClient || shouldHideCustomerNavigation(pathname)) {
     return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Table Info Header */}
-      {tableInfo && (
-        <div className="bg-gray-900 text-white px-4 py-2 text-center">
-          <p className="text-sm">
-            <span className="font-medium">{tableInfo.table_number}</span>
-            {tableInfo.floor_name && (
-              <span className="text-gray-400 ml-2">• {tableInfo.floor_name}</span>
-            )}
-          </p>
-        </div>
-      )}
+    <div className="min-h-screen bg-gray-50 pb-20 lg:pb-0 lg:pt-16">
+      <header className="fixed left-0 right-0 top-0 z-50 hidden border-b border-gray-200 bg-white/95 backdrop-blur lg:block">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <button
+            type="button"
+            onClick={() => router.push("/customer")}
+            className="flex items-center gap-3"
+          >
+            <img
+              src="/logo/IZALogo2.png"
+              alt="IZA Coffee"
+              className="h-9 w-auto object-contain"
+            />
 
-      {/* Main Content */}
-      <main className="pb-4">{children}</main>
+            <div className="text-left">
+              <p className="text-xs text-gray-500">
+                {tableSession
+                  ? `${tableSession.table_number}${tableSession.floor_name ? ` • ${tableSession.floor_name}` : ""}`
+                  : "Take Away"}
+              </p>
+            </div>
+          </button>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div className="max-w-lg mx-auto px-4">
-          <div className="flex justify-around">
+          <nav className="flex items-center gap-2">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = isActivePath(pathname, item.href);
               const Icon = isActive ? item.iconSolid : item.icon;
 
               return (
                 <button
                   key={item.name}
+                  type="button"
                   onClick={() => router.push(item.href)}
-                  className={`flex flex-col items-center py-3 px-4 transition-colors ${
-                    isActive ? 'text-gray-900' : 'text-gray-400'
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-gray-900 text-white"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  {item.name}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+
+      {tableSession ? (
+        <div className="border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:hidden">
+          <p className="text-xs">
+            <span className="font-semibold">{tableSession.table_number}</span>
+            {tableSession.floor_name ? (
+              <span className="ml-2 text-gray-400">• {tableSession.floor_name}</span>
+            ) : null}
+          </p>
+        </div>
+      ) : null}
+
+      <main>{children}</main>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white lg:hidden">
+        <div className="mx-auto max-w-lg px-4">
+          <div className="flex justify-around">
+            {navItems.map((item) => {
+              const isActive = isActivePath(pathname, item.href);
+              const Icon = isActive ? item.iconSolid : item.icon;
+
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => router.push(item.href)}
+                  className={`flex flex-col items-center px-4 py-3 transition-colors ${
+                    isActive ? "text-gray-900" : "text-gray-400"
                   }`}
                 >
                   <Icon className="h-6 w-6" />
-                  <span className="text-xs mt-1 font-medium">{item.name}</span>
+                  <span className="mt-1 text-xs font-medium">{item.name}</span>
                 </button>
               );
             })}

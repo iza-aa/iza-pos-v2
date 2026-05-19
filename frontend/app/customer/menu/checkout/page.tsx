@@ -8,6 +8,10 @@ import QRISPayment from "@/app/components/customer/menu/checkout/QRISPayment";
 import CheckoutCartItem from "@/app/components/customer/menu/checkout/CheckoutCartItem";
 import OrderSummary from "@/app/components/customer/menu/checkout/OrderSummary";
 import LoadingScreen from "@/app/components/customer/LoadingScreen";
+import {
+  type CustomerTableSession,
+  validateStoredCustomerTableSession,
+} from "@/lib/customer/customerSession";
 
 interface CartItem {
   id: string;
@@ -29,17 +33,6 @@ interface StoredCartItem {
   variants?: unknown;
 }
 
-interface TableInfo {
-  id: string;
-  table_id?: string;
-  table_number: string;
-  floor_id?: string | null;
-  floor_name?: string | null;
-  capacity?: number;
-  status?: string | null;
-  is_active?: boolean;
-}
-
 interface CreatedOrder {
   id: string;
   order_number: string;
@@ -56,48 +49,14 @@ interface ProductLookupRow {
   categories?: ProductCategory | ProductCategory[] | null;
 }
 
+interface SessionStatsRow {
+  order_ids: string[] | null;
+  total_orders: number | null;
+  total_revenue: number | string | null;
+}
+
 type OrderMode = "dine_in" | "takeaway";
 type KitchenStatus = "pending" | "not_required";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function parseStoredTable(value: string | null): TableInfo | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    if (!isRecord(parsed)) {
-      return null;
-    }
-
-    const id = parsed.id;
-    const tableNumber = parsed.table_number;
-
-    if (typeof id !== "string" || typeof tableNumber !== "string") {
-      return null;
-    }
-
-    return {
-      id,
-      table_id: typeof parsed.table_id === "string" ? parsed.table_id : undefined,
-      table_number: tableNumber,
-      floor_id: typeof parsed.floor_id === "string" ? parsed.floor_id : null,
-      floor_name: typeof parsed.floor_name === "string" ? parsed.floor_name : null,
-      capacity: typeof parsed.capacity === "number" ? parsed.capacity : undefined,
-      status: typeof parsed.status === "string" ? parsed.status : null,
-      is_active: typeof parsed.is_active === "boolean" ? parsed.is_active : undefined,
-    };
-  } catch {
-    localStorage.removeItem("customer_table");
-    localStorage.removeItem("table_session_start");
-    return null;
-  }
-}
 
 function normalizeCartItem(item: StoredCartItem): CartItem | null {
   if (
@@ -142,9 +101,9 @@ function parseStoredCart(value: string | null): CartItem[] {
   }
 }
 
-function createFallbackCustomerName(mode: OrderMode, tableInfo: TableInfo | null): string {
+function createFallbackCustomerName(mode: OrderMode, tableSession: CustomerTableSession | null): string {
   if (mode === "dine_in") {
-    return `Guest ${tableInfo?.table_number ?? "Table"}`;
+    return `Guest ${tableSession?.table_number ?? "Table"}`;
   }
 
   return "Guest Take Away";
@@ -208,7 +167,7 @@ export default function CustomerCheckoutPage() {
   const router = useRouter();
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
+  const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,28 +177,42 @@ export default function CustomerCheckoutPage() {
   const [pendingOrderId, setPendingOrderId] = useState("");
   const [pendingPickupCode, setPendingPickupCode] = useState<string | null>(null);
 
-  const orderMode: OrderMode = tableInfo ? "dine_in" : "takeaway";
+  const orderMode: OrderMode = tableSession ? "dine_in" : "takeaway";
   const isTakeaway = orderMode === "takeaway";
   const isDineIn = orderMode === "dine_in";
 
   useEffect(() => {
-    const storedTable = parseStoredTable(localStorage.getItem("customer_table"));
-    const storedCart = parseStoredCart(localStorage.getItem("customer_cart"));
-    const savedName = localStorage.getItem("customer_name");
+    let isMounted = true;
 
-    if (storedCart.length === 0) {
-      router.replace("/customer/menu");
-      return;
-    }
+    const initializeCheckout = async () => {
+      const storedCart = parseStoredCart(localStorage.getItem("customer_cart"));
+      const validSession = await validateStoredCustomerTableSession();
+      const savedName = localStorage.getItem("customer_name");
 
-    setTableInfo(storedTable);
-    setCart(storedCart);
+      if (!isMounted) {
+        return;
+      }
 
-    if (savedName) {
-      setCustomerName(savedName);
-    }
+      if (storedCart.length === 0) {
+        router.replace("/customer/menu");
+        return;
+      }
 
-    setTimeout(() => setInitializing(false), 200);
+      setTableSession(validSession);
+      setCart(storedCart);
+
+      if (savedName) {
+        setCustomerName(savedName);
+      }
+
+      setTimeout(() => setInitializing(false), 200);
+    };
+
+    void initializeCheckout();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   const updateQuantity = (itemId: string, change: number) => {
@@ -296,6 +269,42 @@ export default function CustomerCheckoutPage() {
     return (data ?? []) as ProductLookupRow[];
   };
 
+  const updateTableSessionStats = async (orderId: string, total: number) => {
+    if (!tableSession) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("table_sessions")
+      .select("order_ids, total_orders, total_revenue")
+      .eq("id", tableSession.session_id)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.warn("Failed to read table session stats:", error);
+      return;
+    }
+
+    const currentStats = data as SessionStatsRow;
+    const orderIds = currentStats.order_ids ?? [];
+    const nextOrderIds = orderIds.includes(orderId) ? orderIds : [...orderIds, orderId];
+    const totalOrders = currentStats.total_orders ?? 0;
+    const totalRevenue = Number(currentStats.total_revenue ?? 0);
+
+    const { error: updateError } = await supabase
+      .from("table_sessions")
+      .update({
+        order_ids: nextOrderIds,
+        total_orders: totalOrders + 1,
+        total_revenue: totalRevenue + total,
+      })
+      .eq("id", tableSession.session_id);
+
+    if (updateError) {
+      console.warn("Failed to update table session stats:", updateError);
+    }
+  };
+
   const placeOrder = async () => {
     if (cart.length === 0) {
       alert("Your cart is empty");
@@ -315,7 +324,7 @@ export default function CustomerCheckoutPage() {
       const pickupCode = isTakeaway ? generatePickupCode() : null;
       const total = calculateTotal();
       const cleanCustomerName =
-        customerName.trim() || createFallbackCustomerName(orderMode, tableInfo);
+        customerName.trim() || createFallbackCustomerName(orderMode, tableSession);
 
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
@@ -323,8 +332,9 @@ export default function CustomerCheckoutPage() {
           {
             order_number: orderNumber,
             customer_name: cleanCustomerName,
-            table_number: tableInfo?.table_number ?? null,
-            table_id: tableInfo?.id ?? null,
+            table_number: tableSession?.table_number ?? null,
+            table_id: tableSession?.table_id ?? null,
+            table_session_id: tableSession?.session_id ?? null,
             order_source: "qr",
             order_type: isDineIn ? "Dine in" : "Take Away",
             fulfillment_method: isDineIn ? "table_service" : "counter_pickup",
@@ -375,6 +385,8 @@ export default function CustomerCheckoutPage() {
       if (itemsError) {
         throw itemsError;
       }
+
+      await updateTableSessionStats(createdOrder.id, total);
 
       setPendingOrderNumber(createdOrder.order_number);
       setPendingOrderId(createdOrder.id);
@@ -449,10 +461,10 @@ export default function CustomerCheckoutPage() {
           {isDineIn ? (
             <div className="flex items-center gap-2">
               <span className="px-3 py-1.5 bg-gray-900 text-white text-sm font-bold rounded-lg">
-                {tableInfo?.table_number}
+                {tableSession?.table_number}
               </span>
               <span className="text-sm text-gray-600">
-                {tableInfo?.floor_name || "Dine-in order"}
+                {tableSession?.floor_name || "Dine-in order"}
               </span>
             </div>
           ) : (

@@ -1,131 +1,176 @@
-/**
- * Customer Dashboard/Home Page
- * Mobile-first landing page after table selection
- */
+"use client";
 
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  ShoppingBagIcon,
+  ArrowRightIcon,
   ClockIcon,
-  SparklesIcon,
-  FireIcon,
-} from '@heroicons/react/24/outline';
+  MapPinIcon,
+  ShoppingBagIcon,
+} from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon,
+} from "@heroicons/react/24/solid";
+import {
+  type CustomerTableSession,
+  validateStoredCustomerTableSession,
+} from "@/lib/customer/customerSession";
 
-export default function CustomerDashboard() {
+export default function CustomerPage() {
   const router = useRouter();
-  const [tableInfo, setTableInfo] = useState<any>(null);
+  const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const storedTable = localStorage.getItem('customer_table');
-    if (!storedTable) {
-      // Redirect ke table selection jika belum pilih meja
-      router.push('/customer/table');
-      return;
-    }
-    setTableInfo(JSON.parse(storedTable));
+    let isMounted = true;
+
+    const loadSession = async () => {
+      const validSession = await validateStoredCustomerTableSession();
+
+      if (isMounted) {
+        setTableSession(validSession);
+        setIsReady(true);
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const quickActions = [
-    {
-      title: 'Browse Menu',
-      description: 'View our delicious menu',
-      icon: ShoppingBagIcon,
-      color: 'bg-blue-500',
-      action: () => router.push('/customer/menu'),
-    },
-    {
-      title: 'Track Order',
-      description: 'Check your order status',
-      icon: ClockIcon,
-      color: 'bg-amber-500',
-      action: () => router.push('/customer/track'),
-    },
-  ];
+  const sessionLabel = useMemo(() => {
+    if (!tableSession) {
+      return "Take away ordering";
+    }
+
+    if (tableSession.floor_name) {
+      return `${tableSession.table_number} • ${tableSession.floor_name}`;
+    }
+
+    return tableSession.table_number;
+  }, [tableSession]);
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-6">
+        <div className="mx-auto max-w-lg">
+          <div className="h-40 animate-pulse rounded-3xl bg-gray-200" />
+          <div className="mt-4 h-24 animate-pulse rounded-2xl bg-gray-200" />
+          <div className="mt-3 h-24 animate-pulse rounded-2xl bg-gray-200" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white px-4 py-8">
-        <div className="max-w-lg mx-auto text-center">
-          <SparklesIcon className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
-          <h1 className="text-2xl font-bold mb-2">Welcome!</h1>
-          {tableInfo && (
-            <p className="text-gray-300">
-              You're at <span className="font-semibold text-white">{tableInfo.table_number}</span>
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-gray-900 px-4 py-8 text-white">
+        <div className="mx-auto max-w-lg">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="mt-2 text-2xl font-bold">
+                Welcome {tableSession ? tableSession.table_number : "Guest"}
+              </h1>
+            </div>
+          </div>
 
-      {/* Quick Actions */}
-      <div className="px-4 py-6 -mt-6">
-        <div className="max-w-lg mx-auto space-y-3">
-          {quickActions.map((action, index) => (
-            <button
-              key={index}
-              onClick={action.action}
-              className="w-full bg-white rounded-lg border border-gray-200 p-4 flex items-center hover:border-gray-900 transition-colors"
-            >
-              <div className={`${action.color} rounded-full p-3 mr-4`}>
-                <action.icon className="h-6 w-6 text-white" />
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-gray-900">
+                {tableSession ? (
+                  <MapPinIcon className="h-5 w-5" />
+                ) : (
+                  <ShoppingBagIcon className="h-5 w-5" />
+                )}
               </div>
-              <div className="flex-1 text-left">
-                <h3 className="font-semibold text-gray-900">{action.title}</h3>
-                <p className="text-sm text-gray-500">{action.description}</p>
+
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">
+                  {tableSession ? "Dine-in Session" : "Public Menu"}
+                </p>
+                <p className="mt-1 text-sm text-gray-300">{sessionLabel}</p>
+                <p className="mt-3 text-xs leading-5 text-gray-400">
+                  {tableSession
+                    ? "Your table session is active. You can browse the menu, place another order, or track your current order."
+                    : "You are browsing without a table. Checkout will continue as a take away order."}
+                </p>
               </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Featured/Popular Items */}
-      <div className="px-4 py-4">
-        <div className="max-w-lg mx-auto">
-          <div className="flex items-center mb-4">
-            <FireIcon className="h-5 w-5 text-red-500 mr-2" />
-            <h2 className="text-lg font-bold text-gray-900">Popular Items</h2>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-sm text-gray-500">
-              Start browsing our menu to see popular items
-            </p>
-            <button
-              onClick={() => router.push('/customer/order')}
-              className="mt-3 px-6 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800"
-            >
-              View Menu
-            </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Info Cards */}
-      <div className="px-4 py-4">
-        <div className="max-w-lg mx-auto grid grid-cols-2 gap-3">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-900">Fast</div>
-            <div className="text-xs text-green-700 mt-1">Quick Service</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-900">Easy</div>
-            <div className="text-xs text-blue-700 mt-1">Self Ordering</div>
-          </div>
-        </div>
-      </div>
+      <main className="mx-auto max-w-lg space-y-4 px-4 py-5">
+        <button
+          type="button"
+          onClick={() => router.push("/customer/menu")}
+          className="group w-full rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-gray-300 hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-900 text-white">
+              <ShoppingBagIcon className="h-6 w-6" />
+            </div>
 
-      {/* Help Section */}
-      <div className="px-4 py-6">
-        <div className="max-w-lg mx-auto bg-gray-100 rounded-lg p-4 text-center">
-          <p className="text-sm text-gray-600 mb-2">Need assistance?</p>
-          <p className="text-xs text-gray-500">
-            Our staff is here to help. Just raise your hand or press the call button.
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-gray-900">Browse Menu</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                View products and add items to cart.
+              </p>
+            </div>
+
+            <ArrowRightIcon className="h-5 w-5 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-900" />
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/customer/track")}
+          className="group w-full rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-gray-300 hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-900">
+              <ClockIcon className="h-6 w-6" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-gray-900">Track Order</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Check the latest status of your order.
+              </p>
+            </div>
+
+            <ArrowRightIcon className="h-5 w-5 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-900" />
+          </div>
+        </button>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <CheckCircleIcon className="h-5 w-5 text-emerald-600" />
+            <h2 className="text-sm font-bold text-gray-900">Ordering Info</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <p className="text-sm font-bold text-gray-900">Fast</p>
+              <p className="mt-1 text-xs text-gray-500">Simple customer order flow.</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <p className="text-sm font-bold text-gray-900">Clear</p>
+              <p className="mt-1 text-xs text-gray-500">Track order status in real time.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-gray-900">Need assistance?</h2>
+          <p className="mt-2 text-sm leading-6 text-gray-500">
+            Please ask our staff if you need help with ordering, payment, or table service.
           </p>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

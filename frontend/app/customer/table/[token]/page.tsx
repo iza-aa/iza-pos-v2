@@ -1,179 +1,253 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
+  ArrowLeftIcon,
   ExclamationTriangleIcon,
-  QrCodeIcon,
 } from "@heroicons/react/24/outline";
+import LoadingScreen from "@/app/components/customer/LoadingScreen";
 
-type TableInfo = {
-  id: string;
+interface TableSessionData {
+  session_id: string;
   table_id: string;
   table_number: string;
   floor_id: string | null;
   floor_name: string | null;
   capacity: number;
   status: string | null;
-  is_active: boolean;
-  qr_code_url: string | null;
-  qr_generated_at: string | null;
-};
+  started_at: string;
+}
 
-type ValidateTableResponse =
+type StartTableSessionResponse =
   | {
       success: true;
-      data: TableInfo;
+      data: TableSessionData;
     }
   | {
       success: false;
       error: string;
     };
 
-function getRouteToken(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) {
-    return value[0] ?? "";
-  }
-
-  return value ?? "";
+interface StoredTableSession {
+  session_id: string;
+  table_id: string;
+  table_number: string;
+  floor_id: string | null;
+  floor_name: string | null;
+  capacity: number;
+  status: string | null;
+  started_at: string;
 }
 
-export default function CustomerTablePage() {
-  const params = useParams();
-  const rawToken = getRouteToken(params.token);
-  const token = useMemo(() => rawToken.trim(), [rawToken]);
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 
-  const [loading, setLoading] = useState(true);
+function normalizeToken(value: string | string[] | undefined): string | null {
+  const token = Array.isArray(value) ? value[0] : value;
+
+  if (!token) {
+    return null;
+  }
+
+  const normalized = decodeURIComponent(token).trim();
+
+  if (!UUID_REGEX.test(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function parseStoredTableSession(value: string | null): StoredTableSession | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<StoredTableSession>;
+
+    if (
+      typeof parsed.session_id !== "string" ||
+      typeof parsed.table_id !== "string" ||
+      typeof parsed.table_number !== "string" ||
+      typeof parsed.started_at !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      session_id: parsed.session_id,
+      table_id: parsed.table_id,
+      table_number: parsed.table_number,
+      floor_id: parsed.floor_id ?? null,
+      floor_name: parsed.floor_name ?? null,
+      capacity: typeof parsed.capacity === "number" ? parsed.capacity : 0,
+      status: parsed.status ?? null,
+      started_at: parsed.started_at,
+    };
+  } catch {
+    localStorage.removeItem("customer_table_session");
+    return null;
+  }
+}
+
+function saveTableSession(data: TableSessionData) {
+  const sessionPayload: StoredTableSession = {
+    session_id: data.session_id,
+    table_id: data.table_id,
+    table_number: data.table_number,
+    floor_id: data.floor_id,
+    floor_name: data.floor_name,
+    capacity: data.capacity,
+    status: data.status,
+    started_at: data.started_at,
+  };
+
+  localStorage.setItem("customer_table_session", JSON.stringify(sessionPayload));
+
+  localStorage.setItem(
+    "customer_table",
+    JSON.stringify({
+      id: data.table_id,
+      table_id: data.table_id,
+      table_number: data.table_number,
+      floor_id: data.floor_id,
+      floor_name: data.floor_name,
+      capacity: data.capacity,
+      status: data.status,
+      is_active: true,
+    }),
+  );
+
+  localStorage.setItem("table_session_start", data.started_at);
+}
+
+export default function CustomerTableSessionPage() {
+  const params = useParams<{ token?: string | string[] }>();
+  const router = useRouter();
+
   const [error, setError] = useState("");
-  const hasRedirected = useRef(false);
+  const [loadingMessage, setLoadingMessage] = useState("Preparing your table session...");
+
+  const tableId = useMemo(() => normalizeToken(params.token), [params.token]);
 
   useEffect(() => {
-    if (hasRedirected.current) {
+    if (!tableId) {
+      setError("Invalid table QR code.");
       return;
     }
 
-    if (!token) {
-      setLoading(false);
-      setError("Invalid table QR code. Please scan the QR code again.");
-      return;
-    }
+    let isMounted = true;
 
-    const validateAndSetTable = async () => {
-      setLoading(true);
-      setError("");
-
+    const startSession = async () => {
       try {
-        const response = await fetch(
-          `/api/customer/validate-table?token=${encodeURIComponent(token)}`,
-          {
-            method: "GET",
-            cache: "no-store",
-          },
+        setLoadingMessage("Validating table QR code...");
+
+        const previousSession = parseStoredTableSession(
+          localStorage.getItem("customer_table_session"),
         );
 
-        const result = (await response.json()) as ValidateTableResponse;
+        setLoadingMessage("Starting table session...");
+
+        const response = await fetch("/api/customer/table-session/start", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            table_id: tableId,
+            previous_session_id: previousSession?.session_id ?? null,
+          }),
+        });
+
+        const result = (await response.json()) as StartTableSessionResponse;
 
         if (!response.ok || !result.success) {
-          setLoading(false);
-          setError(
+          throw new Error(
             result.success === false
               ? result.error
-              : "Invalid table QR code. Please scan again.",
+              : "Failed to start table session.",
           );
+        }
+
+        if (!isMounted) {
           return;
         }
 
-        localStorage.setItem("customer_table", JSON.stringify(result.data));
-        localStorage.setItem("table_session_start", new Date().toISOString());
+        saveTableSession(result.data);
 
-        hasRedirected.current = true;
-        window.location.replace("/customer/menu");
-      } catch (validationError) {
-        console.error("Error validating table:", validationError);
-        setLoading(false);
-        setError("Failed to validate table. Please try again.");
+        setLoadingMessage("Opening menu...");
+
+        router.replace("/customer/menu");
+      } catch (sessionError) {
+        if (!isMounted) {
+          return;
+        }
+
+        console.error("Customer table session error:", sessionError);
+
+        setError(
+          sessionError instanceof Error
+            ? sessionError.message
+            : "Failed to start table session.",
+        );
       }
     };
 
-    void validateAndSetTable();
-  }, [token]);
+    void startSession();
 
-  if (loading) {
+    return () => {
+      isMounted = false;
+    };
+  }, [router, tableId]);
+
+  if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-900 to-gray-800 p-4">
-        <div className="text-center">
-          <div className="mb-6">
-            <div className="flex items-center justify-center gap-2">
-              <div
-                className="h-3 w-3 animate-bounce rounded-full bg-white"
-                style={{ animationDelay: "0ms" }}
-              />
-              <div
-                className="h-3 w-3 animate-bounce rounded-full bg-white"
-                style={{ animationDelay: "150ms" }}
-              />
-              <div
-                className="h-3 w-3 animate-bounce rounded-full bg-white"
-                style={{ animationDelay: "300ms" }}
-              />
-            </div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+        <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+            <ExclamationTriangleIcon className="h-7 w-7" />
           </div>
 
-          <p className="text-lg font-medium text-white">Validating table...</p>
-          <p className="mt-2 text-sm text-gray-400">Please wait a moment</p>
+          <h1 className="mt-5 text-xl font-bold text-gray-900">
+            Table QR Not Available
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-gray-500">{error}</p>
+
+          <div className="mt-6 space-y-3">
+            <button
+              type="button"
+              onClick={() => router.replace("/customer/menu")}
+              className="w-full rounded-2xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+            >
+              Continue as Take Away
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.replace("/customer")}
+              className="flex w-full items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              <ArrowLeftIcon className="mr-2 h-4 w-4" />
+              Back to Customer Home
+            </button>
+          </div>
+
+          <p className="mt-5 text-xs leading-5 text-gray-400">
+            If you are dining in, please scan the QR code placed on your table.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-gray-900 to-gray-800 p-4">
-      <div className="w-full max-w-md">
-        <div className="rounded-2xl bg-white p-8 text-center shadow-2xl">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-            <QrCodeIcon className="h-10 w-10 text-gray-700" />
-          </div>
-
-          <h1 className="mb-3 text-2xl font-bold text-gray-900">
-            Scan QR Code
-          </h1>
-
-          <p className="mb-6 text-gray-600">
-            Please scan the QR code on your table to access our menu and place
-            your order.
-          </p>
-
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <div className="flex items-start gap-3">
-              <QrCodeIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-              <div className="text-left">
-                <p className="mb-1 text-sm font-medium text-blue-900">
-                  Secure Access
-                </p>
-                <p className="text-xs text-blue-700">
-                  Each table has a unique QR code. Scan it to ensure your order
-                  is delivered to the correct table.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-              <div className="flex items-start gap-3">
-                <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
-                <p className="text-left text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <p className="text-xs text-gray-500">
-              Cannot find the QR code? Please ask our staff for assistance.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+    <LoadingScreen
+      title="Connecting to Table"
+      subtitle={loadingMessage}
+      hideBottomNav
+    />
   );
 }
