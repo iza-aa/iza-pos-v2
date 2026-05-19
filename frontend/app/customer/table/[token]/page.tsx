@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
   ExclamationTriangleIcon,
@@ -43,27 +43,34 @@ interface StoredTableSession {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 
-function normalizeToken(value: string | string[] | undefined): string | null {
-  const token = Array.isArray(value) ? value[0] : value;
-
-  if (!token) {
+function normalizeUuid(value: string | null | undefined): string | null {
+  if (!value) {
     return null;
   }
 
-  const normalized = decodeURIComponent(token).trim();
+  const cleanValue = decodeURIComponent(value).trim();
 
-  if (!UUID_REGEX.test(normalized)) {
+  if (!UUID_REGEX.test(cleanValue)) {
     return null;
   }
 
-  return normalized;
+  return cleanValue;
 }
 
-function getTokenFromPathname(pathname: string): string | null {
-  const segments = pathname.split("/").filter(Boolean);
-  const lastSegment = segments[segments.length - 1];
+function getTableIdFromCurrentUrl(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
 
-  return normalizeToken(lastSegment);
+  const pathname = window.location.pathname;
+  const segments = pathname.split("/").filter(Boolean);
+  const tableIndex = segments.findIndex((segment) => segment === "table");
+
+  if (tableIndex >= 0 && segments[tableIndex + 1]) {
+    return normalizeUuid(segments[tableIndex + 1]);
+  }
+
+  return normalizeUuid(segments[segments.length - 1]);
 }
 
 function parseStoredTableSession(value: string | null): StoredTableSession | null {
@@ -131,39 +138,22 @@ function saveTableSession(data: TableSessionData) {
 }
 
 export default function CustomerTableSessionPage() {
-  const params = useParams<Record<string, string | string[] | undefined>>();
-  const pathname = usePathname();
   const router = useRouter();
 
   const [error, setError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Preparing your table session...");
 
-  const tableId = useMemo(() => {
-    const paramToken = normalizeToken(params.token);
-
-    if (paramToken) {
-      return paramToken;
-    }
-
-    const firstParamValue = Object.values(params)[0];
-    const dynamicParamToken = normalizeToken(firstParamValue);
-
-    if (dynamicParamToken) {
-      return dynamicParamToken;
-    }
-
-    return getTokenFromPathname(pathname);
-  }, [params, pathname]);
-
   useEffect(() => {
-    if (!tableId) {
-      setError("Invalid table QR code.");
-      return;
-    }
-
     let isMounted = true;
 
     const startSession = async () => {
+      const tableId = getTableIdFromCurrentUrl();
+
+      if (!tableId) {
+        setError("Invalid table QR code.");
+        return;
+      }
+
       try {
         setLoadingMessage("Validating table QR code...");
 
@@ -223,7 +213,7 @@ export default function CustomerTableSessionPage() {
     return () => {
       isMounted = false;
     };
-  }, [router, tableId]);
+  }, [router]);
 
   if (error) {
     return (
