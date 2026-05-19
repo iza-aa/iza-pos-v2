@@ -216,7 +216,7 @@ function getStatusConfig(order: Order): StatusConfig {
       };
     case "served":
       return {
-        label: isTakeAway ? "Ready for Pickup" : "Served",
+        label: isTakeAway ? "Ready for Pickup" : "Completed",
         description: isTakeAway ? "Your order is ready for pickup." : "All items have been served.",
         icon: <CheckCircleIcon className="h-4 w-4" />,
         badgeClassName: "bg-emerald-50 text-emerald-700 border border-emerald-100",
@@ -226,7 +226,7 @@ function getStatusConfig(order: Order): StatusConfig {
         label: "Completed",
         description: "This order has been completed.",
         icon: <CheckCircleIcon className="h-4 w-4" />,
-        badgeClassName: "bg-gray-100 text-gray-700 border border-gray-200",
+        badgeClassName: "bg-emerald-50 text-emerald-700 border border-emerald-100",
       };
     default:
       return {
@@ -242,27 +242,27 @@ function getKitchenStatusBadge(status: string | null, isTakeAway: boolean) {
   switch (status) {
     case "pending":
       return {
-        label: "Waiting Kitchen",
+        label: "On Progress",
         className: "bg-gray-100 text-gray-700",
       };
     case "cooking":
       return {
-        label: "Preparing",
+        label: "On Progress",
         className: "bg-amber-100 text-amber-700",
       };
     case "ready":
       return {
-        label: isTakeAway ? "Ready" : "Ready to Serve",
+        label: isTakeAway ? "Ready" : "On Progress",
         className: "bg-emerald-100 text-emerald-700",
       };
     case "not_required":
       return {
-        label: isTakeAway ? "Waiting Service" : "Waiting Service",
+        label: "On Progress",
         className: "bg-slate-100 text-slate-700",
       };
     default:
       return {
-        label: status || "Pending",
+        label: status || "On Progress",
         className: "bg-gray-100 text-gray-700",
       };
   }
@@ -287,20 +287,16 @@ function getProgressData(order: Order): {
     },
   ];
 
-  if (order.status === "completed" || order.status === "served") {
+  const allItemsServed =
+    order.order_items.length > 0 &&
+    order.order_items.every((item) => item.served === true);
+
+  if (allItemsServed || order.status === "completed" || order.status === "served") {
     return { currentStep: 3, steps };
   }
 
   if (order.status === "preparing" || order.status === "partially-served") {
     return { currentStep: 2, steps };
-  }
-
-  const allItemsServed =
-    order.order_items.length > 0 &&
-    order.order_items.every((item) => item.served === true);
-
-  if (allItemsServed) {
-    return { currentStep: 3, steps };
   }
 
   const hasStarted =
