@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/config/supabaseClient";
 import {
@@ -374,7 +374,7 @@ function getProgressData(order: Order): {
   return { currentStep: 1, steps: dineInSteps };
 }
 
-export default function CustomerTrackPage() {
+function CustomerTrackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -890,5 +890,22 @@ export default function CustomerTrackPage() {
         {orders.map((order, index) => renderOrderCard(order, index))}
       </div>
     </div>
+  );
+}
+
+
+function TrackFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900" />
+    </div>
+  );
+}
+
+export default function CustomerTrackPage() {
+  return (
+    <Suspense fallback={<TrackFallback />}>
+      <CustomerTrackContent />
+    </Suspense>
   );
 }
