@@ -5,12 +5,19 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
   ClockIcon,
+  GiftIcon,
+  LockClosedIcon,
   MapPinIcon,
   ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import {
   CheckCircleIcon,
 } from "@heroicons/react/24/solid";
+import {
+  type CustomerAccountSession,
+  formatMemberSince,
+  getStoredCustomerAccount,
+} from "@/lib/customer/customerAccount";
 import {
   type CustomerTableSession,
   validateStoredCustomerTableSession,
@@ -19,6 +26,8 @@ import {
 export default function CustomerPage() {
   const router = useRouter();
   const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
+  const [customerAccount, setCustomerAccount] =
+    useState<CustomerAccountSession | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -29,6 +38,7 @@ export default function CustomerPage() {
 
       if (isMounted) {
         setTableSession(validSession);
+        setCustomerAccount(getStoredCustomerAccount());
         setIsReady(true);
       }
     };
@@ -71,7 +81,7 @@ export default function CustomerPage() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="mt-2 text-2xl font-bold">
-                Welcome {tableSession ? tableSession.table_number : "Guest"}
+                Welcome {customerAccount ? customerAccount.name : tableSession ? tableSession.table_number : "Guest"}
               </h1>
             </div>
           </div>
@@ -144,6 +154,66 @@ export default function CustomerPage() {
             <ArrowRightIcon className="h-5 w-5 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-900" />
           </div>
         </button>
+
+        {customerAccount ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <GiftIcon className="h-5 w-5 text-gray-900" />
+              <h2 className="text-sm font-bold text-gray-900">Member Rewards</h2>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <p className="text-2xl font-bold text-gray-900">
+                {customerAccount.loyalty_points} pts
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Member since {formatMemberSince(customerAccount.member_since)}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push("/customer/rewards")}
+              className="mt-3 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950"
+            >
+              View Rewards
+            </button>
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 text-gray-700">
+                <LockClosedIcon className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900">Member Rewards</h2>
+                <p className="text-xs font-medium text-gray-400">Locked feature</p>
+              </div>
+            </div>
+
+            <p className="text-sm leading-6 text-gray-500">
+              Login or create an account to collect points, save your orders, and unlock member discounts.
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/customer/login")}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950"
+              >
+                Login
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/customer/register")}
+                className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                Register
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
