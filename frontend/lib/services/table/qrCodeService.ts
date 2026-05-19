@@ -17,17 +17,25 @@ type TableQRLookup = {
   qr_code_image: string | null;
 };
 
+function normalizeOrigin(origin: string): string {
+  return origin.replace(/\/$/, "");
+}
+
 function getBaseUrl(): string {
   if (typeof window !== "undefined") {
-    return window.location.origin.replace(/\/$/, "");
+    return normalizeOrigin(window.location.origin);
   }
 
-  const appUrl =
+  const configuredUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-  return appUrl.replace(/\/$/, "");
+  if (configuredUrl) {
+    return normalizeOrigin(configuredUrl);
+  }
+
+  return "http://localhost:3000";
 }
 
 /**

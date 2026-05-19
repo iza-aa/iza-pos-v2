@@ -35,17 +35,43 @@ function createErrorResponse(message: string, status: number) {
   return NextResponse.json(response, { status });
 }
 
-function getAppUrl(): string {
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
-
-  return appUrl.replace(/\/$/, "");
+function normalizeOrigin(origin: string): string {
+  return origin.replace(/\/$/, "");
 }
 
-function createCustomerTableUrl(tableId: string): string {
-  return `${getAppUrl()}/customer/table/${encodeURIComponent(tableId)}`;
+function getRequestOrigin(request: NextRequest): string {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+  const host = forwardedHost || request.headers.get("host");
+
+  if (host) {
+    return normalizeOrigin(`${forwardedProto}://${host}`);
+  }
+
+  return normalizeOrigin(request.nextUrl.origin);
+}
+
+function getAppUrl(request: NextRequest): string {
+  const requestOrigin = getRequestOrigin(request);
+
+  if (requestOrigin && !requestOrigin.includes("localhost")) {
+    return requestOrigin;
+  }
+
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  if (configuredUrl) {
+    return normalizeOrigin(configuredUrl);
+  }
+
+  return requestOrigin || "http://localhost:3000";
+}
+
+function createCustomerTableUrl(tableId: string, request: NextRequest): string {
+  return `${getAppUrl(request)}/customer/table/${encodeURIComponent(tableId)}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -63,7 +89,7 @@ export async function POST(request: NextRequest) {
       return createErrorResponse("Table number is required.", 400);
     }
 
-    const customerUrl = createCustomerTableUrl(tableId);
+    const customerUrl = createCustomerTableUrl(tableId, request);
 
     const qrCodeImage = await QRCode.toDataURL(customerUrl, {
       width: 512,
