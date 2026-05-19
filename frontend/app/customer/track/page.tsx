@@ -292,7 +292,7 @@ function getProgressData(order: Order): {
     order.order_items.every((item) => item.served === true);
 
   if (allItemsServed || order.status === "completed" || order.status === "served") {
-    return { currentStep: 3, steps };
+    return { currentStep: steps.length + 1, steps };
   }
 
   if (order.status === "preparing" || order.status === "partially-served") {
