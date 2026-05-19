@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-type StartTableSessionBody = {
-  table_id?: unknown;
-  previous_session_id?: unknown;
-};
+type UnknownRecord = Record<string, unknown>;
 
 type TableRow = {
   id: string;
@@ -54,29 +51,42 @@ type StartTableSessionResponse =
   | {
       success: false;
       error: string;
+      details?: {
+        received_keys?: string[];
+      };
     };
 
 const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+  /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}/i;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function normalizeUuid(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
 
-  const normalized = value.trim();
+  const decodedValue = decodeURIComponent(value).trim();
+  const match = decodedValue.match(UUID_REGEX);
 
-  if (!UUID_REGEX.test(normalized)) {
-    return null;
-  }
-
-  return normalized;
+  return match?.[0] ?? null;
 }
 
-function createErrorResponse(error: string, status: number) {
+function createErrorResponse(
+  error: string,
+  status: number,
+  details?: StartTableSessionResponse extends infer Response
+    ? Response extends { success: false; details?: infer Details }
+      ? Details
+      : never
+    : never,
+) {
   const response: StartTableSessionResponse = {
     success: false,
     error,
+    ...(details ? { details } : {}),
   };
 
   return NextResponse.json(response, { status });
@@ -102,6 +112,73 @@ function createSuccessResponse(
   };
 
   return NextResponse.json(response);
+}
+
+async function readRequestBody(request: NextRequest): Promise<unknown> {
+  const rawBody = await request.text();
+
+  if (!rawBody.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    return rawBody;
+  }
+}
+
+function getValueFromBody(body: unknown, keys: string[]): unknown {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  for (const key of keys) {
+    if (body[key] !== undefined && body[key] !== null) {
+      return body[key];
+    }
+  }
+
+  return null;
+}
+
+function getUuidFromRequest(
+  request: NextRequest,
+  body: unknown,
+  keys: string[],
+): string | null {
+  const bodyValue = getValueFromBody(body, keys);
+  const bodyUuid = normalizeUuid(bodyValue);
+
+  if (bodyUuid) {
+    return bodyUuid;
+  }
+
+  if (typeof body === "string") {
+    const stringUuid = normalizeUuid(body);
+
+    if (stringUuid) {
+      return stringUuid;
+    }
+  }
+
+  for (const key of keys) {
+    const queryUuid = normalizeUuid(request.nextUrl.searchParams.get(key));
+
+    if (queryUuid) {
+      return queryUuid;
+    }
+  }
+
+  return null;
+}
+
+function getReceivedKeys(body: unknown): string[] {
+  if (!isRecord(body)) {
+    return [];
+  }
+
+  return Object.keys(body);
 }
 
 async function closePreviousSession(
@@ -213,13 +290,26 @@ async function getFloorName(
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as StartTableSessionBody;
+    const body = await readRequestBody(request);
 
-    const tableId = normalizeUuid(body.table_id);
-    const previousSessionId = normalizeUuid(body.previous_session_id);
+    const tableId = getUuidFromRequest(request, body, [
+      "table_id",
+      "tableId",
+      "id",
+      "token",
+    ]);
+
+    const previousSessionId = getUuidFromRequest(request, body, [
+      "previous_session_id",
+      "previousSessionId",
+      "session_id",
+      "sessionId",
+    ]);
 
     if (!tableId) {
-      return createErrorResponse("Valid table ID is required.", 400);
+      return createErrorResponse("Valid table ID is required.", 400, {
+        received_keys: getReceivedKeys(body),
+      });
     }
 
     const supabase = await createClient();
