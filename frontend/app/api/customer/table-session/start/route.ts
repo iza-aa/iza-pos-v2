@@ -51,37 +51,17 @@ type StartTableSessionResponse =
   | {
       success: false;
       error: string;
-      details?: {
-        received_keys?: string[];
-      };
+      details?: Record<string, unknown>;
     };
-
-const UUID_REGEX =
-  /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}/i;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizeUuid(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const decodedValue = decodeURIComponent(value).trim();
-  const match = decodedValue.match(UUID_REGEX);
-
-  return match?.[0] ?? null;
-}
-
 function createErrorResponse(
   error: string,
   status: number,
-  details?: StartTableSessionResponse extends infer Response
-    ? Response extends { success: false; details?: infer Details }
-      ? Details
-      : never
-    : never,
+  details?: Record<string, unknown>,
 ) {
   const response: StartTableSessionResponse = {
     success: false,
@@ -128,45 +108,56 @@ async function readRequestBody(request: NextRequest): Promise<unknown> {
   }
 }
 
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const cleanValue = decodeURIComponent(value).trim();
+
+  return cleanValue || null;
+}
+
 function getValueFromBody(body: unknown, keys: string[]): unknown {
   if (!isRecord(body)) {
     return null;
   }
 
   for (const key of keys) {
-    if (body[key] !== undefined && body[key] !== null) {
-      return body[key];
+    const value = body[key];
+
+    if (value !== undefined && value !== null) {
+      return value;
     }
   }
 
   return null;
 }
 
-function getUuidFromRequest(
+function getStringFromRequest(
   request: NextRequest,
   body: unknown,
   keys: string[],
 ): string | null {
-  const bodyValue = getValueFromBody(body, keys);
-  const bodyUuid = normalizeUuid(bodyValue);
+  const bodyValue = normalizeString(getValueFromBody(body, keys));
 
-  if (bodyUuid) {
-    return bodyUuid;
+  if (bodyValue) {
+    return bodyValue;
   }
 
   if (typeof body === "string") {
-    const stringUuid = normalizeUuid(body);
+    const stringValue = normalizeString(body);
 
-    if (stringUuid) {
-      return stringUuid;
+    if (stringValue) {
+      return stringValue;
     }
   }
 
   for (const key of keys) {
-    const queryUuid = normalizeUuid(request.nextUrl.searchParams.get(key));
+    const queryValue = normalizeString(request.nextUrl.searchParams.get(key));
 
-    if (queryUuid) {
-      return queryUuid;
+    if (queryValue) {
+      return queryValue;
     }
   }
 
@@ -292,14 +283,14 @@ export async function POST(request: NextRequest) {
   try {
     const body = await readRequestBody(request);
 
-    const tableId = getUuidFromRequest(request, body, [
+    const tableId = getStringFromRequest(request, body, [
       "table_id",
       "tableId",
       "id",
       "token",
     ]);
 
-    const previousSessionId = getUuidFromRequest(request, body, [
+    const previousSessionId = getStringFromRequest(request, body, [
       "previous_session_id",
       "previousSessionId",
       "session_id",
@@ -307,7 +298,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     if (!tableId) {
-      return createErrorResponse("Valid table ID is required.", 400, {
+      return createErrorResponse("Table ID is required.", 400, {
         received_keys: getReceivedKeys(body),
       });
     }
@@ -321,17 +312,26 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (tableError) {
-      throw tableError;
+      return createErrorResponse("Failed to read table.", 500, {
+        table_id: tableId,
+        supabase_error: tableError.message,
+      });
     }
 
     if (!tableData) {
-      return createErrorResponse("Table not found.", 404);
+      return createErrorResponse("Table not found.", 404, {
+        table_id: tableId,
+      });
     }
 
     const table = tableData as TableRow;
 
     if (table.is_active !== true) {
-      return createErrorResponse("This table is currently unavailable.", 400);
+      return createErrorResponse("This table is currently unavailable.", 400, {
+        table_id: tableId,
+        table_number: table.table_number,
+        is_active: table.is_active,
+      });
     }
 
     if (previousSessionId) {
@@ -363,11 +363,16 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (createSessionError) {
-        throw createSessionError;
+        return createErrorResponse("Failed to create table session.", 500, {
+          table_id: tableId,
+          supabase_error: createSessionError.message,
+        });
       }
 
       if (!createdSessionData) {
-        return createErrorResponse("Failed to create table session.", 500);
+        return createErrorResponse("Failed to create table session.", 500, {
+          table_id: tableId,
+        });
       }
 
       session = createdSessionData as TableSessionRow;
@@ -383,7 +388,10 @@ export async function POST(request: NextRequest) {
       .eq("id", tableId);
 
     if (updateTableError) {
-      throw updateTableError;
+      return createErrorResponse("Failed to update table status.", 500, {
+        table_id: tableId,
+        supabase_error: updateTableError.message,
+      });
     }
 
     const floorName = await getFloorName(supabase, table.floor_id);
@@ -391,6 +399,9 @@ export async function POST(request: NextRequest) {
     return createSuccessResponse(table, session, floorName);
   } catch (error) {
     console.error("Start table session error:", error);
-    return createErrorResponse("Failed to start table session.", 500);
+
+    return createErrorResponse("Failed to start table session.", 500, {
+      error_message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
