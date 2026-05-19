@@ -281,7 +281,7 @@ export default function CustomerTableSessionPage() {
   return (
     <LoadingScreen
       title="Connecting to Table"
-      subtitle={loadingMessage}
+      subtitle={loadingMessage} 
       hideBottomNav
     />
   );

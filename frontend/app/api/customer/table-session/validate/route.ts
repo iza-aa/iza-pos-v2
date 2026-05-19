@@ -42,26 +42,29 @@ type ValidateTableSessionResponse =
       success: false;
       error: string;
       expired?: boolean;
+      details?: Record<string, unknown>;
     };
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
-
-function normalizeUuid(value: string | null): string | null {
-  const normalized = value?.trim();
-
-  if (!normalized || !UUID_REGEX.test(normalized)) {
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
     return null;
   }
 
-  return normalized;
+  const cleanValue = decodeURIComponent(value).trim();
+  return cleanValue || null;
 }
 
-function createErrorResponse(error: string, status: number, expired = false) {
+function createErrorResponse(
+  error: string,
+  status: number,
+  expired = false,
+  details?: Record<string, unknown>,
+) {
   const response: ValidateTableSessionResponse = {
     success: false,
     error,
     expired,
+    ...(details ? { details } : {}),
   };
 
   return NextResponse.json(response, { status });
@@ -114,10 +117,12 @@ async function getFloorName(
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = normalizeUuid(request.nextUrl.searchParams.get("session_id"));
+    const sessionId = normalizeString(request.nextUrl.searchParams.get("session_id"));
 
     if (!sessionId) {
-      return createErrorResponse("Valid session ID is required.", 400);
+      return createErrorResponse("Session ID is required.", 400, false, {
+        received_search_params: Object.fromEntries(request.nextUrl.searchParams.entries()),
+      });
     }
 
     const supabase = await createClient();
@@ -129,17 +134,25 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (sessionError) {
-      throw sessionError;
+      return createErrorResponse("Failed to read table session.", 500, false, {
+        session_id: sessionId,
+        supabase_error: sessionError.message,
+      });
     }
 
     if (!sessionData) {
-      return createErrorResponse("Table session not found.", 404, true);
+      return createErrorResponse("Table session not found.", 404, true, {
+        session_id: sessionId,
+      });
     }
 
     const session = sessionData as TableSessionRow;
 
     if (session.ended_at) {
-      return createErrorResponse("Table session has ended.", 410, true);
+      return createErrorResponse("Table session has ended.", 410, true, {
+        session_id: sessionId,
+        ended_at: session.ended_at,
+      });
     }
 
     const { data: tableData, error: tableError } = await supabase
@@ -149,17 +162,29 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (tableError) {
-      throw tableError;
+      return createErrorResponse("Failed to read table.", 500, false, {
+        session_id: sessionId,
+        table_id: session.table_id,
+        supabase_error: tableError.message,
+      });
     }
 
     if (!tableData) {
-      return createErrorResponse("Table not found.", 404, true);
+      return createErrorResponse("Table not found.", 404, true, {
+        session_id: sessionId,
+        table_id: session.table_id,
+      });
     }
 
     const table = tableData as TableRow;
 
     if (table.is_active !== true) {
-      return createErrorResponse("This table is unavailable.", 400, true);
+      return createErrorResponse("This table is unavailable.", 400, true, {
+        session_id: sessionId,
+        table_id: table.id,
+        table_number: table.table_number,
+        is_active: table.is_active,
+      });
     }
 
     const floorName = await getFloorName(supabase, table.floor_id);
@@ -167,6 +192,9 @@ export async function GET(request: NextRequest) {
     return createSuccessResponse(session, table, floorName);
   } catch (error) {
     console.error("Validate table session error:", error);
-    return createErrorResponse("Failed to validate table session.", 500);
+
+    return createErrorResponse("Failed to validate table session.", 500, false, {
+      error_message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
