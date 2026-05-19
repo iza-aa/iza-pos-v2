@@ -272,106 +272,50 @@ function getProgressData(order: Order): {
   currentStep: number;
   steps: OrderProgressStep[];
 } {
-  const isTakeAway = isTakeAwayOrder(order);
-  const needsKitchen = hasKitchenItems(order);
+  const steps: OrderProgressStep[] = [
+    {
+      label: "Order Received",
+      description: "Order has been received",
+    },
+    {
+      label: "On Progress",
+      description: "Your order is being prepared or served",
+    },
+    {
+      label: "Completed",
+      description: "All items have been served",
+    },
+  ];
 
-  if (isTakeAway) {
-    const takeAwaySteps: OrderProgressStep[] = needsKitchen
-      ? [
-          {
-            label: "Order Received",
-            description: "Order has been received",
-          },
-          {
-            label: "Preparing",
-            description: "Items are being prepared",
-          },
-          {
-            label: "Ready for Pickup",
-            description: "Please pick up your order at the counter",
-          },
-          {
-            label: "Completed",
-            description: "Order completed",
-          },
-        ]
-      : [
-          {
-            label: "Order Received",
-            description: "Order has been received",
-          },
-          {
-            label: "Ready for Pickup",
-            description: "Please pick up your order at the counter",
-          },
-          {
-            label: "Completed",
-            description: "Order completed",
-          },
-        ];
-
-    if (order.status === "completed") {
-      return { currentStep: takeAwaySteps.length, steps: takeAwaySteps };
-    }
-
-    if (order.status === "served") {
-      return { currentStep: needsKitchen ? 3 : 2, steps: takeAwaySteps };
-    }
-
-    if (order.status === "preparing") {
-      return { currentStep: needsKitchen ? 2 : 1, steps: takeAwaySteps };
-    }
-
-    return { currentStep: 1, steps: takeAwaySteps };
+  if (order.status === "completed" || order.status === "served") {
+    return { currentStep: 3, steps };
   }
 
-  const dineInSteps: OrderProgressStep[] = needsKitchen
-    ? [
-        {
-          label: "Order Received",
-          description: "Order has been received",
-        },
-        {
-          label: "Kitchen Preparing",
-          description: "Kitchen is preparing your order",
-        },
-        {
-          label: "Ready to Serve",
-          description: "Items are ready to be served",
-        },
-        {
-          label: "Completed",
-          description: "Order completed",
-        },
-      ]
-    : [
-        {
-          label: "Order Received",
-          description: "Order has been received",
-        },
-        {
-          label: "Ready to Serve",
-          description: "Items are ready to be served",
-        },
-        {
-          label: "Completed",
-          description: "Order completed",
-        },
-      ];
-
-  if (order.status === "completed") {
-    return { currentStep: dineInSteps.length, steps: dineInSteps };
+  if (order.status === "preparing" || order.status === "partially-served") {
+    return { currentStep: 2, steps };
   }
 
-  if (order.status === "served" || order.status === "partially-served") {
-    return { currentStep: needsKitchen ? 3 : 2, steps: dineInSteps };
+  const allItemsServed =
+    order.order_items.length > 0 &&
+    order.order_items.every((item) => item.served === true);
+
+  if (allItemsServed) {
+    return { currentStep: 3, steps };
   }
 
-  if (order.status === "preparing") {
-    return { currentStep: needsKitchen ? 2 : 1, steps: dineInSteps };
+  const hasStarted =
+    order.order_items.some(
+      (item) =>
+        item.kitchen_status === "cooking" ||
+        item.kitchen_status === "ready" ||
+        item.served === true,
+    );
+
+  if (hasStarted) {
+    return { currentStep: 2, steps };
   }
 
-  return { currentStep: 1, steps: dineInSteps };
+  return { currentStep: 1, steps };
 }
 
 function CustomerTrackContent() {
@@ -748,11 +692,16 @@ function CustomerTrackContent() {
 
                 <div className="space-y-4">
                   {order.order_items.map((item) => {
-                    const kitchenBadge = getKitchenStatusBadge(item.kitchen_status, isTakeAway);
                     const variants = parseVariants(item.variants);
                     const itemDone = isTakeAway
                       ? item.kitchen_status === "ready" || item.served === true
                       : item.served === true;
+                    const kitchenBadge = itemDone
+                      ? {
+                          label: isTakeAway ? "Ready" : "Served",
+                          className: "bg-emerald-100 text-emerald-700",
+                        }
+                      : getKitchenStatusBadge(item.kitchen_status, isTakeAway);
 
                     return (
                       <div
