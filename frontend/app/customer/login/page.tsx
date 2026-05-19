@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeftIcon,
@@ -39,7 +39,7 @@ function getRedirectPath(value: string | null): string {
   return value;
 }
 
-export default function CustomerLoginPage() {
+function CustomerLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -237,5 +237,21 @@ export default function CustomerLoginPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900" />
+    </div>
+  );
+}
+
+export default function CustomerLoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <CustomerLoginContent />
+    </Suspense>
   );
 }
