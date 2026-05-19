@@ -27,6 +27,7 @@ type StartTableSessionResponse =
   | {
       success: false;
       error: string;
+      details?: Record<string, unknown>;
     };
 
 interface StoredTableSession {
@@ -40,23 +41,6 @@ interface StoredTableSession {
   started_at: string;
 }
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
-
-function normalizeUuid(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-
-  const cleanValue = decodeURIComponent(value).trim();
-
-  if (!UUID_REGEX.test(cleanValue)) {
-    return null;
-  }
-
-  return cleanValue;
-}
-
 function getTableIdFromCurrentUrl(): string | null {
   if (typeof window === "undefined") {
     return null;
@@ -64,13 +48,30 @@ function getTableIdFromCurrentUrl(): string | null {
 
   const pathname = window.location.pathname;
   const segments = pathname.split("/").filter(Boolean);
-  const tableIndex = segments.findIndex((segment) => segment === "table");
+  const tableIndex = segments.findIndex((segment) => segment.toLowerCase() === "table");
 
   if (tableIndex >= 0 && segments[tableIndex + 1]) {
-    return normalizeUuid(segments[tableIndex + 1]);
+    return decodeURIComponent(segments[tableIndex + 1]).trim();
   }
 
-  return normalizeUuid(segments[segments.length - 1]);
+  const lastSegment = segments[segments.length - 1];
+
+  if (!lastSegment) {
+    return null;
+  }
+
+  return decodeURIComponent(lastSegment).trim();
+}
+
+function getDebugPathInfo(): string {
+  if (typeof window === "undefined") {
+    return "window is not available";
+  }
+
+  const pathname = window.location.pathname;
+  const segments = pathname.split("/").filter(Boolean);
+
+  return `pathname=${pathname} | segments=${JSON.stringify(segments)}`;
 }
 
 function parseStoredTableSession(value: string | null): StoredTableSession | null {
@@ -141,6 +142,7 @@ export default function CustomerTableSessionPage() {
   const router = useRouter();
 
   const [error, setError] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Preparing your table session...");
 
   useEffect(() => {
@@ -148,6 +150,13 @@ export default function CustomerTableSessionPage() {
 
     const startSession = async () => {
       const tableId = getTableIdFromCurrentUrl();
+      const currentDebugInfo = getDebugPathInfo();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setDebugInfo(currentDebugInfo);
 
       if (!tableId) {
         setError("Invalid table QR code.");
@@ -177,9 +186,14 @@ export default function CustomerTableSessionPage() {
         const result = (await response.json()) as StartTableSessionResponse;
 
         if (!response.ok || !result.success) {
+          const detailText =
+            result.success === false && result.details
+              ? ` ${JSON.stringify(result.details)}`
+              : "";
+
           throw new Error(
             result.success === false
-              ? result.error
+              ? `${result.error}${detailText}`
               : "Failed to start table session.",
           );
         }
@@ -228,6 +242,14 @@ export default function CustomerTableSessionPage() {
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">{error}</p>
+
+          {debugInfo ? (
+            <div className="mt-4 rounded-2xl bg-gray-50 p-3 text-left">
+              <p className="break-words text-xs leading-5 text-gray-500">
+                {debugInfo}
+              </p>
+            </div>
+          ) : null}
 
           <div className="mt-6 space-y-3">
             <button
