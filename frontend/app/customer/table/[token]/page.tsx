@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
   ExclamationTriangleIcon,
@@ -57,6 +57,13 @@ function normalizeToken(value: string | string[] | undefined): string | null {
   }
 
   return normalized;
+}
+
+function getTokenFromPathname(pathname: string): string | null {
+  const segments = pathname.split("/").filter(Boolean);
+  const lastSegment = segments[segments.length - 1];
+
+  return normalizeToken(lastSegment);
 }
 
 function parseStoredTableSession(value: string | null): StoredTableSession | null {
@@ -124,13 +131,29 @@ function saveTableSession(data: TableSessionData) {
 }
 
 export default function CustomerTableSessionPage() {
-  const params = useParams<{ token?: string | string[] }>();
+  const params = useParams<Record<string, string | string[] | undefined>>();
+  const pathname = usePathname();
   const router = useRouter();
 
   const [error, setError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Preparing your table session...");
 
-  const tableId = useMemo(() => normalizeToken(params.token), [params.token]);
+  const tableId = useMemo(() => {
+    const paramToken = normalizeToken(params.token);
+
+    if (paramToken) {
+      return paramToken;
+    }
+
+    const firstParamValue = Object.values(params)[0];
+    const dynamicParamToken = normalizeToken(firstParamValue);
+
+    if (dynamicParamToken) {
+      return dynamicParamToken;
+    }
+
+    return getTokenFromPathname(pathname);
+  }, [params, pathname]);
 
   useEffect(() => {
     if (!tableId) {
