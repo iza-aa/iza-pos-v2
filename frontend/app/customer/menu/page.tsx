@@ -419,7 +419,7 @@ export default function CustomerMenuPage() {
             <h1 className="text-xl font-bold text-gray-900">Menu</h1>
             {isDineInFromQr ? (
               <p className="text-xs text-gray-500 mt-1">
-                Ordering for {tableSession?.table_number}
+                Enjoy your dine-in experience! Browse the menu and place your order.
               </p>
             ) : (
               <p className="text-xs text-gray-500 mt-1">

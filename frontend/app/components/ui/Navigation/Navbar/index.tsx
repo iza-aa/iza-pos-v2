@@ -45,6 +45,7 @@ const menuConfig = {
     { label: 'Staff Manager', path: '/owner/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Activity Log', path: '/owner/activitylog', icon: ClipboardDocumentListIcon, iconSolid: ClipboardDocumentListIconSolid },
     { label: 'Archives', path: '/owner/archives', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Rewards Analytics', path: '/owner/rewards-analytics', icon: ChartBarIcon, iconSolid: ChartBarIcon },
   ],
   manager: [
     { label: 'Dashboard', path: '/manager/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
@@ -54,6 +55,7 @@ const menuConfig = {
     { label: 'Order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
+    { label: 'Rewards', path: '/manager/rewards', icon: ChartBarIcon, iconSolid: ChartBarIcon },
   ],
   staff: {
     kitchen: [
@@ -89,6 +91,7 @@ const ownerAccessMenu = {
     { label: 'Inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
+    { label: 'Rewards', path: '/manager/rewards', icon: ChartBarIcon, iconSolid: ChartBarIcon },
   ],
   staff: [
     { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },

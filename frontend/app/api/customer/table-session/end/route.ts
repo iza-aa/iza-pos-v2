@@ -28,6 +28,8 @@ type EndTableSessionResponse =
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 
+const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
+
 function normalizeUuid(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -49,6 +51,76 @@ function createErrorResponse(error: string, status: number) {
   };
 
   return NextResponse.json(response, { status });
+}
+
+function getDurationMinutes(startedAt: string): number {
+  const startedAtTime = new Date(startedAt).getTime();
+
+  if (Number.isNaN(startedAtTime)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - startedAtTime) / 60000));
+}
+
+async function tableHasBlockingOrders(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("table_id", tableId)
+    .in("status", BLOCKING_ORDER_STATUSES)
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  const activeOrders = (data ?? []) as ActiveOrderRow[];
+
+  return activeOrders.length > 0;
+}
+
+async function releaseTableIfSafe(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const hasBlockingOrders = await tableHasBlockingOrders(supabase, tableId);
+
+  if (hasBlockingOrders) {
+    return;
+  }
+
+  const { data: activeSessions, error: activeSessionError } = await supabase
+    .from("table_sessions")
+    .select("id")
+    .eq("table_id", tableId)
+    .is("ended_at", null)
+    .limit(1);
+
+  if (activeSessionError) {
+    throw activeSessionError;
+  }
+
+  if ((activeSessions ?? []).length > 0) {
+    return;
+  }
+
+  const { error: tableUpdateError } = await supabase
+    .from("tables")
+    .update({
+      status: "free",
+      occupied_at: null,
+      occupied_by_customer: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tableId);
+
+  if (tableUpdateError) {
+    throw tableUpdateError;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -79,14 +151,11 @@ export async function POST(request: NextRequest) {
     const session = sessionData as SessionRow;
 
     if (!session.ended_at) {
-      const startedAt = new Date(session.started_at).getTime();
-      const durationMinutes = Math.max(0, Math.floor((Date.now() - startedAt) / 60000));
-
       const { error: endError } = await supabase
         .from("table_sessions")
         .update({
           ended_at: new Date().toISOString(),
-          duration_minutes: durationMinutes,
+          duration_minutes: getDurationMinutes(session.started_at),
         })
         .eq("id", session.id)
         .is("ended_at", null);
@@ -96,34 +165,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: activeOrdersData, error: activeOrdersError } = await supabase
-      .from("orders")
-      .select("id")
-      .eq("table_id", session.table_id)
-      .in("status", ["new", "preparing", "partially-served", "served"])
-      .limit(1);
-
-    if (activeOrdersError) {
-      throw activeOrdersError;
-    }
-
-    const activeOrders = (activeOrdersData ?? []) as ActiveOrderRow[];
-
-    if (activeOrders.length === 0) {
-      const { error: tableUpdateError } = await supabase
-        .from("tables")
-        .update({
-          status: "free",
-          occupied_at: null,
-          occupied_by_customer: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", session.table_id);
-
-      if (tableUpdateError) {
-        throw tableUpdateError;
-      }
-    }
+    await releaseTableIfSafe(supabase, session.table_id);
 
     const response: EndTableSessionResponse = {
       success: true,

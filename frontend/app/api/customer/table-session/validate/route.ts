@@ -45,6 +45,9 @@ type ValidateTableSessionResponse =
       details?: Record<string, unknown>;
     };
 
+const SESSION_TTL_MINUTES = 240;
+const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
+
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -90,6 +93,123 @@ function createSuccessResponse(
   };
 
   return NextResponse.json(response);
+}
+
+function getDurationMinutes(startedAt: string): number {
+  const startedAtTime = new Date(startedAt).getTime();
+
+  if (Number.isNaN(startedAtTime)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - startedAtTime) / 60000));
+}
+
+function isSessionStale(session: Pick<TableSessionRow, "started_at">): boolean {
+  return getDurationMinutes(session.started_at) >= SESSION_TTL_MINUTES;
+}
+
+async function tableHasBlockingOrders(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("table_id", tableId)
+    .in("status", BLOCKING_ORDER_STATUSES)
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+async function closeSession(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  session: Pick<TableSessionRow, "id" | "started_at">,
+  notes: string,
+) {
+  const { error } = await supabase
+    .from("table_sessions")
+    .update({
+      ended_at: new Date().toISOString(),
+      duration_minutes: getDurationMinutes(session.started_at),
+      notes,
+    })
+    .eq("id", session.id)
+    .is("ended_at", null);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function releaseTableIfSafe(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const hasBlockingOrders = await tableHasBlockingOrders(supabase, tableId);
+
+  if (hasBlockingOrders) {
+    return;
+  }
+
+  const { data: activeSessions, error: activeSessionError } = await supabase
+    .from("table_sessions")
+    .select("id")
+    .eq("table_id", tableId)
+    .is("ended_at", null)
+    .limit(1);
+
+  if (activeSessionError) {
+    throw activeSessionError;
+  }
+
+  if ((activeSessions ?? []).length > 0) {
+    return;
+  }
+
+  const { error: tableUpdateError } = await supabase
+    .from("tables")
+    .update({
+      status: "free",
+      occupied_at: null,
+      occupied_by_customer: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tableId);
+
+  if (tableUpdateError) {
+    throw tableUpdateError;
+  }
+}
+
+async function expireSessionIfStale(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  session: TableSessionRow,
+) {
+  if (!isSessionStale(session)) {
+    return false;
+  }
+
+  const hasBlockingOrders = await tableHasBlockingOrders(supabase, session.table_id);
+
+  if (hasBlockingOrders) {
+    return false;
+  }
+
+  await closeSession(
+    supabase,
+    session,
+    `Closed automatically after ${SESSION_TTL_MINUTES} minutes of inactivity.`,
+  );
+
+  await releaseTableIfSafe(supabase, session.table_id);
+
+  return true;
 }
 
 async function getFloorName(
@@ -152,6 +272,15 @@ export async function GET(request: NextRequest) {
       return createErrorResponse("Table session has ended.", 410, true, {
         session_id: sessionId,
         ended_at: session.ended_at,
+      });
+    }
+
+    const expiredByTtl = await expireSessionIfStale(supabase, session);
+
+    if (expiredByTtl) {
+      return createErrorResponse("Table session has expired.", 410, true, {
+        session_id: sessionId,
+        ttl_minutes: SESSION_TTL_MINUTES,
       });
     }
 

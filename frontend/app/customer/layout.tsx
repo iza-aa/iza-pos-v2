@@ -144,17 +144,13 @@ export default function CustomerLayout({
           <button
             type="button"
             onClick={() => router.push("/customer")}
-            className="flex items-center gap-3"
+            className="flex items-center"
           >
             <img
               src="/logo/IZALogo2.png"
               alt="IZA Coffee"
               className="h-9 w-auto object-contain"
             />
-
-            <div className="text-left">
-              <p className="text-xs font-medium text-gray-500">{sessionLabel}</p>
-            </div>
           </button>
 
           <nav className="flex h-full items-center gap-6">
@@ -167,7 +163,7 @@ export default function CustomerLayout({
                   key={item.name}
                   type="button"
                   onClick={() => router.push(item.href)}
-                  className={`flex h-full items-center gap-2 border-b-2 px-1 text-sm transition ${
+                  className={`flex h-full items-center gap-2 px-1 text-sm transition ${
                     isActive
                       ? "border-gray-900 font-bold text-gray-900"
                       : "border-transparent font-medium text-gray-500 hover:font-semibold hover:text-gray-900"
@@ -180,23 +176,20 @@ export default function CustomerLayout({
             })}
           </nav>
 
-          <div className="min-w-[120px] text-right">
-            {customerAccount ? (
-              <p className="text-xs font-semibold text-gray-900">
-                {customerAccount.name}
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => router.push("/customer/login")}
-                className="text-xs font-semibold text-gray-500 transition hover:text-gray-900"
-              >
-                Login
-              </button>
-            )}
-          </div>
+          <div className="w-9" aria-hidden="true" />
         </div>
       </header>
+
+      {tableSession ? (
+        <div className="hidden border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:block">
+          <p className="text-sm">
+            <span className="font-bold">{tableSession.table_number}</span>
+            {tableSession.floor_name ? (
+              <span className="ml-2 text-gray-300">• {tableSession.floor_name}</span>
+            ) : null}
+          </p>
+        </div>
+      ) : null}
 
       {tableSession ? (
         <div className="border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:hidden">

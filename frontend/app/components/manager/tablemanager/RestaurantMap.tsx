@@ -290,7 +290,7 @@ export default function RestaurantMap({
               floor
             </p>
             <p className="text-xs text-gray-500">
-              Layout management only. Occupied status is shown as read-only.
+              Layout management only. Order activity is handled from the order page.
             </p>
           </div>
 
@@ -323,6 +323,13 @@ export default function RestaurantMap({
               const positionX = table.position_x ?? 0;
               const positionY = table.position_y ?? 0;
               const isDragging = dragState?.tableId === table.id;
+              const layoutTable: Table = {
+                ...table,
+                status: 'free',
+                current_order_id: null,
+                occupied_at: null,
+                occupied_by_customer: null,
+              };
 
               return (
                 <div
@@ -336,7 +343,7 @@ export default function RestaurantMap({
                   onMouseDown={(event) => handleDragStart(table, event)}
                 >
                   <TableCard
-                    table={table}
+                    table={layoutTable}
                     onEdit={() => handleEditTable(table)}
                     onDelete={() => handleDelete(table)}
                     onShowQR={() => handleShowQR(table)}

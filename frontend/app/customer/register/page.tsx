@@ -6,9 +6,12 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   EnvelopeIcon,
+  KeyIcon,
   PhoneIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
+import { supabase } from "@/lib/config/supabaseClient";
+import { saveCustomerAccount } from "@/lib/customer/customerAccount";
 
 interface CustomerSession {
   id: string;
@@ -19,7 +22,7 @@ interface CustomerSession {
   member_since: string | null;
 }
 
-type RegisterResponse =
+type SyncResponse =
   | {
       success: true;
       customer: CustomerSession;
@@ -29,13 +32,28 @@ type RegisterResponse =
       error: string;
     };
 
-function normalizePhone(value: string): string {
-  return value.replace(/\s+/g, "").trim();
+type CheckAvailabilityResponse =
+  | {
+      success: true;
+      available: true;
+    }
+  | {
+      success: true;
+      available: false;
+      field: "phone" | "email";
+      message: string;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
 }
 
-function normalizeEmail(value: string): string | null {
-  const cleanValue = value.trim().toLowerCase();
-  return cleanValue || null;
+function normalizePhone(value: string): string {
+  return value.replace(/\s+/g, "").trim();
 }
 
 function getRedirectPath(value: string | null): string {
@@ -46,6 +64,38 @@ function getRedirectPath(value: string | null): string {
   return value;
 }
 
+async function checkAccountAvailability(
+  phone: string,
+  email: string,
+): Promise<string | null> {
+  const response = await fetch("/api/customer/auth/check-availability", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      phone,
+      email,
+    }),
+  });
+
+  const result = (await response.json()) as CheckAvailabilityResponse;
+
+  if (!result.success) {
+    return result.error;
+  }
+
+  if (!result.available) {
+    return result.message;
+  }
+
+  if (!response.ok) {
+    return "Failed to check account availability.";
+  }
+
+  return null;
+}
+
 function CustomerRegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,7 +103,10 @@ function CustomerRegisterContent() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   const redirectPath = getRedirectPath(searchParams.get("redirect"));
@@ -64,6 +117,8 @@ function CustomerRegisterContent() {
     const cleanName = name.trim();
     const cleanPhone = normalizePhone(phone);
     const cleanEmail = normalizeEmail(email);
+    const cleanPassword = password.trim();
+    const cleanConfirmPassword = confirmPassword.trim();
 
     if (!cleanName) {
       setError("Please enter your name.");
@@ -75,43 +130,113 @@ function CustomerRegisterContent() {
       return;
     }
 
+    if (!cleanEmail) {
+      setError("Please enter your email.");
+      return;
+    }
+
+    if (cleanPassword.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (cleanPassword !== cleanConfirmPassword) {
+      setError("Password confirmation does not match.");
+      return;
+    }
+
     setError("");
+    setInfo("");
     setLoading(true);
 
     try {
-      const response = await fetch("/api/customer/register", {
+      const availabilityError = await checkAccountAvailability(cleanPhone, cleanEmail);
+
+      if (availabilityError) {
+        setError(availabilityError);
+        return;
+      }
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: cleanPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/customer/auth/callback`,
+          data: {
+            name: cleanName,
+            phone: cleanPhone,
+          },
+        },
+      });
+
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      const accessToken = data.session?.access_token;
+
+      if (!accessToken) {
+        setInfo("Account created. Please check your email to confirm your account, then login.");
+        return;
+      }
+
+      const response = await fetch("/api/customer/auth/sync", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           name: cleanName,
           phone: cleanPhone,
-          email: cleanEmail,
+          auth_provider: "email",
         }),
       });
 
-      const result = (await response.json()) as RegisterResponse;
+      const result = (await response.json()) as SyncResponse;
 
       if (!response.ok || !result.success) {
-        setError(
-          result.success === false
-            ? result.error
-            : "Registration failed. Please try again.",
-        );
-        return;
+        throw new Error(result.success === false ? result.error : "Failed to create account.");
       }
 
-      localStorage.setItem("customer_session", JSON.stringify(result.customer));
-      localStorage.setItem("customer_id", result.customer.id);
-      localStorage.setItem("customer_name", result.customer.name);
-      localStorage.setItem("customer_phone", result.customer.phone);
-
+      saveCustomerAccount(result.customer);
       router.replace(redirectPath);
     } catch (registerError) {
       console.error("Customer register error:", registerError);
-      setError("Unable to register. Please check your connection and try again.");
+      setError(
+        registerError instanceof Error
+          ? registerError.message
+          : "Unable to register. Please try again.",
+      );
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    setLoading(true);
+
+    try {
+      localStorage.setItem("customer_auth_redirect", redirectPath);
+
+      const { error: googleError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/customer/auth/callback`,
+        },
+      });
+
+      if (googleError) {
+        throw googleError;
+      }
+    } catch (googleLoginError) {
+      console.error("Customer Google login error:", googleLoginError);
+      setError(
+        googleLoginError instanceof Error
+          ? googleLoginError.message
+          : "Unable to start Google login.",
+      );
       setLoading(false);
     }
   };
@@ -136,18 +261,8 @@ function CustomerRegisterContent() {
             Create an account and start collecting points.
           </h1>
           <p className="mt-5 text-base leading-7 text-gray-300">
-            Members can save order history, collect loyalty points, and get a
-            faster checkout experience.
+            Register with Google or email to save order history and unlock member rewards.
           </p>
-
-          <div className="mt-8 rounded-3xl border border-white/10 bg-white/10 p-5">
-            <p className="text-sm font-semibold text-white">Member benefits</p>
-            <div className="mt-4 space-y-3 text-sm text-gray-300">
-              <p>Collect points from paid orders.</p>
-              <p>Save your name and WhatsApp number for faster checkout.</p>
-              <p>Track member order history more easily.</p>
-            </div>
-          </div>
         </div>
 
         <p className="text-xs text-gray-500">
@@ -177,7 +292,7 @@ function CustomerRegisterContent() {
                 Create account
               </h1>
               <p className="mt-2 text-sm leading-6 text-gray-500">
-                Register with your WhatsApp number to start collecting rewards.
+                Join IZA Rewards to collect points from your orders.
               </p>
             </div>
 
@@ -187,12 +302,30 @@ function CustomerRegisterContent() {
               </div>
             ) : null}
 
+            {info ? (
+              <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+                <p className="text-sm text-blue-700">{info}</p>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="mb-4 flex w-full items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Continue with Google
+            </button>
+
+            <div className="mb-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="text-xs font-semibold text-gray-400">OR</span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label
-                  htmlFor="name"
-                  className="mb-2 block text-sm font-semibold text-gray-700"
-                >
+                <label htmlFor="name" className="mb-2 block text-sm font-semibold text-gray-700">
                   Name
                 </label>
                 <div className="relative">
@@ -209,10 +342,7 @@ function CustomerRegisterContent() {
               </div>
 
               <div>
-                <label
-                  htmlFor="phone"
-                  className="mb-2 block text-sm font-semibold text-gray-700"
-                >
+                <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-gray-700">
                   WhatsApp Number
                 </label>
                 <div className="relative">
@@ -229,11 +359,8 @@ function CustomerRegisterContent() {
               </div>
 
               <div>
-                <label
-                  htmlFor="email"
-                  className="mb-2 block text-sm font-semibold text-gray-700"
-                >
-                  Email Optional
+                <label htmlFor="email" className="mb-2 block text-sm font-semibold text-gray-700">
+                  Email
                 </label>
                 <div className="relative">
                   <EnvelopeIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -243,6 +370,40 @@ function CustomerRegisterContent() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@email.com"
+                    className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="mb-2 block text-sm font-semibold text-gray-700">
+                  Password
+                </label>
+                <div className="relative">
+                  <KeyIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Minimum 6 characters"
+                    className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="mb-2 block text-sm font-semibold text-gray-700">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <KeyIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Repeat password"
                     className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
                   />
                 </div>
@@ -266,20 +427,12 @@ function CustomerRegisterContent() {
                 onClick={() =>
                   router.push(`/customer/login?redirect=${encodeURIComponent(redirectPath)}`)
                 }
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950"
               >
                 Login
                 <ArrowRightIcon className="h-4 w-4" />
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => router.replace(redirectPath)}
-              className="mt-4 w-full text-center text-sm font-semibold text-gray-500 transition hover:text-gray-900"
-            >
-              Continue as guest
-            </button>
           </div>
         </div>
       </main>

@@ -144,6 +144,17 @@ type OrderWithFulfillment = Order & {
   order_number?: string | null;
 };
 
+type OrderWithPricing = Order & {
+  subtotal?: number | string | null;
+  subTotal?: number | string | null;
+  discount?: number | string | null;
+  reward_discount?: number | string | null;
+  rewardDiscount?: number | string | null;
+  total?: number | string | null;
+  reward_redemption_id?: string | null;
+  rewardRedemptionId?: string | null;
+};
+
 type FulfillmentInfo = {
   label: string;
   shortLabel: string;
@@ -179,7 +190,7 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
 
   if (method === "counter_pickup") {
     return {
-      label: pickupCode ? `Pickup ` : "Pickup",
+      label: pickupCode ? `Pickup ${pickupCode}` : "Pickup",
       shortLabel: pickupCode ? `Pickup ${pickupCode}` : "Pickup",
       badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
     };
@@ -198,6 +209,44 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
     shortLabel: order.orderType || "Order",
     badgeClass: "bg-gray-100 text-gray-700 border-gray-200",
   };
+};
+
+const normalizeMoneyValue = (value: unknown): number => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+};
+
+const getOrderDiscount = (order: OrderWithPricing): number => {
+  return normalizeMoneyValue(order.discount ?? order.reward_discount ?? order.rewardDiscount);
+};
+
+const getOrderSubtotal = (order: OrderWithPricing): number => {
+  const explicitSubtotal = normalizeMoneyValue(order.subtotal ?? order.subTotal);
+
+  if (explicitSubtotal > 0) {
+    return explicitSubtotal;
+  }
+
+  const discount = getOrderDiscount(order);
+  const total = normalizeMoneyValue(order.total);
+
+  if (discount > 0) {
+    return total + discount;
+  }
+
+  return total;
+};
+
+const getOrderTotal = (order: OrderWithPricing): number => {
+  return normalizeMoneyValue(order.total);
 };
 
 const FulfillmentBadge = ({ info }: { info: FulfillmentInfo }) => {
@@ -232,6 +281,11 @@ export default function OrderCard({
   const backRef = useRef<HTMLDivElement>(null);
 
   const fulfillmentInfo = getFulfillmentInfo(order as OrderWithFulfillment);
+  const pricingOrder = order as OrderWithPricing;
+  const subtotal = getOrderSubtotal(pricingOrder);
+  const discount = getOrderDiscount(pricingOrder);
+  const total = getOrderTotal(pricingOrder);
+  const hasRewardDiscount = discount > 0;
   const isOrderCompleted = order.status === "completed" || order.status === "served";
 
   useEffect(() => {
@@ -280,6 +334,55 @@ export default function OrderCard({
         {hasServedBy && (
           <span>Served by {order.servedByNames?.join(", ")}</span>
         )}
+      </div>
+    );
+  };
+
+  const renderOrderPaymentSummary = () => {
+    if (!hasRewardDiscount) {
+      return (
+        <>
+          <p className="text-xs text-gray-500">Total</p>
+          <p className="text-lg sm:text-xl font-bold text-green-700">
+            {formatCurrency(total)}
+          </p>
+        </>
+      );
+    }
+
+    return (
+      <div className="min-w-[180px] space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 text-xs text-gray-600">
+          <span>Subtotal</span>
+          <span className="font-medium">{formatCurrency(subtotal)}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 text-xs text-emerald-700">
+          <span>Reward Discount</span>
+          <span className="font-semibold">-{formatCurrency(discount)}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-emerald-100 pt-1.5">
+          <span className="text-xs font-semibold text-gray-600">Total</span>
+          <span className="text-lg sm:text-xl font-bold text-green-700">
+            {formatCurrency(total)}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOrderFooter = () => {
+    return (
+      <div className="pt-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+        <div>
+          {renderOrderPaymentSummary()}
+          {renderStaffAuditTrail()}
+        </div>
+
+        <div className="text-sm text-gray-600">
+          Served: {servedCount}/{totalCount}
+        </div>
       </div>
     );
   };
@@ -471,20 +574,7 @@ export default function OrderCard({
                 )}
               </div>
 
-              <div className="pt-3  flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                <div>
-                  <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-lg sm:text-xl font-bold text-green-700">
-                    {formatCurrency(order.total || 0)}
-                  </p>
-
-                  {renderStaffAuditTrail()}
-                </div>
-
-                <div className="text-sm text-gray-600">
-                  Served: {servedCount}/{totalCount}
-                </div>
-              </div>
+              {renderOrderFooter()}
 
               {shouldShowServeOrderAction && (
                 <div className="mt-3 pt-3">
@@ -821,20 +911,7 @@ export default function OrderCard({
             )}
           </div>
 
-          <div className="pt-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-            <div>
-              <p className="text-xs text-gray-500">Total</p>
-              <p className="text-lg sm:text-xl font-bold text-green-700">
-                {formatCurrency(order.total || 0)}
-              </p>
-
-              {renderStaffAuditTrail()}
-            </div>
-
-            <div className="text-sm text-gray-600">
-              Served: {servedCount}/{totalCount}
-            </div>
-          </div>
+          {renderOrderFooter()}
 
           {customActions && (
             <div className="pt-3 flex flex-col gap-2 [&_button]:w-full [&_button]:justify-center">

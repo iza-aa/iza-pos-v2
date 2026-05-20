@@ -2,12 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/config/supabaseClient";
 import {
   ArrowRightOnRectangleIcon,
   ClipboardDocumentIcon,
   InformationCircleIcon,
   QrCodeIcon,
+  UserCircleIcon,
 } from "@heroicons/react/24/outline";
+import {
+  type CustomerAccountSession,
+  clearCustomerAccount,
+  formatMemberSince,
+  getStoredCustomerAccount,
+} from "@/lib/customer/customerAccount";
 import {
   type CustomerTableSession,
   clearCustomerTableSession,
@@ -19,6 +27,8 @@ export default function CustomerSettings() {
   const router = useRouter();
 
   const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
+  const [customerAccount, setCustomerAccount] =
+    useState<CustomerAccountSession | null>(null);
   const [pickupCode, setPickupCode] = useState<string | null>(null);
   const [endingSession, setEndingSession] = useState(false);
 
@@ -30,6 +40,7 @@ export default function CustomerSettings() {
 
       if (isMounted) {
         setTableSession(validSession);
+        setCustomerAccount(getStoredCustomerAccount());
         setPickupCode(localStorage.getItem("current_pickup_code"));
       }
     };
@@ -68,6 +79,12 @@ export default function CustomerSettings() {
     setPickupCode(null);
   };
 
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  clearCustomerAccount();
+  window.location.href = "/customer/settings";
+};
+
   const handleTrackPickupCode = () => {
     if (!pickupCode) {
       return;
@@ -99,12 +116,101 @@ export default function CustomerSettings() {
         <div className="mx-auto max-w-lg">
           <h1 className="text-xl font-bold text-gray-900">Settings</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage your current table and order tracking session.
+            Manage your account, table session, and order tracking.
           </p>
         </div>
       </div>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-4">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-600">
+                Customer Account
+              </h2>
+
+              {customerAccount ? (
+                <>
+                  <p className="mt-2 text-xl font-bold text-gray-900">
+                    {customerAccount.name}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {customerAccount.phone}
+                  </p>
+
+                  {customerAccount.email ? (
+                    <p className="mt-1 text-sm text-gray-500">
+                      {customerAccount.email}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold text-gray-500">
+                        Points
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {customerAccount.loyalty_points}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold text-gray-500">
+                        Member Since
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-gray-900">
+                        {formatMemberSince(customerAccount.member_since)}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-lg font-bold text-gray-900">
+                    Ordering as Guest
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-gray-500">
+                    Login or create an account to collect points, save orders, and unlock member rewards.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-700">
+              <UserCircleIcon className="h-7 w-7" />
+            </div>
+          </div>
+
+          {customerAccount ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 transition hover:border-red-300 hover:text-red-700"
+            >
+              <ArrowRightOnRectangleIcon className="mr-2 h-5 w-5" />
+              Logout
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/customer/login?redirect=/customer/settings")}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950"
+              >
+                Login
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/customer/register?redirect=/customer/settings")}
+                className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                Register
+              </button>
+            </div>
+          )}
+        </section>
+
         {tableSession ? (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-start justify-between gap-3">
@@ -136,7 +242,7 @@ export default function CustomerSettings() {
               type="button"
               onClick={handleClearTableSession}
               disabled={endingSession}
-              className="flex w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <ArrowRightOnRectangleIcon className="mr-2 h-5 w-5" />
               {endingSession ? "Ending Session..." : "Leave Table Session"}
@@ -187,7 +293,7 @@ export default function CustomerSettings() {
               <button
                 type="button"
                 onClick={copyPickupTrackingLink}
-                className="flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                className="flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:text-gray-950"
               >
                 <ClipboardDocumentIcon className="mr-2 h-5 w-5" />
                 Copy Link
@@ -197,7 +303,7 @@ export default function CustomerSettings() {
             <button
               type="button"
               onClick={handleClearOrderSession}
-              className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50"
+              className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
             >
               Clear Tracking Session
             </button>

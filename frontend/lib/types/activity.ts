@@ -23,6 +23,7 @@ export type ActivityCategory =
   | 'FINANCIAL'
   | 'SYSTEM'
   | 'REPORT'
+  | 'REWARD'
 
 export type UserRole = 'owner' | 'manager' | 'staff' | 'cashier'
 

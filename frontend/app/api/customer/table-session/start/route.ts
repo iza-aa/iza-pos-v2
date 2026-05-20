@@ -54,6 +54,9 @@ type StartTableSessionResponse =
       details?: Record<string, unknown>;
     };
 
+const SESSION_TTL_MINUTES = 240;
+const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -86,7 +89,7 @@ function createSuccessResponse(
       floor_id: table.floor_id,
       floor_name: floorName,
       capacity: table.capacity,
-      status: table.status,
+      status: "occupied",
       started_at: session.started_at,
     },
   };
@@ -172,6 +175,98 @@ function getReceivedKeys(body: unknown): string[] {
   return Object.keys(body);
 }
 
+function getDurationMinutes(startedAt: string): number {
+  const startedAtTime = new Date(startedAt).getTime();
+
+  if (Number.isNaN(startedAtTime)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - startedAtTime) / 60000));
+}
+
+function isSessionStale(session: Pick<TableSessionRow, "started_at">): boolean {
+  return getDurationMinutes(session.started_at) >= SESSION_TTL_MINUTES;
+}
+
+async function tableHasBlockingOrders(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("table_id", tableId)
+    .in("status", BLOCKING_ORDER_STATUSES)
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+async function closeSession(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  session: Pick<TableSessionRow, "id" | "started_at">,
+  notes: string,
+) {
+  const { error } = await supabase
+    .from("table_sessions")
+    .update({
+      ended_at: new Date().toISOString(),
+      duration_minutes: getDurationMinutes(session.started_at),
+      notes,
+    })
+    .eq("id", session.id)
+    .is("ended_at", null);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function releaseTableIfSafe(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const hasBlockingOrders = await tableHasBlockingOrders(supabase, tableId);
+
+  if (hasBlockingOrders) {
+    return;
+  }
+
+  const { data: activeSessions, error: activeSessionError } = await supabase
+    .from("table_sessions")
+    .select("id")
+    .eq("table_id", tableId)
+    .is("ended_at", null)
+    .limit(1);
+
+  if (activeSessionError) {
+    throw activeSessionError;
+  }
+
+  if ((activeSessions ?? []).length > 0) {
+    return;
+  }
+
+  const { error: tableUpdateError } = await supabase
+    .from("tables")
+    .update({
+      status: "free",
+      occupied_at: null,
+      occupied_by_customer: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tableId);
+
+  if (tableUpdateError) {
+    throw tableUpdateError;
+  }
+}
+
 async function closePreviousSession(
   supabase: Awaited<ReturnType<typeof createClient>>,
   previousSessionId: string,
@@ -202,36 +297,51 @@ async function closePreviousSession(
     return;
   }
 
-  const startedAt = new Date(session.started_at).getTime();
-  const durationMinutes = Math.max(0, Math.floor((Date.now() - startedAt) / 60000));
+  await closeSession(
+    supabase,
+    session,
+    "Closed automatically because customer switched table.",
+  );
 
-  const { error: closeError } = await supabase
+  await releaseTableIfSafe(supabase, session.table_id);
+}
+
+async function cleanupStaleSessionsForTable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tableId: string,
+) {
+  const { data, error } = await supabase
     .from("table_sessions")
-    .update({
-      ended_at: new Date().toISOString(),
-      duration_minutes: durationMinutes,
-      notes: "Closed automatically because customer switched table.",
-    })
-    .eq("id", session.id)
-    .is("ended_at", null);
+    .select("id, table_id, started_at, ended_at")
+    .eq("table_id", tableId)
+    .is("ended_at", null)
+    .order("started_at", { ascending: false });
 
-  if (closeError) {
-    throw closeError;
+  if (error) {
+    throw error;
   }
 
-  const { error: tableUpdateError } = await supabase
-    .from("tables")
-    .update({
-      status: "free",
-      occupied_at: null,
-      occupied_by_customer: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", session.table_id);
+  const sessions = (data ?? []) as TableSessionRow[];
 
-  if (tableUpdateError) {
-    throw tableUpdateError;
+  for (const session of sessions) {
+    if (!isSessionStale(session)) {
+      continue;
+    }
+
+    const hasBlockingOrders = await tableHasBlockingOrders(supabase, tableId);
+
+    if (hasBlockingOrders) {
+      continue;
+    }
+
+    await closeSession(
+      supabase,
+      session,
+      `Closed automatically after ${SESSION_TTL_MINUTES} minutes of inactivity.`,
+    );
   }
+
+  await releaseTableIfSafe(supabase, tableId);
 }
 
 async function findActiveSessionForTable(
@@ -337,6 +447,8 @@ export async function POST(request: NextRequest) {
     if (previousSessionId) {
       await closePreviousSession(supabase, previousSessionId, tableId);
     }
+
+    await cleanupStaleSessionsForTable(supabase, tableId);
 
     const activeSession = await findActiveSessionForTable(supabase, tableId);
 
