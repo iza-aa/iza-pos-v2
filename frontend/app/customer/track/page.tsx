@@ -166,9 +166,6 @@ function isTakeAwayOrder(order: Order): boolean {
   return order.order_type === "Take Away" || order.fulfillment_method === "counter_pickup";
 }
 
-function hasKitchenItems(order: Order): boolean {
-  return order.order_items.some((item) => item.kitchen_status !== "not_required");
-}
 
 function getPreparedCount(order: Order): number {
   return order.order_items.filter((item) => {

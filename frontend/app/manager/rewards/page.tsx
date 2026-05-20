@@ -1592,7 +1592,7 @@ export default function ManagerRewardsPage() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[980px] text-left">
+                    <table className="w-full min-w-245 text-left">
                       <thead>
                         <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                           <th className="px-4 py-3 font-semibold">Voucher</th>
@@ -1715,7 +1715,7 @@ export default function ManagerRewardsPage() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[980px] text-left">
+                    <table className="w-full min-w-245 text-left">
                       <thead>
                         <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                           <th className="px-4 py-3 font-semibold">Member</th>

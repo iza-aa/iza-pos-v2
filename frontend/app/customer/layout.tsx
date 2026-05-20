@@ -133,9 +133,6 @@ export default function CustomerLayout({
     return <>{children}</>;
   }
 
-  const sessionLabel = tableSession
-    ? `${tableSession.table_number}${tableSession.floor_name ? ` • ${tableSession.floor_name}` : ""}`
-    : "Take Away";
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 lg:pb-0 lg:pt-16">

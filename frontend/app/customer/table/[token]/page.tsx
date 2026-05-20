@@ -245,7 +245,7 @@ export default function CustomerTableSessionPage() {
 
           {debugInfo ? (
             <div className="mt-4 rounded-2xl bg-gray-50 p-3 text-left">
-              <p className="break-words text-xs leading-5 text-gray-500">
+              <p className="wrap-break-words text-xs leading-5 text-gray-500">
                 {debugInfo}
               </p>
             </div>

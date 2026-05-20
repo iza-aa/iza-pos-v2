@@ -212,13 +212,6 @@ function formatChartNumber(value: number | string): string {
   return formatNumber(toNumber(value));
 }
 
-function getDiscountLabel(reward: RewardRow): string {
-  if (reward.discount_type === "percentage") {
-    return `${toNumber(reward.discount_value)}%`;
-  }
-
-  return formatCurrency(toNumber(reward.discount_value));
-}
 
 
 export default function OwnerRewardsAnalyticsPage() {
@@ -957,7 +950,7 @@ export default function OwnerRewardsAnalyticsPage() {
                     </div>
                   </div>
 
-                  <div className="h-[360px] p-4">
+                  <div className="h-90 p-4">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={rewardUsageChartData} layout="vertical" margin={{ top: 10, right: 30, left: 60, bottom: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
@@ -986,7 +979,7 @@ export default function OwnerRewardsAnalyticsPage() {
                     </div>
                   </div>
 
-                  <div className="h-[380px] p-4">
+                  <div className="h-95 p-4">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={rewardFinancialChartData} margin={{ top: 10, right: 30, left: 20, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
@@ -1015,7 +1008,7 @@ export default function OwnerRewardsAnalyticsPage() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1080px] text-left">
+                    <table className="w-full min-w-270 text-left">
                       <thead>
                         <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                           <th className="px-4 py-3 font-semibold">Reward</th>
@@ -1116,7 +1109,7 @@ export default function OwnerRewardsAnalyticsPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-left">
+                  <table className="w-full min-w-245 text-left">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                         <th className="px-4 py-3 font-semibold">Customer</th>

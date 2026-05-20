@@ -351,7 +351,7 @@ export default function OrderCard({
     }
 
     return (
-      <div className="min-w-[180px] space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2">
+      <div className="min-w-45 space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2">
         <div className="flex items-center justify-between gap-3 text-xs text-gray-600">
           <span>Subtotal</span>
           <span className="font-medium">{formatCurrency(subtotal)}</span>
