@@ -8,10 +8,11 @@ import {
   PencilIcon,
   PlusIcon,
   TrashIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/config/supabaseClient'
 import { formatPriceModifier } from '@/lib/utils'
-import VariantGroupModal from '@/app/components/manager/variants/VariantGroupModal'
+import VariantGroupModal from './VariantGroupModal'
 import { DeleteModal } from '@/app/components/ui'
 import type { VariantGroup, VariantOption } from '@/lib/types'
 
@@ -98,7 +99,7 @@ const normalizeVariantGroup = (group: RawVariantGroup): VariantGroup => {
   } as VariantGroup
 }
 
-export default function VariantsPage() {
+export default function VariantsTab() {
   useSessionValidation()
 
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
@@ -314,46 +315,60 @@ export default function VariantsPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-55px)] flex-col overflow-hidden">
-      <section className="shrink-0 overflow-hidden border-b border-gray-200 px-4 pt-4 md:px-6 md:pt-6">
-        <div className="mb-4 flex flex-col items-start justify-between gap-4 md:mb-6 lg:flex-row lg:items-center">
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header + Stats (Fixed) */}
+      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-bold text-gray-900 md:text-2xl">
-              Manage Variants
-            </h1>
-            <p className="text-xs text-gray-500 md:text-sm">
-              Manage variant groups and options for your menu items
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">
+              Menu Variants Management
+            </h2>
+            <p className="text-xs md:text-sm text-gray-500">
+              Manage variant groups and option customizations for your menu items
             </p>
           </div>
 
-          <div className="flex w-full flex-wrap items-center gap-2 md:gap-4 lg:w-auto">
-            <button
-              type="button"
-              onClick={() => setShowInfoCards((prev) => !prev)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 transition hover:bg-gray-50"
-              title={showInfoCards ? 'Hide Statistics' : 'Show Statistics'}
-            >
-              {showInfoCards ? (
-                <EyeSlashIcon className="h-5 w-5 text-gray-600" />
-              ) : (
-                <EyeIcon className="h-5 w-5 text-gray-600" />
-              )}
-            </button>
-
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
+            {/* Search */}
             <div className="relative flex-1 lg:flex-none">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search variant groups..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 py-2 pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 lg:w-64"
+                className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
               />
             </div>
+
+            {/* Toggle Stats Button */}
+            <button
+              type="button"
+              onClick={() => setShowInfoCards((prev) => !prev)}
+              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+              title={showInfoCards ? 'Hide Statistics' : 'Show Statistics'}
+            >
+              {showInfoCards ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleAddVariantGroup}
+              className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition font-medium text-sm"
+            >
+              <PlusIcon className="w-4 h-4 md:w-5 md:h-5" />
+              Add New Group
+            </button>
           </div>
         </div>
 
+        {/* Stats Cards */}
         {showInfoCards && (
-          <div className="mb-4 grid grid-cols-2 gap-3 md:mb-6 md:gap-4 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 md:mt-6 md:gap-4 lg:grid-cols-4">
             <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-4">
               <div className="mb-1 text-xs text-gray-500 md:text-sm">
                 Total Groups
@@ -393,6 +408,7 @@ export default function VariantsPage() {
         )}
       </section>
 
+      {/* Main List Content */}
       <section className="flex-1 overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
