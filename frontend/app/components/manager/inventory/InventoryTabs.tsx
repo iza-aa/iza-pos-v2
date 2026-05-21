@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ClipboardList, Package, TrendingUp, SlidersHorizontal, Layers, ChevronDown, ChevronRight } from 'lucide-react'
+import { ClipboardList, Package, TrendingUp, SlidersHorizontal, Layers, ChevronDown, ChevronRight, Menu, X } from 'lucide-react'
 
 export type InventoryTabType =
   | 'raw-materials'
@@ -20,6 +20,7 @@ export default function InventoryTabs({
   onTabChange,
 }: InventoryTabsProps) {
   const [isRecipeExpanded, setIsRecipeExpanded] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const tabItems = [
     {
@@ -73,20 +74,53 @@ export default function InventoryTabs({
     }
 
     onTabChange(tabId)
+    setIsMobileOpen(false)
   }
 
   const handleRecipeSubTabClick = (tabId: 'recipe-dishes' | 'recipe-variants') => {
     onTabChange(tabId)
     setIsRecipeExpanded(true)
+    setIsMobileOpen(false)
   }
 
   return (
     <>
-      {/* Desktop Sidebar: Left Navigation */}
-      <aside className="hidden w-64 shrink-0 border-r border-gray-200 bg-white p-4 lg:flex lg:flex-col">
+      {/* Floating Navigation Button - Mobile Only */}
+      <button
+        type="button"
+        onClick={() => setIsMobileOpen(true)}
+        className="lg:hidden fixed bottom-6 left-6 w-14 h-14 bg-gray-900 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center text-white hover:scale-110 z-40"
+      >
+        <Menu className="w-6 h-6" />
+      </button>
+
+      {/* Backdrop - Mobile Only */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar for Desktop and Mobile (Drawer) */}
+      <aside
+        className={`w-64 bg-white border-r border-gray-200 p-4 flex flex-col shrink-0 lg:h-full
+        lg:relative fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        {/* Close button - Mobile Only */}
+        <button
+          type="button"
+          onClick={() => setIsMobileOpen(false)}
+          className="lg:hidden absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <X className="w-6 h-6 text-gray-600" />
+        </button>
+
         <h2 className="mb-4 text-lg font-bold text-gray-900">Inventory</h2>
 
-        <div className="space-y-2">
+        <div className="space-y-2 flex-1 overflow-y-auto">
           {tabItems.map((item) => {
             const Icon = item.icon
             // Parent is considered active if exact match or if any sub-tab is active
@@ -142,8 +176,8 @@ export default function InventoryTabs({
                           onClick={() => handleRecipeSubTabClick(subTab.id)}
                           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
                             isSubActive
-                              ? 'bg-gray-100 text-gray-900 font-bold border-l-2 border-gray-900'
-                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                              ? 'bg-gray-100 text-gray-900 font-bold'
+                              : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900'
                           }`}
                         >
                           <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-gray-900' : 'text-gray-400'}`} />
@@ -158,55 +192,6 @@ export default function InventoryTabs({
           })}
         </div>
       </aside>
-
-      {/* Mobile Header: Horizontal Scrollable Tabs */}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-gray-200 bg-white p-3 lg:hidden">
-        {/* Main tabs */}
-        <div className="flex overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 scrollbar-none">
-          {tabItems.map((item) => {
-            const isActiveParent = item.id === 'recipes' ? isRecipeTabActive : activeTab === item.id
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleTabClick(item.id)}
-                className={`flex-none rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                  isActiveParent
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Sub-tabs row - visible only when Recipes is expanded/active */}
-        {isRecipeTabActive && (
-          <div className="flex overflow-x-auto rounded-lg border border-gray-100 bg-gray-50 p-1 scrollbar-none">
-            {recipeSubTabs.map((subTab) => {
-              const isSubActive = activeTab === subTab.id
-
-              return (
-                <button
-                  key={subTab.id}
-                  type="button"
-                  onClick={() => handleRecipeSubTabClick(subTab.id)}
-                  className={`flex-none rounded-md px-3 py-1.5 text-[11px] font-bold transition ${
-                    isSubActive
-                      ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                      : 'text-gray-500 hover:text-gray-950'
-                  }`}
-                >
-                  {subTab.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
     </>
   )
 }

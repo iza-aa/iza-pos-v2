@@ -117,7 +117,7 @@ export default function OrderTable({ orders, onOrderClick }: OrderTableProps) {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm h-[calc(100vh-280px)]">
-      <div className="overflow-auto h-full">
+      <div className="overflow-auto h-full overscroll-y-contain">
         <table className="w-full min-w-300 table-fixed">
           <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
             <tr className="border-b border-gray-200">

@@ -807,7 +807,7 @@ export default function OrderCard({
             </div>
 
             <div className="flex items-center gap-2">
-              {showDeleteButton && onDelete && (
+              {showDeleteButton && onDelete && !isOrderCompleted && (
                 <button
                   type="button"
                   onClick={handleDelete}

@@ -752,12 +752,12 @@ export default function ManagerOrderPage() {
 
   const kanbanGridClassName =
     visibleKanbanColumns.length === 1
-      ? "grid grid-cols-1 gap-4 mt-6 min-h-[calc(100vh-190px)]"
+      ? "grid grid-cols-1 gap-4 mt-2 min-h-[calc(100vh-190px)]"
       : visibleKanbanColumns.length === 2
-        ? "grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"
+        ? "grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"
         : visibleKanbanColumns.length === 3
-          ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6"
-          : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6";
+          ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-2"
+          : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2";
 
   return (
     <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
@@ -788,9 +788,13 @@ export default function ManagerOrderPage() {
         </OrderHeader>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-gray-100">
+      <div
+        className={`flex-1 bg-gray-100 ${
+          viewMode === "table" ? "overflow-hidden" : "overflow-y-auto"
+        }`}
+      >
         {shouldShowOrderFilter && (
-          <div className="sticky top-0 z-10 bg-gray-100 px-6 pt-6">
+          <div className="sticky top-0 z-20 bg-gray-100 px-6 pt-6 pb-4">
             <div className="flex items-center gap-2 flex-wrap">
               {activeFilterOptions.map((filterOption) => (
                 <button
@@ -909,7 +913,9 @@ export default function ManagerOrderPage() {
               })}
             </div>
           ) : viewMode === "table" ? (
-            <OrderTable orders={filteredOrders} onOrderClick={() => {}} />
+            <div className="mt-2">
+              <OrderTable orders={filteredOrders} onOrderClick={() => {}} />
+            </div>
           ) : (
             <TableOrderMapView orders={filteredOrders} />
           )}

@@ -142,6 +142,13 @@ export default function VariantsTab() {
   }
 
   useEffect(() => {
+    const saved = localStorage.getItem('inventory_show_stats')
+    if (saved !== null) {
+      setShowInfoCards(JSON.parse(saved))
+    }
+  }, [])
+
+  useEffect(() => {
     void fetchVariantGroups()
   }, [])
 
@@ -317,7 +324,7 @@ export default function VariantsTab() {
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header + Stats (Fixed) */}
-      <section className="flex-shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
+      <section className="shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg md:text-xl font-bold text-gray-900">
@@ -344,7 +351,11 @@ export default function VariantsTab() {
             {/* Toggle Stats Button */}
             <button
               type="button"
-              onClick={() => setShowInfoCards((prev) => !prev)}
+              onClick={() => {
+                const newVal = !showInfoCards
+                setShowInfoCards(newVal)
+                localStorage.setItem('inventory_show_stats', JSON.stringify(newVal))
+              }}
               className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
               title={showInfoCards ? 'Hide Statistics' : 'Show Statistics'}
             >

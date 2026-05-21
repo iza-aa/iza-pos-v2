@@ -808,7 +808,11 @@ export default function StaffOrderPage() {
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+        <div
+          className={`flex-1 min-h-0 px-6 pb-6 ${
+            viewMode === "table" ? "overflow-hidden" : "overflow-y-auto"
+          }`}
+        >
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
@@ -948,7 +952,9 @@ export default function StaffOrderPage() {
               })}
             </div>
           ) : viewMode === "table" ? (
-            <OrderTable orders={filteredOrders} onOrderClick={() => {}} />
+            <div className="mt-2">
+              <OrderTable orders={filteredOrders} onOrderClick={() => {}} />
+            </div>
           ) : (
             <TableOrderMapView orders={filteredOrders} />
           )}

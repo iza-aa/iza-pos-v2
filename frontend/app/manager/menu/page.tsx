@@ -9,8 +9,6 @@ import { logActivity } from "@/lib/services/activity/activityLogger";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
-  Squares2X2Icon,
-  ListBulletIcon,
   Bars3Icon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -179,7 +177,6 @@ export default function MenuPage() {
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [showAddMenuModal, setShowAddMenuModal] = useState(false);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -686,7 +683,7 @@ export default function MenuPage() {
 
       {/* Section 1: Sidebar Categories - Fixed height with scroll */}
       <section
-        className={`w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden
+        className={`w-64 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-4 md:p-6 flex flex-col lg:h-full overflow-hidden
         lg:relative fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
         ${showCategorySidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}
@@ -829,30 +826,6 @@ export default function MenuPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
                 />
-              </div>
-
-              {/* View Mode */}
-              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-xl p-1">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg transition ${
-                    viewMode === "grid"
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Squares2X2Icon className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-lg transition ${
-                    viewMode === "list"
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <ListBulletIcon className="w-5 h-5" />
-                </button>
               </div>
             </div>
           </div>

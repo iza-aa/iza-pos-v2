@@ -7,6 +7,8 @@ import {
   ArrowUpTrayIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  EyeIcon,
+  EyeSlashIcon,
   MagnifyingGlassIcon,
   ShoppingCartIcon,
   UserCircleIcon,
@@ -225,6 +227,14 @@ export default function UsageHistoryTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [showStats, setShowStats] = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('inventory_show_stats')
+    if (saved !== null) {
+      setShowStats(JSON.parse(saved))
+    }
+  }, [])
 
   useEffect(() => {
     void fetchUsageHistory()
@@ -370,43 +380,62 @@ export default function UsageHistoryTab() {
     <div className="flex h-full flex-col bg-gray-50">
       <section className="flex-shrink-0 border-b border-gray-200 bg-white px-4 pb-4 pt-4 md:px-6 md:pt-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Stock Usage History</h2>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-bold text-gray-900 md:text-xl">Stock Usage History</h2>
+            <p className="text-xs text-gray-500 md:text-sm">
               Track inventory usage from order sales, restocks, and stock adjustments.
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex w-full flex-wrap items-center gap-2 md:gap-4 lg:w-auto">
             <button
               type="button"
               onClick={() => void fetchUsageHistory()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               disabled={loading}
             >
-              <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+              <ArrowPathIcon className={`h-4 w-4 md:h-5 md:w-5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
 
-            <div className="relative min-w-0 sm:w-80">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <button
+              type="button"
+              onClick={() => {
+                const newVal = !showStats
+                setShowStats(newVal)
+                localStorage.setItem('inventory_show_stats', JSON.stringify(newVal))
+              }}
+              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition shrink-0"
+              title={showStats ? 'Hide statistics' : 'Show statistics'}
+            >
+              {showStats ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+
+            <div className="relative flex-1 lg:flex-none">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search transactions..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100"
+                className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
               />
             </div>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <SummaryCard label="Total Transactions" value={stats.totalTransactions} />
-          <SummaryCard label="Order Sales" value={stats.sales} />
-          <SummaryCard label="Restocks" value={stats.restocks} />
-          <SummaryCard label="Adjustments" value={stats.adjustments} />
-        </div>
+        {showStats && (
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard label="Total Transactions" value={stats.totalTransactions} />
+            <SummaryCard label="Order Sales" value={stats.sales} />
+            <SummaryCard label="Restocks" value={stats.restocks} />
+            <SummaryCard label="Adjustments" value={stats.adjustments} />
+          </div>
+        )}
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col px-4 py-4 md:px-6">

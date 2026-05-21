@@ -63,6 +63,13 @@ export default function RawMaterialsTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const saved = localStorage.getItem("inventory_show_stats");
+    if (saved !== null) {
+      setShowStats(JSON.parse(saved));
+    }
+  }, []);
+
+  useEffect(() => {
     fetchInventoryItems();
   }, []);
 
@@ -135,7 +142,9 @@ export default function RawMaterialsTab() {
   };
 
   const handleToggleStats = () => {
-    setShowStats(!showStats);
+    const newVal = !showStats;
+    setShowStats(newVal);
+    localStorage.setItem("inventory_show_stats", JSON.stringify(newVal));
   };
 
   const handleAddNewItem = () => {

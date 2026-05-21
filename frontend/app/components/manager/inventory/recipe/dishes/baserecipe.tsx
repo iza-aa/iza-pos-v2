@@ -119,6 +119,13 @@ export default function RecipeDishesTab() {
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
+    const saved = localStorage.getItem('inventory_show_stats')
+    if (saved !== null) {
+      setShowStats(JSON.parse(saved))
+    }
+  }, [])
+
+  useEffect(() => {
     void fetchData()
   }, [])
 
@@ -373,7 +380,11 @@ export default function RecipeDishesTab() {
           <div className="flex w-full flex-wrap items-center gap-2 md:gap-4 lg:w-auto">
             <button
               type="button"
-              onClick={() => setShowStats((current) => !current)}
+              onClick={() => {
+                const newVal = !showStats
+                setShowStats(newVal)
+                localStorage.setItem('inventory_show_stats', JSON.stringify(newVal))
+              }}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition hover:bg-gray-50"
               title={showStats ? 'Hide statistics' : 'Show statistics'}
             >
