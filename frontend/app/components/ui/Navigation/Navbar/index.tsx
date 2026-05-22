@@ -269,7 +269,7 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
                 <button
                   key={item.label}
                   onClick={() => router.push(item.path)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2 ${
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all ${
                     isActive
                       ? 'text-gray-900 border-gray-900'
                       : 'text-gray-500 border-transparent hover:text-gray-700'

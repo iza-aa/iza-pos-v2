@@ -1,13 +1,7 @@
 "use client";
 
-import GenerateRecommendationPanel from "../ai/GenerateRecommendationPanel";
-import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection";
+import { StaffDashboard } from "./StandardDashboardPanels";
 
 export default function StaffTab() {
-  return (
-    <div className="space-y-4">
-      <GenerateRecommendationPanel category="staff" />
-      <AttendanceSection viewMode="table" />
-    </div>
-  );
+  return <StaffDashboard />;
 }

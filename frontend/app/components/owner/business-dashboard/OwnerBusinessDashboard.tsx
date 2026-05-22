@@ -3,27 +3,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArchiveBoxIcon,
   Bars3Icon,
   ChartBarIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ClipboardDocumentListIcon,
   CubeIcon,
+  GiftIcon,
   Squares2X2Icon,
-  AdjustmentsHorizontalIcon,
+  UserCircleIcon,
   UserGroupIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { OwnerInsightCategory } from "@/lib/services/owner-insights/insightSchema";
 import OverviewTab from "./tabs/OverviewTab";
 import SalesTab from "./tabs/SalesTab";
-import RewardsTab from "./tabs/RewardsTab";
+import CustomerTab from "./tabs/CustomerTab";
 import InventoryTab from "./tabs/InventoryTab";
 import StaffTab from "./tabs/StaffTab";
 import OperationsTab from "./tabs/OperationsTab";
-import type { RewardsSubTab } from "./tabs/rewards/RewardsSubTabs";
 
-type DashboardTab = OwnerInsightCategory;
+type DashboardTab = Exclude<OwnerInsightCategory, "rewards"> | "customer";
+type CustomerSection = "performance" | "create-discount";
 
 const tabs: Array<{
   id: DashboardTab;
@@ -44,10 +45,10 @@ const tabs: Array<{
     icon: ChartBarIcon,
   },
   {
-    id: "rewards",
-    label: "Rewards",
-    description: "Loyalty decisions",
-    icon: ArchiveBoxIcon,
+    id: "customer",
+    label: "Customer",
+    description: "Loyalty health",
+    icon: UserCircleIcon,
   },
   {
     id: "inventory",
@@ -63,8 +64,8 @@ const tabs: Array<{
   },
   {
     id: "operations",
-    label: "Operations",
-    description: "Order flow",
+    label: "Operation",
+    description: "Bottleneck flow",
     icon: ClipboardDocumentListIcon,
   },
 ];
@@ -73,55 +74,71 @@ const isDashboardTab = (value: string | null): value is DashboardTab => {
   return tabs.some((tab) => tab.id === value);
 };
 
-const isRewardsSubTab = (value: string | null): value is RewardsSubTab => {
-  return value === "performance" || value === "strategy";
-};
-
-const rewardsSubTabs: Array<{
-  id: RewardsSubTab;
+const customerSections: Array<{
+  id: CustomerSection;
   label: string;
   icon: typeof ChartBarIcon;
 }> = [
   { id: "performance", label: "Performance", icon: ChartBarIcon },
-  { id: "strategy", label: "Strategy", icon: AdjustmentsHorizontalIcon },
+  { id: "create-discount", label: "Create Discount", icon: GiftIcon },
 ];
+
+const isCustomerSection = (value: string | null): value is CustomerSection => {
+  return value === "performance" || value === "create-discount";
+};
 
 export default function OwnerBusinessDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isCustomerExpanded, setIsCustomerExpanded] = useState(false);
 
   const activeTab = useMemo<DashboardTab>(() => {
     const tab = searchParams.get("tab");
+    if (tab === "rewards") return "customer";
     return isDashboardTab(tab) ? tab : "overview";
   }, [searchParams]);
 
-  const activeRewardsSubTab = useMemo<RewardsSubTab>(() => {
+  const activeCustomerSection = useMemo<CustomerSection>(() => {
     const section = searchParams.get("section");
-    return isRewardsSubTab(section) ? section : "performance";
+    return isCustomerSection(section) ? section : "performance";
   }, [searchParams]);
 
   useEffect(() => {
+    if (activeTab === "customer") {
+      setIsCustomerExpanded(true);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     const tab = searchParams.get("tab");
+    if (tab === "rewards") {
+      router.replace("/owner/dashboard?tab=customer");
+      return;
+    }
     if (tab && !isDashboardTab(tab)) {
       router.replace("/owner/dashboard?tab=overview");
     }
   }, [router, searchParams]);
 
   const setActiveTab = (tab: DashboardTab) => {
-    const suffix = tab === "rewards" ? "&section=performance" : "";
-    router.push(`/owner/dashboard?tab=${tab}${suffix}`);
+    router.push(
+      tab === "customer"
+        ? `/owner/dashboard?tab=customer&section=${activeCustomerSection}`
+        : `/owner/dashboard?tab=${tab}`,
+    );
     setShowSidebar(false);
   };
 
-  const setActiveRewardsSubTab = (section: RewardsSubTab) => {
-    router.push(`/owner/dashboard?tab=rewards&section=${section}`);
+  const setCustomerSection = (section: CustomerSection) => {
+    router.push(`/owner/dashboard?tab=customer&section=${section}`);
+    setIsCustomerExpanded(true);
     setShowSidebar(false);
   };
 
   const renderTab = () => {
     if (activeTab === "sales") return <SalesTab />;
-    if (activeTab === "rewards") return <RewardsTab section={activeRewardsSubTab} />;
+    if (activeTab === "customer") return <CustomerTab />;
     if (activeTab === "inventory") return <InventoryTab />;
     if (activeTab === "staff") return <StaffTab />;
     if (activeTab === "operations") return <OperationsTab />;
@@ -180,7 +197,15 @@ export default function OwnerBusinessDashboard() {
                 <div key={tab.id} className="space-y-1">
                   <button
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      if (tab.id === "customer") {
+                        setIsCustomerExpanded((current) => !current);
+                        router.push(`/owner/dashboard?tab=customer&section=${activeCustomerSection}`);
+                        return;
+                      }
+
+                      setActiveTab(tab.id);
+                    }}
                     className={`w-full rounded-lg px-3 py-3 text-left transition ${
                       isActive
                         ? "bg-gray-900 text-white"
@@ -197,31 +222,40 @@ export default function OwnerBusinessDashboard() {
                           </p>
                         </div>
                       </div>
-                      {tab.id === "rewards" && isActive ? (
-                        <ChevronDownIcon className="h-4 w-4 shrink-0 text-white" />
+                      {tab.id === "customer" ? (
+                        isCustomerExpanded ? (
+                          <ChevronDownIcon className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <ChevronRightIcon className="h-4 w-4 shrink-0" />
+                        )
                       ) : null}
                     </div>
                   </button>
 
-                  {tab.id === "rewards" && isActive ? (
+                  {tab.id === "customer" && isCustomerExpanded ? (
                     <div className="ml-6 space-y-1 border-l border-gray-200 py-1 pl-3">
-                      {rewardsSubTabs.map((subTab) => {
-                        const SubIcon = subTab.icon;
-                        const isSubActive = activeRewardsSubTab === subTab.id;
+                      {customerSections.map((section) => {
+                        const SectionIcon = section.icon;
+                        const isSectionActive =
+                          activeTab === "customer" && activeCustomerSection === section.id;
 
                         return (
                           <button
-                            key={subTab.id}
+                            key={section.id}
                             type="button"
-                            onClick={() => setActiveRewardsSubTab(subTab.id)}
+                            onClick={() => setCustomerSection(section.id)}
                             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                              isSubActive
-                                ? "bg-gray-100 font-bold text-gray-900"
+                              isSectionActive
+                                ? "bg-gray-100 text-gray-900"
                                 : "text-gray-400 hover:bg-gray-50 hover:text-gray-900"
                             }`}
                           >
-                            <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? "text-gray-900" : "text-gray-400"}`} />
-                            {subTab.label}
+                            <SectionIcon
+                              className={`h-3.5 w-3.5 ${
+                                isSectionActive ? "text-gray-900" : "text-gray-400"
+                              }`}
+                            />
+                            {section.label}
                           </button>
                         );
                       })}

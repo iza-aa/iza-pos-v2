@@ -8,7 +8,7 @@ export default function ManagerRewardsRedirectPage() {
     const user = getCurrentUser();
 
     if (user?.role === "owner") {
-      window.location.replace("/owner/dashboard?tab=rewards");
+      window.location.replace("/owner/dashboard?tab=customer");
       return;
     }
 

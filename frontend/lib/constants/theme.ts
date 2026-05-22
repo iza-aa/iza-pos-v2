@@ -73,6 +73,104 @@ export const TAILWIND_COLORS = {
   TEXT_MANAGER: 'text-[#F79A19]',
 } as const;
 
+export const OWNER_CHART_COLORS = {
+  SOFT_SKY_BLUE: '#A0D7FD',
+  INDIGO_BLUE: '#4C46DA',
+  SOFT_YELLOW: '#FCD34D',
+  SOFT_GREEN: '#86EFAC',
+  SOFT_ROSE: '#FDA4AF',
+} as const;
+
+export const OWNER_CHART_SERIES = [
+  OWNER_CHART_COLORS.INDIGO_BLUE,
+  OWNER_CHART_COLORS.SOFT_SKY_BLUE,
+  OWNER_CHART_COLORS.SOFT_GREEN,
+  OWNER_CHART_COLORS.SOFT_YELLOW,
+  OWNER_CHART_COLORS.SOFT_ROSE,
+] as const;
+
+export const OWNER_SEMANTIC_TONES = {
+  neutral: {
+    background: '#F7F7F5',
+    text: '#525252',
+    border: '#E5E5E0',
+    cardClass: 'border-[#E5E5E0] bg-[#F7F7F5]',
+    badgeClass: 'border-[#E5E5E0] bg-[#F7F7F5] text-[#525252]',
+  },
+  dark: {
+    background: '#18181B',
+    text: '#FFFFFF',
+    border: '#18181B',
+    cardClass: 'border-[#18181B] bg-[#18181B]',
+    badgeClass: 'border-[#18181B] bg-[#18181B] text-white',
+  },
+  info: {
+    background: '#EEF6FF',
+    text: '#2563EB',
+    border: '#CFE4FF',
+    cardClass: 'border-[#CFE4FF] bg-[#EEF6FF]',
+    badgeClass: 'border-[#CFE4FF] bg-[#EEF6FF] text-[#2563EB]',
+  },
+  progress: {
+    background: '#F1F0FF',
+    text: '#5B5BD6',
+    border: '#DCD7FF',
+    cardClass: 'border-[#DCD7FF] bg-[#F1F0FF]',
+    badgeClass: 'border-[#DCD7FF] bg-[#F1F0FF] text-[#5B5BD6]',
+  },
+  waiting: {
+    background: '#FFF7E6',
+    text: '#A16207',
+    border: '#F2D49B',
+    cardClass: 'border-[#F2D49B] bg-[#FFF7E6]',
+    badgeClass: 'border-[#F2D49B] bg-[#FFF7E6] text-[#A16207]',
+  },
+  success: {
+    background: '#EAF7EF',
+    text: '#2F7D50',
+    border: '#BFE5CC',
+    cardClass: 'border-[#BFE5CC] bg-[#EAF7EF]',
+    badgeClass: 'border-[#BFE5CC] bg-[#EAF7EF] text-[#2F7D50]',
+  },
+  warning: {
+    background: '#FFF1E6',
+    text: '#B45309',
+    border: '#F6C99F',
+    cardClass: 'border-[#F6C99F] bg-[#FFF1E6]',
+    badgeClass: 'border-[#F6C99F] bg-[#FFF1E6] text-[#B45309]',
+  },
+  danger: {
+    background: '#FFF1F2',
+    text: '#BE123C',
+    border: '#F7B8C3',
+    cardClass: 'border-[#F7B8C3] bg-[#FFF1F2]',
+    badgeClass: 'border-[#F7B8C3] bg-[#FFF1F2] text-[#BE123C]',
+  },
+  premium: {
+    background: '#F7F0FF',
+    text: '#7E3AF2',
+    border: '#DFC7FF',
+    cardClass: 'border-[#DFC7FF] bg-[#F7F0FF]',
+    badgeClass: 'border-[#DFC7FF] bg-[#F7F0FF] text-[#7E3AF2]',
+  },
+  coffee: {
+    background: '#F8EFE3',
+    text: '#8B5E34',
+    border: '#E8D5BE',
+    cardClass: 'border-[#E8D5BE] bg-[#F8EFE3]',
+    badgeClass: 'border-[#E8D5BE] bg-[#F8EFE3] text-[#8B5E34]',
+  },
+  cashier: {
+    background: '#EAF8F6',
+    text: '#168A7A',
+    border: '#BFE5DF',
+    cardClass: 'border-[#BFE5DF] bg-[#EAF8F6]',
+    badgeClass: 'border-[#BFE5DF] bg-[#EAF8F6] text-[#168A7A]',
+  },
+} as const;
+
+export type OwnerSemanticTone = keyof typeof OWNER_SEMANTIC_TONES;
+
 /**
  * Helper function to get role badge colors
  */

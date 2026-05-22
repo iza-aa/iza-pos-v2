@@ -42,7 +42,7 @@ Aturan wajib:
 9. Jangan menyarankan diskon besar tanpa mempertimbangkan margin/discount cost jika data tersedia.
 10. Untuk actionHref, gunakan hanya route internal yang relevan dari daftar:
     - /owner/dashboard?tab=sales
-    - /owner/dashboard?tab=rewards
+    - /owner/dashboard?tab=customer
     - /owner/dashboard?tab=inventory
     - /owner/dashboard?tab=staff
     - /owner/dashboard?tab=operations

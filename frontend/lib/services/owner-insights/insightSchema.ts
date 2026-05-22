@@ -55,7 +55,7 @@ export const normalizeConfidence = (value: unknown): InsightConfidence => {
 
 const ALLOWED_ACTION_HREFS = new Set([
   "/owner/dashboard?tab=sales",
-  "/owner/dashboard?tab=rewards",
+  "/owner/dashboard?tab=customer",
   "/owner/dashboard?tab=inventory",
   "/owner/dashboard?tab=staff",
   "/owner/dashboard?tab=operations",
@@ -121,7 +121,7 @@ export function sanitizeInsights(
       recommendation,
       expectedImpact:
         trimText(record.expectedImpact, 320) ||
-        "Dampak perlu dipantau melalui metrik kategori ini.",
+        "Impact should be monitored through the metrics in this category.",
       actionLabel: trimText(record.actionLabel, 80) || undefined,
       actionHref: ALLOWED_ACTION_HREFS.has(actionHref) ? actionHref : undefined,
     });
@@ -139,20 +139,25 @@ export function buildDataSummaryInsight(
   return {
     id: `${category}-data-summary`,
     category,
-    title: "Data Summary tersedia",
+    title: "Data Summary is ready",
     priority: "medium",
     confidence: "medium",
     problem:
-      "Rekomendasi AI belum bisa dibuat, tetapi snapshot data kategori ini berhasil disiapkan.",
+      "The AI recommendation could not be generated yet, but the data snapshot for this category is ready.",
     evidence: [
-      `Snapshot kategori ${category} memuat ${metricCount} grup metrik.`,
-      "Gunakan ringkasan visual pada tab ini sambil mencoba generate ulang.",
+      `The ${category} snapshot contains ${metricCount} metric groups.`,
+      "Use the visual summary on this tab while trying to generate again.",
     ],
     recommendation:
-      "Periksa metrik utama pada tab ini dan coba generate ulang saat koneksi atau konfigurasi Gemini sudah tersedia.",
+      "Review the key metrics on this tab and regenerate once the Gemini connection or configuration is available.",
     expectedImpact:
-      "Owner tetap bisa membaca kondisi bisnis dasar tanpa menunggu AI berhasil dipanggil.",
-    actionLabel: "Lihat tab ini",
-    actionHref: `/owner/dashboard?tab=${category === "overview" ? "sales" : category}`,
+      "The owner can still read the basic business condition without waiting for the AI call to succeed.",
+    actionLabel: "View this tab",
+    actionHref:
+      category === "overview"
+        ? "/owner/dashboard?tab=sales"
+        : category === "rewards"
+          ? "/owner/dashboard?tab=customer"
+          : `/owner/dashboard?tab=${category}`,
   };
 }

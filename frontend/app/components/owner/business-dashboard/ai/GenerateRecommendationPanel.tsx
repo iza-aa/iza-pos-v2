@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowPathIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { getCurrentUser } from "@/lib/utils";
 import type {
   AIInsight,
@@ -60,7 +59,11 @@ export default function GenerateRecommendationPanel({
       setFallbackInsight(data.fallbackInsight ?? null);
       if (data.error && !data.record) setError(data.error);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Gagal memuat rekomendasi.");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load recommendations.",
+      );
     } finally {
       setLoading(false);
     }
@@ -98,7 +101,7 @@ export default function GenerateRecommendationPanel({
       setError(
         generateError instanceof Error
           ? generateError.message
-          : "Gagal generate recommendation.",
+          : "Unable to generate recommendation.",
       );
     } finally {
       setGenerating(false);
@@ -111,47 +114,20 @@ export default function GenerateRecommendationPanel({
       ? [fallbackInsight]
       : [];
 
+  const hasStoredAiInsight = Boolean(record?.insights_json?.length);
+
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
-      <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-base font-bold text-gray-900">AI Recommendation</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Generate insight kategori aktif berdasarkan Today vs Yesterday.
-          </p>
-          {record ? (
-            <p className="mt-1 text-xs text-gray-400">
-              Generated {new Date(record.generated_at).toLocaleString("id-ID")}
-            </p>
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={loading || generating}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {generating ? (
-            <ArrowPathIcon className="h-4 w-4 animate-spin" />
-          ) : (
-            <SparklesIcon className="h-4 w-4" />
-          )}
-          {generating
-            ? "Generating..."
-            : record
-              ? "Regenerate Recommendation"
-              : "Generate Recommendation"}
-        </button>
-      </div>
-
-      {error ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
-          {error}
-        </div>
-      ) : null}
-
-      <AIInsightCarousel insights={insights} />
+      <AIInsightCarousel
+        insights={insights}
+        loading={loading}
+        generating={generating}
+        error={error}
+        generatedAt={record?.generated_at}
+        generationCount={record?.generation_count}
+        showDetail={hasStoredAiInsight}
+        onGenerate={handleGenerate}
+      />
     </div>
   );
 }

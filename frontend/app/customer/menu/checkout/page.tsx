@@ -12,6 +12,7 @@ import {
   type CustomerTableSession,
   validateStoredCustomerTableSession,
 } from "@/lib/customer/customerSession";
+import { getStoredCustomerAccount } from "@/lib/customer/customerAccount";
 
 interface CartItem {
   id: string;
@@ -214,6 +215,7 @@ export default function CustomerCheckoutPage() {
     const initializeCheckout = async () => {
       const storedCart = parseStoredCart(localStorage.getItem("customer_cart"));
       const validSession = await validateStoredCustomerTableSession();
+      const account = getStoredCustomerAccount();
       const savedName = localStorage.getItem("customer_name");
 
       if (!isMounted) {
@@ -228,8 +230,8 @@ export default function CustomerCheckoutPage() {
       setTableSession(validSession);
       setCart(storedCart);
 
-      if (savedName) {
-        setCustomerName(savedName);
+      if (savedName || account?.name) {
+        setCustomerName(savedName ?? account?.name ?? "");
       }
 
       setTimeout(() => setInitializing(false), 200);
@@ -338,9 +340,11 @@ export default function CustomerCheckoutPage() {
     pickupCode: string | null,
     total: number,
   ): Promise<CreatedOrder> => {
+    const account = getStoredCustomerAccount();
     const baseOrderPayload = {
       order_number: orderNumber,
       customer_name: cleanCustomerName,
+      customer_id: account?.id ?? null,
       table_number: tableSession?.table_number ?? null,
 
       /*
