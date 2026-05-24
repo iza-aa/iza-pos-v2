@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getStaffStatusColor, getStaffStatusStyle } from "@/lib/utils";
-import { isLoginCodeValid } from "@/lib/constants";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
+import StandardTable, { type StandardTableColumn } from "./StandardTable";
 import type { Staff } from "@/lib/types";
 
 type ShiftRecord = {
@@ -25,12 +26,22 @@ interface StaffTableProps {
   staffList: Staff[];
   onEdit: (id: string) => void;
   onDelete?: (id: string) => void;
-  onGeneratePass: (id: string) => void;
-  onCopyCode: (code: string) => void;
   showActions?: boolean;
+  title?: string;
+  description?: string;
 }
 
 type CurrentStaffSession = Record<string, unknown> | null;
+type SortKey =
+  | "staff_code"
+  | "name"
+  | "role"
+  | "staff_type"
+  | "shift"
+  | "phone"
+  | "email"
+  | "status"
+  | "hired_date";
 
 const normalizeText = (value: unknown) => {
   return String(value ?? "").trim().toLowerCase();
@@ -105,14 +116,14 @@ const getRoleBadgeClass = (role: unknown) => {
   const normalizedRole = normalizeText(role);
 
   if (normalizedRole === "owner") {
-    return "bg-gray-900 text-white border-gray-900";
+    return OWNER_SEMANTIC_TONES.dark.badgeClass;
   }
 
   if (normalizedRole === "manager") {
-    return "bg-purple-50 text-purple-700 border-purple-200";
+    return OWNER_SEMANTIC_TONES.premium.badgeClass;
   }
 
-  return "bg-gray-100 text-gray-700 border-gray-200";
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 const getStaffTypeBadgeClass = (staff: StaffTableRecord) => {
@@ -120,32 +131,43 @@ const getStaffTypeBadgeClass = (staff: StaffTableRecord) => {
   const staffType = normalizeText(staff.staff_type);
 
   if (role === "owner" || role === "manager") {
-    return "bg-slate-50 text-slate-600 border-slate-200";
+    return OWNER_SEMANTIC_TONES.neutral.badgeClass;
   }
 
   if (staffType === "cashier") {
-    return "bg-blue-50 text-blue-700 border-blue-200";
+    return OWNER_SEMANTIC_TONES.cashier.badgeClass;
   }
 
   if (staffType === "barista") {
-    return "bg-amber-50 text-amber-700 border-amber-200";
+    return OWNER_SEMANTIC_TONES.coffee.badgeClass;
   }
 
   if (staffType === "kitchen") {
-    return "bg-orange-50 text-orange-700 border-orange-200";
+    return OWNER_SEMANTIC_TONES.warning.badgeClass;
   }
 
   if (staffType === "waiter") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    return OWNER_SEMANTIC_TONES.info.badgeClass;
   }
 
-  return "bg-gray-50 text-gray-500 border-gray-200";
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 const getShiftBadgeClass = (staff: StaffTableRecord) => {
-  if (!staff.shift_id) return "bg-gray-50 text-gray-500 border-gray-200";
+  if (!staff.shift_id) return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 
-  return "bg-indigo-50 text-indigo-700 border-indigo-200";
+  return OWNER_SEMANTIC_TONES.progress.badgeClass;
+};
+
+const getStatusBadgeClass = (status: unknown) => {
+  const normalizedStatus = normalizeText(status);
+
+  if (normalizedStatus === "active") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  if (normalizedStatus === "inactive") return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+  if (normalizedStatus === "on-leave") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (normalizedStatus === "terminated") return OWNER_SEMANTIC_TONES.danger.badgeClass;
+
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 const formatDate = (value: unknown) => {
@@ -243,13 +265,27 @@ const isCurrentLoggedInStaff = (
   );
 };
 
+const getSortValue = (staff: StaffTableRecord, key: SortKey) => {
+  if (key === "staff_code") return normalizeText(staff.staff_code);
+  if (key === "name") return normalizeText(staff.name);
+  if (key === "role") return normalizeText(getRoleLabel(staff.role));
+  if (key === "staff_type") return normalizeText(getStaffTypeLabel(staff));
+  if (key === "shift") return normalizeText(getShiftLabel(staff));
+  if (key === "phone") return normalizeText(staff.phone);
+  if (key === "email") return normalizeText(staff.email);
+  if (key === "status") return normalizeText(getStatusLabel(staff.status));
+  if (key === "hired_date") return normalizeText(staff.hired_date);
+
+  return "";
+};
+
 export default function StaffTable({
   staffList,
   onEdit,
   onDelete,
-  onGeneratePass,
-  onCopyCode,
   showActions = true,
+  title = "Staff Data List",
+  description = "Structured staff profile, role, shift, and access status records.",
 }: StaffTableProps) {
   const [currentStaff, setCurrentStaff] = useState<CurrentStaffSession>(null);
 
@@ -257,211 +293,186 @@ export default function StaffTable({
     setCurrentStaff(readCurrentStaffFromBrowser());
   }, []);
 
-  const normalizedStaffList = useMemo(() => {
-    return staffList as StaffTableRecord[];
-  }, [staffList]);
+  const normalizedStaffList = useMemo(
+    () => [...(staffList as StaffTableRecord[])],
+    [staffList],
+  );
+
+  const columns = useMemo<Array<StandardTableColumn<StaffTableRecord>>>(() => {
+    const baseColumns: Array<StandardTableColumn<StaffTableRecord>> = [
+      {
+        key: "staff_code",
+        header: "Staff ID",
+        sortValue: (staff) => getSortValue(staff, "staff_code"),
+        className: "align-middle",
+        render: (staff) => {
+          const isSelf = isCurrentLoggedInStaff(staff, currentStaff);
+
+          return (
+            <div>
+              <p className="font-mono font-semibold text-gray-900">
+                {staff.staff_code || "-"}
+              </p>
+              {isSelf && (
+                <p className="mt-1 text-xs font-medium text-blue-700">
+                  Your Account
+                </p>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        key: "name",
+        header: "Staff",
+        sortValue: (staff) => getSortValue(staff, "name"),
+        className: "align-middle",
+        render: (staff) => (
+          <p className="truncate font-semibold text-gray-900">{staff.name || "-"}</p>
+        ),
+      },
+      {
+        key: "role",
+        header: "Role",
+        sortValue: (staff) => getSortValue(staff, "role"),
+        className: "align-middle",
+        render: (staff) => (
+          <span
+            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleBadgeClass(
+              staff.role,
+            )}`}
+          >
+            {getRoleLabel(staff.role)}
+          </span>
+        ),
+      },
+      {
+        key: "staff_type",
+        header: "Type",
+        sortValue: (staff) => getSortValue(staff, "staff_type"),
+        className: "align-middle",
+        render: (staff) => (
+          <span
+            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(
+              staff,
+            )}`}
+          >
+            {getStaffTypeLabel(staff)}
+          </span>
+        ),
+      },
+      {
+        key: "shift",
+        header: "Shift",
+        sortValue: (staff) => getSortValue(staff, "shift"),
+        className: "align-middle",
+        render: (staff) => (
+          <div>
+            <span
+              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getShiftBadgeClass(
+                staff,
+              )}`}
+            >
+              {getShiftLabel(staff)}
+            </span>
+            <p className="mt-1 text-xs text-gray-500">{getShiftTimeLabel(staff)}</p>
+          </div>
+        ),
+      },
+      {
+        key: "phone",
+        header: "WhatsApp",
+        sortValue: (staff) => getSortValue(staff, "phone"),
+        className: "align-middle",
+        render: (staff) => <p className="truncate">{staff.phone || "-"}</p>,
+      },
+      {
+        key: "email",
+        header: "Email",
+        sortValue: (staff) => getSortValue(staff, "email"),
+        className: "align-middle",
+        render: (staff) => <p className="truncate">{staff.email || "-"}</p>,
+      },
+      {
+        key: "status",
+        header: "Status",
+        sortValue: (staff) => getSortValue(staff, "status"),
+        className: "align-middle",
+        render: (staff) => (
+          <span
+            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
+              staff.status,
+            )}`}
+          >
+            {getStatusLabel(staff.status)}
+          </span>
+        ),
+      },
+      {
+        key: "hired_date",
+        header: "Start Date",
+        sortValue: (staff) => getSortValue(staff, "hired_date"),
+        className: "align-middle",
+        render: (staff) => formatDate(staff.hired_date),
+      },
+    ];
+
+    if (!showActions) return baseColumns;
+
+    return [
+      ...baseColumns,
+      {
+        key: "actions",
+        header: "Actions",
+        isAction: true,
+        className: "align-middle",
+        render: (staff) => {
+          const isSelf = isCurrentLoggedInStaff(staff, currentStaff);
+          const isOwner = normalizeText(staff.role) === "owner";
+          const canDelete = Boolean(onDelete) && !isSelf && !isOwner;
+
+          return (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onEdit(staff.id)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50"
+                title="Edit staff"
+                aria-label={`Edit ${staff.name || "staff"}`}
+              >
+                <PencilSquareIcon className="h-4.5 w-4.5" />
+              </button>
+
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete?.(staff.id)}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-white transition hover:bg-red-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
+                  title="Delete staff"
+                  aria-label={`Delete ${staff.name || "staff"}`}
+                >
+                  <TrashIcon className="h-4.5 w-4.5" />
+                </button>
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, [currentStaff, onDelete, onEdit, showActions]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-      <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-345 table-fixed">
-          <thead className="sticky top-0 z-10 bg-gray-50">
-            <tr className="border-b border-gray-200">
-              <th className="w-[10%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                ID Staff
-              </th>
-              <th className="w-[15%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Staff
-              </th>
-              <th className="w-[9%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Role
-              </th>
-              <th className="w-[10%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Tipe
-              </th>
-              <th className="w-[13%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Shift
-              </th>
-              <th className="w-[12%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                No WA
-              </th>
-              <th className="w-[15%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Email
-              </th>
-              <th className="w-[9%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Status
-              </th>
-              <th className="w-[9%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Masuk
-              </th>
-              {showActions && (
-                <th className="w-[11%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Aksi
-                </th>
-              )}
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {normalizedStaffList.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={showActions ? 10 : 9}
-                  className="px-5 py-12 text-center text-sm text-gray-500"
-                >
-                  Belum ada data staff.
-                </td>
-              </tr>
-            ) : (
-              normalizedStaffList.map((staff) => {
-                const role = normalizeText(staff.role);
-                const shouldShowLoginCode = role !== "manager" && role !== "owner";
-                const hasValidLoginCode = isLoginCodeValid(
-                  staff.login_code,
-                  staff.login_code_expires_at,
-                );
-                const isSelf = isCurrentLoggedInStaff(staff, currentStaff);
-                const isOwner = normalizeText(staff.role) === "owner";
-                const canDelete = Boolean(onDelete) && !isSelf && !isOwner;
-
-                return (
-                  <tr
-                    key={staff.id}
-                    className={`transition hover:bg-gray-50 ${
-                      isSelf ? "bg-blue-50/40" : ""
-                    }`}
-                  >
-                    <td className="px-5 py-4 align-middle">
-                      <div className="font-mono text-sm font-semibold text-gray-900">
-                        {staff.staff_code || "-"}
-                      </div>
-                      {isSelf && (
-                        <div className="mt-1 text-xs font-medium text-blue-700">
-                          Akun Anda
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <div className="truncate text-sm font-semibold text-gray-900">
-                        {staff.name || "-"}
-                      </div>
-
-                      {shouldShowLoginCode && (
-                        <div className="mt-1 text-xs text-gray-500">
-                          {hasValidLoginCode ? (
-                            <button
-                              type="button"
-                              onClick={() => onCopyCode(staff.login_code!)}
-                              className="font-mono hover:underline"
-                            >
-                              {staff.login_code}
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => onGeneratePass(staff.id)}
-                              className="font-semibold text-gray-700 hover:underline"
-                            >
-                              Generate Pass
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <span
-                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleBadgeClass(
-                          staff.role,
-                        )}`}
-                      >
-                        {getRoleLabel(staff.role)}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <span
-                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(
-                          staff,
-                        )}`}
-                      >
-                        {getStaffTypeLabel(staff)}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <span
-                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getShiftBadgeClass(
-                          staff,
-                        )}`}
-                      >
-                        {getShiftLabel(staff)}
-                      </span>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {getShiftTimeLabel(staff)}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <div className="truncate text-sm text-gray-700">
-                        {staff.phone || "-"}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <div className="truncate text-sm text-gray-700">
-                        {staff.email || "-"}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStaffStatusColor(
-                          staff.status,
-                        )}`}
-                        style={getStaffStatusStyle(staff.status)}
-                      >
-                        {getStatusLabel(staff.status)}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 align-middle">
-                      <div className="text-sm text-gray-700">
-                        {formatDate(staff.hired_date)}
-                      </div>
-                    </td>
-
-                    {showActions && (
-                      <td className="px-5 py-4 align-middle">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onEdit(staff.id)}
-                            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                          >
-                            Edit
-                          </button>
-
-                          {canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => onDelete?.(staff.id)}
-                              className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                            >
-                              Hapus
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-4 md:px-5">
+      <div className="mb-4 ">
+        <h2 className="text-base font-bold text-gray-900">{title}</h2>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
       </div>
+      <StandardTable
+        columns={columns}
+        data={normalizedStaffList}
+        getRowKey={(staff) => staff.id}
+        emptyLabel="No staff data yet."
+      />
     </div>
   );
 }

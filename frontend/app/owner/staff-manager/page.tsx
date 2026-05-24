@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ViewModeToggle, DeleteModal } from "@/app/components/ui";
-import { StaffCard, StaffTable } from "@/app/components/shared";
+import {
+  DateRangeFilter,
+  getDefaultDateRange,
+  getLast7DateRange,
+  SidebarTabset,
+  StaffCard,
+  StaffTable,
+  type DateRangeValue,
+} from "@/app/components/shared";
 import {
   StaffManagerHeader,
   EditStaffModal,
@@ -18,13 +26,14 @@ import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import type { Staff } from "@/lib/types";
 import {
-  CalendarIcon,
-  ChevronDownIcon,
   ClockIcon,
+  MapPinIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
 
 type StaffRole = "staff" | "manager" | "owner";
+type StaffManagerTab = "staff" | "attendance";
+type AttendanceTab = "monitor" | "settings";
 type StaffViewMode = "card" | "table";
 type StaffType = "barista" | "kitchen" | "cashier" | "waiter";
 type StaffStatus = "active" | "inactive" | "on-leave" | "terminated";
@@ -369,17 +378,11 @@ export default function StaffManagerPage() {
   const [viewMode, setViewMode] = useState<StaffViewMode>("card");
   const [staffSearchQuery, setStaffSearchQuery] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
-  const [activeTab, setActiveTab] = useState<"staff" | "presensi">("staff");
-  const [showTabDropdown, setShowTabDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const [dateRangeMode, setDateRangeMode] = useState<
-    "all" | "today" | "week" | "month" | "custom"
-  >("today");
-  const [showDateDropdown, setShowDateDropdown] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
-  const dateDropdownRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<StaffManagerTab>("staff");
+  const [activeAttendanceTab, setActiveAttendanceTab] =
+    useState<AttendanceTab>("monitor");
+  const [attendanceDateRange, setAttendanceDateRange] =
+    useState<DateRangeValue>(getDefaultDateRange);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -418,7 +421,7 @@ export default function StaffManagerPage() {
       .order("created_at", { ascending: true });
 
     if (error) {
-      showError("Gagal mengambil data staff: " + error.message);
+      showError("Failed to fetch staff data: " + error.message);
       return;
     }
 
@@ -442,7 +445,7 @@ export default function StaffManagerPage() {
       .order("start_time", { ascending: true });
 
     if (error) {
-      showError("Gagal mengambil data shift: " + error.message);
+      showError("Failed to fetch shift data: " + error.message);
       return;
     }
 
@@ -471,27 +474,6 @@ export default function StaffManagerPage() {
     const interval = setInterval(refreshStaffAndShifts, POLLING_INTERVALS.SLOW);
     return () => clearInterval(interval);
   }, [refreshStaffAndShifts]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowTabDropdown(false);
-      }
-
-      if (
-        dateDropdownRef.current &&
-        !dateDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowDateDropdown(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const isCurrentLoggedInStaff = (staff: StaffRecord) => {
     const currentId = normalizeText(currentStaffIdentity.id);
@@ -537,10 +519,10 @@ export default function StaffManagerPage() {
   });
 
   const getStaffTypeLabel = (staffType?: StaffType | null) => {
-    if (staffType === "cashier") return "Kasir Cashier";
+    if (staffType === "cashier") return "Cashier";
     if (staffType === "barista") return "Barista";
-    if (staffType === "kitchen") return "Kitchen Dapur";
-    if (staffType === "waiter") return "Waiter Pelayan";
+    if (staffType === "kitchen") return "Kitchen";
+    if (staffType === "waiter") return "Waiter";
 
     return "";
   };
@@ -558,9 +540,9 @@ export default function StaffManagerPage() {
   const getStatusLabel = (status?: string | null) => {
     const normalizedStatus = normalizeText(status);
 
-    if (normalizedStatus === "active") return "Active Aktif";
-    if (normalizedStatus === "inactive") return "Inactive Nonaktif";
-    if (normalizedStatus === "on-leave") return "On Leave Cuti";
+    if (normalizedStatus === "active") return "Active";
+    if (normalizedStatus === "inactive") return "Inactive";
+    if (normalizedStatus === "on-leave") return "On Leave";
     if (normalizedStatus === "terminated") return "Terminated";
 
     return String(status ?? "");
@@ -582,9 +564,9 @@ export default function StaffManagerPage() {
       getStaffTypeLabel(staff.staff_type),
       staff.status,
       getStatusLabel(staff.status),
-      staff.pin_hash || staff.password_hash ? "akses aktif" : "belum aktivasi",
+      staff.pin_hash || staff.password_hash ? "access active" : "not activated",
       staff.must_change_pin ? "reset pin" : "",
-      staff.login_code && staff.login_code_expires_at ? "kode login aktif" : "",
+      staff.login_code && staff.login_code_expires_at ? "active login code" : "",
       staff.shift?.shift_name,
       staff.shift_id,
     ];
@@ -601,6 +583,68 @@ export default function StaffManagerPage() {
     login_code: undefined,
   }));
 
+  const staffManagerTabs = [
+    {
+      id: "staff" as const,
+      label: "Staff Data",
+      description: "Profiles and access",
+      icon: UsersIcon,
+    },
+    {
+      id: "attendance" as const,
+      label: "Staff Attendance",
+      description: "Attendance and shifts",
+      icon: ClockIcon,
+      children: [
+        {
+          id: "monitor" as const,
+          label: "Attendance Monitor",
+          icon: ClockIcon,
+        },
+        {
+          id: "settings" as const,
+          label: "Attendance Settings",
+          icon: MapPinIcon,
+        },
+      ],
+    },
+  ];
+
+  const getAttendanceDateRangeProps = (range: DateRangeValue) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().slice(0, 10);
+    const last7 = getLast7DateRange();
+    const last30Date = new Date();
+    last30Date.setDate(last30Date.getDate() - 29);
+    const last30 = {
+      startDate: last30Date.toISOString().slice(0, 10),
+      endDate: today,
+    };
+
+    if (range.startDate === today && range.endDate === today) {
+      return { dateRangeMode: "today" as const, customStartDate: "", customEndDate: "" };
+    }
+
+    if (range.startDate === last7.startDate && range.endDate === last7.endDate) {
+      return { dateRangeMode: "week" as const, customStartDate: "", customEndDate: "" };
+    }
+
+    if (range.startDate === last30.startDate && range.endDate === last30.endDate) {
+      return { dateRangeMode: "month" as const, customStartDate: "", customEndDate: "" };
+    }
+
+    return {
+      dateRangeMode: "custom" as const,
+      customStartDate: range.startDate || yesterday,
+      customEndDate: range.endDate || yesterday,
+    };
+  };
+
+  const attendanceDateRangeProps =
+    getAttendanceDateRangeProps(attendanceDateRange);
+
   const canDeleteStaff = (staff: StaffRecord) => {
     const isCurrentUser = isCurrentLoggedInStaff(staff);
     const isOwner = normalizeText(staff.role) === "owner";
@@ -610,7 +654,7 @@ export default function StaffManagerPage() {
 
   const handleCopy = async (code: string) => {
     await navigator.clipboard.writeText(code);
-    setCopyMsg("Kode berhasil disalin!");
+    setCopyMsg("Code copied.");
     setTimeout(() => setCopyMsg(""), TIMEOUT_DURATIONS.SHORT);
   };
 
@@ -643,7 +687,7 @@ export default function StaffManagerPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Gagal membuat kode login.");
+        throw new Error(result.error || "Failed to create login code.");
       }
 
       await fetchStaff();
@@ -656,10 +700,10 @@ export default function StaffManagerPage() {
         expiresAt: result.expires_at,
       });
 
-      showSuccess("Kode login staff berhasil dibuat.");
+      showSuccess("Staff login code created.");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Gagal membuat kode login.";
+        error instanceof Error ? error.message : "Failed to create login code.";
 
       showError(message);
     } finally {
@@ -674,7 +718,7 @@ export default function StaffManagerPage() {
 
     if (!canDeleteStaff(staff)) {
       showError(
-        "Akun owner atau akun yang sedang digunakan tidak boleh dihapus.",
+        "Owner accounts and the currently used account cannot be deleted.",
       );
       return;
     }
@@ -688,7 +732,7 @@ export default function StaffManagerPage() {
 
     if (!canDeleteStaff(selectedStaff)) {
       showError(
-        "Akun owner atau akun yang sedang digunakan tidak boleh dihapus.",
+        "Owner accounts and the currently used account cannot be deleted.",
       );
       setShowDeleteModal(false);
       setSelectedStaff(null);
@@ -710,7 +754,7 @@ export default function StaffManagerPage() {
       .eq("user_id", selectedStaff.id);
 
     if (activityLogError) {
-      showError("Gagal menghapus log staff: " + activityLogError.message);
+      showError("Failed to delete staff logs: " + activityLogError.message);
       return;
     }
 
@@ -720,13 +764,13 @@ export default function StaffManagerPage() {
       .eq("id", selectedStaff.id);
 
     if (error) {
-      showError("Gagal menghapus staff: " + error.message);
+      showError("Failed to delete staff: " + error.message);
       return;
     }
 
     await fetchStaff();
     setShowDeleteModal(false);
-    showSuccess("Staff berhasil dihapus");
+    showSuccess("Staff deleted.");
 
     await logActivity({
       action: "DELETE",
@@ -781,14 +825,14 @@ export default function StaffManagerPage() {
       .eq("id", staffToUpdate.id);
 
     if (error) {
-      showError("Gagal update staff: " + error.message);
+      showError("Failed to update staff: " + error.message);
       return;
     }
 
     await fetchStaff();
     setShowEditModal(false);
     setSelectedStaff(null);
-    showSuccess("Data staff berhasil diupdate");
+    showSuccess("Staff data updated.");
 
     if (oldStaff) {
       await logActivity({
@@ -837,7 +881,7 @@ export default function StaffManagerPage() {
       .ilike("staff_code", `${prefix}%`);
 
     if (error) {
-      throw new Error(`Gagal mengambil kode staff: ${error.message}`);
+      throw new Error(`Failed to fetch staff codes: ${error.message}`);
     }
 
     const usedNumbers = new Set(
@@ -900,17 +944,17 @@ export default function StaffManagerPage() {
 
       if (error) {
         if (error.code === "23505") {
-          showError("Kode staff sudah dipakai. Silakan coba simpan ulang.");
+          showError("Staff code is already used. Please try saving again.");
           return;
         }
 
-        showError("Gagal menambahkan staff: " + error.message);
+        showError("Failed to add staff: " + error.message);
         return;
       }
 
       await fetchStaff();
       setShowAddModal(false);
-      showSuccess("Staff berhasil ditambahkan");
+      showSuccess("Staff added.");
 
       if (insertedStaff?.id && selectedRole === "staff") {
         await handleGeneratePass(insertedStaff.id);
@@ -937,230 +981,57 @@ export default function StaffManagerPage() {
       const message =
         error instanceof Error
           ? error.message
-          : "Terjadi kesalahan tidak diketahui";
+          : "An unknown error occurred";
 
-      showError("Gagal menambahkan staff: " + message);
+      showError("Failed to add staff: " + message);
     }
   };
 
   return (
-    <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
-      <section className="shrink-0 px-4 md:px-6 pt-4 md:pt-6 bg-white border-b border-gray-200">
-        <StaffManagerHeader
-          title={activeTab === "staff" ? "Staff Manager" : "Presensi Staff"}
-          description={
-            activeTab === "staff"
-              ? "Kelola data staff, role, shift, status, dan kode login."
-              : "Pantau clock in dan clock out staff berdasarkan shift."
-          }
-          onAddStaff={() => setShowAddModal(true)}
-          activeTab={activeTab}
-          searchQuery={staffSearchQuery}
-          onSearchChange={setStaffSearchQuery}
-        >
-          {activeTab === "presensi" && (
-            <div className="relative" ref={dateDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setShowDateDropdown(!showDateDropdown)}
-                className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition"
-              >
-                <CalendarIcon className="w-4 h-4" />
-                <span className="font-medium">
-                  {dateRangeMode === "all" && "All Time"}
-                  {dateRangeMode === "today" && "Today"}
-                  {dateRangeMode === "week" && "This Week (Last 7 Days)"}
-                  {dateRangeMode === "month" && "This Month (Last 30 Days)"}
-                  {dateRangeMode === "custom" && "Custom Range"}
-                </span>
-              </button>
+    <div className="flex h-[calc(100vh-55px)] overflow-hidden bg-gray-100">
+      <SidebarTabset
+        title="Staff Manager"
+        description="Manage staff data and attendance records."
+        items={staffManagerTabs}
+        activeId={activeTab}
+        activeChildId={activeTab === "attendance" ? activeAttendanceTab : undefined}
+        onSelect={(tab) => setActiveTab(tab)}
+        onChildSelect={(tab, child) => {
+          setActiveTab(tab);
+          setActiveAttendanceTab(child);
+        }}
+        mobileOpenLabel="Open staff manager menu"
+        mobileCloseLabel="Close staff manager menu"
+      />
 
-              {showDateDropdown && (
-                <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-xl border border-gray-200 shadow-lg z-50">
-                  <div className="p-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDateRangeMode("all");
-                        setShowDateDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
-                        dateRangeMode === "all"
-                          ? "bg-gray-900 text-white"
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      All Time
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDateRangeMode("today");
-                        setShowDateDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition mt-1 ${
-                        dateRangeMode === "today"
-                          ? "bg-gray-100 text-gray-900"
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      Today
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDateRangeMode("week");
-                        setShowDateDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition mt-1 ${
-                        dateRangeMode === "week"
-                          ? "bg-gray-100 text-gray-900"
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      This Week (Last 7 Days)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDateRangeMode("month");
-                        setShowDateDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm transition mt-1 ${
-                        dateRangeMode === "month"
-                          ? "bg-gray-100 text-gray-900"
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      This Month (Last 30 Days)
-                    </button>
-                  </div>
-
-                  <div className="border-t border-gray-200 p-4">
-                    <p className="text-sm font-medium text-gray-700 mb-3">
-                      Custom Range
-                    </p>
-
-                    <div className="space-y-3">
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={customStartDate}
-                          onChange={(event) =>
-                            setCustomStartDate(event.target.value)
-                          }
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                        />
-                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
-
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={customEndDate}
-                          onChange={(event) =>
-                            setCustomEndDate(event.target.value)
-                          }
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                        />
-                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (customStartDate && customEndDate) {
-                            setDateRangeMode("custom");
-                            setShowDateDropdown(false);
-                          }
-                        }}
-                        disabled={!customStartDate || !customEndDate}
-                        className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Apply Custom Range
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "staff" && (
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      {activeTab === "staff" && (
+        <section className="shrink-0 border-b border-gray-200 bg-white px-4 py-4 md:px-6">
+          <StaffManagerHeader
+            onAddStaff={() => setShowAddModal(true)}
+            activeTab={activeTab}
+            searchQuery={staffSearchQuery}
+            onSearchChange={setStaffSearchQuery}
+          >
             <ViewModeToggle
               viewMode={viewMode}
               onViewModeChange={handleViewModeChange}
               showMapView={false}
             />
-          )}
+          </StaffManagerHeader>
+        </section>
+      )}
 
-          <div className="relative" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => setShowTabDropdown(!showTabDropdown)}
-              className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition"
-            >
-              {activeTab === "staff" ? (
-                <>
-                  <UsersIcon className="w-4 md:w-5 h-4 md:h-5" />
-                  <span className="text-xs md:text-sm font-medium">
-                    Data Staff
-                  </span>
-                </>
-              ) : (
-                <>
-                  <ClockIcon className="w-4 md:w-5 h-4 md:h-5" />
-                  <span className="text-xs md:text-sm font-medium">
-                    Presensi
-                  </span>
-                </>
-              )}
-              <ChevronDownIcon className="w-4 h-4" />
-            </button>
-
-            {showTabDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("staff");
-                    setShowTabDropdown(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                    activeTab === "staff"
-                      ? "bg-gray-100 text-gray-900 font-medium"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <UsersIcon className="w-4 h-4" />
-                  Data Staff
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("presensi");
-                    setShowTabDropdown(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                    activeTab === "presensi"
-                      ? "bg-gray-100 text-gray-900 font-medium"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <ClockIcon className="w-4 h-4" />
-                  Presensi Staff
-                </button>
-              </div>
-            )}
+      <section className="flex-1 overflow-y-auto bg-gray-100 px-4 md:px-4 py-4 md:py-4 mb-4">
+        {activeTab === "attendance" && activeAttendanceTab === "monitor" && (
+          <div className="mb-4">
+            <DateRangeFilter
+              value={attendanceDateRange}
+              onChange={setAttendanceDateRange}
+            />
           </div>
-        </StaffManagerHeader>
-      </section>
+        )}
 
-      <section className="flex-1 overflow-y-auto bg-gray-100 px-4 md:px-6 py-4 md:py-6">
         {activeTab === "staff" && (
           <>
             {viewMode === "card" && (
@@ -1175,8 +1046,6 @@ export default function StaffManagerPage() {
                         ? () => handleDelete(staff.id)
                         : undefined
                     }
-                    onGeneratePass={() => handleGeneratePass(staff.id)}
-                    onCopyCode={handleCopy}
                   />
                 ))}
               </div>
@@ -1188,8 +1057,6 @@ export default function StaffManagerPage() {
                   staffList={visibleStaffListForTable}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  onGeneratePass={handleGeneratePass}
-                  onCopyCode={handleCopy}
                 />
               </div>
             )}
@@ -1198,24 +1065,26 @@ export default function StaffManagerPage() {
               <div className="text-center py-12">
                 <p className="text-gray-500">
                   {staffSearchQuery
-                    ? "Staff tidak ditemukan"
-                    : "Belum ada data staff"}
+                    ? "No staff found"
+                    : "No staff data yet"}
                 </p>
               </div>
             )}
           </>
         )}
 
-        {activeTab === "presensi" && (
+        {activeTab === "attendance" && (
           <AttendanceSection
             viewMode="table"
-            dateRangeMode={dateRangeMode}
-            customStartDate={customStartDate}
-            customEndDate={customEndDate}
+            dateRangeMode={attendanceDateRangeProps.dateRangeMode}
+            customStartDate={attendanceDateRangeProps.customStartDate}
+            customEndDate={attendanceDateRangeProps.customEndDate}
+            section={activeAttendanceTab}
             onShiftChanged={refreshStaffAndShifts}
           />
         )}
       </section>
+      </div>
 
       {copyMsg && (
         <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow z-50">
@@ -1228,7 +1097,7 @@ export default function StaffManagerPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Kode Login Staff
+                Staff Login Code
               </p>
               <h2 className="mt-1 text-xl font-bold text-gray-900">
                 {generatedLoginCode.staffName}
@@ -1240,20 +1109,20 @@ export default function StaffManagerPage() {
 
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Kode
+                Code
               </p>
               <p className="mt-2 font-mono text-4xl font-bold tracking-[0.35em] text-gray-900">
                 {generatedLoginCode.loginCode}
               </p>
               <p className="mt-3 text-sm text-gray-500">
-                Berlaku sampai{" "}
+                Valid until{" "}
                 {formatLoginCodeExpiry(generatedLoginCode.expiresAt)}
               </p>
             </div>
 
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-              Berikan kode ini hanya kepada staff terkait. Setelah staff membuat
-              PIN, kode ini otomatis tidak bisa dipakai lagi.
+              Share this code only with the assigned staff member. After the
+              staff member creates a PIN, the code can no longer be used.
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
@@ -1262,14 +1131,14 @@ export default function StaffManagerPage() {
                 onClick={() => void handleCopy(generatedLoginCode.loginCode)}
                 className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
               >
-                Copy Kode
+                Copy Code
               </button>
               <button
                 type="button"
                 onClick={() => setGeneratedLoginCode(null)}
                 className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Tutup
+                Close
               </button>
             </div>
           </div>
@@ -1285,6 +1154,9 @@ export default function StaffManagerPage() {
           setSelectedStaff(null);
         }}
         onSave={handleSaveEdit}
+        onGeneratePass={handleGeneratePass}
+        onCopyCode={handleCopy}
+        isGeneratingCode={isGeneratingCode}
       />
 
       {showAddModal && (
@@ -1302,11 +1174,11 @@ export default function StaffManagerPage() {
           setSelectedStaff(null);
         }}
         onConfirm={confirmDeleteStaff}
-        title="Hapus Staff"
+        title="Delete Staff"
         itemName={selectedStaff?.name || ""}
-        description="Staff yang dihapus tidak dapat dikembalikan. Apakah Anda yakin?"
-        confirmText="Hapus"
-        cancelText="Batal"
+        description="Deleted staff cannot be restored. Are you sure?"
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </div>
   );

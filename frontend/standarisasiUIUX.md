@@ -12,9 +12,31 @@ STANDARISASI BADGE/LABEL
 | `danger`      | failed, cancelled, expired, late         |  `#FFF1F2` | `#BE123C` | `#F7B8C3` |
 | `premium`     | reward, voucher, member, overtime        |  `#F7F0FF` | `#7E3AF2` | `#DFC7FF` |
 | `coffee`      | barista, staff, coffee-specific identity |  `#F8EFE3` | `#8B5E34` | `#E8D5BE` |
-| `cashier`     | cashier / POS operator                   |  `#EAF8F6` | `#168A7A` | `#BFE5DF` |
+| `cashier`     | cashier / POS operator                   |  `#EAF8F6` | `#168A7A` | 
+`#BFE5DF` |
+INI BISA DIAMBIL DARI theme.ts
 
 STANDARISASI CARD CONTENT, INFOBOX, CARD ANALYTICS DI DASHBOARD OWNER
-1. Tidak menggunakan icon lagi, salah satu contohnya terdapat pada infobox dashboard owner sekarang masih menggunakan icon itu dihapus
+1. Tidak menggunakan icon 
 2. warna contentnya tergantung standarisasi warna chart diatas
+3. anda bisa mencontoh infobox yang ada didashboard
+
+STANDARISASI TABLE
+1. Menggunakan StandardTable.tsx
+2. Menggunakan Title dulu dan deskripsi
+3. TR tidak menggunakan rounded
+4. Contoh Penerapan Table di Dashboard/owner
+5. bukan cuma “pakai table”, tapi pola visualnya harus sama: ada judul + deskripsi, header title-case, row zebra rapi, dan table tidak terasa seperti raw HTML. 
+
+STANDARISASI DATE FILTER
+1. Menggunakan DateRangeFilter.tsx
+2. Di default ke Today
+
+STANDARISASI JARAK ANTAR CARD (PENTING)
+1. Ikutin Jarak Card Yang ada di Dashboard/owner
+
+PERATURAN STANDARISASI
+1. Clean code
+2. Menggunakan Component yang sudah ada, kalau belum ada dan kira kira bakal digunain lagi buat component baru di shared
+3. Clean structure
 

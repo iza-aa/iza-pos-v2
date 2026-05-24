@@ -7,7 +7,7 @@ create table if not exists public.owner_ai_recommendations (
     category in ('overview', 'sales', 'rewards', 'inventory', 'staff', 'operations')
   ),
   local_date date not null,
-  period_key text not null default 'today_vs_yesterday_v10',
+  period_key text not null default 'today_vs_yesterday_v13',
   insights_json jsonb not null default '[]'::jsonb,
   snapshot_json jsonb not null default '{}'::jsonb,
   generated_at timestamptz not null default now(),
@@ -62,7 +62,7 @@ alter table public.owner_ai_recommendations
 alter column expires_at set default '9999-12-31 23:59:59.999+00';
 
 alter table public.owner_ai_recommendations
-alter column period_key set default 'today_vs_yesterday_v10';
+alter column period_key set default 'today_vs_yesterday_v13';
 
 alter table public.owner_ai_recommendations
 drop constraint if exists owner_ai_recommendations_owner_id_category_local_date_key;

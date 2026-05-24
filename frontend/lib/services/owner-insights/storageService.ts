@@ -34,7 +34,7 @@ export async function getTodayInsightRecord(
   supabase: SupabaseClient,
   ownerId: string,
   category: OwnerInsightCategory,
-  periodKey = "today_vs_yesterday_v10",
+  periodKey = "today_vs_yesterday_v13",
 ) {
   const localDate = getJakartaLocalDate();
   const { data, error } = await supabase
@@ -72,7 +72,7 @@ export async function saveTodayInsightRecord({
   supabase,
   ownerId,
   category,
-  periodKey = "today_vs_yesterday_v10",
+  periodKey = "today_vs_yesterday_v13",
   insights,
   snapshot,
 }: {

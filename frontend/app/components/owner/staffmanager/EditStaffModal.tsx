@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { ClipboardDocumentIcon, KeyIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { Staff } from "@/lib/types";
+import { getStaffAccessState } from "./staffAccessUtils";
 
 type StaffRole = "owner" | "manager" | "staff";
 type StaffType = "barista" | "kitchen" | "waiter" | "cashier";
@@ -22,6 +23,11 @@ type StaffRecordValue = Staff & {
   role?: string | null;
   staff_type?: string | null;
   status?: string | null;
+  login_code?: string | null;
+  login_code_expires_at?: string | null;
+  pin_hash?: string | null;
+  password_hash?: string | null;
+  must_change_pin?: boolean | null;
   shift_id?: string | null;
 };
 
@@ -41,13 +47,16 @@ interface EditStaffModalProps {
   shifts?: StaffShiftOption[];
   onClose: () => void;
   onSave: (updatedStaff: Staff) => void | Promise<void>;
+  onGeneratePass?: (id: string) => void | Promise<void>;
+  onCopyCode?: (code: string) => void;
+  isGeneratingCode?: boolean;
 }
 
 const STAFF_TYPE_OPTIONS: Array<{
   value: StaffType;
   label: string;
 }> = [
-  { value: "cashier", label: "Kasir" },
+  { value: "cashier", label: "Cashier" },
   { value: "barista", label: "Barista" },
   { value: "kitchen", label: "Kitchen" },
   { value: "waiter", label: "Waiter" },
@@ -121,6 +130,9 @@ export default function EditStaffModal({
   shifts = [],
   onClose,
   onSave,
+  onGeneratePass,
+  onCopyCode,
+  isGeneratingCode = false,
 }: EditStaffModalProps) {
   const activeShifts = useMemo(
     () => shifts.filter((shift) => shift.is_active !== false),
@@ -168,7 +180,16 @@ export default function EditStaffModal({
     return null;
   }
 
+  const staffRecord = staff as StaffRecordValue;
   const canUseShift = formData.role === "staff" || formData.role === "manager";
+  const accessState = getStaffAccessState({
+    role: formData.role,
+    login_code: staffRecord.login_code,
+    login_code_expires_at: staffRecord.login_code_expires_at,
+    pin_hash: staffRecord.pin_hash,
+    password_hash: staffRecord.password_hash,
+    must_change_pin: staffRecord.must_change_pin,
+  });
 
   const handleRoleChange = (role: StaffRole) => {
     setFormData((prev) => ({
@@ -194,7 +215,7 @@ export default function EditStaffModal({
     const selectedShiftId = canUseShift ? formData.shift_id ?? defaultShiftId : null;
 
     if (!formData.name.trim()) {
-      setError("Nama staff wajib diisi.");
+      setError("Staff name is required.");
       return;
     }
 
@@ -204,7 +225,7 @@ export default function EditStaffModal({
     }
 
     if (canUseShift && activeShifts.length > 0 && !selectedShiftId) {
-      setError("Shift wajib dipilih untuk Staff atau Manager.");
+      setError("Shift is required for staff or manager roles.");
       return;
     }
 
@@ -232,7 +253,7 @@ export default function EditStaffModal({
       const message =
         saveError instanceof Error
           ? saveError.message
-          : "Gagal menyimpan perubahan staff.";
+          : "Failed to save staff changes.";
 
       setError(message);
     } finally {
@@ -246,7 +267,7 @@ export default function EditStaffModal({
     }
 
     if (activeShifts.length === 0) {
-      return <option value="">Belum ada shift aktif</option>;
+      return <option value="">No active shift yet</option>;
     }
 
     return activeShifts.map((shift) => (
@@ -258,7 +279,7 @@ export default function EditStaffModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Edit Staff</h2>
@@ -290,7 +311,7 @@ export default function EditStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Nama Staff <span className="text-red-500">*</span>
+              Staff Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -302,7 +323,7 @@ export default function EditStaffModal({
                 }))
               }
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-              placeholder="Masukkan nama staff"
+              placeholder="Enter staff name"
               disabled={loading}
             />
           </div>
@@ -417,7 +438,7 @@ export default function EditStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Shift Kerja {canUseShift && activeShifts.length > 0 && <span className="text-red-500">*</span>}
+              Work Shift {canUseShift && activeShifts.length > 0 && <span className="text-red-500">*</span>}
             </label>
             <select
               value={
@@ -439,9 +460,57 @@ export default function EditStaffModal({
             </select>
 
             <p className="mt-2 text-xs text-gray-500">
-              Shift digunakan untuk menentukan tepat waktu, terlambat, pulang lebih awal, dan overtime.
+              Shift is used to determine on-time status, lateness, early leave, and overtime.
             </p>
           </div>
+
+          {accessState.shouldShowAccess && (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <KeyIcon className="h-5 w-5 text-gray-500" />
+                    <p className="text-sm font-bold text-gray-900">
+                    Staff Access
+                    </p>
+                  </div>
+
+                  <div className="mt-3">
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${accessState.badgeClass}`}
+                    >
+                      {accessState.label}
+                    </span>
+
+                    <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                      {accessState.description}
+                    </p>
+                  </div>
+
+                  {accessState.canCopyCode && staffRecord.login_code && (
+                    <button
+                      type="button"
+                      onClick={() => onCopyCode?.(staffRecord.login_code!)}
+                      disabled={loading || isGeneratingCode}
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <ClipboardDocumentIcon className="h-4 w-4" />
+                      Copy Active Code
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void onGeneratePass?.(staffRecord.id)}
+                  disabled={loading || isGeneratingCode || !onGeneratePass}
+                  className="shrink-0 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isGeneratingCode ? "Generating..." : accessState.actionLabel}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 border-t border-gray-100 pt-5">
             <button
@@ -450,7 +519,7 @@ export default function EditStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Batal
+              Cancel
             </button>
 
             <button
@@ -458,7 +527,7 @@ export default function EditStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Menyimpan..." : "Simpan"}
+              {loading ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

@@ -8,19 +8,15 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface StaffManagerHeaderProps {
-  title: string;
-  description: string;
   onAddStaff?: () => void;
   children?: ReactNode;
-  activeTab?: "staff" | "presensi";
+  activeTab?: "staff" | "attendance";
   searchQuery?: string;
   onSearchChange?: (value: string) => void;
   showSearch?: boolean;
 }
 
 export default function StaffManagerHeader({
-  title,
-  description,
   onAddStaff,
   children,
   activeTab = "staff",
@@ -31,16 +27,35 @@ export default function StaffManagerHeader({
   const shouldShowSearch = activeTab === "staff" && showSearch && onSearchChange;
 
   return (
-    <div className="mb-4 flex flex-col gap-4 md:mb-6 md:gap-5">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800 md:text-2xl">
-            {title}
-          </h1>
-          <p className="mt-1 max-w-xl text-xs text-gray-500 md:text-sm">
-            {description}
-          </p>
-        </div>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+        {shouldShowSearch && (
+          <div className="w-full lg:max-w-md">
+            <div className="relative">
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search staff..."
+                className="h-10.5 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+              />
+
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
           {onAddStaff && activeTab === "staff" && (
@@ -48,8 +63,8 @@ export default function StaffManagerHeader({
               type="button"
               onClick={onAddStaff}
               className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-gray-800 md:h-10.5 md:w-10.5"
-              title="Add New Staff"
-              aria-label="Add New Staff"
+              title="Add Staff"
+              aria-label="Add Staff"
             >
               <UserPlusIcon className="h-5 w-5" />
             </button>
@@ -58,34 +73,6 @@ export default function StaffManagerHeader({
           {children}
         </div>
       </div>
-
-      {shouldShowSearch && (
-        <div className="w-full lg:max-w-md">
-          <div className="relative">
-            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Cari staff..."
-              className="h-10.5 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-            />
-
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => onSearchChange("")}
-                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

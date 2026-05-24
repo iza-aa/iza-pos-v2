@@ -84,7 +84,7 @@ export default function StandardTable<T>({
   return (
     <div className="overflow-x-auto">
       <table className={`w-full table-fixed text-left text-sm ${minWidthClassName}`}>
-        <thead className="bg-[#F8F8F8] text-xs uppercase tracking-wide text-gray-500">
+        <thead className="bg-[#F8F8F8] text-sm tracking-normal text-gray-500">
           <tr>
             {columns.map((column) => {
               const active = sortKey === column.key;
@@ -93,7 +93,7 @@ export default function StandardTable<T>({
               return (
                 <th
                   key={column.key}
-                  className={`border-b border-gray-200 px-3 py-3 font-bold ${column.headerClassName ?? ""}`}
+                  className={`border-b border-gray-200 px-4 py-4 font-bold ${column.headerClassName ?? ""}`}
                 >
                   {column.isAction ? (
                     <span>{column.header}</span>
@@ -125,7 +125,7 @@ export default function StandardTable<T>({
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={`px-3 py-3 text-gray-700 transition hover:bg-gray-200/60 hover:text-gray-950 ${column.className ?? ""}`}
+                  className={`px-4 py-5 text-gray-700 transition hover:bg-gray-200/60 hover:text-gray-950 ${column.className ?? ""}`}
                 >
                   {column.render(row)}
                 </td>

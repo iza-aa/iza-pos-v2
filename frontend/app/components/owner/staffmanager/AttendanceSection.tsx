@@ -3,6 +3,10 @@
 
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/config/supabaseClient";
+import StandardTable, {
+  type StandardTableColumn,
+} from "@/app/components/shared/StandardTable";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -20,6 +24,7 @@ import {
 
 type ViewMode = "card" | "table";
 type DateRangeMode = "all" | "today" | "week" | "month" | "custom";
+export type AttendanceSectionView = "monitor" | "settings";
 type CheckInStatus = "early" | "on_time" | "late" | null;
 type CheckOutStatus = "early_leave" | "on_time" | "overtime" | null;
 
@@ -124,6 +129,7 @@ interface AttendanceSectionProps {
   customStartDate?: string;
   customEndDate?: string;
   onShiftChanged?: () => void | Promise<void>;
+  section?: AttendanceSectionView;
 }
 
 const EMPTY_SHIFT_FORM: ShiftFormData = {
@@ -380,41 +386,40 @@ const toTitleCase = (value?: string | null) => {
 };
 
 const getCheckInStatusLabel = (status: CheckInStatus) => {
-  if (status === "early") return "Datang Lebih Awal";
-  if (status === "on_time") return "Masuk Tepat Waktu";
-  if (status === "late") return "Terlambat";
-  return "Belum Clock In";
+  if (status === "early") return "Early Arrival";
+  if (status === "on_time") return "On-Time Clock In";
+  if (status === "late") return "Late";
+  return "Not Clocked In";
 };
 
 const getCheckOutStatusLabel = (status: CheckOutStatus) => {
-  if (status === "early_leave") return "Pulang Lebih Awal";
-  if (status === "on_time") return "Pulang Tepat Waktu";
-  if (status === "overtime") return "Lembur";
-  return "Belum Clock Out";
+  if (status === "early_leave") return "Early Leave";
+  if (status === "on_time") return "On-Time Clock Out";
+  if (status === "overtime") return "Overtime";
+  return "Not Clocked Out";
 };
 
 const getCheckInStatusClassName = (status: CheckInStatus) => {
-  if (status === "late") return "border-red-200 bg-red-50 text-red-700";
-  if (status === "early") return "border-blue-200 bg-blue-50 text-blue-700";
-  if (status === "on_time")
-    return "border-green-200 bg-green-50 text-green-700";
-  return "border-gray-200 bg-gray-50 text-gray-600";
+  if (status === "late") return OWNER_SEMANTIC_TONES.danger.badgeClass;
+  if (status === "early") return OWNER_SEMANTIC_TONES.info.badgeClass;
+  if (status === "on_time") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 const getCheckOutStatusClassName = (status: CheckOutStatus) => {
   if (status === "early_leave") {
-    return "border-orange-200 bg-orange-50 text-orange-700";
+    return OWNER_SEMANTIC_TONES.warning.badgeClass;
   }
 
   if (status === "overtime") {
-    return "border-purple-200 bg-purple-50 text-purple-700";
+    return OWNER_SEMANTIC_TONES.premium.badgeClass;
   }
 
   if (status === "on_time") {
-    return "border-green-200 bg-green-50 text-green-700";
+    return OWNER_SEMANTIC_TONES.success.badgeClass;
   }
 
-  return "border-gray-200 bg-gray-50 text-gray-600";
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 const getJakartaDateString = (date = new Date()) => {
@@ -865,6 +870,7 @@ export default function AttendanceSection({
   customStartDate = "",
   customEndDate = "",
   onShiftChanged,
+  section = "monitor",
 }: AttendanceSectionProps) {
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
   const [shiftList, setShiftList] = useState<ShiftRecord[]>([]);
@@ -960,7 +966,7 @@ export default function AttendanceSection({
       } catch (error) {
         const message = getErrorMessage(
           error,
-          "Gagal mengambil data presensi.",
+          "Failed to fetch attendance data.",
         );
 
         console.error("Error fetching attendance:", error);
@@ -1021,8 +1027,8 @@ export default function AttendanceSection({
       (error) => {
         const errorMessage =
           error.code === error.PERMISSION_DENIED
-            ? "Izin lokasi ditolak. Aktifkan izin lokasi browser terlebih dahulu."
-            : "Gagal mengambil lokasi. Pastikan GPS aktif dan coba lagi.";
+            ? "Location permission was denied. Enable browser location permission first."
+            : "Failed to get location. Make sure GPS is active and try again.";
 
         alert(errorMessage);
         setLocationLoading(false);
@@ -1073,9 +1079,9 @@ export default function AttendanceSection({
       }
 
       await fetchAttendanceData(true);
-      alert("Lokasi cafe berhasil disimpan.");
+      alert("Cafe location saved.");
     } catch (error) {
-      const message = getErrorMessage(error, "Gagal menyimpan lokasi cafe.");
+      const message = getErrorMessage(error, "Failed to save cafe location.");
 
       alert(message);
     } finally {
@@ -1086,7 +1092,7 @@ export default function AttendanceSection({
   const handleSaveShift = async () => {
     if (!isValidShiftForm(shiftFormData)) {
       alert(
-        "Data shift belum valid. Pastikan nama shift terisi, batas masuk tidak lebih awal dari jam masuk, dan batas pulang tidak lebih awal dari jam pulang.",
+        "Shift data is not valid. Make sure the shift name is filled, the clock-in grace time is not earlier than the start time, and the clock-out grace time is not earlier than the end time.",
       );
       return;
     }
@@ -1125,7 +1131,7 @@ export default function AttendanceSection({
       await onShiftChanged?.();
       closeShiftForm();
     } catch (error) {
-      const message = getErrorMessage(error, "Gagal menyimpan shift.");
+      const message = getErrorMessage(error, "Failed to save shift.");
 
       alert(message);
     } finally {
@@ -1137,7 +1143,7 @@ export default function AttendanceSection({
     const nextStatus = shift.is_active === false;
     const actionLabel = nextStatus ? "mengaktifkan" : "menonaktifkan";
 
-    if (!window.confirm(`Yakin ingin ${actionLabel} ${shift.shift_name}?`)) {
+    if (!window.confirm(`Are you sure you want to ${actionLabel} ${shift.shift_name}?`)) {
       return;
     }
 
@@ -1159,7 +1165,7 @@ export default function AttendanceSection({
       await fetchAttendanceData(true);
       await onShiftChanged?.();
     } catch (error) {
-      const message = getErrorMessage(error, "Gagal mengubah status shift.");
+      const message = getErrorMessage(error, "Failed to update shift status.");
 
       alert(message);
     } finally {
@@ -1170,7 +1176,7 @@ export default function AttendanceSection({
   const handleDeleteShift = async (shift: ShiftRecord) => {
     if (
       !window.confirm(
-        `Yakin ingin menghapus ${shift.shift_name}? Shift yang dihapus tidak akan muncul lagi di pilihan staff. Histori presensi lama tetap tersimpan, tetapi nama shift pada histori tersebut bisa menjadi "Tanpa Shift".`,
+        `Are you sure you want to delete ${shift.shift_name}? Deleted shifts will no longer appear in staff options. Existing attendance history remains stored, but the shift name in that history can become "No Shift".`,
       )
     ) {
       return;
@@ -1191,7 +1197,7 @@ export default function AttendanceSection({
       await fetchAttendanceData(true);
       await onShiftChanged?.();
     } catch (error) {
-      const message = getErrorMessage(error, "Gagal menghapus shift.");
+      const message = getErrorMessage(error, "Failed to delete shift.");
 
       alert(message);
     } finally {
@@ -1210,22 +1216,16 @@ export default function AttendanceSection({
   const renderSummaryCard = (
     label: string,
     value: number,
-    icon: ReactNode,
+    _icon: ReactNode,
     description: string,
+    tone: keyof typeof OWNER_SEMANTIC_TONES = "neutral",
   ) => (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-gray-500">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700">
-          {icon}
-        </div>
-      </div>
-
-      <p className="mt-2 text-xs text-gray-500">{description}</p>
+    <div
+      className={`rounded-2xl border p-4 shadow-sm ${OWNER_SEMANTIC_TONES[tone].cardClass}`}
+    >
+      <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-4 text-3xl font-bold text-gray-950">{value}</p>
+      <p className="mt-3 text-sm text-gray-600">{description}</p>
     </div>
   );
 
@@ -1239,30 +1239,30 @@ export default function AttendanceSection({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">
-              Lokasi Absensi Cafe
+              Cafe Attendance Location
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Atur titik lokasi cafe dan radius validasi supaya staff hanya bisa
-              clock in atau clock out saat berada di sekitar cafe.
+              Set the cafe location point and validation radius so staff can only
+              clock in or clock out when they are near the cafe.
             </p>
           </div>
 
           <div
             className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
               hasLocation
-                ? "border-green-200 bg-green-50 text-green-700"
-                : "border-orange-200 bg-orange-50 text-orange-700"
+                ? OWNER_SEMANTIC_TONES.success.badgeClass
+                : OWNER_SEMANTIC_TONES.warning.badgeClass
             }`}
           >
             <MapPinIcon className="h-4 w-4" />
-            {hasLocation ? "Lokasi Sudah Diset" : "Lokasi Belum Diset"}
+            {hasLocation ? "Location Set" : "Location Not Set"}
           </div>
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
           <div className="lg:col-span-1">
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Nama Cafe
+              Cafe Name
             </label>
             <input
               type="text"
@@ -1274,7 +1274,7 @@ export default function AttendanceSection({
                 }))
               }
               className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-              placeholder="Nama cafe"
+              placeholder="Cafe name"
             />
           </div>
 
@@ -1316,7 +1316,7 @@ export default function AttendanceSection({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Radius Absensi (meter)
+              Attendance Radius (meters)
             </label>
             <input
               type="number"
@@ -1336,8 +1336,8 @@ export default function AttendanceSection({
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-gray-500">
-            Gunakan lokasi device owner/kasir saat berada di cafe untuk mengisi
-            latitude dan longitude secara otomatis.
+            Use the owner or cashier device location while at the cafe to fill
+            latitude and longitude automatically.
           </p>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1348,7 +1348,7 @@ export default function AttendanceSection({
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <MapPinIcon className="h-4 w-4" />
-              {locationLoading ? "Mengambil Lokasi..." : "Gunakan Lokasi Ini"}
+              {locationLoading ? "Getting Location..." : "Use Current Location"}
             </button>
 
             <button
@@ -1357,7 +1357,7 @@ export default function AttendanceSection({
               disabled={storeLoading || locationLoading}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {storeLoading ? "Menyimpan..." : "Simpan Lokasi"}
+              {storeLoading ? "Saving..." : "Save Location"}
             </button>
           </div>
         </div>
@@ -1373,8 +1373,8 @@ export default function AttendanceSection({
             Shift Management
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Atur jam masuk, toleransi keterlambatan, jam pulang, dan batas
-            pulang normal.
+            Configure start time, lateness tolerance, end time, and normal
+            clock-out limit.
           </p>
         </div>
 
@@ -1384,7 +1384,7 @@ export default function AttendanceSection({
           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800"
         >
           <PlusIcon className="h-4 w-4" />
-          Tambah Shift
+          Add Shift
         </button>
       </div>
 
@@ -1411,21 +1411,21 @@ export default function AttendanceSection({
               {renderStatusBadge(
                 shift.is_active === false ? "Inactive" : "Active",
                 shift.is_active === false
-                  ? "border-gray-200 bg-gray-50 text-gray-600"
-                  : "border-green-200 bg-green-50 text-green-700",
+                  ? OWNER_SEMANTIC_TONES.neutral.badgeClass
+                  : OWNER_SEMANTIC_TONES.success.badgeClass,
               )}
             </div>
 
             <div className="mt-4 space-y-2 rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
               <div className="flex justify-between gap-3">
-                <span>Masuk tepat waktu</span>
+                <span>On-time clock in</span>
                 <span className="font-semibold text-gray-900">
                   {formatTime(shift.start_time)} -{" "}
                   {formatTime(shift.check_in_grace_until)}
                 </span>
               </div>
               <div className="flex justify-between gap-3">
-                <span>Pulang tepat waktu</span>
+                <span>On-time clock out</span>
                 <span className="font-semibold text-gray-900">
                   {formatTime(shift.end_time)} -{" "}
                   {formatTime(shift.check_out_grace_until)}
@@ -1450,17 +1450,17 @@ export default function AttendanceSection({
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <PowerIcon className="h-4 w-4" />
-                {shift.is_active === false ? "Aktifkan" : "Nonaktifkan"}
+                {shift.is_active === false ? "Activate" : "Deactivate"}
               </button>
 
               <button
                 type="button"
                 onClick={() => handleDeleteShift(shift)}
                 disabled={shiftLoading}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl border bg-white text-xs font-semibold transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
               >
                 <TrashIcon className="h-4 w-4" />
-                Hapus
+                Delete
               </button>
             </div>
           </div>
@@ -1471,10 +1471,10 @@ export default function AttendanceSection({
         <div className="mt-5 rounded-2xl border border-dashed border-gray-300 p-8 text-center">
           <ClockIcon className="mx-auto h-9 w-9 text-gray-400" />
           <h3 className="mt-3 text-sm font-bold text-gray-900">
-            Belum ada shift
+            No shifts yet
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            Tambahkan shift untuk menentukan aturan jam masuk dan pulang staff.
+            Add shifts to define staff clock-in and clock-out rules.
           </p>
         </div>
       )}
@@ -1482,10 +1482,10 @@ export default function AttendanceSection({
   );
 
   const renderAttendanceCard = (attendance: AttendanceRecord) => {
-    const staffName = attendance.staff?.name ?? "Staff tidak ditemukan";
+    const staffName = attendance.staff?.name ?? "Staff not found";
     const staffCode = attendance.staff?.staff_code ?? "-";
     const staffType = toTitleCase(attendance.staff?.staff_type);
-    const shiftName = attendance.shift?.shift_name ?? "Tanpa Shift";
+    const shiftName = attendance.shift?.shift_name ?? "No Shift";
     const shiftTime = attendance.shift
       ? `${formatTime(attendance.shift.start_time)} - ${formatTime(
           attendance.shift.end_time,
@@ -1532,7 +1532,7 @@ export default function AttendanceSection({
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Jarak: {formatDistance(attendance.clock_in_distance_meters)}
+              Distance: {formatDistance(attendance.clock_in_distance_meters)}
             </p>
           </div>
 
@@ -1550,7 +1550,7 @@ export default function AttendanceSection({
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Jarak: {formatDistance(attendance.clock_out_distance_meters)}
+              Distance: {formatDistance(attendance.clock_out_distance_meters)}
             </p>
           </div>
         </div>
@@ -1561,24 +1561,24 @@ export default function AttendanceSection({
           attendance.notes) && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Catatan
+              Notes
             </p>
 
             {attendance.late_reason && (
               <p className="mt-2 text-sm text-gray-700">
-                Terlambat: {attendance.late_reason}
+                Late: {attendance.late_reason}
               </p>
             )}
 
             {attendance.early_leave_reason && (
               <p className="mt-2 text-sm text-gray-700">
-                Pulang awal: {attendance.early_leave_reason}
+                Early leave: {attendance.early_leave_reason}
               </p>
             )}
 
             {attendance.overtime_reason && (
               <p className="mt-2 text-sm text-gray-700">
-                Lembur: {attendance.overtime_reason}
+                Overtime: {attendance.overtime_reason}
               </p>
             )}
 
@@ -1594,137 +1594,125 @@ export default function AttendanceSection({
   };
 
   const renderAttendanceTable = () => (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Staff
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Shift
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Tanggal
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Clock In
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Clock Out
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Jarak
-              </th>
-            </tr>
-          </thead>
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-5 ">
+        <h2 className="text-base font-bold text-gray-900">Attendance Monitor Table</h2>
+        <p className="mt-1 text-sm text-gray-500 mb-4 ">
+          Concrete attendance records for clock-in, clock-out, status, and location distance.
+        </p>
 
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {filteredAttendanceList.map((attendance) => (
-              <tr key={attendance.id} className="hover:bg-gray-50">
-                <td className="px-4 py-4">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {attendance.staff?.name ?? "Staff tidak ditemukan"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {attendance.staff?.staff_code ?? "-"} •{" "}
-                    {toTitleCase(attendance.staff?.staff_type)}
-                  </p>
-                </td>
-
-                <td className="px-4 py-4">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {attendance.shift?.shift_name ?? "Tanpa Shift"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {formatTime(attendance.shift?.start_time)} -{" "}
-                    {formatTime(attendance.shift?.end_time)}
-                  </p>
-                </td>
-
-                <td className="px-4 py-4 text-sm text-gray-700">
-                  {formatDate(attendance.attendance_date)}
-                </td>
-
-                <td className="px-4 py-4">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {formatDateTime(attendance.clock_in_at)}
-                  </p>
-
-                  <div className="mt-2">
-                    {renderStatusBadge(
-                      getCheckInStatusLabel(attendance.check_in_status),
-                      getCheckInStatusClassName(attendance.check_in_status),
-                    )}
-                  </div>
-                </td>
-
-                <td className="px-4 py-4">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {formatDateTime(attendance.clock_out_at)}
-                  </p>
-
-                  <div className="mt-2">
-                    {renderStatusBadge(
-                      getCheckOutStatusLabel(attendance.check_out_status),
-                      getCheckOutStatusClassName(attendance.check_out_status),
-                    )}
-                  </div>
-                </td>
-
-                <td className="px-4 py-4">
-                  <div className="space-y-2">
-                    {attendance.check_in_status === "late" &&
-                      renderStatusBadge(
-                        "Perlu Alasan Telat",
-                        "border-red-200 bg-red-50 text-red-700",
-                      )}
-
-                    {attendance.check_out_status === "early_leave" &&
-                      renderStatusBadge(
-                        "Pulang Awal",
-                        "border-orange-200 bg-orange-50 text-orange-700",
-                      )}
-
-                    {attendance.check_out_status === "overtime" &&
-                      renderStatusBadge(
-                        "Lembur",
-                        "border-purple-200 bg-purple-50 text-purple-700",
-                      )}
-
-                    {!attendance.check_in_status &&
-                      renderStatusBadge(
-                        "Belum Clock In",
-                        "border-gray-200 bg-gray-50 text-gray-600",
-                      )}
-
-                    {attendance.check_in_status &&
-                      !attendance.check_out_status &&
-                      !attendance.clock_out_at &&
-                      renderStatusBadge(
-                        "Sedang Bekerja",
-                        "border-blue-200 bg-blue-50 text-blue-700",
-                      )}
-                  </div>
-                </td>
-
-                <td className="px-4 py-4 text-sm text-gray-700">
-                  <p>
-                    In: {formatDistance(attendance.clock_in_distance_meters)}
-                  </p>
-                  <p>
-                    Out: {formatDistance(attendance.clock_out_distance_meters)}
-                  </p>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <StandardTable
+        columns={[
+          {
+            key: "staff",
+            header: "Staff",
+            sortValue: (attendance) => attendance.staff?.name ?? "",
+            render: (attendance) => (
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {attendance.staff?.name ?? "Staff not found"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {attendance.staff?.staff_code ?? "-"} - {toTitleCase(attendance.staff?.staff_type)}
+                </p>
+              </div>
+            ),
+          },
+          {
+            key: "shift",
+            header: "Shift",
+            sortValue: (attendance) => attendance.shift?.shift_name ?? "",
+            render: (attendance) => (
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {attendance.shift?.shift_name ?? "No Shift"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatTime(attendance.shift?.start_time)} - {formatTime(attendance.shift?.end_time)}
+                </p>
+              </div>
+            ),
+          },
+          {
+            key: "date",
+            header: "Date",
+            sortValue: (attendance) => attendance.attendance_date,
+            render: (attendance) => formatDate(attendance.attendance_date),
+          },
+          {
+            key: "clock_in",
+            header: "Clock In",
+            sortValue: (attendance) => attendance.clock_in_at ?? "",
+            render: (attendance) => (
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {formatDateTime(attendance.clock_in_at)}
+                </p>
+                <div className="mt-2">
+                  {renderStatusBadge(
+                    getCheckInStatusLabel(attendance.check_in_status),
+                    getCheckInStatusClassName(attendance.check_in_status),
+                  )}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: "clock_out",
+            header: "Clock Out",
+            sortValue: (attendance) => attendance.clock_out_at ?? "",
+            render: (attendance) => (
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {formatDateTime(attendance.clock_out_at)}
+                </p>
+                <div className="mt-2">
+                  {renderStatusBadge(
+                    getCheckOutStatusLabel(attendance.check_out_status),
+                    getCheckOutStatusClassName(attendance.check_out_status),
+                  )}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            sortValue: (attendance) =>
+              `${attendance.check_in_status ?? ""} ${attendance.check_out_status ?? ""}`,
+            render: (attendance) => (
+              <div className="space-y-2">
+                {attendance.check_in_status === "late" &&
+                  renderStatusBadge("Late Reason Needed", OWNER_SEMANTIC_TONES.danger.badgeClass)}
+                {attendance.check_out_status === "early_leave" &&
+                  renderStatusBadge("Early Leave", OWNER_SEMANTIC_TONES.warning.badgeClass)}
+                {attendance.check_out_status === "overtime" &&
+                  renderStatusBadge("Overtime", OWNER_SEMANTIC_TONES.premium.badgeClass)}
+                {!attendance.check_in_status &&
+                  renderStatusBadge("Not Clocked In", OWNER_SEMANTIC_TONES.neutral.badgeClass)}
+                {attendance.check_in_status &&
+                  !attendance.check_out_status &&
+                  !attendance.clock_out_at &&
+                  renderStatusBadge("Currently Working", OWNER_SEMANTIC_TONES.info.badgeClass)}
+              </div>
+            ),
+          },
+          {
+            key: "distance",
+            header: "Distance",
+            sortValue: (attendance) => Number(attendance.clock_in_distance_meters ?? 0),
+            render: (attendance) => (
+              <div className="space-y-1">
+                <p>In: {formatDistance(attendance.clock_in_distance_meters)}</p>
+                <p>Out: {formatDistance(attendance.clock_out_distance_meters)}</p>
+              </div>
+            ),
+          },
+        ] satisfies Array<StandardTableColumn<AttendanceRecord>>}
+        data={filteredAttendanceList}
+        getRowKey={(attendance) => attendance.id}
+        emptyLabel="No attendance data yet."
+        minWidthClassName="min-w-[1040px]"
+      />
     </div>
   );
 
@@ -1733,81 +1721,92 @@ export default function AttendanceSection({
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900" />
-          <p className="mt-3 text-sm text-gray-500">Memuat data presensi...</p>
+          <p className="mt-3 text-sm text-gray-500">Loading attendance data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {fetchError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className={`rounded-2xl border p-4 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p>{fetchError}</p>
             <button
               type="button"
               onClick={() => fetchAttendanceData(true)}
-              className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+              className={`rounded-xl border bg-white px-4 py-2 text-sm font-semibold transition hover:bg-red-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
             >
-              Coba Lagi
+              Try Again
             </button>
           </div>
         </div>
       )}
 
-      {renderStoreLocationSettings()}
+      {section === "settings" ? (
+        <>
+          {renderStoreLocationSettings()}
+          {renderShiftManagement()}
+        </>
+      ) : null}
 
-      {renderShiftManagement()}
-
+      {section === "monitor" ? (
+        <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-7">
         {renderSummaryCard(
           "Total Staff",
           summary.total,
           <CalendarDaysIcon className="h-5 w-5" />,
-          "User aktif yang memiliki shift pada rentang tanggal ini.",
+          "Active users with shifts"
         )}
 
         {renderSummaryCard(
-          "Belum Hadir",
+          "Not Clocked In",
           summary.notClockedIn,
           <ExclamationTriangleIcon className="h-5 w-5" />,
-          "User aktif dengan shift yang belum melakukan clock in.",
+          "Users not clocked in.",
+          "waiting",
         )}
 
         {renderSummaryCard(
           "Clock In",
           summary.clockedIn,
           <ClockIcon className="h-5 w-5" />,
-          "Staff yang sudah melakukan clock in.",
+          "Staff have clocked in.",
+          "info",
         )}
 
         {renderSummaryCard(
           "Clock Out",
           summary.clockedOut,
           <CheckCircleIcon className="h-5 w-5" />,
-          "Staff yang sudah melakukan clock out.",
+          "Staff have clocked out.",
+          "success",
         )}
 
         {renderSummaryCard(
-          "Terlambat",
+          "Late",
           summary.late,
           <ExclamationTriangleIcon className="h-5 w-5" />,
-          "Clock in melewati batas toleransi.",
+          "Users clock in late.",
+          "danger",
         )}
 
         {renderSummaryCard(
-          "Pulang Awal",
+          "Early Leave",
           summary.earlyLeave,
           <FunnelIcon className="h-5 w-5" />,
-          "Clock out sebelum jam pulang shift.",
+          "Users clock out early.",
+          "warning",
         )}
 
         {renderSummaryCard(
-          "Lembur",
+          "Overtime",
           summary.overtime,
           <UserGroupIcon className="h-5 w-5" />,
-          "Clock out setelah batas pulang shift.",
+          "Users clock out late.",
+          "premium",
         )}
       </div>
 
@@ -1815,10 +1814,10 @@ export default function AttendanceSection({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">
-              Monitor Presensi Staff
+              Staff Attendance Monitor
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Pantau clock in dan clock out user aktif yang sudah memiliki shift.
+              Monitor clock in and clock out for active users with assigned shifts.
             </p>
           </div>
 
@@ -1828,7 +1827,7 @@ export default function AttendanceSection({
               onChange={(event) => setSelectedStaffId(event.target.value)}
               className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
             >
-              <option value="all">Semua Staff</option>
+              <option value="all">All Staff</option>
 
               {staffList.map((staff) => (
                 <option key={staff.id} value={staff.id}>
@@ -1842,7 +1841,7 @@ export default function AttendanceSection({
               onChange={(event) => setSelectedShiftId(event.target.value)}
               className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
             >
-              <option value="all">Semua Shift</option>
+              <option value="all">All Shifts</option>
 
               {shiftList.map((shift) => (
                 <option key={shift.id} value={shift.id}>
@@ -1867,11 +1866,11 @@ export default function AttendanceSection({
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
           <CalendarDaysIcon className="mx-auto h-10 w-10 text-gray-400" />
           <h3 className="mt-4 text-base font-bold text-gray-900">
-            Belum ada data presensi
+            No attendance data yet
           </h3>
           <p className="mt-2 text-sm text-gray-500">
-            Data akan muncul setelah staff melakukan clock in atau clock out
-            melalui halaman absensi.
+            Data will appear after staff clock in or clock out from the
+            attendance page.
           </p>
         </div>
       ) : viewMode === "table" ? (
@@ -1883,6 +1882,8 @@ export default function AttendanceSection({
           )}
         </div>
       )}
+        </>
+      ) : null}
 
       {showShiftForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -1890,11 +1891,11 @@ export default function AttendanceSection({
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  {editingShift ? "Edit Shift" : "Tambah Shift"}
+                  {editingShift ? "Edit Shift" : "Add Shift"}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Shift menentukan jam masuk, toleransi telat, jam pulang, dan
-                  batas lembur staff.
+                  Shift defines start time, lateness tolerance, end time, and
+                  overtime limits for staff.
                 </p>
               </div>
 
@@ -1911,7 +1912,7 @@ export default function AttendanceSection({
             <div className="space-y-4 px-6 py-5">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Nama Shift
+                  Shift Name
                 </label>
                 <input
                   type="text"
@@ -1923,14 +1924,14 @@ export default function AttendanceSection({
                     }))
                   }
                   className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  placeholder="Contoh: Shift Pagi"
+                  placeholder="Example: Morning Shift"
                 />
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Jam Masuk
+                    Start Time
                   </label>
                   <input
                     type="time"
@@ -1947,7 +1948,7 @@ export default function AttendanceSection({
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Batas Tepat Waktu Masuk
+                    Clock-In Grace Until
                   </label>
                   <input
                     type="time"
@@ -1966,7 +1967,7 @@ export default function AttendanceSection({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Jam Pulang
+                    End Time
                   </label>
                   <input
                     type="time"
@@ -1983,7 +1984,7 @@ export default function AttendanceSection({
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Batas Tepat Waktu Pulang
+                    Clock-Out Grace Until
                   </label>
                   <input
                     type="time"
@@ -2012,7 +2013,7 @@ export default function AttendanceSection({
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  Shift tersedia untuk dipilih di data staff
+                  Shift is available for staff data selection
                 </span>
               </label>
             </div>
@@ -2024,7 +2025,7 @@ export default function AttendanceSection({
                 disabled={shiftLoading}
                 className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Batal
+                Cancel
               </button>
 
               <button
@@ -2033,7 +2034,7 @@ export default function AttendanceSection({
                 disabled={shiftLoading}
                 className="flex-1 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {shiftLoading ? "Menyimpan..." : "Simpan Shift"}
+                {shiftLoading ? "Saving..." : "Save Shift"}
               </button>
             </div>
           </div>

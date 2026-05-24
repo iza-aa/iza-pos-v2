@@ -41,8 +41,8 @@ const menuConfig = {
   owner: [
     { label: 'Dashboard', path: '/owner/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
     { label: 'Staff Manager', path: '/owner/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
-    { label: 'Activity Log', path: '/owner/activitylog', icon: ClipboardDocumentListIcon, iconSolid: ClipboardDocumentListIconSolid },
     { label: 'Archives', path: '/owner/archives', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Activity Log', path: '/owner/activitylog', icon: ClipboardDocumentListIcon, iconSolid: ClipboardDocumentListIconSolid },
   ],
   manager: [
     { label: 'Dashboard', path: '/manager/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },

@@ -36,7 +36,7 @@ const roleOptions: Array<{ value: StaffRole; label: string }> = [
 ];
 
 const staffTypeOptions: Array<{ value: StaffType; label: string }> = [
-  { value: "cashier", label: "Kasir" },
+  { value: "cashier", label: "Cashier" },
   { value: "barista", label: "Barista" },
   { value: "kitchen", label: "Kitchen" },
   { value: "waiter", label: "Waiter" },
@@ -114,7 +114,7 @@ export default function AddStaffModal({
     const selectedShiftId = canUseShift ? formData.shift_id ?? defaultShiftId : null;
 
     if (!name) {
-      setError("Nama staff wajib diisi.");
+      setError("Staff name is required.");
       return;
     }
 
@@ -136,7 +136,7 @@ export default function AddStaffModal({
     }
 
     if (canUseShift && activeShifts.length > 0 && !selectedShiftId) {
-      setError("Shift wajib dipilih untuk Staff atau Manager.");
+      setError("Shift is required for staff or manager roles.");
       return;
     }
 
@@ -156,7 +156,7 @@ export default function AddStaffModal({
       await onSave(payload);
       onClose();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Gagal menambahkan staff.";
+      const message = err instanceof Error ? err.message : "Failed to add staff.";
       setError(message);
     } finally {
       setLoading(false);
@@ -165,7 +165,7 @@ export default function AddStaffModal({
 
   const renderShiftOptions = () => {
     if (activeShifts.length === 0) {
-      return <option value="">Belum ada shift aktif</option>;
+      return <option value="">No active shift yet</option>;
     }
 
     return activeShifts.map((shift) => (
@@ -185,7 +185,7 @@ export default function AddStaffModal({
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Tambah Staff</h2>
+              <h2 className="text-lg font-bold text-gray-900">Add Staff</h2>
               <p className="text-xs text-gray-500">
                 Buat akun staff operasional atau manager.
               </p>
@@ -196,7 +196,7 @@ export default function AddStaffModal({
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 transition-colors hover:bg-gray-100"
-            aria-label="Tutup modal"
+            aria-label="Close modal"
             disabled={loading}
           >
             <XMarkIcon className="h-5 w-5 text-gray-500" />
@@ -212,7 +212,7 @@ export default function AddStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Nama Lengkap <span className="text-red-500">*</span>
+              Full Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -278,7 +278,7 @@ export default function AddStaffModal({
           {canUseShift && (
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Shift Kerja {activeShifts.length > 0 && <span className="text-red-500">*</span>}
+                Work Shift {activeShifts.length > 0 && <span className="text-red-500">*</span>}
               </label>
               <select
                 value={formData.shift_id ?? defaultShiftId ?? ""}
@@ -295,7 +295,7 @@ export default function AddStaffModal({
                 {renderShiftOptions()}
               </select>
               <p className="mt-1 text-xs text-gray-500">
-                Shift ini dipakai untuk validasi jam masuk, keterlambatan, jam pulang, dan lembur.
+                This shift is used to validate clock-in time, lateness, clock-out time, and overtime.
               </p>
             </div>
           )}
@@ -374,7 +374,7 @@ export default function AddStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Batal
+              Cancel
             </button>
 
             <button
@@ -382,7 +382,7 @@ export default function AddStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Menyimpan..." : "Simpan"}
+              {loading ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

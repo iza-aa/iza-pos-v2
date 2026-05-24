@@ -160,7 +160,7 @@ export default function ArchivesPage() {
           <button
             onClick={handleOpenGenerateModal}
             disabled={loading}
-            className="px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

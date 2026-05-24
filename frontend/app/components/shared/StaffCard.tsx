@@ -4,19 +4,10 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   EnvelopeIcon,
-  IdentificationIcon,
-  KeyIcon,
   PhoneIcon,
 } from "@heroicons/react/24/outline";
-import {
-  getAvatarColor,
-  getInitials,
-  getStaffRoleColor,
-  getStaffRoleStyle,
-  getStaffStatusColor,
-  getStaffStatusStyle,
-} from "@/lib/utils";
-import { isLoginCodeValid } from "@/lib/constants";
+import { getInitials } from "@/lib/utils";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import type { Staff } from "@/lib/types";
 
 type ShiftRecord = {
@@ -44,8 +35,6 @@ interface StaffCardProps {
   staff: StaffCardRecord;
   onEdit: () => void;
   onDelete?: () => void;
-  onGeneratePass: () => void;
-  onCopyCode: (code: string) => void;
   showActions?: boolean;
 }
 
@@ -114,19 +103,6 @@ const formatTime = (value?: string | null) => {
   return value.slice(0, 5);
 };
 
-const formatDateTime = (value?: string | null) => {
-  if (!value) return "-";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return new Intl.DateTimeFormat("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
-
 const getShiftLabel = (staff: StaffCardRecord) => {
   if (staff.shift?.shift_name) return staff.shift.shift_name;
 
@@ -139,73 +115,44 @@ const getShiftTimeLabel = (staff: StaffCardRecord) => {
   return `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`;
 };
 
-const getAccessState = (staff: StaffCardRecord) => {
-  const hasPin = Boolean(staff.pin_hash || staff.password_hash);
-  const hasValidLoginCode = isLoginCodeValid(staff.login_code, staff.login_code_expires_at);
-  const hasAnyLoginCode = Boolean(staff.login_code);
+const getRoleBadgeClass = (role: unknown) => {
+  const normalizedRole = String(role ?? "").trim().toLowerCase();
 
-  if (hasValidLoginCode && staff.must_change_pin) {
-    return {
-      label: "Menunggu PIN Baru",
-      description: `Kode aktif sampai ${formatDateTime(staff.login_code_expires_at)}`,
-      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
-      actionLabel: "Salin / Buat Ulang Kode",
-    };
-  }
+  if (normalizedRole === "owner") return OWNER_SEMANTIC_TONES.dark.badgeClass;
+  if (normalizedRole === "manager") return OWNER_SEMANTIC_TONES.premium.badgeClass;
 
-  if (hasValidLoginCode) {
-    return {
-      label: "Kode Aktivasi Aktif",
-      description: `Berlaku sampai ${formatDateTime(staff.login_code_expires_at)}`,
-      badgeClass: "border-blue-200 bg-blue-50 text-blue-700",
-      actionLabel: "Salin / Buat Ulang Kode",
-    };
-  }
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+};
 
-  if (!hasPin && hasAnyLoginCode) {
-    return {
-      label: "Kode Expired",
-      description: "Buat ulang kode agar staff bisa aktivasi akun.",
-      badgeClass: "border-red-200 bg-red-50 text-red-700",
-      actionLabel: "Buat Ulang Kode",
-    };
-  }
+const getStatusBadgeClass = (status: unknown) => {
+  const normalizedStatus = String(status ?? "").trim().toLowerCase();
 
-  if (!hasPin) {
-    return {
-      label: "Belum Aktivasi",
-      description: "Staff belum memiliki PIN login.",
-      badgeClass: "border-gray-200 bg-gray-50 text-gray-700",
-      actionLabel: "Buat Kode Login",
-    };
-  }
+  if (normalizedStatus === "active") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  if (normalizedStatus === "inactive") return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+  if (normalizedStatus === "on-leave") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (normalizedStatus === "terminated") return OWNER_SEMANTIC_TONES.danger.badgeClass;
 
-  if (staff.must_change_pin) {
-    return {
-      label: "Perlu Reset PIN",
-      description: "Staff perlu login dengan kode sementara.",
-      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
-      actionLabel: "Buat Kode Reset",
-    };
-  }
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+};
 
-  return {
-    label: "Aktif",
-    description: "Staff dapat login menggunakan PIN.",
-    badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    actionLabel: "Reset PIN",
-  };
+const getStaffTypeBadgeClass = (staffType: unknown) => {
+  const normalizedStaffType = String(staffType ?? "").trim().toLowerCase();
+
+  if (normalizedStaffType === "cashier") return OWNER_SEMANTIC_TONES.cashier.badgeClass;
+  if (normalizedStaffType === "barista") return OWNER_SEMANTIC_TONES.coffee.badgeClass;
+  if (normalizedStaffType === "kitchen") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (normalizedStaffType === "waiter") return OWNER_SEMANTIC_TONES.info.badgeClass;
+
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 export default function StaffCard({
   staff,
   onEdit,
   onDelete,
-  onGeneratePass,
   showActions = true,
 }: StaffCardProps) {
   const staffRole = String(staff.role ?? "").toLowerCase();
-  const shouldShowLoginAccess = staffRole === "staff";
   const shouldShowStaffType = staffRole === "staff";
 
   const phoneText = staff.phone?.trim() || "-";
@@ -216,11 +163,10 @@ export default function StaffCard({
   const hiredDateText = formatHiredDate(staff.hired_date);
   const shiftText = getShiftLabel(staff);
   const shiftTimeText = getShiftTimeLabel(staff);
-  const accessState = getAccessState(staff);
 
   return (
     <div className="flex break-inside-avoid flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative border-b border-gray-100 bg-linear-to-r from-gray-100 to-white p-5 pb-14">
+      <div className="relative border-b border-gray-100 bg-[#F7F7F5] p-5 pb-14">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Staff ID</p>
@@ -230,21 +176,16 @@ export default function StaffCard({
           </div>
 
           <span
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${getStaffStatusColor(
+            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
               staff.status,
             )}`}
-            style={getStaffStatusStyle(staff.status)}
           >
             {statusText}
           </span>
         </div>
 
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
-          <div
-            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white text-xl font-bold text-white shadow-lg ${getAvatarColor(
-              staff.name,
-            )}`}
-          >
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-gray-900 text-xl font-bold text-white shadow-lg">
             {getInitials(staff.name)}
           </div>
         </div>
@@ -256,16 +197,19 @@ export default function StaffCard({
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <span
-              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStaffRoleColor(
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getRoleBadgeClass(
                 staff.role,
               )}`}
-              style={getStaffRoleStyle(staff.role)}
             >
               {roleText}
             </span>
 
             {shouldShowStaffType && (
-              <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(
+                  staff.staff_type,
+                )}`}
+              >
                 {staffTypeText}
               </span>
             )}
@@ -283,7 +227,7 @@ export default function StaffCard({
             <div className="mb-2 flex items-center gap-2">
               <ClockIcon className="h-4 w-4 text-gray-400" />
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Shift Kerja
+                Work Shift
               </p>
             </div>
             <p className="text-sm font-semibold text-gray-900">{shiftText}</p>
@@ -303,46 +247,9 @@ export default function StaffCard({
 
             <div className="flex items-center gap-3">
               <CalendarDaysIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">Masuk: {hiredDateText}</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <IdentificationIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">{staff.staff_code || "-"}</span>
+              <span className="min-w-0 truncate text-gray-700">Start Work: {hiredDateText}</span>
             </div>
           </div>
-
-          {shouldShowLoginAccess && (
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <KeyIcon className="h-4 w-4 text-gray-400" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Akses Staff
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div>
-                  <span
-                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${accessState.badgeClass}`}
-                  >
-                    {accessState.label}
-                  </span>
-                  <p className="mt-2 text-xs leading-relaxed text-gray-500">
-                    {accessState.description}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onGeneratePass}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
-                >
-                  {accessState.actionLabel}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -364,10 +271,9 @@ export default function StaffCard({
             <button
               type="button"
               onClick={onDelete}
-              className="w-full rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-red-50"
-              style={{ color: "#FF6859", borderColor: "#FF6859" }}
+              className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-red-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
             >
-              Hapus
+              Delete
             </button>
           )}
         </div>

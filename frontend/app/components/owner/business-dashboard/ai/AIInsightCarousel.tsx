@@ -78,14 +78,14 @@ export default function AIInsightCarousel({
           </div>
 
           <h2 className="mt-5 text-sm font-bold leading-tight text-gray-900">
-            {insight?.title ?? "Data Summary is ready"}
+            {insight?.title ?? "Ready to generate recommendation"}
           </h2>
 
           <p className="mt-2 text-sm leading-7 text-gray-700 md:text-lg">
             {loading
               ? "Preparing today's business snapshot so the recommendation can use the latest available signals."
               : insight?.problem ??
-                "Generate a focused recommendation from the current dashboard data. The insight will use the active tab context and selected date range."}
+                "No recommendation has been generated yet. Generate one from the active tab context and selected date range."}
           </p>
 
           {generating ? (
