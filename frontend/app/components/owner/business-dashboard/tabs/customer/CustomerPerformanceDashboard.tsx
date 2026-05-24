@@ -57,7 +57,7 @@ export default function CustomerPerformanceDashboard() {
 
   return (
     <div className="space-y-4">
-      <GenerateRecommendationPanel category="rewards" />
+      <GenerateRecommendationPanel category="rewards" period={dateRange} />
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       {data.error ? (

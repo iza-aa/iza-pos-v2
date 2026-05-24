@@ -1,8 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  getJakartaEndOfDayIso,
-  getJakartaLocalDate,
-} from "./date";
+import { getJakartaLocalDate } from "./date";
 import type {
   AIInsight,
   OwnerInsightCategory,
@@ -11,11 +8,13 @@ import type {
 
 const TABLE_NAME = "owner_ai_recommendations";
 export const DAILY_GENERATION_LIMIT = 3;
+const NO_EXPIRY_ISO = "9999-12-31T23:59:59.999Z";
 
-export async function getTodayInsightRecord(
+async function getSameDayInsightRecord(
   supabase: SupabaseClient,
   ownerId: string,
   category: OwnerInsightCategory,
+  periodKey: string,
 ) {
   const localDate = getJakartaLocalDate();
   const { data, error } = await supabase
@@ -24,7 +23,29 @@ export async function getTodayInsightRecord(
     .eq("owner_id", ownerId)
     .eq("category", category)
     .eq("local_date", localDate)
-    .gt("expires_at", new Date().toISOString())
+    .eq("period_key", periodKey)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as OwnerInsightRecord | null;
+}
+
+export async function getTodayInsightRecord(
+  supabase: SupabaseClient,
+  ownerId: string,
+  category: OwnerInsightCategory,
+  periodKey = "today_vs_yesterday_v10",
+) {
+  const localDate = getJakartaLocalDate();
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select("*")
+    .eq("owner_id", ownerId)
+    .eq("category", category)
+    .eq("period_key", periodKey)
+    .lte("local_date", localDate)
+    .order("generated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) throw error;
@@ -40,8 +61,7 @@ export async function getTodayInsightRecords(
     .from(TABLE_NAME)
     .select("*")
     .eq("owner_id", ownerId)
-    .eq("local_date", localDate)
-    .gt("expires_at", new Date().toISOString())
+    .lte("local_date", localDate)
     .order("generated_at", { ascending: false });
 
   if (error) throw error;
@@ -52,17 +72,24 @@ export async function saveTodayInsightRecord({
   supabase,
   ownerId,
   category,
+  periodKey = "today_vs_yesterday_v10",
   insights,
   snapshot,
 }: {
   supabase: SupabaseClient;
   ownerId: string;
   category: OwnerInsightCategory;
+  periodKey?: string;
   insights: AIInsight[];
   snapshot: Record<string, unknown>;
 }) {
   const localDate = getJakartaLocalDate();
-  const existing = await getTodayInsightRecord(supabase, ownerId, category);
+  const existing = await getSameDayInsightRecord(
+    supabase,
+    ownerId,
+    category,
+    periodKey,
+  );
   const nextCount = (existing?.generation_count ?? 0) + 1;
 
   if (nextCount > DAILY_GENERATION_LIMIT) {
@@ -73,18 +100,18 @@ export async function saveTodayInsightRecord({
     owner_id: ownerId,
     category,
     local_date: localDate,
-    period_key: "today_vs_yesterday",
+    period_key: periodKey,
     insights_json: insights,
     snapshot_json: snapshot,
     generated_at: new Date().toISOString(),
-    expires_at: getJakartaEndOfDayIso(localDate),
+    expires_at: NO_EXPIRY_ISO,
     generation_count: nextCount,
     updated_at: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
     .from(TABLE_NAME)
-    .upsert(payload, { onConflict: "owner_id,category,local_date" })
+    .upsert(payload, { onConflict: "owner_id,category,local_date,period_key" })
     .select("*")
     .single();
 

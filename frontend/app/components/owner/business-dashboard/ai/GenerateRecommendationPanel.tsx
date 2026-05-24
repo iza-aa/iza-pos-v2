@@ -20,13 +20,15 @@ type RecommendationResponse = {
 export default function GenerateRecommendationPanel({
   category,
   compact = false,
+  period,
 }: {
   category: OwnerInsightCategory;
   compact?: boolean;
+  period?: { startDate: string; endDate: string };
 }) {
   const [record, setRecord] = useState<OwnerInsightRecord | null>(null);
   const [fallbackInsight, setFallbackInsight] = useState<AIInsight | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,32 +48,45 @@ export default function GenerateRecommendationPanel({
     };
   }, [currentUser]);
 
-  const loadExisting = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(`/api/owner/recommendations?category=${category}`, {
-        headers: requestHeaders(),
-      });
-      const data = (await response.json()) as RecommendationResponse;
-      setRecord(data.record ?? null);
-      setFallbackInsight(data.fallbackInsight ?? null);
-      if (data.error && !data.record) setError(data.error);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Unable to load recommendations.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [category, requestHeaders]);
+  const requestPeriod = useMemo(() => {
+    if (!period?.startDate || !period?.endDate) return null;
+    return period;
+  }, [period]);
 
   useEffect(() => {
-    void loadExisting();
-  }, [loadExisting]);
+    let ignore = false;
+
+    const loadStoredRecommendation = async () => {
+      const params = new URLSearchParams({ category });
+
+      if (requestPeriod) {
+        params.set("startDate", requestPeriod.startDate);
+        params.set("endDate", requestPeriod.endDate);
+      }
+
+      try {
+        const response = await fetch(`/api/owner/recommendations?${params.toString()}`, {
+          headers: requestHeaders(),
+        });
+        const data = (await response.json()) as RecommendationResponse;
+
+        if (ignore) return;
+        setRecord(data.record ?? null);
+        setFallbackInsight(null);
+      } catch {
+        if (!ignore) {
+          setRecord(null);
+          setFallbackInsight(null);
+        }
+      }
+    };
+
+    void loadStoredRecommendation();
+
+    return () => {
+      ignore = true;
+    };
+  }, [category, requestHeaders, requestPeriod]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -82,7 +97,7 @@ export default function GenerateRecommendationPanel({
       const response = await fetch("/api/owner/recommendations/generate", {
         method: "POST",
         headers: requestHeaders(),
-        body: JSON.stringify({ category }),
+        body: JSON.stringify({ category, period: requestPeriod }),
       });
       const data = (await response.json()) as RecommendationResponse;
 
@@ -96,6 +111,10 @@ export default function GenerateRecommendationPanel({
 
       if (data.error) {
         setError(data.error);
+        if (!data.record && !data.fallbackInsight) {
+          setRecord(null);
+          setFallbackInsight(null);
+        }
       }
     } catch (generateError) {
       setError(
@@ -115,6 +134,7 @@ export default function GenerateRecommendationPanel({
       : [];
 
   const hasStoredAiInsight = Boolean(record?.insights_json?.length);
+  const hasDisplayableInsight = hasStoredAiInsight || Boolean(fallbackInsight);
 
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
@@ -125,7 +145,7 @@ export default function GenerateRecommendationPanel({
         error={error}
         generatedAt={record?.generated_at}
         generationCount={record?.generation_count}
-        showDetail={hasStoredAiInsight}
+        showDetail={hasDisplayableInsight}
         onGenerate={handleGenerate}
       />
     </div>

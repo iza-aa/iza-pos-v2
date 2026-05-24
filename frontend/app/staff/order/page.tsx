@@ -21,6 +21,7 @@ import {
 import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import TableOrderMapView from "@/app/components/staff/order/TableOrderMapView";
+import { getCurrentUser } from "@/lib/utils/auth";
 
 interface Order {
   id: string;
@@ -458,12 +459,14 @@ export default function StaffOrderPage() {
       }
 
       const nowIso = new Date().toISOString();
+      const currentUser = getCurrentUser();
 
       const { error: itemsError } = await supabase
         .from("order_items")
         .update({
           served: true,
           served_at: nowIso,
+          served_by: currentUser?.id ?? null,
         })
         .in("id", validItemIds);
 

@@ -125,7 +125,7 @@ export default function SalesDashboard() {
 
   return (
     <div className="space-y-4">
-      <GenerateRecommendationPanel category="sales" />
+      <GenerateRecommendationPanel category="sales" period={dateRange} />
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       {data.error ? (

@@ -1,18 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  buildOwnerInsightPeriodKey,
   buildOwnerInsightSnapshot,
   createOwnerInsightSupabaseClient,
+  type OwnerInsightPeriod,
 } from "@/lib/services/owner-insights/snapshotService";
 import { generateGeminiInsights } from "@/lib/services/owner-insights/geminiInsightService";
 import {
   buildDataSummaryInsight,
   isOwnerInsightCategory,
   sanitizeInsights,
+  type AIInsight,
+  type OwnerInsightCategory,
 } from "@/lib/services/owner-insights/insightSchema";
+import { buildDeterministicIssueFallback } from "@/lib/services/owner-insights/allowedIssueInsightGuards";
 import { saveTodayInsightRecord } from "@/lib/services/owner-insights/storageService";
+import { describeUnknownError } from "@/lib/services/owner-insights/errorUtils";
 
 type GenerateRequest = {
   category?: string;
+  period?: Partial<OwnerInsightPeriod>;
+};
+
+const normalizePeriod = (
+  period: GenerateRequest["period"],
+): OwnerInsightPeriod | undefined => {
+  if (!period?.startDate || !period?.endDate) return undefined;
+  const validDate = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (!validDate.test(period.startDate) || !validDate.test(period.endDate)) {
+    return undefined;
+  }
+
+  if (period.startDate > period.endDate) return undefined;
+
+  return {
+    startDate: period.startDate,
+    endDate: period.endDate,
+  };
 };
 
 const getRequester = (request: NextRequest) => ({
@@ -60,6 +85,30 @@ async function logRecommendationActivity({
   }
 }
 
+async function saveRecommendationRecord({
+  ownerId,
+  category,
+  periodKey,
+  insights,
+  snapshot,
+}: {
+  ownerId: string;
+  category: OwnerInsightCategory;
+  periodKey: string;
+  insights: AIInsight[];
+  snapshot: Record<string, unknown>;
+}) {
+  const supabase = createOwnerInsightSupabaseClient();
+  return saveTodayInsightRecord({
+    supabase,
+    ownerId,
+    category,
+    periodKey,
+    insights,
+    snapshot,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const requester = getRequester(request);
 
@@ -74,21 +123,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid category." }, { status: 400 });
   }
 
-  const snapshot = await buildOwnerInsightSnapshot(category);
+  const period = normalizePeriod(body.period);
+  const periodKey = buildOwnerInsightPeriodKey(period);
+  let snapshot: Record<string, unknown> = {};
 
   try {
+    snapshot = await buildOwnerInsightSnapshot(category, period);
     const generatedInsights = await generateGeminiInsights(category, snapshot);
     const insights = sanitizeInsights(generatedInsights, category);
 
     if (insights.length === 0) {
-      throw new Error("Gemini did not return valid recommendations.");
+      const deterministicFallback = buildDeterministicIssueFallback(snapshot);
+
+      if (!deterministicFallback) {
+        throw new Error("Gemini did not return valid recommendations.");
+      }
+
+      const record = await saveRecommendationRecord({
+        ownerId: requester.id,
+        category,
+        periodKey,
+        insights: [deterministicFallback],
+        snapshot,
+      });
+
+      await logRecommendationActivity({
+        ownerId: requester.id,
+        ownerName: requester.name,
+        category,
+        insightCount: 1,
+      });
+
+      return NextResponse.json({ record, snapshot, fallback: true });
     }
 
-    const supabase = createOwnerInsightSupabaseClient();
-    const record = await saveTodayInsightRecord({
-      supabase,
+    const record = await saveRecommendationRecord({
       ownerId: requester.id,
       category,
+      periodKey,
       insights,
       snapshot,
     });
@@ -102,17 +174,41 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ record, snapshot, fallback: false });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to generate AI recommendations.";
+    const message = describeUnknownError(
+      error,
+      "Failed to generate AI recommendations.",
+    );
+    console.error("Owner AI recommendation generation failed:", error);
+
+    const hasSnapshot = Object.keys(snapshot).length > 0;
+    const deterministicFallback = hasSnapshot
+      ? buildDeterministicIssueFallback(snapshot)
+      : null;
+
+    if (deterministicFallback) {
+      try {
+        const record = await saveRecommendationRecord({
+          ownerId: requester.id,
+          category,
+          periodKey,
+          insights: [deterministicFallback],
+          snapshot,
+        });
+
+        return NextResponse.json({ record, snapshot, fallback: true });
+      } catch (saveError) {
+        console.error("Failed to save deterministic fallback:", saveError);
+      }
+    }
 
     return NextResponse.json(
       {
         error: message,
         snapshot,
         fallback: true,
-        fallbackInsight: buildDataSummaryInsight(category, snapshot),
+        fallbackInsight: hasSnapshot
+          ? buildDataSummaryInsight(category, snapshot)
+          : undefined,
       },
       { status: 200 },
     );

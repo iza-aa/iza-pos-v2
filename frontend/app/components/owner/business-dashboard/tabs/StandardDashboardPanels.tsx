@@ -1060,7 +1060,7 @@ function InventoryDashboard() {
 
   return (
     <div className="space-y-4">
-      <GenerateRecommendationPanel category="inventory" />
+      <GenerateRecommendationPanel category="inventory" period={dateRange} />
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -1363,7 +1363,7 @@ function StaffDashboard() {
 
   return (
     <div className="space-y-4">
-      <GenerateRecommendationPanel category="staff" />
+      <GenerateRecommendationPanel category="staff" period={dateRange} />
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1606,7 +1606,7 @@ function OperationDashboard() {
 
   return (
     <div className="space-y-4">
-      <GenerateRecommendationPanel category="operations" />
+      <GenerateRecommendationPanel category="operations" period={dateRange} />
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

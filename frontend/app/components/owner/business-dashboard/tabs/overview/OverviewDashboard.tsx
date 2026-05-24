@@ -72,7 +72,7 @@ export default function OverviewDashboard() {
 
   return (
     <div className="space-y-4">
-      <GenerateRecommendationPanel category="overview" />
+      <GenerateRecommendationPanel category="overview" period={dateRange} />
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
       {data.error ? (

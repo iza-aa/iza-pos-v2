@@ -3,10 +3,15 @@
 import { useState } from "react";
 import {
   ArrowPathIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   SparklesIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { AIInsight } from "@/lib/services/owner-insights/insightSchema";
+
+const thinkingTextClassName =
+  "inline-block bg-[linear-gradient(90deg,#374151_0%,#374151_35%,#9CA3AF_50%,#374151_65%,#374151_100%)] bg-[length:220%_100%] bg-clip-text text-transparent animate-[ai-thinking-breath_1.8s_ease-in-out_infinite]";
 
 type AIInsightCarouselProps = {
   insights: AIInsight[];
@@ -34,14 +39,39 @@ export default function AIInsightCarousel({
 
   const insight = insights[index] ?? null;
   const hasAiRecommendation = showDetail && Boolean(insight);
+  const canNavigate = hasAiRecommendation && insights.length > 1;
   const recommendationLabel = hasAiRecommendation
     ? "Regenerate Recommendation"
     : "Generate Recommendation";
+  const showPrevious = () => {
+    setIndex((current) => (current === 0 ? insights.length - 1 : current - 1));
+  };
+  const showNext = () => {
+    setIndex((current) => (current === insights.length - 1 ? 0 : current + 1));
+  };
 
   return (
     <>
-      <section className="rounded-2xl border border-gray-200 bg-linear-to-br from-[#E2E5FF] via-[#EAEBFA] to-[#F5F6FF] p-5 shadow-sm md:p-6">
-        <div className="">
+      <section className="relative rounded-2xl border border-gray-200 bg-linear-to-br from-[#E2E5FF] via-[#EAEBFA] to-[#F5F6FF] p-5 shadow-sm md:p-6">
+        <button
+          type="button"
+          onClick={showPrevious}
+          disabled={!canNavigate}
+          className="absolute left-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-700 shadow-sm transition hover:bg-white hover:text-gray-950 disabled:cursor-not-allowed disabled:bg-gray-100/80 disabled:text-gray-300 disabled:shadow-none md:flex"
+          aria-label="Show previous recommendation"
+        >
+          <ChevronLeftIcon className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={showNext}
+          disabled={!canNavigate}
+          className="absolute right-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-700 shadow-sm transition hover:bg-white hover:text-gray-950 disabled:cursor-not-allowed disabled:bg-gray-100/80 disabled:text-gray-300 disabled:shadow-none md:flex"
+          aria-label="Show next recommendation"
+        >
+          <ChevronRightIcon className="h-5 w-5" />
+        </button>
+        <div className="md:px-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-700">
             <SparklesIcon className="h-4 w-4" />
             AI Insight Summary
@@ -55,14 +85,28 @@ export default function AIInsightCarousel({
             {loading
               ? "Preparing today's business snapshot so the recommendation can use the latest available signals."
               : insight?.problem ??
-                "Generate a focused recommendation from the current dashboard data. The insight will use the active tab context and compare today against yesterday where data is available."}
+                "Generate a focused recommendation from the current dashboard data. The insight will use the active tab context and selected date range."}
           </p>
 
           {generating ? (
-            <div className="rounded-2xl p-4">
-              <div className="flex items-center gap-3 text-sm font-semibold text-gray-700">
-                <ArrowPathIcon className="h-4 w-4 animate-spin" />
+            <div className="rounded-2xl mt-2 mb-1">
+              <div className="text-sm font-semibold">
+                <style jsx>{`
+                  @keyframes ai-thinking-breath {
+                    0% {
+                      background-position: 140% 0;
+                    }
+                    50% {
+                      background-position: 0% 0;
+                    }
+                    100% {
+                      background-position: -140% 0;
+                    }
+                  }
+                `}</style>
+                <span className={thinkingTextClassName}>
                 Thinking through the business signals...
+                </span>
               </div>
             </div>
           ) : hasAiRecommendation && insight ? (
@@ -81,7 +125,7 @@ export default function AIInsightCarousel({
           ) : null}
         </div>
 
-        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-3 flex flex-col gap-4 md:px-12 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
@@ -108,20 +152,41 @@ export default function AIInsightCarousel({
             ) : null}
           </div>
 
-          {hasAiRecommendation && insights.length > 1 ? (
-            <div className="flex items-center gap-2">
-              {insights.map((item, dotIndex) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setIndex(dotIndex)}
-                  className={`h-0.5 w-10 rounded-full transition ${
-                    dotIndex === index ? "bg-indigo-500" : "bg-gray-400"
-                  }`}
-                  aria-label={`Show AI insight ${dotIndex + 1}`}
-                />
-              ))}
-            </div>
+          {canNavigate ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={showPrevious}
+              disabled={!canNavigate}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-300 md:hidden"
+              aria-label="Show previous recommendation"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </button>
+            {insights.map((item, dotIndex) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (canNavigate) setIndex(dotIndex);
+                }}
+                disabled={!canNavigate}
+                className={`h-0.5 w-10 rounded-full transition ${
+                  canNavigate && dotIndex === index ? "bg-indigo-500" : "bg-gray-400/60"
+                } disabled:cursor-not-allowed disabled:bg-gray-300`}
+                aria-label={`Show AI insight ${dotIndex + 1}`}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={showNext}
+              disabled={!canNavigate}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-300 md:hidden"
+              aria-label="Show next recommendation"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
+          </div>
           ) : null}
         </div>
       </section>
