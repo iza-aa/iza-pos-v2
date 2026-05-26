@@ -119,7 +119,7 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
 
         <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-6">
           <div className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-gray-200">

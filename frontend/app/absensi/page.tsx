@@ -443,7 +443,7 @@ export default function AbsensiPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmitAttendance} className="space-y-5 p-6">
+        <form onSubmit={handleSubmitAttendance} className="space-y-4 p-6">
           <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
             <div className="flex items-start gap-3">
               <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />

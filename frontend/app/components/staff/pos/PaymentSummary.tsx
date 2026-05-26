@@ -13,12 +13,19 @@ interface CartItem {
 
 interface PaymentSummaryProps {
 	items: CartItem[];
+	tax?: number;
+	taxLabel?: string;
+	total?: number;
 }
 
-export default function PaymentSummary({ items }: PaymentSummaryProps) {
+export default function PaymentSummary({
+	items,
+	tax = 0,
+	taxLabel = "Tax",
+	total,
+}: PaymentSummaryProps) {
 	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-	const tax = subtotal * 0.1; // 10% tax (PPN)
-	const total = subtotal + tax;
+	const totalPayable = total ?? subtotal + tax;
 
 	return (
 		<div className="p-4 md:p-6 space-y-4">
@@ -31,12 +38,12 @@ export default function PaymentSummary({ items }: PaymentSummaryProps) {
 						<span>{formatCurrency(subtotal)}</span>
 					</div>
 					<div className="flex justify-between text-gray-600">
-						<span>Tax</span>
+						<span>{taxLabel}</span>
 						<span>{formatCurrency(tax)}</span>
 					</div>
 					<div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
 						<span style={{ color: COLORS.PRIMARY }}>Total Payable</span>
-						<span style={{ color: COLORS.PRIMARY }}>{formatCurrency(total)}</span>
+						<span style={{ color: COLORS.PRIMARY }}>{formatCurrency(totalPayable)}</span>
 					</div>
 				</div>
 			</div>

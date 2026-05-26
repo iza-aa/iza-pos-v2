@@ -5,12 +5,15 @@ import {
   BanknotesIcon,
   BellAlertIcon,
   ClipboardDocumentCheckIcon,
+  CreditCardIcon,
+  QrCodeIcon,
   UserIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from '@/lib/constants';
 
 type FulfillmentMethod = 'pager' | 'counter_pickup';
+type PaymentMethod = 'cash' | 'qris' | 'card';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -25,6 +28,7 @@ interface PaymentModalProps {
     pagerNumber?: string;
   }) => void;
   totalAmount: number;
+  isSubmitting?: boolean;
 }
 
 export default function PaymentModal({
@@ -32,8 +36,9 @@ export default function PaymentModal({
   onClose,
   onConfirm,
   totalAmount,
+  isSubmitting = false,
 }: PaymentModalProps) {
-  const [paymentMethod] = useState('cash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [fulfillmentMethod, setFulfillmentMethod] =
     useState<FulfillmentMethod>('pager');
   const [pagerNumber, setPagerNumber] = useState('');
@@ -46,6 +51,7 @@ export default function PaymentModal({
     if (!isOpen) return;
 
     setFulfillmentMethod('pager');
+    setPaymentMethod('cash');
     setPagerNumber('');
     setCustomerName('');
     setCustomerPhone('');
@@ -64,6 +70,8 @@ export default function PaymentModal({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isSubmitting) return;
 
     const received = Number(cashReceived) || 0;
     const trimmedPagerNumber = pagerNumber.trim();
@@ -109,6 +117,31 @@ export default function PaymentModal({
       icon: ClipboardDocumentCheckIcon,
     },
   ];
+  const paymentOptions: Array<{
+    value: PaymentMethod;
+    title: string;
+    description: string;
+    icon: React.ElementType;
+  }> = [
+    {
+      value: 'cash',
+      title: 'Cash',
+      description: 'Count cash received and return change if needed.',
+      icon: BanknotesIcon,
+    },
+    {
+      value: 'qris',
+      title: 'QRIS',
+      description: 'Customer pays with QRIS. No cash count required.',
+      icon: QrCodeIcon,
+    },
+    {
+      value: 'card',
+      title: 'Card',
+      description: 'Debit or credit card payment at the counter.',
+      icon: CreditCardIcon,
+    },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
@@ -124,7 +157,8 @@ export default function PaymentModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            disabled={isSubmitting}
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Close payment modal"
           >
             <XMarkIcon className="h-6 w-6" />
@@ -195,6 +229,7 @@ export default function PaymentModal({
                 type="text"
                 value={pagerNumber}
                 onChange={(event) => setPagerNumber(event.target.value)}
+                disabled={isSubmitting}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                 placeholder="Example: 12"
               />
@@ -228,6 +263,7 @@ export default function PaymentModal({
                   type="text"
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
+                  disabled={isSubmitting}
                   className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                   placeholder="Optional"
                 />
@@ -247,6 +283,7 @@ export default function PaymentModal({
                 type="tel"
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
+                disabled={isSubmitting}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                 placeholder="Optional"
               />
@@ -258,51 +295,93 @@ export default function PaymentModal({
               Payment Method
             </label>
 
-            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                <BanknotesIcon className="h-5 w-5 text-green-700" />
-              </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {paymentOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = paymentMethod === option.value;
 
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Cash Payment</p>
-                <p className="text-xs text-gray-500">
-                  Other payment methods can be added later.
-                </p>
-              </div>
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setPaymentMethod(option.value);
+
+                      if (option.value !== 'cash') {
+                        setCashReceived('');
+                      }
+                    }}
+                    className={`rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isSelected
+                        ? 'border-gray-900 bg-gray-900 text-white shadow-sm'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <Icon
+                        className={`h-5 w-5 ${
+                          isSelected ? 'text-white' : 'text-gray-500'
+                        }`}
+                      />
+                      <span className="font-semibold">{option.title}</span>
+                    </div>
+
+                    <p
+                      className={`text-xs leading-relaxed ${
+                        isSelected ? 'text-gray-200' : 'text-gray-500'
+                      }`}
+                    >
+                      {option.description}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
-          <section>
-            <label
-              htmlFor="cash-received"
-              className="mb-2 block text-sm font-semibold text-gray-800"
-            >
-              Cash Received <span className="text-red-500">*</span>
-            </label>
+          {paymentMethod === 'cash' ? (
+            <section>
+              <label
+                htmlFor="cash-received"
+                className="mb-2 block text-sm font-semibold text-gray-800"
+              >
+                Cash Received <span className="text-red-500">*</span>
+              </label>
 
-            <input
-              id="cash-received"
-              type="number"
-              required
-              min={totalAmount}
-              step="1000"
-              value={cashReceived}
-              onChange={(event) => setCashReceived(event.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-              placeholder={`Minimum ${formatCurrency(totalAmount)}`}
-            />
+              <input
+                id="cash-received"
+                type="number"
+                required
+                min={totalAmount}
+                step="1000"
+                value={cashReceived}
+                onChange={(event) => setCashReceived(event.target.value)}
+                disabled={isSubmitting}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                placeholder={`Minimum ${formatCurrency(totalAmount)}`}
+              />
 
-            {cashReceived ? (
-              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Change</span>
-                  <span className="font-bold text-gray-900">
-                    {formatCurrency(calculateChange())}
-                  </span>
+              {cashReceived ? (
+                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Change</span>
+                    <span className="font-bold text-gray-900">
+                      {formatCurrency(calculateChange())}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </section>
+              ) : null}
+            </section>
+          ) : (
+            <section className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+              <p className="text-sm text-blue-900">
+                {paymentMethod === 'qris'
+                  ? 'Confirm that the QRIS payment has been received before submitting the order.'
+                  : 'Confirm that the card transaction has been approved before submitting the order.'}
+              </p>
+            </section>
+          )}
 
           <section>
             <label
@@ -316,6 +395,7 @@ export default function PaymentModal({
               id="order-notes"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
+              disabled={isSubmitting}
               rows={3}
               className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
               placeholder="Special requests, allergies, etc."
@@ -338,16 +418,18 @@ export default function PaymentModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>
 
             <button
               type="submit"
-              className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              Confirm Order
+              {isSubmitting ? 'Creating Order...' : 'Confirm Order'}
             </button>
           </div>
         </form>

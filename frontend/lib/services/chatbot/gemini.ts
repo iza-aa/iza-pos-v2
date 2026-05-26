@@ -5,7 +5,9 @@
  * Supports: flash-lite, flash, pro
  */
 
-import type { ChatbotModel, ChatMessage } from '@/lib/types/chatbot'
+import type { ChatMessage } from '@/lib/types/chatbot'
+
+export type GeminiModel = 'gemini-2.5-flash-lite' | 'gemini-2.5-flash' | 'gemini-2.5-pro'
 
 export interface GeminiResponse {
   text: string
@@ -20,7 +22,7 @@ export interface GeminiResponse {
  * Call Gemini API dengan model yang dipilih
  */
 export async function callGemini(
-  model: ChatbotModel,
+  model: GeminiModel,
   systemPrompt: string,
   userQuery: string,
   conversationHistory: ChatMessage[] = []
@@ -32,10 +34,10 @@ export async function callGemini(
   }
 
   // Map internal model names to Gemini API model names
-  const modelMapping: Record<ChatbotModel, string> = {
-    'gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
-    'gemini-2.5-flash': 'gemini-2.0-flash',
-    'gemini-2.5-pro': 'gemini-2.0-pro'
+  const modelMapping: Record<GeminiModel, string> = {
+    'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+    'gemini-2.5-flash': 'gemini-2.5-flash',
+    'gemini-2.5-pro': 'gemini-2.5-pro',
   }
 
   const geminiModel = modelMapping[model]

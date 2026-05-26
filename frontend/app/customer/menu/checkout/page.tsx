@@ -13,6 +13,11 @@ import {
   validateStoredCustomerTableSession,
 } from "@/lib/customer/customerSession";
 import { getStoredCustomerAccount } from "@/lib/customer/customerAccount";
+import {
+  calculateOrderFinancialTotals,
+  defaultFinancialSettings,
+} from "@/lib/services/bookkeeping/financialSettings";
+import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 
 interface CartItem {
   id: string;
@@ -204,6 +209,8 @@ export default function CustomerCheckoutPage() {
   const [pendingOrderNumber, setPendingOrderNumber] = useState("");
   const [pendingOrderId, setPendingOrderId] = useState("");
   const [pendingPickupCode, setPendingPickupCode] = useState<string | null>(null);
+  const [financialSettings, setFinancialSettings] =
+    useState<BookkeepingFinancialSettings>(defaultFinancialSettings);
 
   const orderMode: OrderMode = tableSession ? "dine_in" : "takeaway";
   const isTakeaway = orderMode === "takeaway";
@@ -244,6 +251,31 @@ export default function CustomerCheckoutPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFinancialSettings = async () => {
+      try {
+        const response = await fetch("/api/bookkeeping/financial-settings");
+        const result = (await response.json().catch(() => ({}))) as {
+          settings?: BookkeepingFinancialSettings;
+        };
+
+        if (isMounted && result.settings) {
+          setFinancialSettings(result.settings);
+        }
+      } catch (error) {
+        console.warn("Failed to load financial settings, using defaults:", error);
+      }
+    };
+
+    void loadFinancialSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const updateQuantity = (itemId: string, change: number) => {
     const updatedCart = cart
       .map((item) => {
@@ -268,9 +300,13 @@ export default function CustomerCheckoutPage() {
     }
   };
 
-  const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  };
+  const financialTotals = useMemo(
+    () => calculateOrderFinancialTotals(
+      cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      financialSettings,
+    ),
+    [cart, financialSettings],
+  );
 
   const canSubmit = useMemo(() => {
     if (isSubmitting || cart.length === 0) {
@@ -338,7 +374,11 @@ export default function CustomerCheckoutPage() {
     orderNumber: string,
     cleanCustomerName: string,
     pickupCode: string | null,
-    total: number,
+    totals: {
+      subtotal: number;
+      tax: number;
+      total: number;
+    },
   ): Promise<CreatedOrder> => {
     const account = getStoredCustomerAccount();
     const baseOrderPayload = {
@@ -365,10 +405,10 @@ export default function CustomerCheckoutPage() {
       fulfillment_method: isDineIn ? "table_service" : "counter_pickup",
       pickup_code: pickupCode,
       status: "new",
-      subtotal: total,
-      tax: 0,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
       discount: 0,
-      total,
+      total: totals.total,
       payment_method: "QRIS",
       payment_status: "pending",
       notes: notes.trim() || null,
@@ -408,14 +448,13 @@ export default function CustomerCheckoutPage() {
       const orderNumberPrefix = isDineIn ? "QR" : "TA";
       const orderNumber = `${orderNumberPrefix}-${Date.now()}`;
       const pickupCode = isTakeaway ? generatePickupCode() : null;
-      const total = calculateTotal();
       const cleanCustomerName =
         customerName.trim() || createFallbackCustomerName(orderMode, tableSession);
 
       let createdOrder: CreatedOrder;
 
       try {
-        createdOrder = await createOrder(orderNumber, cleanCustomerName, pickupCode, total);
+        createdOrder = await createOrder(orderNumber, cleanCustomerName, pickupCode, financialTotals);
       } catch (error) {
         if (isDuplicateActiveTableSessionError(error)) {
           console.error(
@@ -458,7 +497,7 @@ export default function CustomerCheckoutPage() {
         throw itemsError;
       }
 
-      await updateTableSessionStats(createdOrder.id, total);
+      await updateTableSessionStats(createdOrder.id, financialTotals.total);
 
       setPendingOrderNumber(createdOrder.order_number);
       setPendingOrderId(createdOrder.id);
@@ -586,7 +625,12 @@ export default function CustomerCheckoutPage() {
           />
         </div>
 
-        <OrderSummary subtotal={calculateTotal()} />
+        <OrderSummary
+          subtotal={financialTotals.subtotal}
+          tax={financialTotals.tax}
+          taxLabel={financialSettings.taxLabel}
+          total={financialTotals.total}
+        />
       </div>
 
       <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-200">
@@ -603,7 +647,7 @@ export default function CustomerCheckoutPage() {
       {showQRISPayment && (
         <QRISPayment
           orderNumber={pendingOrderNumber}
-          totalAmount={calculateTotal()}
+          totalAmount={financialTotals.total}
           onPaymentConfirmed={handlePaymentConfirmed}
           onCancel={() => setShowQRISPayment(false)}
         />

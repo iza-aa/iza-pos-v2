@@ -21,7 +21,8 @@ import {
   FireIcon,
   TicketIcon,
   ClockIcon,
-  SquaresPlusIcon
+  SquaresPlusIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import { 
   Squares2X2Icon as Squares2X2IconSolid,
@@ -32,7 +33,8 @@ import {
   ShoppingCartIcon as ShoppingCartIconSolid,
   FireIcon as FireIconSolid,
   TicketIcon as TicketIconSolid,
-  ClockIcon as ClockIconSolid
+  ClockIcon as ClockIconSolid,
+  BanknotesIcon as BanknotesIconSolid
 } from '@heroicons/react/24/solid'
 import ProfilePopout from '../../../shared/profile/ProfileModal'
 
@@ -41,7 +43,7 @@ const menuConfig = {
   owner: [
     { label: 'Dashboard', path: '/owner/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
     { label: 'Staff Manager', path: '/owner/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
-    { label: 'Archives', path: '/owner/archives', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Bookkeeping', path: '/owner/bookkeeping', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Activity Log', path: '/owner/activitylog', icon: ClipboardDocumentListIcon, iconSolid: ClipboardDocumentListIconSolid },
   ],
   manager: [
@@ -61,12 +63,14 @@ const menuConfig = {
     cashier: [
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
       { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
+      { label: 'End Shift', path: '/staff/end-shift', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
       { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
       { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     ],
     barista: [
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
       { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
+      { label: 'End Shift', path: '/staff/end-shift', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
       { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
       { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     ],
@@ -88,6 +92,7 @@ const ownerAccessMenu = {
   ],
   staff: [
     { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
+    { label: 'End Shift', path: '/staff/end-shift', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Kitchen', path: '/staff/kitchen', icon: FireIcon, iconSolid: FireIconSolid },
   ],

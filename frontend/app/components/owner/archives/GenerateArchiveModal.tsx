@@ -189,7 +189,7 @@ export default function GenerateArchiveModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          <div className="space-y-5">
+          <div className="space-y-4">
             <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
               <div className="mb-4 flex items-center gap-2">
                 <CalendarDaysIcon className="h-5 w-5 text-gray-600" />

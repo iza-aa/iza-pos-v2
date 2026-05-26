@@ -133,7 +133,7 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
 
         <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.25fr_0.85fr]">
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>

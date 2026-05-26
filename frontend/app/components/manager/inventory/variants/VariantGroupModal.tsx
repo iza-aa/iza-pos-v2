@@ -244,7 +244,7 @@ export default function VariantGroupModal({
         <form onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-hidden">
           <div className="grid h-full grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[1.05fr_0.95fr]">
             <div className="min-h-0 overflow-y-auto border-b border-gray-200 p-5 lg:border-b-0 lg:border-r">
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {error ? (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                     {error}

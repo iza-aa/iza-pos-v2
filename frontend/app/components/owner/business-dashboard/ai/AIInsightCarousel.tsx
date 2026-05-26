@@ -213,7 +213,7 @@ export default function AIInsightCarousel({
               </button>
             </div>
 
-            <div className="space-y-5 p-5">
+            <div className="space-y-4 p-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                   Business Issue

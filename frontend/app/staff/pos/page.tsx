@@ -33,6 +33,11 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 import { showError } from "@/lib/services/errorHandling";
+import {
+	calculateOrderFinancialTotals,
+	defaultFinancialSettings,
+} from "@/lib/services/bookkeeping/financialSettings";
+import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import type { MenuItem, SelectedVariant } from "@/lib/types";
 
 const iconNameToComponent: Record<string, LucideIcon> = {
@@ -187,6 +192,23 @@ const normalizePaymentMethodForDatabase = (method?: string): string => {
 	return paymentMethodMap[method || "cash"] || "Cash";
 };
 
+const normalizePaymentMethodForTransaction = (method?: string): string => {
+	const paymentMethodMap: Record<string, string> = {
+		cash: "Cash",
+		qris: "QRIS",
+		scan: "QRIS",
+		card: "Card",
+		debit: "Card",
+		credit: "Card",
+		Cash: "Cash",
+		QRIS: "QRIS",
+		Scan: "QRIS",
+		Card: "Card",
+	};
+
+	return paymentMethodMap[method || "cash"] || "Cash";
+};
+
 export default function POSPage() {
 	useSessionValidation();
 
@@ -197,9 +219,12 @@ export default function POSPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [variantSidebarOpen, setVariantSidebarOpen] = useState(false);
 	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+	const [placingOrder, setPlacingOrder] = useState(false);
 	const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 	const [orderDetailsOpen, setOrderDetailsOpen] = useState(true);
 	const [cart, setCart] = useState<CartItem[]>([]);
+	const [financialSettings, setFinancialSettings] =
+		useState<BookkeepingFinancialSettings>(defaultFinancialSettings);
 
 	useEffect(() => {
 		const currentUser = getCurrentUser();
@@ -268,6 +293,31 @@ export default function POSPage() {
 		}
 
 		fetchCategories();
+	}, []);
+
+	useEffect(() => {
+		let mounted = true;
+
+		async function fetchFinancialSettings() {
+			try {
+				const response = await fetch("/api/bookkeeping/financial-settings");
+				const result = (await response.json().catch(() => ({}))) as {
+					settings?: BookkeepingFinancialSettings;
+				};
+
+				if (mounted && result.settings) {
+					setFinancialSettings(result.settings);
+				}
+			} catch (error) {
+				console.warn("Failed to load financial settings, using defaults:", error);
+			}
+		}
+
+		void fetchFinancialSettings();
+
+		return () => {
+			mounted = false;
+		};
 	}, []);
 
 	useEffect(() => {
@@ -452,11 +502,19 @@ export default function POSPage() {
 		return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 	};
 
+	const calculateFinancialTotals = () => {
+		return calculateOrderFinancialTotals(calculateTotal(), financialSettings);
+	};
+
 	const handlePlaceOrder = async (paymentData: PaymentConfirmData) => {
+		if (placingOrder) return;
+
 		if (cart.length === 0) {
 			showError("Keranjang masih kosong!");
 			return;
 		}
+
+		setPlacingOrder(true);
 
 		try {
 			const staff = getCurrentStaffInfo();
@@ -467,7 +525,7 @@ export default function POSPage() {
 			}
 
 			const { id: staffId, name: staffName, staffCode, roleAbbr } = staff;
-			const total = calculateTotal();
+			const financialTotals = calculateFinancialTotals();
 			const orderNumber = `ORD-${Date.now()}`;
 			const fulfillmentMethod: FulfillmentMethod =
 				paymentData.fulfillmentMethod || "counter_pickup";
@@ -486,6 +544,9 @@ export default function POSPage() {
 			const paymentMethod = normalizePaymentMethodForDatabase(
 				paymentData.paymentMethod
 			);
+			const paymentTransactionMethod = normalizePaymentMethodForTransaction(
+				paymentData.paymentMethod
+			);
 
 			const { data: orderData, error: orderError } = await supabase
 				.from("orders")
@@ -501,10 +562,10 @@ export default function POSPage() {
 						pager_number: pagerNumber,
 						pickup_code: orderNumber,
 						status: "new",
-						subtotal: total,
-						tax: 0,
+						subtotal: financialTotals.subtotal,
+						tax: financialTotals.tax,
 						discount: 0,
-						total,
+						total: financialTotals.total,
 						payment_method: paymentMethod,
 						payment_status: "paid",
 						created_by: staffId,
@@ -586,9 +647,9 @@ export default function POSPage() {
 				.insert([
 					{
 						order_id: orderData.id,
-						payment_method: paymentMethod,
-						amount_paid: paymentData.cashAmount || total,
-						amount_change: Math.max((paymentData.cashAmount || total) - total, 0),
+						payment_method: paymentTransactionMethod,
+						amount_paid: paymentData.cashAmount || financialTotals.total,
+						amount_change: Math.max((paymentData.cashAmount || financialTotals.total) - financialTotals.total, 0),
 						status: "success",
 						created_by: staffId,
 					},
@@ -614,7 +675,9 @@ export default function POSPage() {
 				resourceName: orderNumber,
 				newValue: {
 					order_number: orderNumber,
-					total,
+					total: financialTotals.total,
+					subtotal: financialTotals.subtotal,
+					tax: financialTotals.tax,
 					items_count: cart.length,
 					payment_method: paymentMethod,
 					fulfillment_method: fulfillmentMethod,
@@ -638,6 +701,8 @@ export default function POSPage() {
 			const errorMessage = getErrorMessage(error);
 			console.warn("Failed to place order detail:", error);
 			showError(`Failed to place order: ${errorMessage || "Unknown error"}`);
+		} finally {
+			setPlacingOrder(false);
 		}
 	};
 
@@ -645,6 +710,7 @@ export default function POSPage() {
 		...item,
 		variants: normalizeVariantRecord(item.variants),
 	}));
+	const financialTotals = calculateFinancialTotals();
 
 	return (
 		<main className="h-[calc(100vh-55px)] bg-gray-100 flex flex-col lg:flex-row overflow-hidden relative">
@@ -847,32 +913,42 @@ export default function POSPage() {
 							</div>
 
 							<div className="bg-white">
-								<PaymentSummary items={paymentSummaryItems} />
+								<PaymentSummary
+									items={paymentSummaryItems}
+									tax={financialTotals.tax}
+									taxLabel={financialSettings.taxLabel}
+									total={financialTotals.total}
+								/>
 							</div>
 						</>
 					)}
 
-					<div className="px-4 md:px-6 pb-6 md:pb-6">
-						<button
-							onClick={() => setPaymentModalOpen(true)}
-							disabled={cart.length === 0}
-							className="w-full py-4 rounded-xl bg-gray-900 hover:bg-black text-white font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
-							type="button"
-						>
-							<span className="flex items-center justify-center gap-2">
-								<ShoppingCartIcon className="w-5 h-5" />
-								Place Order
-							</span>
-						</button>
-					</div>
+					{!variantSidebarOpen ? (
+						<div className="px-4 md:px-6 pb-6 md:pb-6">
+							<button
+								onClick={() => setPaymentModalOpen(true)}
+								disabled={cart.length === 0}
+								className="w-full py-4 rounded-xl bg-gray-900 hover:bg-black text-white font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+								type="button"
+							>
+								<span className="flex items-center justify-center gap-2">
+									<ShoppingCartIcon className="w-5 h-5" />
+									Place Order
+								</span>
+							</button>
+						</div>
+					) : null}
 				</div>
 			</section>
 
 			<PaymentModal
 				isOpen={paymentModalOpen}
-				onClose={() => setPaymentModalOpen(false)}
+				onClose={() => {
+					if (!placingOrder) setPaymentModalOpen(false);
+				}}
 				onConfirm={handlePlaceOrder}
-				totalAmount={calculateTotal()}
+				totalAmount={financialTotals.total}
+				isSubmitting={placingOrder}
 			/>
 		</main>
 	);

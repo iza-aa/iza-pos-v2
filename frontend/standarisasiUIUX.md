@@ -39,4 +39,6 @@ PERATURAN STANDARISASI
 1. Clean code
 2. Menggunakan Component yang sudah ada, kalau belum ada dan kira kira bakal digunain lagi buat component baru di shared
 3. Clean structure
+4. Menggunakan full bahasa inggris
+5. Anda Boleh menulis komponen apa aja yang dibawah yang sudah terstandarisasi agar anda terus mengingatnya
 
