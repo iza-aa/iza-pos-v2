@@ -5,7 +5,6 @@ import { createBookkeepingSupabaseClient } from "@/lib/services/bookkeeping/book
 
 type CloseDailyRequest = {
   dateRange?: Partial<DateRangeValue>;
-  cashCounted?: number | string | null;
   notes?: string;
 };
 
@@ -41,14 +40,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Valid date range is required." }, { status: 400 });
   }
 
-  const cashCounted = body.cashCounted === null || body.cashCounted === undefined || body.cashCounted === ""
-    ? null
-    : Number(body.cashCounted);
-
-  if (cashCounted !== null && (!Number.isFinite(cashCounted) || cashCounted < 0)) {
-    return NextResponse.json({ error: "Cash counted must be a valid positive number." }, { status: 400 });
-  }
-
   try {
     const supabase = createBookkeepingSupabaseClient();
     const data = await loadBookkeepingDashboardDataFromClient(supabase, dateRange);
@@ -61,7 +52,7 @@ export async function POST(request: NextRequest) {
         .eq("status", "open"),
       supabase
         .from("bookkeeping_shift_closings")
-        .select("id, status, opening_cash, cash_expected, expected_drawer_cash, cash_counted, cash_to_deposit, closing_float")
+        .select("id, business_date, shift_id, status, opening_cash, cash_expected, expected_drawer_cash, cash_counted, cash_difference, cash_to_deposit, closing_float")
         .gte("business_date", dateRange.startDate)
         .lte("business_date", dateRange.endDate),
     ]);
@@ -76,11 +67,14 @@ export async function POST(request: NextRequest) {
     const unresolvedExceptionCount = Math.max(liveExceptionCount, storedExceptionCount);
     const storedShiftClosings = (storedShiftClosingsResult.data || []) as Array<{
       id: string;
+      business_date?: string | null;
+      shift_id?: string | null;
       status?: string | null;
       opening_cash?: number | string | null;
       cash_expected?: number | string | null;
       expected_drawer_cash?: number | string | null;
       cash_counted?: number | string | null;
+      cash_difference?: number | string | null;
       cash_to_deposit?: number | string | null;
       closing_float?: number | string | null;
     }>;
@@ -88,32 +82,84 @@ export async function POST(request: NextRequest) {
       const parsed = Number(value ?? 0);
       return Number.isFinite(parsed) ? parsed : 0;
     };
-    const shiftOpeningCashTotal = storedShiftClosings.reduce((sum, row) => sum + toNumber(row.opening_cash), 0);
-    const shiftCashSalesTotal = storedShiftClosings.reduce((sum, row) => sum + toNumber(row.cash_expected), 0);
-    const shiftExpectedDrawerCash = storedShiftClosings.reduce((sum, row) => {
-      const drawer = row.expected_drawer_cash === null || row.expected_drawer_cash === undefined
-        ? toNumber(row.opening_cash) + toNumber(row.cash_expected)
-        : toNumber(row.expected_drawer_cash);
+    const liveShiftByKey = new Map(data.shiftClosings.map((row) => [`${row.businessDate}:${row.id}`, row]));
+    const mergedShiftClosings = storedShiftClosings.map((row) => {
+      const businessDate = row.business_date || "";
+      const shiftId = row.shift_id || "";
+      const liveShift = liveShiftByKey.get(`${businessDate}:${shiftId}`);
+      const openingCash = toNumber(row.opening_cash);
+      const cashExpected = liveShift?.cashExpected ?? toNumber(row.cash_expected);
+      const expectedDrawerCash = openingCash + cashExpected;
+      const cashCounted = row.cash_counted === null || row.cash_counted === undefined
+        ? null
+        : toNumber(row.cash_counted);
+      const cashDifference = cashCounted === null ? null : cashCounted - expectedDrawerCash;
+      const closingFloat = toNumber(row.closing_float);
+      const status = row.status === "needs_review" && cashDifference === 0
+        ? "submitted"
+        : row.status;
+
+      return {
+        ...row,
+        status,
+        openingCash,
+        cashExpected,
+        expectedDrawerCash,
+        cashCounted,
+        cashDifference,
+        cashToDeposit: Math.max((cashCounted ?? expectedDrawerCash) - closingFloat, 0),
+        closingFloat,
+      };
+    });
+
+    const shiftOpeningCashTotal = mergedShiftClosings.reduce((sum, row) => sum + row.openingCash, 0);
+    const shiftCashSalesTotal = mergedShiftClosings.reduce((sum, row) => sum + row.cashExpected, 0);
+    const shiftExpectedDrawerCash = mergedShiftClosings.reduce((sum, row) => {
+      const drawer = row.expectedDrawerCash;
 
       return sum + drawer;
     }, 0);
-    const shiftCashToDeposit = storedShiftClosings.reduce((sum, row) => sum + toNumber(row.cash_to_deposit), 0);
-    const shiftClosingFloatTotal = storedShiftClosings.reduce((sum, row) => sum + toNumber(row.closing_float), 0);
-    const cashSalesTotal = storedShiftClosings.length > 0 ? shiftCashSalesTotal : data.summary.cashExpected;
-    const expectedDrawerCash = storedShiftClosings.length > 0 ? shiftExpectedDrawerCash : data.summary.expectedDrawerCash;
+    const shiftCashToDeposit = mergedShiftClosings.reduce((sum, row) => sum + row.cashToDeposit, 0);
+    const shiftClosingFloatTotal = mergedShiftClosings.reduce((sum, row) => sum + row.closingFloat, 0);
+    const shiftCashCountedTotal = mergedShiftClosings.reduce((sum, row) => sum + (row.cashCounted ?? 0), 0);
+    const cashSalesTotal = mergedShiftClosings.length > 0 ? shiftCashSalesTotal : data.summary.cashExpected;
+    const expectedDrawerCash = mergedShiftClosings.length > 0 ? shiftExpectedDrawerCash : data.summary.expectedDrawerCash;
+    const cashCounted = mergedShiftClosings.length > 0 ? shiftCashCountedTotal : null;
     const cashDifference = cashCounted === null ? null : cashCounted - expectedDrawerCash;
-    const hasShiftClosingRows = storedShiftClosings.length > 0;
-    const allShiftClosingsSubmitted = hasShiftClosingRows && storedShiftClosings.every((row) => (
+    const hasShiftClosingRows = mergedShiftClosings.length > 0;
+    const allShiftClosingsSubmitted = hasShiftClosingRows && mergedShiftClosings.every((row) => (
       (row.status === "submitted" || row.status === "closed") &&
-      row.cash_counted !== null &&
-      row.cash_counted !== undefined
+      row.cashCounted !== null &&
+      row.cashCounted !== undefined
     ));
-    const canClose =
-      cashCounted !== null &&
-      cashDifference === 0 &&
-      unresolvedExceptionCount === 0 &&
-      allShiftClosingsSubmitted;
-    const status = canClose ? "closed" : "needs_review";
+    const hasShiftReviewItems = mergedShiftClosings.some((row) => (
+      row.status === "needs_review" ||
+      row.status === "reopened" ||
+      (row.cashDifference ?? 0) !== 0
+    ));
+
+    if (!hasShiftClosingRows) {
+      return NextResponse.json(
+        { error: "No shift closing has been submitted for this period." },
+        { status: 409 },
+      );
+    }
+
+    if (!allShiftClosingsSubmitted) {
+      return NextResponse.json(
+        { error: "All shifts must submit counted cash before owner approval." },
+        { status: 409 },
+      );
+    }
+
+    if (hasShiftReviewItems || cashDifference !== 0 || unresolvedExceptionCount > 0) {
+      return NextResponse.json(
+        { error: "This closing still needs manager review before owner approval." },
+        { status: 409 },
+      );
+    }
+
+    const status = "closed";
 
     const payload = {
       business_date: dateRange.endDate,
@@ -134,7 +180,7 @@ export async function POST(request: NextRequest) {
       unresolved_exception_count: unresolvedExceptionCount,
       status,
       approved_by: requester.id,
-      approved_at: canClose ? new Date().toISOString() : null,
+      approved_at: new Date().toISOString(),
       notes: body.notes || null,
       snapshot_json: {
         dateRange,
@@ -146,6 +192,7 @@ export async function POST(request: NextRequest) {
         shiftClosingCheck: {
           hasShiftClosingRows,
           allShiftClosingsSubmitted,
+          hasShiftReviewItems,
         },
       },
       updated_at: new Date().toISOString(),
@@ -195,7 +242,7 @@ export async function POST(request: NextRequest) {
       previous_value: null,
       new_value: { dateRange, cashCounted, cashDifference, status },
       changes_summary: [`Daily closing status: ${status}`],
-      severity: canClose ? "info" : "warning",
+      severity: "info",
       tags: ["bookkeeping", "daily-closing"],
       notes: body.notes || null,
       is_reversible: false,

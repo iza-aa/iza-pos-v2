@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowPathIcon,
-  BanknotesIcon,
-  CheckCircleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   EyeSlashIcon,
@@ -82,16 +80,6 @@ const getJakartaDate = () => {
   }).format(new Date());
 };
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return "Hidden";
-
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
 const formatDate = (value: string) => {
   const [year, month, day] = value.split("-").map(Number);
 
@@ -120,13 +108,6 @@ const formatStatus = (value?: string | null) => {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
-};
-
-const getStatusClassName = (status?: string | null) => {
-  if (status === "submitted") return "border-green-200 bg-green-50 text-green-700";
-  if (status === "needs_review") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (status === "closed") return "border-blue-200 bg-blue-50 text-blue-700";
-  return "border-gray-200 bg-gray-50 text-gray-700";
 };
 
 const getSetupGuidance = (message: string) => {
@@ -161,33 +142,6 @@ const getSetupGuidance = (message: string) => {
     ],
   };
 };
-
-function SummaryCard({
-  label,
-  value,
-  description,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  description: string;
-  tone?: "neutral" | "success" | "warning" | "info";
-}) {
-  const toneClass = {
-    neutral: "border-gray-200 bg-white",
-    success: "border-green-200 bg-green-50",
-    warning: "border-amber-200 bg-amber-50",
-    info: "border-blue-200 bg-blue-50",
-  }[tone];
-
-  return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
-      <p className="text-xs font-bold uppercase tracking-normal text-gray-500">{label}</p>
-      <p className="mt-2 text-xl font-bold text-gray-950">{value}</p>
-      <p className="mt-2 text-sm leading-5 text-gray-600">{description}</p>
-    </div>
-  );
-}
 
 export default function StaffEndShiftPage() {
   const router = useRouter();
@@ -339,11 +293,6 @@ export default function StaffEndShiftPage() {
     }
   };
 
-  const closingStatus = data?.closing?.status || "draft";
-  const cashExpectedVisible = data?.closing?.cashExpected ?? data?.snapshot.cashExpected ?? null;
-  const expectedDrawerVisible = data?.closing?.expectedDrawerCash ?? data?.snapshot.expectedDrawerCash ?? null;
-  const cashDifference = data?.closing?.cashDifference ?? null;
-
   return (
     <main className="min-h-[calc(100vh-56px)] bg-gray-50">
       <section className="border-b border-gray-200 bg-white">
@@ -435,75 +384,22 @@ export default function StaffEndShiftPage() {
           </div>
         ) : data ? (
           <>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500">{formatDate(data.businessDate)}</p>
-                    <h2 className="mt-1 text-2xl font-bold text-gray-950">{data.shift.shiftName}</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {formatTime(data.shift.startTime)} - {formatTime(data.shift.endTime)} · {data.staff.name}
-                    </p>
-                  </div>
-
-                  <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold ${getStatusClassName(closingStatus)}`}>
-                    {formatStatus(closingStatus)}
-                  </span>
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-500">{formatDate(data.businessDate)}</p>
+                  <h2 className="mt-1 text-2xl font-bold text-gray-950">{data.shift.shiftName}</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {formatTime(data.shift.startTime)} - {formatTime(data.shift.endTime)} · {data.staff.name}
+                  </p>
                 </div>
 
-                <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <SummaryCard
-                    label="Net Sales"
-                    value={formatCurrency(data.snapshot.netSales)}
-                    description={`${data.snapshot.orderCount} paid order(s) in this shift.`}
-                    tone="info"
-                  />
-                  <SummaryCard
-                    label="Cash Sales"
-                    value={formatCurrency(cashExpectedVisible)}
-                    description={cashExpectedVisible === null ? "Hidden until cash count is submitted." : "Cash from paid cash orders."}
-                    tone={cashExpectedVisible === null ? "neutral" : "warning"}
-                  />
-                  <SummaryCard
-                    label="Expected Drawer"
-                    value={formatCurrency(expectedDrawerVisible)}
-                    description="Opening cash plus cash sales."
-                    tone={expectedDrawerVisible === null ? "neutral" : "info"}
-                  />
-                </div>
+                <span className="w-fit rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                  End Shift
+                </span>
+              </div>
 
-                <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <SummaryCard
-                    label="Opening Cash"
-                    value={formatCurrency(data.closing?.openingCash ?? data.snapshot.openingCash)}
-                    description="Drawer float prepared for this shift."
-                    tone="neutral"
-                  />
-                  <SummaryCard
-                    label="Cash Difference"
-                    value={cashDifference === null ? "-" : formatCurrency(cashDifference)}
-                    description="Counted cash minus expected drawer."
-                    tone={cashDifference === 0 ? "success" : cashDifference === null ? "neutral" : "warning"}
-                  />
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <BanknotesIcon className="h-5 w-5 text-gray-500" />
-                    <p className="mt-2 text-sm font-semibold text-gray-500">Cash Orders</p>
-                    <p className="mt-1 text-xl font-bold text-gray-950">{data.snapshot.cashOrderCount}</p>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <CheckCircleIcon className="h-5 w-5 text-gray-500" />
-                    <p className="mt-2 text-sm font-semibold text-gray-500">Non-Cash Orders</p>
-                    <p className="mt-1 text-xl font-bold text-gray-950">{data.snapshot.nonCashOrderCount}</p>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <ExclamationTriangleIcon className="h-5 w-5 text-gray-500" />
-                    <p className="mt-2 text-sm font-semibold text-gray-500">Cancelled Orders</p>
-                    <p className="mt-1 text-xl font-bold text-gray-950">{data.snapshot.cancelledCount}</p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="mt-5">
                 <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
                   <EyeSlashIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
                   <div>
@@ -554,8 +450,8 @@ export default function StaffEndShiftPage() {
                     Submit after your shift ends and before cash is mixed with the next shift drawer.
                   </p>
                 </div>
-              </section>
-            </div>
+              </div>
+            </section>
           </>
         ) : null}
       </section>

@@ -3,6 +3,7 @@ import {
   assertBookkeepingDatesAreOpen,
   createBookkeepingSupabaseClient,
 } from "@/lib/services/bookkeeping/bookkeepingServer";
+import { getJakartaTodayDate } from "@/lib/services/bookkeeping/bookkeepingDate";
 
 type UpdateExceptionRequest = {
   id?: string;
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       byId?.business_date ||
       bySourceId?.business_date ||
       body.exception?.businessDate ||
-      new Date().toISOString().slice(0, 10),
+      getJakartaTodayDate(),
     );
 
     await assertBookkeepingDatesAreOpen({
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase
         .from("bookkeeping_exceptions")
         .insert({
-          business_date: exception?.businessDate || new Date().toISOString().slice(0, 10),
+          business_date: exception?.businessDate || getJakartaTodayDate(),
           severity: exception?.severity || "medium",
           type: exception?.type || "Bookkeeping Exception",
           description: exception?.description || "Bookkeeping exception was reviewed from live dashboard data.",

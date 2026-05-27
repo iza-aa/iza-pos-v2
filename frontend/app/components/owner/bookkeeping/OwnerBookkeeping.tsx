@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArchiveBoxIcon,
-  BanknotesIcon,
   ChartPieIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
@@ -25,7 +24,6 @@ import type {
   BookkeepingException,
   ShiftClosingRow,
   BookkeepingTab,
-  ClosingSection,
 } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import OverviewTab from "./tabs/OverviewTab";
 import ClosingsTab from "./tabs/ClosingsTab";
@@ -46,12 +44,8 @@ const tabs = [
   {
     id: "closings" as const,
     label: "Closings",
-    description: "Shift & daily",
+    description: "Daily approval",
     icon: ClipboardDocumentCheckIcon,
-    children: [
-      { id: "shift" as const, label: "Shift Closing", icon: BanknotesIcon },
-      { id: "daily" as const, label: "Daily Closing", icon: DocumentChartBarIcon },
-    ],
   },
   {
     id: "ledger" as const,
@@ -95,14 +89,9 @@ const isBookkeepingTab = (value: string | null): value is BookkeepingTab => {
   return tabs.some((tab) => tab.id === value);
 };
 
-const isClosingSection = (value: string | null): value is ClosingSection => {
-  return value === "shift" || value === "daily";
-};
-
 type GenerateResult = {
   success?: boolean;
   error?: string;
-  entries?: { total: number; created: number; updated: number };
   exceptions?: { total: number; created: number; updated: number };
   shiftClosings?: { total: number; created: number; updated: number; skipped: number };
   reports?: { created: number };
@@ -114,14 +103,11 @@ export default function OwnerBookkeeping() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [data, setData] = useState<BookkeepingDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generatingLedger, setGeneratingLedger] = useState(false);
   const [savingAdjustment, setSavingAdjustment] = useState(false);
-  const [generatingShiftClosing, setGeneratingShiftClosing] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
   const [deletingExpenseId, setDeletingExpenseId] = useState("");
   const [updatingExceptionId, setUpdatingExceptionId] = useState("");
-  const [savingShiftCashId, setSavingShiftCashId] = useState("");
   const [reviewingShiftId, setReviewingShiftId] = useState("");
   const [closingDaily, setClosingDaily] = useState(false);
   const [reopeningDaily, setReopeningDaily] = useState(false);
@@ -133,10 +119,7 @@ export default function OwnerBookkeeping() {
     return isBookkeepingTab(tab) ? tab : "overview";
   }, [searchParams]);
 
-  const activeClosingSection = useMemo<ClosingSection>(() => {
-    const section = searchParams.get("section");
-    return isClosingSection(section) ? section : "shift";
-  }, [searchParams]);
+  const needsPeriodData = activeTab !== "settings";
 
   const loadData = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
     if (!quiet) setLoading(true);
@@ -190,12 +173,17 @@ export default function OwnerBookkeeping() {
   useEffect(() => {
     setError("");
     setNotice("");
-  }, [activeTab, activeClosingSection]);
+  }, [activeTab]);
 
   useEffect(() => {
     setNotice("");
+    if (!needsPeriodData) {
+      setLoading(false);
+      return;
+    }
+
     void loadData();
-  }, [loadData]);
+  }, [loadData, needsPeriodData]);
 
   const postGenerateRequest = async (url: string): Promise<GenerateResult> => {
     const currentUser = getCurrentUser();
@@ -220,29 +208,6 @@ export default function OwnerBookkeeping() {
     }
 
     return result;
-  };
-
-  const handleGenerateLedger = async () => {
-    setGeneratingLedger(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const result = await postGenerateRequest("/api/owner/bookkeeping/ledger/generate");
-      setNotice(
-        `Ledger generated: ${result.entries?.created ?? 0} created, ${result.entries?.updated ?? 0} updated, ${result.exceptions?.total ?? 0} exception(s) reviewed.`,
-      );
-      await loadData({ quiet: true });
-    } catch (generateError) {
-      console.error("Failed to generate bookkeeping ledger:", generateError);
-      setError(
-        generateError instanceof Error
-          ? generateError.message
-          : "Bookkeeping ledger could not be generated.",
-      );
-    } finally {
-      setGeneratingLedger(false);
-    }
   };
 
   const handleCreateAdjustment = async (form: {
@@ -296,34 +261,6 @@ export default function OwnerBookkeeping() {
       );
     } finally {
       setSavingAdjustment(false);
-    }
-  };
-
-  const handleGenerateShiftClosing = async () => {
-    setGeneratingShiftClosing(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const result = await postGenerateRequest("/api/owner/bookkeeping/closings/shift/generate");
-      const shiftClosings = result.shiftClosings;
-      const total = shiftClosings?.total ?? 0;
-
-      setNotice(
-        total === 0
-          ? "No shift closing was generated. Check whether the selected period has valid orders that match active shift hours."
-          : `Shift closing generated: ${shiftClosings?.created ?? 0} created, ${shiftClosings?.updated ?? 0} updated, ${shiftClosings?.skipped ?? 0} protected.`,
-      );
-      await loadData({ quiet: true });
-    } catch (generateError) {
-      console.error("Failed to generate shift closing:", generateError);
-      setError(
-        generateError instanceof Error
-          ? generateError.message
-          : "Shift closing draft could not be generated.",
-      );
-    } finally {
-      setGeneratingShiftClosing(false);
     }
   };
 
@@ -563,7 +500,7 @@ export default function OwnerBookkeeping() {
     }
   };
 
-  const handleCloseDaily = async (cashCounted: string, notes: string) => {
+  const handleCloseDaily = async (notes: string) => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
       setError("Owner access required.");
@@ -583,7 +520,7 @@ export default function OwnerBookkeeping() {
           "x-user-name": currentUser.name,
           "x-user-role": currentUser.role,
         },
-        body: JSON.stringify({ dateRange, cashCounted, notes }),
+        body: JSON.stringify({ dateRange, notes }),
       });
 
       const result = (await response.json().catch(() => ({}))) as {
@@ -608,85 +545,6 @@ export default function OwnerBookkeeping() {
       );
     } finally {
       setClosingDaily(false);
-    }
-  };
-
-  const handleSaveShiftCash = async (
-    row: ShiftClosingRow,
-    cashCounted: string,
-    cashDrawer: {
-      openingCash: string;
-      closingFloat: string;
-      floatPolicy: ShiftClosingRow["floatPolicy"];
-    },
-  ) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
-      return;
-    }
-
-    setSavingShiftCashId(row.id);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/closings/shift/cash", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
-        },
-        body: JSON.stringify({
-          businessDate: row.businessDate,
-          shiftId: row.id,
-          cashCounted,
-          openingCash: cashDrawer.openingCash,
-          closingFloat: cashDrawer.closingFloat,
-          floatPolicy: cashDrawer.floatPolicy,
-          shift: {
-            shiftName: row.shiftName,
-            openedAt: row.openedAt,
-            closedAt: row.closedAt,
-            grossSales: row.grossSales,
-            discountTotal: row.discountTotal,
-            netSales: row.netSales,
-            openingCash: row.openingCash,
-            cashExpected: row.cashExpected,
-            expectedDrawerCash: row.expectedDrawerCash,
-            cashToDeposit: row.cashToDeposit,
-            closingFloat: row.closingFloat,
-            floatPolicy: row.floatPolicy,
-            nonCashSales: row.nonCashSales,
-            cancelledCount: row.cancelledCount,
-            status: row.status,
-          },
-        }),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        status?: string;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Shift cash count could not be saved.");
-      }
-
-      setNotice(`Shift cash count saved as ${result.status}.`);
-      await loadData({ quiet: true });
-    } catch (saveError) {
-      console.error("Failed to save shift cash count:", saveError);
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Shift cash count could not be saved.",
-      );
-    } finally {
-      setSavingShiftCashId("");
     }
   };
 
@@ -794,15 +652,7 @@ export default function OwnerBookkeeping() {
   };
 
   const setActiveTab = (tab: BookkeepingTab) => {
-    router.push(
-      tab === "closings"
-        ? `/owner/bookkeeping?tab=closings&section=${activeClosingSection}`
-        : `/owner/bookkeeping?tab=${tab}`,
-    );
-  };
-
-  const setClosingSection = (section: ClosingSection) => {
-    router.push(`/owner/bookkeeping?tab=closings&section=${section}`);
+    router.push(`/owner/bookkeeping?tab=${tab}`);
   };
 
   const renderTab = () => {
@@ -812,17 +662,12 @@ export default function OwnerBookkeeping() {
       return (
         <ClosingsTab
           data={data}
-          activeSection={activeClosingSection}
-          generatingShiftClosing={generatingShiftClosing}
           closingDaily={closingDaily}
           reopeningDaily={reopeningDaily}
-          savingShiftCashId={savingShiftCashId}
           reviewingShiftId={reviewingShiftId}
-          onGenerateShiftClosing={handleGenerateShiftClosing}
-          onCloseDaily={handleCloseDaily}
+          onApproveDaily={handleCloseDaily}
           onReopenDaily={handleReopenDaily}
-          onSaveShiftCash={handleSaveShiftCash}
-          onReviewShiftClosing={handleReviewShiftClosing}
+          onRequestShiftReview={(row, note) => handleReviewShiftClosing(row, "reopen", note)}
         />
       );
     }
@@ -830,9 +675,7 @@ export default function OwnerBookkeeping() {
       return (
         <AutoLedgerTab
           data={data}
-          generating={generatingLedger}
           savingAdjustment={savingAdjustment}
-          onGenerate={handleGenerateLedger}
           onCreateAdjustment={handleCreateAdjustment}
         />
       );
@@ -879,9 +722,7 @@ export default function OwnerBookkeeping() {
           description="Automatic closing, ledger, margin, and reports."
           items={tabs}
           activeId={activeTab}
-          activeChildId={activeClosingSection}
           onSelect={setActiveTab}
-          onChildSelect={(_, section) => setClosingSection(section)}
           mobileOpenLabel="Open bookkeeping menu"
           mobileCloseLabel="Close bookkeeping menu"
         />
@@ -889,9 +730,11 @@ export default function OwnerBookkeeping() {
         <section className="flex min-w-0 flex-1 flex-col bg-gray-50">
           <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
             <div className="space-y-4">
-              <div className="grid grid-cols-1">
-                <DateRangeFilter value={dateRange} onChange={setDateRange} />
-              </div>
+              {needsPeriodData ? (
+                <div className="grid grid-cols-1">
+                  <DateRangeFilter value={dateRange} onChange={setDateRange} />
+                </div>
+              ) : null}
 
               {error ? (
                 <div className="rounded-2xl border border-[#F6C99F] bg-[#FFF1E6] p-4 text-sm font-semibold text-[#B45309]">
@@ -905,7 +748,7 @@ export default function OwnerBookkeeping() {
                 </div>
               ) : null}
 
-              {loading ? (
+              {needsPeriodData && loading ? (
                 <div className="rounded-2xl border border-gray-200 bg-white p-8 text-sm font-semibold text-gray-500 shadow-sm">
                   Loading bookkeeping data...
                 </div>

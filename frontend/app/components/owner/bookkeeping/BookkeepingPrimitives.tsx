@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { OWNER_SEMANTIC_TONES, type OwnerSemanticTone } from "@/lib/constants/theme";
+import { formatJakartaDisplayDateTime } from "@/lib/services/bookkeeping/bookkeepingDate";
 
 export const formatCurrency = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "Cost Data Needed";
@@ -20,18 +21,7 @@ export const formatNumber = (value: number) => {
 };
 
 export const formatDateTime = (value: string) => {
-  if (!value) return "-";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return date.toLocaleString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatJakartaDisplayDateTime(value);
 };
 
 export const formatLabel = (value: string) => {

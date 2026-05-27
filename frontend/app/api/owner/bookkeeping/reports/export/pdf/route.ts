@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { DateRangeValue } from "@/app/components/shared";
 import { loadBookkeepingDashboardDataFromClient } from "@/lib/services/bookkeeping/bookkeepingService";
+import { formatJakartaDisplayDateTime } from "@/lib/services/bookkeeping/bookkeepingDate";
 import { createBookkeepingSupabaseClient } from "@/lib/services/bookkeeping/bookkeepingServer";
 
 export const runtime = "nodejs";
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     doc.text("Bookkeeping Report", 40, 48);
     doc.setFontSize(10);
     doc.text(`Period: ${dateRange.startDate} to ${dateRange.endDate}`, 40, 66);
-    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 40, 82);
+    doc.text(`Generated: ${formatJakartaDisplayDateTime(new Date().toISOString())}`, 40, 82);
 
     autoTable(doc, {
       startY: 106,

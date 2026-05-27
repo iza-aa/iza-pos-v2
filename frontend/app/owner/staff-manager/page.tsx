@@ -25,6 +25,7 @@ import { POLLING_INTERVALS, TIMEOUT_DURATIONS } from "@/lib/constants";
 import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import type { Staff } from "@/lib/types";
+import { getCurrentUser } from "@/lib/utils";
 import {
   ClockIcon,
   MapPinIcon,
@@ -63,6 +64,12 @@ type StaffRecord = Staff & {
   pin_reset_at?: string | null;
   shift_id?: string | null;
   shift?: ShiftRecord | null;
+  weekly_shift_overrides?: WeeklyShiftOverride[];
+};
+
+type WeeklyShiftOverride = {
+  weekday: number;
+  shift_id: string;
 };
 
 type StaffInsert = {
@@ -788,11 +795,32 @@ export default function StaffManagerPage() {
     setSelectedStaff(null);
   };
 
-  const handleEdit = (id: string) => {
+  const handleEdit = async (id: string) => {
     const staff = staffList.find((item) => item.id === id);
 
     if (staff) {
-      setSelectedStaff(staff);
+      const currentUser = getCurrentUser();
+      const response = await fetch(`/api/owner/staff-manager/weekly-shifts?staffId=${id}`, {
+        headers: {
+          "x-user-id": currentUser?.id || currentStaffIdentity.id || "",
+          "x-user-name": currentUser?.name || currentStaffIdentity.name || "Owner",
+          "x-user-role": currentUser?.role || "owner",
+        },
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        data?: WeeklyShiftOverride[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        showError("Failed to load weekly shift schedule: " + (result.error || "Unknown error"));
+        return;
+      }
+
+      setSelectedStaff({
+        ...(staff as StaffRecord),
+        weekly_shift_overrides: result.data || [],
+      } as unknown as Staff);
       setShowEditModal(true);
     }
   };
@@ -826,6 +854,38 @@ export default function StaffManagerPage() {
 
     if (error) {
       showError("Failed to update staff: " + error.message);
+      return;
+    }
+
+    const weeklyOverrides = Array.isArray(staffToUpdate.weekly_shift_overrides)
+      ? staffToUpdate.weekly_shift_overrides
+      : [];
+
+    const currentUser = getCurrentUser();
+    const scheduleResponse = await fetch("/api/owner/staff-manager/weekly-shifts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": currentUser?.id || currentStaffIdentity.id || "",
+        "x-user-name": currentUser?.name || currentStaffIdentity.name || "Owner",
+        "x-user-role": currentUser?.role || "owner",
+      },
+      body: JSON.stringify({
+        staffId: staffToUpdate.id,
+        overrides: selectedShiftId
+          ? weeklyOverrides.map((override) => ({
+              weekday: override.weekday,
+              shiftId: override.shift_id,
+            }))
+          : [],
+      }),
+    });
+    const scheduleResult = (await scheduleResponse.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    if (!scheduleResponse.ok) {
+      showError("Failed to update weekly shift schedule: " + (scheduleResult.error || "Unknown error"));
       return;
     }
 

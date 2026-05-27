@@ -135,7 +135,16 @@ const mapEntryStatus = (status: BookkeepingEntryRow["status"]): BookkeepingEntry
   return "posted";
 };
 
+const extractOrderIdFromSource = (source: string) => {
+  return source.match(/order #([a-f0-9-]{20,})/i)?.[1] ?? null;
+};
+
 const getEntryMergeKey = (entry: BookkeepingEntry) => {
+  const orderIdFromSource = extractOrderIdFromSource(entry.source);
+  if (entry.type === "cogs_estimate" && orderIdFromSource) {
+    return `${entry.type}:orders:${orderIdFromSource}`;
+  }
+
   return `${entry.type}:${entry.sourceTable || ""}:${entry.sourceId || entry.id}`;
 };
 
@@ -171,6 +180,33 @@ const mergeShiftClosings = (
   storedRows.forEach((row) => {
     const key = getShiftMergeKey(row);
     const existing = merged.get(key);
+
+    if (existing) {
+      const cashCounted = row.cashCounted;
+      const expectedDrawerCash = row.openingCash + existing.cashExpected;
+      const cashDifference = cashCounted === null || cashCounted === undefined
+        ? null
+        : cashCounted - expectedDrawerCash;
+      const status = row.status === "needs_review" && cashDifference === 0
+        ? "submitted"
+        : row.status;
+
+      merged.set(key, {
+        ...existing,
+        openingCash: row.openingCash,
+        cashCounted,
+        closingFloat: row.closingFloat,
+        floatPolicy: row.floatPolicy,
+        expectedDrawerCash,
+        cashDifference,
+        cashToDeposit: Math.max(
+          (cashCounted ?? expectedDrawerCash) - row.closingFloat,
+          0,
+        ),
+        status,
+      });
+      return;
+    }
 
     if (
       row.status === "submitted" ||

@@ -30,6 +30,18 @@ const normalizeDateRange = (value: GenerateLedgerRequest["dateRange"]): DateRang
   return { startDate, endDate };
 };
 
+const extractOrderIdFromSource = (source: string) => {
+  return source.match(/order #([a-f0-9-]{20,})/i)?.[1] ?? null;
+};
+
+const getLedgerGroupKey = (entry: { sourceTable?: string; sourceId?: string; id: string; source: string }) => {
+  if (entry.sourceTable === "orders" && entry.sourceId) return `order:${entry.sourceId}`;
+  const orderIdFromSource = extractOrderIdFromSource(entry.source);
+  if (orderIdFromSource) return `order:${orderIdFromSource}`;
+  if (entry.sourceTable && entry.sourceId) return `${entry.sourceTable}:${entry.sourceId}`;
+  return entry.id;
+};
+
 async function logBookkeepingActivity({
   ownerId,
   ownerName,
@@ -121,6 +133,9 @@ export async function POST(request: NextRequest) {
       entries: {
         total: data.entries.length,
         ...entryResult,
+      },
+      groups: {
+        total: new Set(data.entries.map(getLedgerGroupKey)).size,
       },
       exceptions: {
         total: data.exceptions.length,

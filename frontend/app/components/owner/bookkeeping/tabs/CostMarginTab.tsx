@@ -33,7 +33,7 @@ export default function CostMarginTab({ data }: { data: BookkeepingDashboardData
     },
     {
       key: "estimatedCogs",
-      header: "Estimated COGS",
+      header: "Food Cost",
       render: (row) => {
         if (row.estimatedCogs !== null) return formatCurrency(row.estimatedCogs);
         return row.status === "recipe_needed" ? "Recipe Needed" : "Cost Data Needed";
@@ -67,9 +67,9 @@ export default function CostMarginTab({ data }: { data: BookkeepingDashboardData
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Estimated COGS"
+          label="Food Cost"
           value={formatCurrency(data.summary.estimatedCogs)}
-          description="Only shown when cost data is complete enough."
+          description="Uses actual inventory usage when available, otherwise recipe cost."
           tone={data.summary.estimatedCogs === null ? "warning" : "coffee"}
         />
         <MetricCard
@@ -94,7 +94,7 @@ export default function CostMarginTab({ data }: { data: BookkeepingDashboardData
 
       <StandardPanel
         title="Menu Profitability Table"
-        description="Revenue and estimated margin by menu. Profit is intentionally hidden when recipe or item cost data is incomplete."
+        description="Revenue and margin by menu. Profit is hidden when recipe or item cost data is incomplete."
       >
         <StandardTable
           columns={columns}

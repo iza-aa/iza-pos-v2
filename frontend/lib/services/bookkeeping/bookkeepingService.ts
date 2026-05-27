@@ -1,6 +1,13 @@
 import type { DateRangeValue } from "@/app/components/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/config/supabaseClient";
+import {
+  formatJakartaBusinessDate,
+  formatJakartaBusinessTime,
+  toJakartaDateTimeEnd,
+  toJakartaDateTimeStart,
+  toUtcDateOnly,
+} from "./bookkeepingDate";
 import type {
   BookkeepingDashboardData,
   BookkeepingEntry,
@@ -45,6 +52,9 @@ type ShiftRow = {
 
 type UsageTransactionRow = {
   id: string;
+  order_id?: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
   transaction_type?: string | null;
   type?: string | null;
   timestamp?: string | null;
@@ -108,18 +118,10 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const toDateTimeStart = (date: string) => `${date}T00:00:00`;
-const toDateTimeEnd = (date: string) => `${date}T23:59:59`;
-
-const formatBusinessDate = (timestamp?: string | null) => {
-  if (!timestamp) return "";
-  return timestamp.slice(0, 10);
-};
-
-const formatBusinessTime = (timestamp?: string | null) => {
-  if (!timestamp) return "";
-  return timestamp.slice(11, 19);
-};
+const toDateTimeStart = toJakartaDateTimeStart;
+const toDateTimeEnd = toJakartaDateTimeEnd;
+const formatBusinessDate = formatJakartaBusinessDate;
+const formatBusinessTime = formatJakartaBusinessTime;
 
 const isValidOrder = (order: OrderRow) => {
   const status = String(order.status || "").toLowerCase();
@@ -133,7 +135,7 @@ const isCancelledOrder = (order: OrderRow) => {
 };
 
 const isOrderInShift = (order: OrderRow, shift: ShiftRow) => {
-  const orderTime = formatBusinessTime(order.created_at);
+  const orderTime = formatBusinessTime(order.completed_at || order.created_at);
   const startTime = String(shift.start_time || "00:00").slice(0, 5);
   const endTime = String(shift.end_time || "23:59").slice(0, 5);
   const normalizedOrderTime = orderTime.slice(0, 5);
@@ -307,8 +309,10 @@ const createInventoryEntries = ({
 }): BookkeepingEntry[] => {
   const transactionById = new Map(transactions.map((transaction) => [transaction.id, transaction]));
   const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
-
-  const entriesByTransaction = new Map<string, BookkeepingEntry>();
+  const cogsByTransaction = new Map<string, {
+    amount: number;
+    hasMissingCost: boolean;
+  }>();
 
   details.forEach((detail) => {
     const transaction = transactionById.get(detail.usage_transaction_id || "");
@@ -320,23 +324,58 @@ const createInventoryEntries = ({
     const inventory = inventoryById.get(detail.inventory_item_id || "");
     const unitCost = getInventoryCost(inventory);
     const amount = unitCost * toNumber(detail.quantity_used);
-    const existing = entriesByTransaction.get(detail.usage_transaction_id || "");
+
+    const current = cogsByTransaction.get(transaction.id) || {
+      amount: 0,
+      hasMissingCost: false,
+    };
+
+    current.amount += amount;
+    current.hasMissingCost = current.hasMissingCost || amount <= 0;
+    cogsByTransaction.set(transaction.id, current);
+  });
+
+  const entriesBySource = new Map<string, BookkeepingEntry>();
+
+  cogsByTransaction.forEach((transactionCogs, transactionId) => {
+    const transaction = transactionById.get(transactionId);
+    if (!transaction) return;
+
+    const type = normalizeTransactionType(transaction);
+    if (type !== "sale" && type !== "restock") return;
+
+    const productKey = transaction.product_id || transaction.product_name || "unknown";
+    const sourceKey = type === "sale" && transaction.order_id
+      ? `sale:${transaction.order_id}:${productKey}`
+      : `${type}:${transactionId}`;
+    const existing = entriesBySource.get(sourceKey);
     const direction = type === "restock" ? "out" : "out";
     const entryType = type === "restock" ? "stock_purchase" : "cogs_estimate";
     const category = type === "restock" ? "Stock Purchase" : "COGS Estimate";
-    const status = amount > 0 ? "estimated" : "cost_data_needed";
+    const status = transactionCogs.hasMissingCost || transactionCogs.amount <= 0
+      ? "cost_data_needed"
+      : "estimated";
+    const dedupedAmount = type === "sale" && existing
+      ? Math.max(existing.amount, transactionCogs.amount)
+      : (existing?.amount || 0) + transactionCogs.amount;
 
-    entriesByTransaction.set(detail.usage_transaction_id || "", {
-      id: `${entryType}-${detail.usage_transaction_id}`,
+    entriesBySource.set(sourceKey, {
+      id: `${entryType}-${sourceKey}`,
       entryAt: getTransactionTimestamp(transaction),
       businessDate: formatBusinessDate(getTransactionTimestamp(transaction)),
       type: entryType,
       category,
-      source: transaction?.notes || (type === "restock" ? "Inventory Restock" : "Recipe Usage"),
-      sourceTable: "usage_transactions",
-      sourceId: detail.usage_transaction_id || undefined,
+      source: transaction?.notes || (type === "restock"
+        ? "Inventory Restock"
+        : transaction.order_id
+          ? `Auto-deduct from order #${transaction.order_id}`
+          : "Recipe Usage"),
+      sourceTable: type === "sale" && transaction.order_id ? "orders" : "usage_transactions",
+      sourceId: type === "sale" && transaction.order_id
+        ? transaction.order_id
+        : transactionId,
       direction,
-      amount: (existing?.amount || 0) + amount,
+      amount: dedupedAmount,
       status: existing?.status === "cost_data_needed" || status === "cost_data_needed"
         ? "cost_data_needed"
         : "estimated",
@@ -344,7 +383,95 @@ const createInventoryEntries = ({
     });
   });
 
-  return Array.from(entriesByTransaction.values());
+  return Array.from(entriesBySource.values());
+};
+
+const buildActualUsageCogsByProduct = ({
+  orders,
+  transactions,
+  details,
+  inventoryItems,
+}: {
+  orders: OrderRow[];
+  transactions: UsageTransactionRow[];
+  details: UsageDetailRow[];
+  inventoryItems: InventoryItemRow[];
+}) => {
+  const saleTransactions = transactions.filter((transaction) => normalizeTransactionType(transaction) === "sale");
+  const transactionById = new Map(saleTransactions.map((transaction) => [transaction.id, transaction]));
+  const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+  const singleProductKeyByOrderId = new Map<string, string>();
+  const cogsByProduct = new Map<string, number>();
+  const cogsByTransactionProduct = new Map<string, number>();
+  const cogsByOrderProduct = new Map<string, number>();
+  const cogsByUnlinkedTransaction = new Map<string, number>();
+  const orderIdsWithUsage = new Set<string>();
+
+  orders.forEach((order) => {
+    const productKeys = new Set(
+      (order.order_items || [])
+        .map((item) => item.product_id || item.product_name)
+        .filter((value): value is string => Boolean(value)),
+    );
+
+    if (productKeys.size === 1) {
+      singleProductKeyByOrderId.set(order.id, Array.from(productKeys)[0]);
+    }
+  });
+
+  details.forEach((detail) => {
+    const transaction = transactionById.get(detail.usage_transaction_id || "");
+    if (!transaction) return;
+
+    const productKey =
+      transaction.product_id ||
+      transaction.product_name ||
+      (transaction.order_id ? singleProductKeyByOrderId.get(transaction.order_id) : undefined);
+    if (!productKey) return;
+
+    const inventory = inventoryById.get(detail.inventory_item_id || "");
+    const amount = getInventoryCost(inventory) * toNumber(detail.quantity_used);
+
+    if (transaction.order_id) {
+      const transactionProductKey = `${transaction.id}:${transaction.order_id}:${productKey}`;
+      cogsByTransactionProduct.set(
+        transactionProductKey,
+        (cogsByTransactionProduct.get(transactionProductKey) ?? 0) + amount,
+      );
+      orderIdsWithUsage.add(transaction.order_id);
+      return;
+    }
+
+    cogsByUnlinkedTransaction.set(
+      transaction.id,
+      (cogsByUnlinkedTransaction.get(transaction.id) ?? 0) + amount,
+    );
+  });
+
+  cogsByTransactionProduct.forEach((amount, transactionProductKey) => {
+    const [, orderId, ...productParts] = transactionProductKey.split(":");
+    const productKey = productParts.join(":");
+    const orderProductKey = `${orderId}:${productKey}`;
+    cogsByOrderProduct.set(
+      orderProductKey,
+      Math.max(cogsByOrderProduct.get(orderProductKey) ?? 0, amount),
+    );
+  });
+
+  cogsByOrderProduct.forEach((amount, orderProductKey) => {
+    const productKey = orderProductKey.split(":").slice(1).join(":");
+    const current = cogsByProduct.get(productKey) ?? 0;
+    cogsByProduct.set(productKey, current + Math.max(amount, 0));
+  });
+
+  cogsByUnlinkedTransaction.forEach((amount, transactionId) => {
+    const transaction = transactionById.get(transactionId);
+    const productKey = transaction?.product_id || transaction?.product_name;
+    if (!productKey) return;
+    cogsByProduct.set(productKey, (cogsByProduct.get(productKey) ?? 0) + Math.max(amount, 0));
+  });
+
+  return { cogsByProduct, cogsByOrderProduct, orderIdsWithUsage };
 };
 
 const buildPaymentBreakdown = (orders: OrderRow[]): PaymentBreakdownRow[] => {
@@ -364,10 +491,12 @@ const buildPaymentBreakdown = (orders: OrderRow[]): PaymentBreakdownRow[] => {
 const buildMenuMargins = ({
   orders,
   cogsByProduct,
+  cogsByOrderProduct,
   recipeStatusByProduct,
 }: {
   orders: OrderRow[];
   cogsByProduct: Map<string, number>;
+  cogsByOrderProduct?: Map<string, number>;
   recipeStatusByProduct: Map<string, MenuMarginRow["status"]>;
 }): MenuMarginRow[] => {
   const productMap = new Map<string, MenuMarginRow>();
@@ -388,13 +517,18 @@ const buildMenuMargins = ({
 
       current.quantitySold += toNumber(item.quantity);
       current.revenue += toNumber(item.total_price);
+      current.estimatedCogs = (current.estimatedCogs ?? 0) + (
+        cogsByOrderProduct?.get(`${order.id}:${id}`) ?? 0
+      );
       productMap.set(id, current);
     });
   });
 
   return Array.from(productMap.values())
     .map((row) => {
-      const cogs = cogsByProduct.get(row.id) ?? null;
+      const cogs = row.estimatedCogs && row.estimatedCogs > 0
+        ? row.estimatedCogs
+        : cogsByProduct.get(row.id) ?? null;
       if (!cogs || cogs <= 0) {
         return {
           ...row,
@@ -420,11 +554,13 @@ const buildMenuMargins = ({
 
 const buildRecipeCostMaps = ({
   orders,
+  orderIdsWithActualUsage,
   recipes,
   recipeIngredients,
   inventoryItems,
 }: {
   orders: OrderRow[];
+  orderIdsWithActualUsage?: Set<string>;
   recipes: RecipeRow[];
   recipeIngredients: RecipeIngredientRow[];
   inventoryItems: InventoryItemRow[];
@@ -456,6 +592,8 @@ const buildRecipeCostMaps = ({
   const recipeStatusByProduct = new Map<string, MenuMarginRow["status"]>();
 
   orders.filter(isValidOrder).forEach((order) => {
+    if (orderIdsWithActualUsage?.has(order.id)) return;
+
     (order.order_items || []).forEach((item) => {
       const productKey = item.product_id || item.product_name || "unknown";
       const recipe =
@@ -631,10 +769,10 @@ export const buildShiftClosingsFromOrders = (
     return activeShifts
       .flatMap((shift) => {
         const rows: ShiftClosingRow[] = [];
-        const start = new Date(`${dateRange.startDate}T00:00:00`);
-        const end = new Date(`${dateRange.endDate}T00:00:00`);
+        const start = toUtcDateOnly(dateRange.startDate);
+        const end = toUtcDateOnly(dateRange.endDate);
 
-        for (let cursor = start; cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+        for (let cursor = start; cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
           const businessDate = cursor.toISOString().slice(0, 10);
           const key = `${businessDate}-${shift.id}`;
           const shiftValidOrders = validOrdersByShift.get(key) ?? [];
@@ -773,7 +911,7 @@ export async function loadBookkeepingDashboardDataFromClient(
         .order("created_at", { ascending: false }),
       db
         .from("usage_transactions")
-        .select("id, transaction_type, type, timestamp, created_at, notes")
+        .select("id, order_id, product_id, product_name, transaction_type, type, timestamp, created_at, notes")
         .gte("created_at", toDateTimeStart(dateRange.startDate))
         .lte("created_at", toDateTimeEnd(dateRange.endDate))
         .order("created_at", { ascending: false }),
@@ -865,13 +1003,30 @@ export async function loadBookkeepingDashboardDataFromClient(
   const cashToDeposit = cashExpected;
   const closingFloatTotal = 0;
 
-  const { cogsByProduct, recipeStatusByProduct } = buildRecipeCostMaps({
+  const actualUsageCogs = buildActualUsageCogsByProduct({
     orders,
+    transactions: usageTransactions,
+    details: usageDetails,
+    inventoryItems,
+  });
+  const { cogsByProduct: recipeCogsByProduct, recipeStatusByProduct } = buildRecipeCostMaps({
+    orders,
+    orderIdsWithActualUsage: actualUsageCogs.orderIdsWithUsage,
     recipes,
     recipeIngredients,
     inventoryItems,
   });
-  const menuMargins = buildMenuMargins({ orders, cogsByProduct, recipeStatusByProduct });
+  const cogsByProduct = new Map(recipeCogsByProduct);
+  actualUsageCogs.cogsByProduct.forEach((amount, productKey) => {
+    cogsByProduct.set(productKey, (cogsByProduct.get(productKey) ?? 0) + amount);
+    recipeStatusByProduct.set(productKey, "ready");
+  });
+  const menuMargins = buildMenuMargins({
+    orders,
+    cogsByProduct,
+    cogsByOrderProduct: actualUsageCogs.cogsByOrderProduct,
+    recipeStatusByProduct,
+  });
   const exceptions = buildExceptions({ orders, entries, menuMargins, dateRange, shifts });
   const recipeCogsEstimate = menuMargins.reduce(
     (sum, row) => sum + (row.estimatedCogs ?? 0),

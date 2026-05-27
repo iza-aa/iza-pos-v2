@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, status: "closed" });
     }
 
-    if (action === "reopen" && closingRow.status !== "closed") {
-      return NextResponse.json({ success: true, status: closingRow.status || "needs_review" });
-    }
-
-    const nextStatus = action === "approve" ? "closed" : "reopened";
+    const nextStatus = action === "approve"
+      ? "closed"
+      : closingRow.status === "closed"
+        ? "reopened"
+        : "needs_review";
     const nextNote = note
       ? `${closingRow.notes ? `${closingRow.notes}\n` : ""}Owner review: ${note}`
       : closingRow.notes;

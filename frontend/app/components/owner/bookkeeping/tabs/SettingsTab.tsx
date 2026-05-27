@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/utils";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
-import { StandardPanel, formatDateTime } from "../BookkeepingPrimitives";
+import { StandardPanel, formatCurrency, formatDateTime } from "../BookkeepingPrimitives";
 
 const emptySettings: BookkeepingFinancialSettings = {
   taxEnabled: false,
@@ -22,6 +22,10 @@ export default function SettingsTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const taxPreviewBase = 100000;
+  const taxPreview = settings.taxEnabled
+    ? taxPreviewBase * Math.max(Number(settings.taxRate) || 0, 0) / 100
+    : 0;
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -52,7 +56,10 @@ export default function SettingsTab() {
           throw new Error(result.error || "Settings could not be loaded.");
         }
 
-        setSettings(result.settings);
+        setSettings({
+          ...result.settings,
+          pricesIncludeTax: false,
+        });
       } catch (loadError) {
         console.error("Failed to load bookkeeping settings:", loadError);
         setError(loadError instanceof Error ? loadError.message : "Settings could not be loaded.");
@@ -84,7 +91,10 @@ export default function SettingsTab() {
           "x-user-name": currentUser.name,
           "x-user-role": currentUser.role,
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          pricesIncludeTax: false,
+        }),
       });
       const result = (await response.json().catch(() => ({}))) as {
         success?: boolean;
@@ -96,7 +106,10 @@ export default function SettingsTab() {
         throw new Error(result.error || "Settings could not be saved.");
       }
 
-      setSettings(result.settings);
+      setSettings({
+        ...result.settings,
+        pricesIncludeTax: false,
+      });
       setNotice("Financial settings saved.");
     } catch (saveError) {
       console.error("Failed to save bookkeeping settings:", saveError);
@@ -108,8 +121,8 @@ export default function SettingsTab() {
 
   return (
     <StandardPanel
-      title="Financial Settings"
-      description="Default tax and service charge rules for financial calculation."
+      title="Tax & Charge Settings"
+      description="Rules used by POS orders and bookkeeping reports. Tax is tracked separately from sales and expenses."
       action={
         <button
           type="button"
@@ -137,8 +150,10 @@ export default function SettingsTab() {
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-gray-950">Tax</h3>
-                <p className="mt-1 text-sm text-gray-500">PPN or local tax collected from customers.</p>
+                <h3 className="text-sm font-bold text-gray-950">Customer Tax</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Collected from customers and reported as tax payable, not operating expense.
+                </p>
               </div>
               <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
                 <input
@@ -156,19 +171,20 @@ export default function SettingsTab() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-gray-700">
-                Label
+                Tax Label
                 <input
                   type="text"
                   value={settings.taxLabel}
+                  disabled={!settings.taxEnabled}
                   onChange={(event) => setSettings((current) => ({
                     ...current,
                     taxLabel: event.target.value,
                   }))}
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </label>
               <label className="text-sm font-semibold text-gray-700">
-                Rate
+                Tax Rate
                 <div className="mt-2 flex h-11 overflow-hidden rounded-xl border border-gray-200 focus-within:border-gray-900">
                   <input
                     type="number"
@@ -176,29 +192,28 @@ export default function SettingsTab() {
                     max="100"
                     step="0.01"
                     value={settings.taxRate}
+                    disabled={!settings.taxEnabled}
                     onChange={(event) => setSettings((current) => ({
                       ...current,
                       taxRate: Number(event.target.value),
                     }))}
-                    className="min-w-0 flex-1 px-4 text-sm font-semibold text-gray-900 outline-none"
+                    className="min-w-0 flex-1 px-4 text-sm font-semibold text-gray-900 outline-none disabled:bg-gray-100 disabled:text-gray-400"
                   />
                   <span className="flex items-center border-l border-gray-200 px-3 text-sm font-bold text-gray-500">%</span>
                 </div>
               </label>
             </div>
 
-            <label className="flex items-center gap-3 text-sm font-semibold text-gray-700">
-              <input
-                type="checkbox"
-                checked={settings.pricesIncludeTax}
-                onChange={(event) => setSettings((current) => ({
-                  ...current,
-                  pricesIncludeTax: event.target.checked,
-                }))}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              Menu prices already include tax
-            </label>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+              <p className="font-bold text-gray-950">Preview</p>
+              <p className="mt-2">
+                On Rp 100.000 sales, {settings.taxLabel || "Tax"} collected is{" "}
+                <span className="font-bold text-gray-950">{formatCurrency(taxPreview)}</span>.
+              </p>
+              <p className="mt-1">
+                Report net sales excludes this tax so owner profit is not overstated.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-4">

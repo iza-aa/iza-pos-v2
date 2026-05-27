@@ -41,9 +41,9 @@ export default function OverviewTab({ data }: { data: BookkeepingDashboardData }
           tone="success"
         />
         <MetricCard
-          label="Estimated COGS"
+          label="Food Cost"
           value={formatCurrency(data.summary.estimatedCogs)}
-          description="Uses recipe and inventory cost when available."
+          description="Uses actual inventory usage when available."
           tone={data.summary.estimatedCogs === null ? "warning" : "coffee"}
         />
         <MetricCard
@@ -67,7 +67,7 @@ export default function OverviewTab({ data }: { data: BookkeepingDashboardData }
         <MetricCard
           label="Gross Profit"
           value={formatCurrency(data.summary.grossProfit)}
-          description="Net sales minus estimated COGS."
+          description="Net sales minus food cost."
           tone={data.summary.grossProfit === null ? "warning" : "success"}
         />
         <MetricCard

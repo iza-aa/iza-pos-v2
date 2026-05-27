@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getJakartaTodayDate } from "./bookkeepingDate";
 import type {
   BookkeepingDashboardData,
   BookkeepingEntry,
@@ -108,7 +109,7 @@ export async function saveGeneratedBookkeepingEntries({
     const sourceTable = entry.sourceTable || null;
     const sourceId = entry.sourceId || null;
     const basePayload = {
-      business_date: entry.businessDate || new Date().toISOString().slice(0, 10),
+      business_date: entry.businessDate || getJakartaTodayDate(),
       entry_at: entry.entryAt || new Date().toISOString(),
       type: entry.type,
       category: entry.category,
@@ -169,7 +170,7 @@ export async function saveGeneratedBookkeepingExceptions({
   let updated = 0;
 
   for (const exception of exceptions) {
-    const businessDate = exception.businessDate || new Date().toISOString().slice(0, 10);
+    const businessDate = exception.businessDate || getJakartaTodayDate();
     const payload = {
       business_date: businessDate,
       severity: exception.severity,

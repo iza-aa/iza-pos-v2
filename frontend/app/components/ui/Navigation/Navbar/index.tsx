@@ -50,6 +50,7 @@ const menuConfig = {
     { label: 'Dashboard', path: '/manager/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
     { label: 'Menu', path: '/manager/menu', icon: QueueListIcon, iconSolid: QueueListIconSolid },
     { label: 'Inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Closing', path: '/manager/bookkeeping', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
@@ -87,6 +88,7 @@ const ownerAccessMenu = {
   manager: [
     { label: 'Menu', path: '/manager/menu', icon: QueueListIcon, iconSolid: QueueListIconSolid },
     { label: 'Inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Closing', path: '/manager/bookkeeping', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],

@@ -1,5 +1,7 @@
 "use client";
 
+import { getJakartaTodayDate, toUtcDateOnly } from "@/lib/services/bookkeeping/bookkeepingDate";
+
 export type DateRangeValue = {
   startDate: string;
   endDate: string;
@@ -11,27 +13,26 @@ type DateRangePreset = {
   getValue: () => DateRangeValue;
 };
 
-const toDateInputValue = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const addDaysToDateValue = (dateValue: string, offset: number) => {
+  const date = toUtcDateOnly(dateValue);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return toDateInputValue(date);
 };
 
 const addDays = (offset: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return date;
+  return addDaysToDateValue(getJakartaTodayDate(), offset);
 };
 
 export const getTodayDateRange = (): DateRangeValue => {
-  const today = toDateInputValue(new Date());
+  const today = getJakartaTodayDate();
   return { startDate: today, endDate: today };
 };
 
 export const getLast7DateRange = (): DateRangeValue => ({
-  startDate: toDateInputValue(addDays(-6)),
-  endDate: toDateInputValue(new Date()),
+  startDate: addDays(-6),
+  endDate: getJakartaTodayDate(),
 });
 
 export const getDefaultDateRange = getTodayDateRange;
@@ -46,7 +47,7 @@ const presets: DateRangePreset[] = [
     id: "yesterday",
     label: "Yesterday",
     getValue: () => {
-      const yesterday = toDateInputValue(addDays(-1));
+      const yesterday = addDays(-1);
       return { startDate: yesterday, endDate: yesterday };
     },
   },
@@ -59,8 +60,8 @@ const presets: DateRangePreset[] = [
     id: "last30",
     label: "Last 30 Days",
     getValue: () => ({
-      startDate: toDateInputValue(addDays(-29)),
-      endDate: toDateInputValue(new Date()),
+      startDate: addDays(-29),
+      endDate: getJakartaTodayDate(),
     }),
   },
 ];

@@ -24,6 +24,7 @@ type LedgerGroup = {
   source: string;
   paymentMethod?: string;
   entries: BookkeepingEntry[];
+  duplicateKeys: Set<string>;
   moneyIn: number;
   moneyOut: number;
   neutral: number;
@@ -31,10 +32,34 @@ type LedgerGroup = {
   status: BookkeepingEntry["status"];
 };
 
+const extractOrderIdFromSource = (source: string) => {
+  return source.match(/order #([a-f0-9-]{20,})/i)?.[1] ?? null;
+};
+
 const getLedgerGroupKey = (entry: BookkeepingEntry) => {
   if (entry.sourceTable === "orders" && entry.sourceId) return `order:${entry.sourceId}`;
+  const orderIdFromSource = extractOrderIdFromSource(entry.source);
+  if (orderIdFromSource) return `order:${orderIdFromSource}`;
   if (entry.sourceTable && entry.sourceId) return `${entry.sourceTable}:${entry.sourceId}`;
   return entry.id;
+};
+
+const getGroupSourceLabel = (group: LedgerGroup) => {
+  const salesEntry = group.entries.find((entry) => entry.sourceTable === "orders");
+  if (salesEntry) return salesEntry.source;
+
+  const orderIdFromSource = group.entries
+    .map((entry) => extractOrderIdFromSource(entry.source))
+    .find(Boolean);
+
+  if (orderIdFromSource) return `Order ${orderIdFromSource}`;
+  return group.source;
+};
+
+const getEntryAmountClassName = (entry: BookkeepingEntry) => {
+  if (entry.direction === "in") return "text-green-700";
+  if (entry.direction === "out") return "text-red-700";
+  return "text-gray-600";
 };
 
 const getGroupStatus = (entries: BookkeepingEntry[]): BookkeepingEntry["status"] => {
@@ -46,15 +71,11 @@ const getGroupStatus = (entries: BookkeepingEntry[]): BookkeepingEntry["status"]
 
 export default function AutoLedgerTab({
   data,
-  generating = false,
   savingAdjustment = false,
-  onGenerate,
   onCreateAdjustment,
 }: {
   data: BookkeepingDashboardData;
-  generating?: boolean;
   savingAdjustment?: boolean;
-  onGenerate?: () => void;
   onCreateAdjustment?: (form: {
     businessDate: string;
     category: string;
@@ -86,6 +107,7 @@ export default function AutoLedgerTab({
         source: entry.source,
         paymentMethod: entry.paymentMethod,
         entries: [],
+        duplicateKeys: new Set<string>(),
         moneyIn: 0,
         moneyOut: 0,
         neutral: 0,
@@ -95,6 +117,24 @@ export default function AutoLedgerTab({
 
       current.entryAt = entry.entryAt > current.entryAt ? entry.entryAt : current.entryAt;
       current.paymentMethod = current.paymentMethod || entry.paymentMethod;
+      if (entry.sourceTable === "orders") current.source = entry.source;
+      const duplicateKey = [
+        entry.type,
+        entry.category,
+        entry.type === "cogs_estimate" ? "orders" : entry.sourceTable || "",
+        entry.type === "cogs_estimate"
+          ? extractOrderIdFromSource(entry.source) || entry.sourceId || ""
+          : entry.sourceId || extractOrderIdFromSource(entry.source) || "",
+        entry.amount,
+        entry.direction,
+      ].join(":");
+
+      if (current.duplicateKeys.has(duplicateKey)) {
+        groups.set(key, current);
+        return;
+      }
+
+      current.duplicateKeys.add(duplicateKey);
       current.entries.push(entry);
       if (entry.direction === "in") current.moneyIn += entry.amount;
       if (entry.direction === "out") current.moneyOut += entry.amount;
@@ -127,10 +167,20 @@ export default function AutoLedgerTab({
       header: "Source",
       render: (row) => (
         <div>
-          <p className="font-semibold text-gray-900">{row.source}</p>
-          <p className="mt-1 text-xs text-gray-500">
-            {row.entries.map((entry) => `${entry.category}: ${entry.direction === "out" ? "-" : ""}${formatCurrency(entry.amount)}`).join(" | ")}
-          </p>
+          <p className="font-semibold text-gray-900">{getGroupSourceLabel(row)}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {row.entries.map((entry) => (
+              <span
+                key={entry.id}
+                className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600"
+              >
+                {entry.category}:{" "}
+                <span className={getEntryAmountClassName(entry)}>
+                  {entry.direction === "out" ? "-" : ""}{formatCurrency(entry.amount)}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       ),
     },
@@ -138,17 +188,6 @@ export default function AutoLedgerTab({
       key: "paymentMethod",
       header: "Payment Method",
       render: (row) => <span className="capitalize">{row.paymentMethod || "-"}</span>,
-    },
-    {
-      key: "direction",
-      header: "Money In/Out",
-      render: (row) => (
-        <div className="space-y-1 text-sm">
-          <p className="font-semibold text-green-700">{formatCurrency(row.moneyIn)}</p>
-          <p className="font-semibold text-red-700">-{formatCurrency(row.moneyOut)}</p>
-        </div>
-      ),
-      sortValue: (row) => row.netImpact,
     },
     {
       key: "amount",
@@ -170,7 +209,7 @@ export default function AutoLedgerTab({
   return (
     <StandardPanel
       title="Auto Ledger"
-      description="Automatic journal view. Sales add money in, discounts and COGS reduce profit, and cancellations stay neutral until reviewed."
+      description="Automatic financial view from paid orders, inventory cost, expenses, and adjustments."
       action={
         <div className="flex flex-wrap gap-2">
           <button
@@ -181,21 +220,13 @@ export default function AutoLedgerTab({
           >
             Add Adjustment
           </button>
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={!onGenerate || generating}
-            className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-          >
-            {generating ? "Generating Ledger..." : "Generate Ledger"}
-          </button>
         </div>
       }
     >
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-600">
         {entrySummary
-          ? `Current ledger rows: ${entrySummary}. Click Generate Ledger to store the current calculated rows permanently.`
-          : "No ledger rows are available yet. Generate the ledger after orders, expenses, and recipe costs are ready."}
+          ? `Showing ${ledgerGroups.length} transaction group(s). Included movements: ${entrySummary}.`
+          : "No financial movement is available yet. Paid orders, expenses, and owner-approved adjustments will appear here automatically."}
       </div>
       <StandardTable
         columns={columns}

@@ -29,6 +29,12 @@ type StaffRecordValue = Staff & {
   password_hash?: string | null;
   must_change_pin?: boolean | null;
   shift_id?: string | null;
+  weekly_shift_overrides?: WeeklyShiftOverride[];
+};
+
+type WeeklyShiftOverride = {
+  weekday: number;
+  shift_id: string;
 };
 
 type StaffFormData = {
@@ -78,6 +84,16 @@ const STATUS_OPTIONS: Array<{
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
   { value: "on-leave", label: "On Leave" },
+];
+
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+  { value: 7, label: "Sunday" },
 ];
 
 const normalizeRole = (value: unknown): StaffRole => {
@@ -153,6 +169,7 @@ export default function EditStaffModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [weeklyShiftOverrides, setWeeklyShiftOverrides] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (!staff || !isOpen) return;
@@ -171,6 +188,14 @@ export default function EditStaffModal({
       shift_id: canUseShift ? currentShiftId ?? defaultShiftId : null,
       status: normalizeStatus(staffRecord.status),
     });
+    setWeeklyShiftOverrides(
+      (staffRecord.weekly_shift_overrides || []).reduce<Record<number, string>>((current, override) => {
+        if (override.weekday >= 1 && override.weekday <= 7 && override.shift_id) {
+          current[override.weekday] = override.shift_id;
+        }
+        return current;
+      }, {}),
+    );
 
     setError("");
     setLoading(false);
@@ -245,6 +270,14 @@ export default function EditStaffModal({
             ? normalizeStaffType(formData.staff_type, formData.role)
             : null,
         shift_id: selectedShiftId,
+        weekly_shift_overrides: canUseShift
+          ? Object.entries(weeklyShiftOverrides)
+              .filter(([, shiftId]) => Boolean(shiftId))
+              .map(([weekday, shiftId]) => ({
+                weekday: Number(weekday),
+                shift_id: shiftId,
+              }))
+          : [],
         status: formData.status,
       };
 
@@ -460,9 +493,116 @@ export default function EditStaffModal({
             </select>
 
             <p className="mt-2 text-xs text-gray-500">
-              Shift is used to determine on-time status, lateness, early leave, and overtime.
+              Default shift is used every day unless a weekly override below is set.
             </p>
           </div>
+
+          {canUseShift ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">Weekly Shift Override</p>
+                  <p className="mt-1 text-xs leading-5 text-gray-500">
+                    Optional. Add only weekdays that differ from the default Work Shift.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const usedDays = new Set(Object.keys(weeklyShiftOverrides).map(Number));
+                    const nextDay = WEEKDAY_OPTIONS.find((day) => !usedDays.has(day.value));
+                    const nextShiftId = activeShifts.find((shift) => shift.id !== (formData.shift_id ?? defaultShiftId))?.id
+                      ?? activeShifts[0]?.id
+                      ?? "";
+
+                    if (!nextDay || !nextShiftId) return;
+
+                    setWeeklyShiftOverrides((current) => ({
+                      ...current,
+                      [nextDay.value]: nextShiftId,
+                    }));
+                  }}
+                  disabled={loading || activeShifts.length === 0 || Object.keys(weeklyShiftOverrides).length >= WEEKDAY_OPTIONS.length}
+                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add Weekly Override
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {Object.entries(weeklyShiftOverrides).length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-xs font-semibold text-gray-500">
+                    No weekly override. This staff uses the default shift every day.
+                  </p>
+                ) : null}
+
+                {Object.entries(weeklyShiftOverrides)
+                  .sort(([left], [right]) => Number(left) - Number(right))
+                  .map(([weekday, shiftId]) => (
+                    <div key={weekday} className="grid grid-cols-1 gap-2 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto]">
+                      <select
+                        value={weekday}
+                        onChange={(event) => {
+                          const nextWeekday = Number(event.target.value);
+                          const currentWeekday = Number(weekday);
+                          setWeeklyShiftOverrides((current) => {
+                            const next = { ...current };
+                            const currentShiftId = next[currentWeekday];
+
+                            delete next[currentWeekday];
+                            next[nextWeekday] = currentShiftId;
+                            return next;
+                          });
+                        }}
+                        className="rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                        disabled={loading}
+                      >
+                        {WEEKDAY_OPTIONS.map((day) => (
+                          <option
+                            key={day.value}
+                            value={day.value}
+                            disabled={Boolean(weeklyShiftOverrides[day.value]) && day.value !== Number(weekday)}
+                          >
+                            {day.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={shiftId}
+                        onChange={(event) => {
+                          setWeeklyShiftOverrides((current) => ({
+                            ...current,
+                            [Number(weekday)]: event.target.value,
+                          }));
+                        }}
+                        className="rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                        disabled={loading || activeShifts.length === 0}
+                      >
+                        {activeShifts.map((shift) => (
+                          <option key={shift.id} value={shift.id}>
+                            {shift.shift_name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWeeklyShiftOverrides((current) => {
+                            const next = { ...current };
+                            delete next[Number(weekday)];
+                            return next;
+                          });
+                        }}
+                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                        disabled={loading}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
 
           {accessState.shouldShowAccess && (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">

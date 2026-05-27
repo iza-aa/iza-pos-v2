@@ -199,6 +199,21 @@ create table if not exists public.staff_shift_daily_assignments (
   unique (staff_id, work_date)
 );
 
+create table if not exists public.staff_shift_weekly_assignments (
+  id uuid primary key default gen_random_uuid(),
+  staff_id text not null,
+  weekday integer not null check (weekday between 1 and 7),
+  shift_id text not null,
+  status text not null default 'assigned' check (
+    status in ('assigned', 'cancelled')
+  ),
+  assigned_by text,
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (staff_id, weekday)
+);
+
 alter table public.bookkeeping_shift_closings
 add column if not exists opening_cash numeric not null default 0;
 
@@ -251,6 +266,9 @@ on public.staff_shift_daily_assignments(staff_id, work_date);
 create index if not exists staff_shift_daily_assignments_shift_date_idx
 on public.staff_shift_daily_assignments(shift_id, work_date);
 
+create index if not exists staff_shift_weekly_assignments_staff_weekday_idx
+on public.staff_shift_weekly_assignments(staff_id, weekday);
+
 alter table public.bookkeeping_entries enable row level security;
 alter table public.bookkeeping_shift_closings enable row level security;
 alter table public.bookkeeping_daily_closings enable row level security;
@@ -259,6 +277,7 @@ alter table public.bookkeeping_exceptions enable row level security;
 alter table public.bookkeeping_reports enable row level security;
 alter table public.bookkeeping_financial_settings enable row level security;
 alter table public.staff_shift_daily_assignments enable row level security;
+alter table public.staff_shift_weekly_assignments enable row level security;
 
 -- If the app still uses localStorage auth, sensitive writes should go through
 -- server API routes with service role checks. These policies are for future
@@ -272,6 +291,7 @@ drop policy if exists "owners can read bookkeeping exceptions" on public.bookkee
 drop policy if exists "owners can read bookkeeping reports" on public.bookkeeping_reports;
 drop policy if exists "owners can read bookkeeping financial settings" on public.bookkeeping_financial_settings;
 drop policy if exists "owners can read staff shift daily assignments" on public.staff_shift_daily_assignments;
+drop policy if exists "owners can read staff shift weekly assignments" on public.staff_shift_weekly_assignments;
 drop policy if exists "owners can write bookkeeping entries" on public.bookkeeping_entries;
 drop policy if exists "owners can update shift closings" on public.bookkeeping_shift_closings;
 drop policy if exists "owners can insert shift closings" on public.bookkeeping_shift_closings;
@@ -284,6 +304,15 @@ drop policy if exists "owners can insert bookkeeping exceptions" on public.bookk
 drop policy if exists "owners can write bookkeeping reports" on public.bookkeeping_reports;
 drop policy if exists "owners can write bookkeeping financial settings" on public.bookkeeping_financial_settings;
 drop policy if exists "owners can write staff shift daily assignments" on public.staff_shift_daily_assignments;
+drop policy if exists "owners can write staff shift weekly assignments" on public.staff_shift_weekly_assignments;
+drop policy if exists "managers can read operational bookkeeping closings" on public.bookkeeping_shift_closings;
+drop policy if exists "managers can write operational bookkeeping closings" on public.bookkeeping_shift_closings;
+drop policy if exists "staff can submit shift closings" on public.bookkeeping_shift_closings;
+drop policy if exists "staff can insert shift closings" on public.bookkeeping_shift_closings;
+drop policy if exists "staff can update shift closings" on public.bookkeeping_shift_closings;
+drop policy if exists "managers can write bookkeeping expenses" on public.bookkeeping_expenses;
+drop policy if exists "managers can write staff shift daily assignments" on public.staff_shift_daily_assignments;
+drop policy if exists "managers can write staff shift weekly assignments" on public.staff_shift_weekly_assignments;
 
 create policy "owners can read bookkeeping entries"
 on public.bookkeeping_entries
@@ -322,6 +351,11 @@ using (coalesce(auth.jwt() ->> 'user_role', '') = 'owner');
 
 create policy "owners can read staff shift daily assignments"
 on public.staff_shift_daily_assignments
+for select
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'owner');
+
+create policy "owners can read staff shift weekly assignments"
+on public.staff_shift_weekly_assignments
 for select
 using (coalesce(auth.jwt() ->> 'user_role', '') = 'owner');
 
@@ -395,5 +429,56 @@ on public.staff_shift_daily_assignments
 for all
 using (coalesce(auth.jwt() ->> 'user_role', '') = 'owner')
 with check (coalesce(auth.jwt() ->> 'user_role', '') = 'owner');
+
+create policy "owners can write staff shift weekly assignments"
+on public.staff_shift_weekly_assignments
+for all
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'owner')
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'owner');
+
+-- Operational closing ownership:
+-- managers prepare shift assignments, opening cash, and expenses;
+-- staff submit counted cash through End Shift;
+-- owners review the resulting daily closing/report.
+
+create policy "managers can read operational bookkeeping closings"
+on public.bookkeeping_shift_closings
+for select
+using (coalesce(auth.jwt() ->> 'user_role', '') in ('owner', 'manager'));
+
+create policy "managers can write operational bookkeeping closings"
+on public.bookkeeping_shift_closings
+for all
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'manager')
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'manager');
+
+create policy "staff can insert shift closings"
+on public.bookkeeping_shift_closings
+for insert
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'staff');
+
+create policy "staff can update shift closings"
+on public.bookkeeping_shift_closings
+for update
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'staff')
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'staff');
+
+create policy "managers can write bookkeeping expenses"
+on public.bookkeeping_expenses
+for all
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'manager')
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'manager');
+
+create policy "managers can write staff shift daily assignments"
+on public.staff_shift_daily_assignments
+for all
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'manager')
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'manager');
+
+create policy "managers can write staff shift weekly assignments"
+on public.staff_shift_weekly_assignments
+for all
+using (coalesce(auth.jwt() ->> 'user_role', '') = 'manager')
+with check (coalesce(auth.jwt() ->> 'user_role', '') = 'manager');
 
 notify pgrst, 'reload schema';

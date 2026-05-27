@@ -97,6 +97,14 @@ const loadAssignedShiftId = async ({
   staffId: string;
   supabase: ReturnType<typeof createBookkeepingSupabaseClient>;
 }) => {
+  const { data: weeklyData, error: weeklyError } = await supabase
+    .from("staff_shift_weekly_assignments")
+    .select("shift_id, status")
+    .eq("staff_id", staffId)
+    .eq("weekday", getIsoWeekday(businessDate))
+    .eq("status", "assigned")
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("staff_shift_daily_assignments")
     .select("shift_id, status")
@@ -106,6 +114,7 @@ const loadAssignedShiftId = async ({
     .maybeSingle();
 
   if (error) return fallbackShiftId || null;
+  if (!weeklyError && weeklyData?.shift_id) return String(weeklyData.shift_id);
   return String(data?.shift_id || fallbackShiftId || "") || null;
 };
 
@@ -142,6 +151,13 @@ const toMinutes = (value?: string | null) => {
 };
 
 const addMinutes = (value: number, minutes: number) => (value + minutes) % (24 * 60);
+const END_SHIFT_SUBMISSION_BUFFER_MINUTES = 6 * 60;
+
+const getIsoWeekday = (businessDate: string) => {
+  const [year, month, day] = businessDate.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return weekday === 0 ? 7 : weekday;
+};
 
 const isTimeInWindow = (time: number, start: number, end: number) => {
   if (start <= end) return time >= start && time <= end;
@@ -151,14 +167,17 @@ const isTimeInWindow = (time: number, start: number, end: number) => {
 const getShiftClosingWindow = (shift: ShiftRow) => {
   const start = toMinutes(shift.start_time) ?? 0;
   const end = toMinutes(shift.end_time) ?? (23 * 60 + 59);
-  const graceEnd = toMinutes(shift.check_out_grace_until) ?? addMinutes(end, 120);
+  const checkoutGraceEnd = toMinutes(shift.check_out_grace_until) ?? end;
+  const graceEnd = addMinutes(checkoutGraceEnd, END_SHIFT_SUBMISSION_BUFFER_MINUTES);
 
   return { start, end: graceEnd };
 };
 
 const getShiftWindowLabel = (shift: ShiftRow) => {
   const startTime = String(shift.start_time || "00:00").slice(0, 5);
-  const endTime = String(shift.check_out_grace_until || shift.end_time || "23:59").slice(0, 5);
+  const end = toMinutes(shift.check_out_grace_until || shift.end_time) ?? (23 * 60 + 59);
+  const extendedEnd = addMinutes(end, END_SHIFT_SUBMISSION_BUFFER_MINUTES);
+  const endTime = `${String(Math.floor(extendedEnd / 60)).padStart(2, "0")}:${String(extendedEnd % 60).padStart(2, "0")}`;
 
   return `${startTime} - ${endTime}`;
 };
@@ -186,12 +205,35 @@ const validateShiftClosingWindow = ({
   );
 };
 
-const toDateTimeStart = (date: string) => `${date}T00:00:00`;
-const toDateTimeEnd = (date: string) => `${date}T23:59:59`;
+const JAKARTA_UTC_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const toJakartaDateTime = (date: string, time: string) => {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute, second] = time.split(":").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second) - JAKARTA_UTC_OFFSET_MS).toISOString();
+};
+
+const toDateTimeStart = (date: string) => toJakartaDateTime(date, "00:00:00");
+const toDateTimeEnd = (date: string) => toJakartaDateTime(date, "23:59:59");
+
+const parseDatabaseTimestamp = (timestamp: string) => {
+  const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(timestamp);
+  return new Date(hasTimeZone ? timestamp : `${timestamp}Z`);
+};
 
 const formatBusinessTime = (timestamp?: string | null) => {
   if (!timestamp) return "";
-  return timestamp.slice(11, 19);
+
+  const date = parseDatabaseTimestamp(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp.slice(11, 19);
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
 };
 
 const isValidOrder = (order: OrderRow) => {
@@ -210,7 +252,7 @@ const isCashPayment = (order: OrderRow) => {
 };
 
 const isOrderInShift = (order: OrderRow, shift: ShiftRow) => {
-  const orderTime = formatBusinessTime(order.created_at).slice(0, 5);
+  const orderTime = formatBusinessTime(order.completed_at || order.created_at).slice(0, 5);
   const startTime = String(shift.start_time || "00:00").slice(0, 5);
   const endTime = String(shift.end_time || "23:59").slice(0, 5);
 
