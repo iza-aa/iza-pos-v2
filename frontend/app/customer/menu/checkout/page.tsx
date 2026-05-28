@@ -18,6 +18,7 @@ import {
   defaultFinancialSettings,
 } from "@/lib/services/bookkeeping/financialSettings";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
+import { showError } from "@/lib/services/errorHandling";
 
 interface CartItem {
   id: string;
@@ -304,8 +305,9 @@ export default function CustomerCheckoutPage() {
     () => calculateOrderFinancialTotals(
       cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
       financialSettings,
+      { orderType: isDineIn ? "Dine in" : "Take Away" },
     ),
-    [cart, financialSettings],
+    [cart, financialSettings, isDineIn],
   );
 
   const canSubmit = useMemo(() => {
@@ -376,6 +378,7 @@ export default function CustomerCheckoutPage() {
     pickupCode: string | null,
     totals: {
       subtotal: number;
+      serviceCharge: number;
       tax: number;
       total: number;
     },
@@ -433,12 +436,12 @@ export default function CustomerCheckoutPage() {
 
   const placeOrder = async () => {
     if (cart.length === 0) {
-      alert("Your cart is empty");
+      showError("Your cart is empty");
       return;
     }
 
     if (isTakeaway && !customerName.trim()) {
-      alert("Please enter your name for takeaway order");
+      showError("Please enter your name for takeaway order");
       return;
     }
 
@@ -462,9 +465,7 @@ export default function CustomerCheckoutPage() {
             error,
           );
 
-          alert(
-            "This table session is already active. Please refresh the page and try again.",
-          );
+          showError("This table session is already active. Please refresh the page and try again.");
           setIsSubmitting(false);
           return;
         }
@@ -506,7 +507,7 @@ export default function CustomerCheckoutPage() {
       setIsSubmitting(false);
     } catch (error) {
       console.error("Order error:", JSON.stringify(error, null, 2), error);
-      alert("Failed to create order. Please try again.");
+      showError("Failed to create order. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -542,7 +543,7 @@ export default function CustomerCheckoutPage() {
       router.push("/customer/track");
     } catch (error) {
       console.error("Payment confirmation error:", JSON.stringify(error, null, 2), error);
-      alert("Failed to confirm payment. Please try again.");
+      showError("Failed to confirm payment. Please try again.");
     }
   };
 
@@ -627,6 +628,7 @@ export default function CustomerCheckoutPage() {
 
         <OrderSummary
           subtotal={financialTotals.subtotal}
+          serviceCharge={financialTotals.serviceCharge}
           tax={financialTotals.tax}
           taxLabel={financialSettings.taxLabel}
           total={financialTotals.total}

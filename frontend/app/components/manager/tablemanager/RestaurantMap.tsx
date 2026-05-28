@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
+import { showError } from '@/lib/services/errorHandling';
 import TableCard from './TableCard';
 import QRCodeModal from './QRCodeModal';
 
@@ -234,7 +235,7 @@ export default function RestaurantMap({
     const status = table.status?.toLowerCase();
 
     if (status === 'occupied' || table.current_order_id) {
-      window.alert(
+      showError(
         `Table ${table.table_number} cannot be deleted because it is currently occupied or has an active order.`
       );
       return;
@@ -267,7 +268,7 @@ export default function RestaurantMap({
         error instanceof Error ? error.message : 'Failed to delete table.';
 
       console.error('Error deleting table:', error);
-      window.alert(message);
+      showError(message);
     }
   };
 

@@ -7,6 +7,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { QrCodeIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { showSuccess } from '@/lib/services/errorHandling';
 
 interface EditableTable {
   id: string;
@@ -236,7 +237,7 @@ export default function TableEditor({
         throw new Error('Failed to generate QR code.');
       }
 
-      window.alert('QR code generated successfully!');
+      showSuccess('QR code generated successfully.');
       onSave();
     } catch (error) {
       const message =

@@ -11,6 +11,7 @@ import {
   QrCodeIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
+import { showError } from '@/lib/services/errorHandling';
 import QRCodeModal from './QRCodeModal';
 
 interface Table {
@@ -95,7 +96,7 @@ export default function TableList({
 
   const handleDelete = async (table: Table) => {
     if (table.current_order_id) {
-      window.alert(
+      showError(
         `Table ${table.table_number} cannot be deleted because it has an active order.`
       );
       return;
@@ -126,7 +127,7 @@ export default function TableList({
         error instanceof Error ? error.message : 'Failed to delete table.';
 
       console.error('Error deleting table:', error);
-      window.alert(message);
+      showError(message);
     }
   };
 

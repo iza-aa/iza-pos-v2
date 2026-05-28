@@ -13,24 +13,40 @@ export const defaultFinancialSettings: BookkeepingFinancialSettings = {
 
 export type OrderFinancialTotals = {
   subtotal: number;
+  serviceCharge: number;
   tax: number;
   total: number;
 };
 
+type OrderFinancialOptions = {
+  orderType?: string | null;
+};
+
 const roundMoney = (value: number) => Math.round(value);
+
+const isDineInOrder = (orderType?: string | null) => {
+  return (orderType ?? "").trim().toLowerCase().replace(/[-_]/g, " ").includes("dine");
+};
 
 export function calculateOrderFinancialTotals(
   rawSubtotal: number,
   settings: BookkeepingFinancialSettings = defaultFinancialSettings,
+  options: OrderFinancialOptions = {},
 ): OrderFinancialTotals {
   const subtotal = Math.max(Number(rawSubtotal) || 0, 0);
   const taxRate = settings.taxEnabled ? Math.max(Number(settings.taxRate) || 0, 0) / 100 : 0;
+  const serviceChargeRate =
+    settings.serviceChargeEnabled && isDineInOrder(options.orderType)
+      ? Math.max(Number(settings.serviceChargeRate) || 0, 0) / 100
+      : 0;
+  const serviceCharge = roundMoney(subtotal * serviceChargeRate);
 
   if (taxRate <= 0) {
     return {
       subtotal: roundMoney(subtotal),
+      serviceCharge,
       tax: 0,
-      total: roundMoney(subtotal),
+      total: roundMoney(subtotal + serviceCharge),
     };
   }
 
@@ -40,8 +56,9 @@ export function calculateOrderFinancialTotals(
 
     return {
       subtotal: preTaxSubtotal,
+      serviceCharge,
       tax,
-      total: roundMoney(subtotal),
+      total: roundMoney(subtotal + serviceCharge),
     };
   }
 
@@ -49,7 +66,8 @@ export function calculateOrderFinancialTotals(
 
   return {
     subtotal: roundMoney(subtotal),
+    serviceCharge,
     tax,
-    total: roundMoney(subtotal + tax),
+    total: roundMoney(subtotal + serviceCharge + tax),
   };
 }

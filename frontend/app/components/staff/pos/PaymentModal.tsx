@@ -8,9 +8,10 @@ import {
   CreditCardIcon,
   QrCodeIcon,
   UserIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { StandardModal } from '@/app/components/shared';
 import { formatCurrency } from '@/lib/constants';
+import { showError } from '@/lib/services/errorHandling';
 
 type FulfillmentMethod = 'pager' | 'counter_pickup';
 type PaymentMethod = 'cash' | 'qris' | 'card';
@@ -77,12 +78,12 @@ export default function PaymentModal({
     const trimmedPagerNumber = pagerNumber.trim();
 
     if (fulfillmentMethod === 'pager' && !trimmedPagerNumber) {
-      window.alert('Nomor pager wajib diisi.');
+      showError('Nomor pager wajib diisi.');
       return;
     }
 
     if (paymentMethod === 'cash' && received < totalAmount) {
-      window.alert('Cash received must be greater than or equal to total amount.');
+      showError('Cash received must be greater than or equal to total amount.');
       return;
     }
 
@@ -144,28 +145,35 @@ export default function PaymentModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Complete Order</h2>
-            <p className="text-sm text-gray-500">
-              Confirm payment and choose how the customer will receive the order.
-            </p>
-          </div>
-
+    <StandardModal
+      isOpen={isOpen}
+      title="Complete Order"
+      description="Confirm payment and choose how the customer will receive the order."
+      maxWidthClassName="max-w-xl"
+      onClose={onClose}
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Close payment modal"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <XMarkIcon className="h-6 w-6" />
+            Cancel
           </button>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5">
+          <button
+            type="submit"
+            form="staff-pos-payment-form"
+            disabled={isSubmitting}
+            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSubmitting ? 'Creating Order...' : 'Confirm Order'}
+          </button>
+        </>
+      }
+    >
+        <form id="staff-pos-payment-form" onSubmit={handleSubmit} className="space-y-6">
           <section>
             <label className="mb-3 block text-sm font-semibold text-gray-800">
               Fulfillment Method
@@ -414,26 +422,7 @@ export default function PaymentModal({
             </div>
           </section>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
-            >
-              {isSubmitting ? 'Creating Order...' : 'Confirm Order'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </StandardModal>
   );
 }

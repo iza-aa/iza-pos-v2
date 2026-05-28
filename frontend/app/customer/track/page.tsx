@@ -18,6 +18,7 @@ import OrderProgressBar, {
   type OrderProgressStep,
 } from "@/app/components/customer/track/OrderProgressBar";
 import LoadingScreen from "@/app/components/customer/LoadingScreen";
+import { showInfo, showSuccess } from "@/lib/services/errorHandling";
 
 interface TableInfo {
   id: string;
@@ -560,9 +561,9 @@ function CustomerTrackContent() {
 
     try {
       await navigator.clipboard.writeText(trackingUrl);
-      alert("Tracking link copied.");
+      showSuccess("Tracking link copied.");
     } catch {
-      alert(trackingUrl);
+      showInfo(trackingUrl);
     }
   };
 

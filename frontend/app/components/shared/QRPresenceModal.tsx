@@ -8,6 +8,7 @@ import {
   ArrowDownTrayIcon,
   PrinterIcon
 } from '@heroicons/react/24/outline'
+import { showSuccess } from '@/lib/services/errorHandling'
 
 interface QRPresenceModalProps {
   isOpen: boolean
@@ -30,7 +31,7 @@ export default function QRPresenceModal({
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(presenceCode)
-    alert('Kode berhasil dicopy!')
+    showSuccess('Kode berhasil dicopy.')
   }
 
   const handleDownloadQR = () => {

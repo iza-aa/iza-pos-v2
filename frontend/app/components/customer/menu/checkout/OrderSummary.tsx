@@ -1,5 +1,7 @@
 interface OrderSummaryProps {
   subtotal: number;
+  serviceCharge?: number;
+  serviceChargeLabel?: string;
   tax?: number;
   taxLabel?: string;
   total?: number;
@@ -7,11 +9,13 @@ interface OrderSummaryProps {
 
 export default function OrderSummary({
   subtotal,
+  serviceCharge = 0,
+  serviceChargeLabel = "Service Charge",
   tax = 0,
   taxLabel = "Tax",
   total,
 }: OrderSummaryProps) {
-  const totalPayable = total ?? subtotal + tax;
+  const totalPayable = total ?? subtotal + serviceCharge + tax;
 
   return (
     <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -23,6 +27,14 @@ export default function OrderSummary({
             Rp {subtotal.toLocaleString('id-ID')}
           </span>
         </div>
+        {serviceCharge > 0 ? (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">{serviceChargeLabel}</span>
+            <span className="font-semibold text-gray-900">
+              Rp {serviceCharge.toLocaleString('id-ID')}
+            </span>
+          </div>
+        ) : null}
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">{taxLabel}</span>
           <span className="font-semibold text-gray-900">Rp {tax.toLocaleString('id-ID')}</span>

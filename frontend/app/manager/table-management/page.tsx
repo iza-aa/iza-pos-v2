@@ -14,6 +14,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/config/supabaseClient';
+import { showError, showSuccess } from '@/lib/services/errorHandling';
 import {
   FloorSelector,
   RestaurantMap,
@@ -128,7 +129,7 @@ export default function TableManagementPage() {
           .map((table) => table.table_number)
           .join(', ');
 
-        window.alert(
+        showError(
           `Floor cannot be deleted because there are active tables: ${busyTableNumbers}. Please complete or clear the active orders first.`
         );
 
@@ -165,7 +166,7 @@ export default function TableManagementPage() {
       setSelectedFloor(null);
       setRefreshKey((prev) => prev + 1);
 
-      window.alert('Floor deleted successfully.');
+      showSuccess('Floor deleted successfully.');
     } catch (error) {
       const message =
         error instanceof Error
@@ -173,7 +174,7 @@ export default function TableManagementPage() {
           : 'Unknown error while deleting floor.';
 
       console.error('Failed to delete floor:', error);
-      window.alert(`Failed to delete floor: ${message}`);
+      showError(`Failed to delete floor: ${message}`);
     } finally {
       setIsDeletingFloor(false);
     }

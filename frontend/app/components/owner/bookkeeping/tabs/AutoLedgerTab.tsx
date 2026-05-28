@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { StandardModal } from "@/app/components/shared";
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
 import type { BookkeepingDashboardData, BookkeepingEntry } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import {
@@ -235,26 +236,44 @@ export default function AutoLedgerTab({
         emptyLabel="No ledger movement in this period."
         minWidthClassName="min-w-[1080px]"
       />
-      {adjustmentOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-950">Manual Adjustment</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Use this for owner-approved corrections that need an audit trail.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAdjustmentOpen(false)}
-                className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <StandardModal
+        isOpen={adjustmentOpen}
+        title="Manual Adjustment"
+        description="Use this for owner-approved corrections that need an audit trail."
+        maxWidthClassName="max-w-2xl"
+        onClose={() => setAdjustmentOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setAdjustmentOpen(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onCreateAdjustment?.(adjustmentForm);
+                setAdjustmentOpen(false);
+              }}
+              disabled={
+                !onCreateAdjustment ||
+                savingAdjustment ||
+                !adjustmentForm.businessDate ||
+                !adjustmentForm.category.trim() ||
+                !adjustmentForm.amount ||
+                Number(adjustmentForm.amount) <= 0 ||
+                !adjustmentForm.note.trim()
+              }
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingAdjustment ? "Saving..." : "Save Adjustment"}
+            </button>
+          </>
+        }
+      >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="text-sm font-semibold text-gray-700">
                 Business Date
                 <input
@@ -349,38 +368,7 @@ export default function AutoLedgerTab({
                 />
               </label>
             </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAdjustmentOpen(false)}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:border-gray-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onCreateAdjustment?.(adjustmentForm);
-                  setAdjustmentOpen(false);
-                }}
-                disabled={
-                  !onCreateAdjustment ||
-                  savingAdjustment ||
-                  !adjustmentForm.businessDate ||
-                  !adjustmentForm.category.trim() ||
-                  !adjustmentForm.amount ||
-                  Number(adjustmentForm.amount) <= 0 ||
-                  !adjustmentForm.note.trim()
-                }
-                className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-              >
-                {savingAdjustment ? "Saving..." : "Save Adjustment"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      </StandardModal>
     </StandardPanel>
   );
 }

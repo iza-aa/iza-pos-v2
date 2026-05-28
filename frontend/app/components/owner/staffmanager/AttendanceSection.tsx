@@ -6,6 +6,7 @@ import { supabase } from "@/lib/config/supabaseClient";
 import StandardTable, {
   type StandardTableColumn,
 } from "@/app/components/shared/StandardTable";
+import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import {
   CalendarDaysIcon,
@@ -1009,7 +1010,7 @@ export default function AttendanceSection({
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert("Browser tidak mendukung fitur lokasi.");
+      showError("Browser tidak mendukung fitur lokasi.");
       return;
     }
 
@@ -1030,7 +1031,7 @@ export default function AttendanceSection({
             ? "Location permission was denied. Enable browser location permission first."
             : "Failed to get location. Make sure GPS is active and try again.";
 
-        alert(errorMessage);
+        showError(errorMessage);
         setLocationLoading(false);
       },
       {
@@ -1043,7 +1044,7 @@ export default function AttendanceSection({
 
   const handleSaveStoreSettings = async () => {
     if (!isValidStoreSettingsForm(storeFormData)) {
-      alert(
+      showError(
         "Pengaturan lokasi belum valid. Pastikan nama cafe, latitude, longitude, dan radius sudah benar.",
       );
       return;
@@ -1079,11 +1080,11 @@ export default function AttendanceSection({
       }
 
       await fetchAttendanceData(true);
-      alert("Cafe location saved.");
+      showSuccess("Cafe location saved.");
     } catch (error) {
       const message = getErrorMessage(error, "Failed to save cafe location.");
 
-      alert(message);
+      showError(message);
     } finally {
       setStoreLoading(false);
     }
@@ -1091,7 +1092,7 @@ export default function AttendanceSection({
 
   const handleSaveShift = async () => {
     if (!isValidShiftForm(shiftFormData)) {
-      alert(
+      showError(
         "Shift data is not valid. Make sure the shift name is filled, the clock-in grace time is not earlier than the start time, and the clock-out grace time is not earlier than the end time.",
       );
       return;
@@ -1133,7 +1134,7 @@ export default function AttendanceSection({
     } catch (error) {
       const message = getErrorMessage(error, "Failed to save shift.");
 
-      alert(message);
+      showError(message);
     } finally {
       setShiftLoading(false);
     }
@@ -1167,7 +1168,7 @@ export default function AttendanceSection({
     } catch (error) {
       const message = getErrorMessage(error, "Failed to update shift status.");
 
-      alert(message);
+      showError(message);
     } finally {
       setShiftLoading(false);
     }
@@ -1199,7 +1200,7 @@ export default function AttendanceSection({
     } catch (error) {
       const message = getErrorMessage(error, "Failed to delete shift.");
 
-      alert(message);
+      showError(message);
     } finally {
       setShiftLoading(false);
     }

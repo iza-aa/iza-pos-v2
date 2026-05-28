@@ -32,7 +32,7 @@ import {
 	IceCream,
 	type LucideIcon,
 } from "lucide-react";
-import { showError } from "@/lib/services/errorHandling";
+import { showError, showSuccess } from "@/lib/services/errorHandling";
 import {
 	calculateOrderFinancialTotals,
 	defaultFinancialSettings,
@@ -503,7 +503,9 @@ export default function POSPage() {
 	};
 
 	const calculateFinancialTotals = () => {
-		return calculateOrderFinancialTotals(calculateTotal(), financialSettings);
+		return calculateOrderFinancialTotals(calculateTotal(), financialSettings, {
+			orderType: "Dine in",
+		});
 	};
 
 	const handlePlaceOrder = async (paymentData: PaymentConfirmData) => {
@@ -677,6 +679,7 @@ export default function POSPage() {
 					order_number: orderNumber,
 					total: financialTotals.total,
 					subtotal: financialTotals.subtotal,
+					service_charge: financialTotals.serviceCharge,
 					tax: financialTotals.tax,
 					items_count: cart.length,
 					payment_method: paymentMethod,
@@ -693,7 +696,7 @@ export default function POSPage() {
 					? `Pager ${pagerNumber}`
 					: `Pickup ${orderNumber}`;
 
-			alert(`Order ${orderNumber} placed successfully! (${fulfillmentLabel})`);
+			showSuccess(`Order ${orderNumber} placed successfully. ${fulfillmentLabel}.`);
 			setCart([]);
 			setPaymentModalOpen(false);
 			setOrderDetailsOpen(true);
@@ -915,6 +918,7 @@ export default function POSPage() {
 							<div className="bg-white">
 								<PaymentSummary
 									items={paymentSummaryItems}
+									serviceCharge={financialTotals.serviceCharge}
 									tax={financialTotals.tax}
 									taxLabel={financialSettings.taxLabel}
 									total={financialTotals.total}

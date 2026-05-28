@@ -92,7 +92,7 @@ const ownerAccessMenu = {
   ],
   staff: [
     { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
-    { label: 'End Shift', path: '/staff/end-shift', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
+    { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
     { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Kitchen', path: '/staff/kitchen', icon: FireIcon, iconSolid: FireIconSolid },
   ],

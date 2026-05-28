@@ -17,6 +17,7 @@ import {
   ShoppingBagIcon as ShoppingBagIconSolid,
 } from "@heroicons/react/24/solid";
 import RewardPromptTab from "@/app/components/customer/reward/RewardPromptTab";
+import { Toast as ToastContainer } from "@/app/components/ui";
 import {
   type CustomerAccountSession,
   getStoredCustomerAccount,
@@ -130,7 +131,12 @@ export default function CustomerLayout({
   }, [customerAccount]);
 
   if (!isClient || shouldHideCustomerNavigation(pathname)) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        <ToastContainer />
+      </>
+    );
   }
 
 
@@ -227,6 +233,7 @@ export default function CustomerLayout({
       </nav>
 
       {!customerAccount ? <RewardPromptTab /> : null}
+      <ToastContainer />
     </div>
   );
 }

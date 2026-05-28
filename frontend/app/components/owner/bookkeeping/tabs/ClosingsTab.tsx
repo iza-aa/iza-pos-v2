@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { StandardModal } from "@/app/components/shared";
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
 import type {
   BookkeepingDashboardData,
@@ -293,26 +294,40 @@ export default function ClosingsTab({
         </div>
       </StandardPanel>
 
-      {reviewModalRow ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-950">Request Manager Review</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {reviewModalRow.shiftName} - {reviewModalRow.businessDate}
-                </p>
-              </div>
+      <StandardModal
+        isOpen={Boolean(reviewModalRow)}
+        title="Request Manager Review"
+        description={reviewModalRow ? `${reviewModalRow.shiftName} - ${reviewModalRow.businessDate}` : undefined}
+        maxWidthClassName="max-w-lg"
+        onClose={() => setReviewModalRow(null)}
+        footer={
+          reviewModalRow ? (
+            <>
               <button
                 type="button"
                 onClick={() => setReviewModalRow(null)}
-                className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
               >
-                Close
+                Cancel
               </button>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm md:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => {
+                  onRequestShiftReview?.(reviewModalRow, reviewNote);
+                  setReviewModalRow(null);
+                }}
+                disabled={!onRequestShiftReview || reviewingShiftId === reviewModalRow.id}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {reviewingShiftId === reviewModalRow.id ? "Sending..." : "Send Review Request"}
+              </button>
+            </>
+          ) : null
+        }
+      >
+        {reviewModalRow ? (
+          <>
+            <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm md:grid-cols-3">
               <div>
                 <p className="font-semibold text-gray-500">Expected</p>
                 <p className="mt-1 font-bold text-gray-950">{formatCurrency(reviewModalRow.expectedDrawerCash)}</p>
@@ -344,30 +359,9 @@ export default function ClosingsTab({
                 autoFocus
               />
             </label>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReviewModalRow(null)}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:border-gray-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRequestShiftReview?.(reviewModalRow, reviewNote);
-                  setReviewModalRow(null);
-                }}
-                disabled={!onRequestShiftReview || reviewingShiftId === reviewModalRow.id}
-                className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-              >
-                {reviewingShiftId === reviewModalRow.id ? "Sending..." : "Send Review Request"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </StandardModal>
     </div>
   );
 }

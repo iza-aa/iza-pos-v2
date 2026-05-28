@@ -10,6 +10,7 @@ import {
   PrinterIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { showError, showSuccess } from '@/lib/services/errorHandling';
 
 interface QRCodeTable {
   table_number: string;
@@ -38,7 +39,7 @@ export default function QRCodeModal({
 
   const handleDownload = () => {
     if (!qrImageUrl) {
-      window.alert('QR image is not available.');
+      showError('QR image is not available.');
       return;
     }
 
@@ -56,15 +57,15 @@ export default function QRCodeModal({
 
   const handleCopyUrl = async () => {
     if (!customerUrl) {
-      window.alert('Customer URL is not available.');
+      showError('Customer URL is not available.');
       return;
     }
 
     try {
       await navigator.clipboard.writeText(customerUrl);
-      window.alert('URL copied to clipboard.');
+      showSuccess('URL copied to clipboard.');
     } catch {
-      window.alert('Failed to copy URL.');
+      showError('Failed to copy URL.');
     }
   };
 

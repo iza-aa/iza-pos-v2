@@ -5,96 +5,97 @@
  * Automatically dismisses after duration or manually via close button
  */
 
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { 
-  CheckCircleIcon, 
-  XCircleIcon, 
+import { useEffect, useRef, useState } from "react";
+import {
+  CheckCircleIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  XMarkIcon 
-} from '@heroicons/react/24/outline'
-import { subscribeToToasts, type ToastOptions } from '@/lib/services/errorHandling'
+  XCircleIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
+import { subscribeToToasts, type ToastOptions } from "@/lib/services/errorHandling";
 
 interface Toast extends ToastOptions {
   id: number
 }
 
 export default function ToastContainer() {
-  const [toasts, setToasts] = useState<Toast[]>([])
-  let nextId = 0
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const nextIdRef = useRef(0);
 
   useEffect(() => {
     const unsubscribe = subscribeToToasts((options) => {
       const toast: Toast = {
         ...options,
-        id: nextId++
-      }
-      
-      setToasts(prev => [...prev, toast])
-      
-      // Auto dismiss after duration
+        id: nextIdRef.current,
+      };
+
+      nextIdRef.current += 1;
+      setToasts((prev) => [...prev, toast].slice(-4));
+
       if (options.duration !== undefined && options.duration > 0) {
         setTimeout(() => {
-          dismissToast(toast.id)
-        }, options.duration)
+          dismissToast(toast.id);
+        }, options.duration);
       }
-    })
-    
-    return unsubscribe
-  }, [])
+    });
+
+    return unsubscribe;
+  }, []);
 
   const dismissToast = (id: number) => {
-    setToasts(prev => prev.filter(t => t.id !== id))
-  }
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
 
   const getIcon = (type: ToastOptions['type']) => {
-    const iconClass = 'w-5 h-5 flex-shrink-0'
-    
+    const iconClass = "h-5 w-5 shrink-0";
+
     switch (type) {
-      case 'success':
-        return <CheckCircleIcon className={`${iconClass} text-green-500`} />
-      case 'error':
-        return <XCircleIcon className={`${iconClass} text-red-500`} />
-      case 'warning':
-        return <ExclamationTriangleIcon className={`${iconClass} text-yellow-500`} />
-      case 'info':
-        return <InformationCircleIcon className={`${iconClass} text-blue-500`} />
+      case "success":
+        return <CheckCircleIcon className={`${iconClass} text-[#2F7D50]`} />;
+      case "error":
+        return <XCircleIcon className={`${iconClass} text-[#BE123C]`} />;
+      case "warning":
+        return <ExclamationTriangleIcon className={`${iconClass} text-[#B45309]`} />;
+      case "info":
+        return <InformationCircleIcon className={`${iconClass} text-[#2563EB]`} />;
     }
-  }
+  };
 
   const getColorClasses = (type: ToastOptions['type']) => {
     switch (type) {
-      case 'success':
-        return 'bg-green-50 border-green-200'
-      case 'error':
-        return 'bg-red-50 border-red-200'
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-200'
-      case 'info':
-        return 'bg-blue-50 border-blue-200'
+      case "success":
+        return OWNER_SEMANTIC_TONES.success.badgeClass;
+      case "error":
+        return OWNER_SEMANTIC_TONES.danger.badgeClass;
+      case "warning":
+        return OWNER_SEMANTIC_TONES.warning.badgeClass;
+      case "info":
+        return OWNER_SEMANTIC_TONES.info.badgeClass;
     }
-  }
+  };
 
   const getPositionClasses = (position: ToastOptions['position']) => {
     switch (position) {
-      case 'top-right':
-        return 'top-4 right-4'
-      case 'top-center':
-        return 'top-4 left-1/2 -translate-x-1/2'
-      case 'top-left':
-        return 'top-4 left-4'
-      case 'bottom-right':
-        return 'bottom-4 right-4'
-      case 'bottom-center':
-        return 'bottom-4 left-1/2 -translate-x-1/2'
-      case 'bottom-left':
-        return 'bottom-4 left-4'
+      case "top-right":
+        return "right-4 top-4";
+      case "top-center":
+        return "left-1/2 top-4 -translate-x-1/2";
+      case "top-left":
+        return "left-4 top-4";
+      case "bottom-right":
+        return "bottom-4 right-4";
+      case "bottom-center":
+        return "bottom-4 left-1/2 -translate-x-1/2";
+      case "bottom-left":
+        return "bottom-4 left-4";
       default:
-        return 'top-4 right-4'
+        return "right-4 top-4";
     }
-  }
+  };
 
   return (
     <div className="fixed z-[100] pointer-events-none">
@@ -109,24 +110,24 @@ export default function ToastContainer() {
           <div
             className={`
               ${getColorClasses(toast.type)}
-              border rounded-lg shadow-lg p-4 mb-3
-              max-w-sm w-full flex items-start gap-3
+              mb-3 flex w-[calc(100vw-2rem)] max-w-sm items-start gap-3
+              rounded-lg border p-4 shadow-lg
               transition-all duration-300
             `}
           >
             {getIcon(toast.type)}
-            
-            <p className="flex-1 text-sm text-gray-800 whitespace-pre-line">
+
+            <p className="flex-1 whitespace-pre-line text-sm font-semibold leading-5">
               {toast.message}
             </p>
-            
+
             {toast.dismissible && (
               <button
                 onClick={() => dismissToast(toast.id)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-current opacity-60 transition hover:opacity-100"
                 aria-label="Close"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <XMarkIcon className="h-5 w-5" />
               </button>
             )}
           </div>
@@ -150,5 +151,5 @@ export default function ToastContainer() {
         }
       `}</style>
     </div>
-  )
+  );
 }

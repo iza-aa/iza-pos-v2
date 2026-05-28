@@ -33,6 +33,46 @@ STANDARISASI DATE FILTER
 1. Menggunakan DateRangeFilter.tsx
 2. Di default ke Today
 
+STANDARISASI TOAST
+1. Menggunakan `showSuccess`, `showError`, `showWarning`, `showInfo` dari `@/lib/services/errorHandling`.
+2. Visual toast wajib mengikuti `OWNER_SEMANTIC_TONES`:
+   - success -> `success`
+   - error -> `danger`
+   - warning -> `warning`
+   - info -> `info`
+3. Toast hanya untuk feedback aksi singkat:
+   - aksi berhasil disimpan/dibuat/dihapus
+   - validasi cepat yang user bisa koreksi langsung
+   - action gagal karena request/server
+   - clipboard/export/download status
+   - network online/offline status
+4. Jangan gunakan toast untuk:
+   - loading state
+   - error besar yang membuat halaman tidak bisa digunakan
+   - informasi bisnis yang perlu dibaca lama
+   - detail error form yang harus muncul dekat field
+5. Durasi default:
+   - success/info: 3000ms
+   - warning: 4000ms
+   - error: 5000ms
+6. Posisi default `top-right`, dismissible, maksimal 4 toast tampil bersamaan.
+7. Hindari `window.alert` / `alert`; ganti dengan toast untuk feedback non-blocking.
+8. Untuk error halaman besar tetap gunakan inline alert/card, toast hanya boleh menjadi pelengkap.
+
+STANDARISASI MODAL
+1. Menggunakan `StandardModal.tsx` dari `@/app/components/shared`.
+2. Bentuk modal mengikuti pola `manager/menu` edit menu item:
+   - overlay `bg-black/40`
+   - `backdrop-blur-sm`
+   - container `rounded-lg`, border `gray-200`, bg putih
+   - header tetap di atas: title, description, close button
+   - body scrollable
+   - footer action tetap di bawah
+3. Gunakan modal untuk edit/create form yang mengubah data penting.
+4. Jangan membuat gaya modal baru per halaman kecuali ada kebutuhan domain yang jelas.
+5. Tombol utama modal selalu di kanan footer, tombol cancel di kiri tombol utama.
+6. Form di modal harus menggunakan label jelas, input rounded-lg, border gray, dan focus border gray-900.
+
 STANDARISASI JARAK ANTAR CARD (PENTING)
 1. Ikutin Jarak Card Yang ada di Dashboard/owner
 

@@ -22,6 +22,7 @@ import {
   endCustomerTableSession,
   validateStoredCustomerTableSession,
 } from "@/lib/customer/customerSession";
+import { showInfo, showSuccess } from "@/lib/services/errorHandling";
 
 export default function CustomerSettings() {
   const router = useRouter();
@@ -104,9 +105,9 @@ const handleLogout = async () => {
 
     try {
       await navigator.clipboard.writeText(link);
-      alert("Tracking link copied.");
+      showSuccess("Tracking link copied.");
     } catch {
-      alert(link);
+      showInfo(link);
     }
   };
 

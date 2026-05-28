@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { StandardModal } from "@/app/components/shared";
 import { OWNER_CHART_COLORS, OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { formatCurrency } from "../shared/dashboardUtils";
 import { buildBusinessHealth, clampScore } from "./overviewLogic";
@@ -281,101 +281,83 @@ function DetailModal({
     drivers.find((driver) => driver.key === activeDriverKey) ?? drivers[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
-          <div>
-            <h3 className="text-lg font-bold text-gray-950">Business Health Details</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Diagnose which driver is moving the store health score.
-            </p>
+    <StandardModal
+      isOpen
+      title="Business Health Details"
+      description="Diagnose which driver is moving the store health score."
+      maxWidthClassName="max-w-lg"
+      onClose={onClose}
+    >
+      <div className="grid gap-5">
+        <nav className="grid grid-cols-2 gap-2">
+          {drivers.map((driver) => {
+            const isActive = driver.key === activeDriver.key;
+
+            return (
+              <button
+                key={driver.key}
+                type="button"
+                onClick={() => setActiveDriverKey(driver.key)}
+                className={`min-h-12 rounded-lg border px-3 py-2 text-left transition ${
+                  isActive
+                    ? "border-gray-950 bg-gray-950 text-white"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                <p className={`text-sm font-bold ${isActive ? "text-white" : "text-gray-950"}`}>
+                  {driver.label}
+                </p>
+              </button>
+            );
+          })}
+        </nav>
+
+        <section className="min-h-[300px] rounded-lg border border-gray-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                Selected Driver
+              </p>
+              <h4 className="mt-1 text-xl font-bold text-gray-950">
+                {activeDriver.label}
+              </h4>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600">
+                {activeDriver.summary}
+              </p>
+            </div>
+            <div className="shrink-0 sm:text-right">
+              <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(activeDriver.status)}`}>
+                {activeDriver.status}
+              </span>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-            aria-label="Close business health details"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
 
-        <div className="max-h-[calc(92vh-88px)] overflow-y-auto p-5">
-          <div className="grid gap-5">
-            <nav className="grid grid-cols-2 gap-2">
-              {drivers.map((driver) => {
-                const isActive = driver.key === activeDriver.key;
-
-                return (
-                  <button
-                    key={driver.key}
-                    type="button"
-                    onClick={() => setActiveDriverKey(driver.key)}
-                    className={`min-h-12 rounded-lg border px-3 py-2 text-left transition ${
-                      isActive
-                        ? "border-gray-950 bg-gray-950 text-white"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${isActive ? "text-white" : "text-gray-950"}`}>
-                      {driver.label}
-                    </p>
-                  </button>
-                );
-              })}
-            </nav>
-
-            <section className="min-h-[300px] rounded-lg border border-gray-200 bg-white p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                    Selected Driver
-                  </p>
-                  <h4 className="mt-1 text-xl font-bold text-gray-950">
-                    {activeDriver.label}
-                  </h4>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600">
-                    {activeDriver.summary}
-                  </p>
-                </div>
-                <div className="shrink-0 sm:text-right">
-
-                  <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(activeDriver.status)}`}>
-                    {activeDriver.status}
-                  </span>
-                  
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <DriverProgress score={activeDriver.score} />
-                
-              </div>
-
-              <div className="mt-5 overflow-hidden rounded-lg border border-gray-100">
-                <div className="hidden gap-3 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 sm:grid sm:grid-cols-[1fr_110px_1fr]">
-                  <span>Metric</span>
-                  <span className="text-right">Value</span>
-                  <span>Read</span>
-                </div>
-                {activeDriver.metrics.map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="grid gap-1 border-t border-gray-100 px-4 py-3 text-sm sm:grid-cols-[1fr_110px_1fr] sm:gap-3"
-                  >
-                    <p className="font-bold text-gray-700">{metric.label}</p>
-                    <p className="font-bold text-gray-950 sm:text-right">
-                      {metric.value}
-                    </p>
-                    <p className="font-semibold text-gray-500">{metric.read}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+          <div className="mt-5">
+            <DriverProgress score={activeDriver.score} />
           </div>
-        </div>
+
+          <div className="mt-5 overflow-hidden rounded-lg border border-gray-100">
+            <div className="hidden gap-3 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 sm:grid sm:grid-cols-[1fr_110px_1fr]">
+              <span>Metric</span>
+              <span className="text-right">Value</span>
+              <span>Read</span>
+            </div>
+            {activeDriver.metrics.map((metric) => (
+              <div
+                key={metric.label}
+                className="grid gap-1 border-t border-gray-100 px-4 py-3 text-sm sm:grid-cols-[1fr_110px_1fr] sm:gap-3"
+              >
+                <p className="font-bold text-gray-700">{metric.label}</p>
+                <p className="font-bold text-gray-950 sm:text-right">
+                  {metric.value}
+                </p>
+                <p className="font-semibold text-gray-500">{metric.read}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
-    </div>
+    </StandardModal>
   );
 }
 
