@@ -7,6 +7,7 @@ import type {
   BookkeepingExpense,
 } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import { MetricCard, StandardPanel, formatCurrency } from "../BookkeepingPrimitives";
+import SettingsTab from "./SettingsTab";
 
 type ExpenseForm = {
   id?: string;
@@ -121,6 +122,8 @@ export default function ExpensesTab({
           tone="info"
         />
       </div>
+
+      <SettingsTab />
 
       <StandardPanel
         title="Expense Review"

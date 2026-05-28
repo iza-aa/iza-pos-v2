@@ -5,16 +5,18 @@ import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
 import { supabase } from "@/lib/config/supabaseClient";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
+import { SidebarTabset } from "@/app/components/shared";
 import {
+  ArrowPathIcon,
+  BanknotesIcon,
   ClockIcon,
   ExclamationTriangleIcon,
-  KeyIcon,
-  MapPinIcon,
-  QrCodeIcon,
 } from "@heroicons/react/24/outline";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 
 type CheckInStatus = "early" | "on_time" | "late" | null;
 type CheckOutStatus = "early_leave" | "on_time" | "overtime" | null;
+type StaffAttendanceTab = "absence" | "end-shift";
 
 type ShiftRecord = {
   id: string;
@@ -65,6 +67,28 @@ type StoreSettings = {
   is_active: boolean;
 };
 
+type ShiftClosingData = {
+  businessDate: string;
+  staff: {
+    id: string;
+    name: string;
+    staffCode?: string | null;
+  };
+  shift: {
+    id: string;
+    shiftName: string;
+    startTime?: string | null;
+    endTime?: string | null;
+  };
+  closing: {
+    id: string;
+    status: string;
+    cashCounted: number | null;
+    cashDifference: number | null;
+    notes?: string | null;
+  } | null;
+};
+
 
 type Html5QrcodeConfig = {
   fps?: number;
@@ -90,6 +114,26 @@ type RawRelationValue = Record<string, unknown> | Record<string, unknown>[] | nu
 
 const QR_READER_ELEMENT_ID = "staff-attendance-qr-reader";
 const MAX_LOCATION_ACCURACY_METERS = 100;
+
+const staffAttendanceTabs = [
+  {
+    id: "absence",
+    label: "Absence",
+    description: "Clock in and out",
+    icon: ClockIcon,
+  },
+  {
+    id: "end-shift",
+    label: "End Shift",
+    description: "Submit cash count",
+    icon: BanknotesIcon,
+  },
+] satisfies Array<{
+  id: StaffAttendanceTab;
+  label: string;
+  description: string;
+  icon: typeof ClockIcon;
+}>;
 
 const toSafeString = (value: unknown) => {
   return typeof value === "string" ? value : "";
@@ -213,28 +257,44 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
+const addDaysToDateString = (value: string, days: number) => {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day + days);
+  const nextYear = date.getFullYear();
+  const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
+  const nextDay = String(date.getDate()).padStart(2, "0");
+
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+};
+
+const getRecentDateStrings = (endDate: string, count: number) => {
+  return Array.from({ length: count }, (_, index) =>
+    addDaysToDateString(endDate, index - count + 1),
+  );
+};
+
 const getStatusLabel = (status?: CheckInStatus | CheckOutStatus) => {
-  if (status === "early") return "Datang Lebih Awal";
-  if (status === "late") return "Terlambat";
-  if (status === "early_leave") return "Pulang Lebih Awal";
-  if (status === "overtime") return "Lembur";
-  if (status === "on_time") return "Tepat Waktu";
-  return "Belum Ada";
+  if (status === "early") return "Early Arrival";
+  if (status === "late") return "Late";
+  if (status === "early_leave") return "Early Leave";
+  if (status === "overtime") return "Overtime";
+  if (status === "on_time") return "On Time";
+  return "Pending";
 };
 
 const getStatusClassName = (status?: CheckInStatus | CheckOutStatus) => {
-  if (status === "late") return "bg-red-100 text-red-700";
-  if (status === "early_leave") return "bg-orange-100 text-orange-700";
-  if (status === "overtime") return "bg-purple-100 text-purple-700";
-  if (status === "early") return "bg-blue-100 text-blue-700";
-  if (status === "on_time") return "bg-green-100 text-green-700";
-  return "bg-gray-100 text-gray-700";
+  if (status === "late") return OWNER_SEMANTIC_TONES.danger.badgeClass;
+  if (status === "early_leave") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (status === "overtime") return OWNER_SEMANTIC_TONES.premium.badgeClass;
+  if (status === "early") return OWNER_SEMANTIC_TONES.info.badgeClass;
+  if (status === "on_time") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
 const getCurrentLocation = () => {
   return new Promise<GeolocationPosition>((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error("Browser tidak mendukung akses lokasi."));
+      reject(new Error("This browser does not support location access."));
       return;
     }
 
@@ -251,33 +311,33 @@ const getLocationErrorMessage = (error: unknown) => {
     const code = Number((error as { code?: unknown }).code);
 
     if (code === 1) {
-      return "Akses lokasi ditolak. Aktifkan izin lokasi browser untuk melakukan absensi.";
+      return "Location access was denied. Enable browser location permission to submit attendance.";
     }
 
     if (code === 2) {
-      return "Lokasi perangkat belum tersedia. Aktifkan GPS/lokasi perangkat lalu coba lagi.";
+      return "Device location is not available. Enable GPS/device location and try again.";
     }
 
     if (code === 3) {
-      return "Membaca lokasi terlalu lama. Pastikan GPS aktif lalu coba lagi.";
+      return "Location took too long to read. Make sure GPS is active and try again.";
     }
   }
 
   const errorMessage = error instanceof Error ? error.message : String(error);
 
   if (/permission|notallowed|denied/i.test(errorMessage)) {
-    return "Akses lokasi ditolak. Aktifkan izin lokasi browser untuk melakukan absensi.";
+    return "Location access was denied. Enable browser location permission to submit attendance.";
   }
 
   if (/timeout/i.test(errorMessage)) {
-    return "Membaca lokasi terlalu lama. Pastikan GPS aktif lalu coba lagi.";
+    return "Location took too long to read. Make sure GPS is active and try again.";
   }
 
   if (/unavailable|position/i.test(errorMessage)) {
-    return "Lokasi perangkat belum tersedia. Aktifkan GPS/lokasi perangkat lalu coba lagi.";
+    return "Device location is not available. Enable GPS/device location and try again.";
   }
 
-  return errorMessage || "Gagal membaca lokasi perangkat. Aktifkan izin lokasi lalu coba lagi.";
+  return errorMessage || "Failed to read device location. Enable location permission and try again.";
 };
 
 const formatDate = (value: string) => {
@@ -285,7 +345,7 @@ const formatDate = (value: string) => {
 
   if (Number.isNaN(date.getTime())) return "-";
 
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -301,7 +361,7 @@ const formatDateTime = (value?: string | null) => {
 
   if (Number.isNaN(date.getTime())) return "-";
 
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-US", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -342,7 +402,49 @@ const getDuration = (start?: string | null, end?: string | null) => {
   const hour = Math.floor(diffMs / 3600000);
   const minute = Math.floor((diffMs % 3600000) / 60000);
 
-  return `${hour}j ${minute}m`;
+  return `${hour}h ${minute}m`;
+};
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+const formatClosingStatus = (value?: string | null) => {
+  if (!value) return "Draft";
+
+  return value
+    .replaceAll("_", " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const getClosingStatusClassName = (value?: string | null) => {
+  if (value === "closed") return OWNER_SEMANTIC_TONES.dark.badgeClass;
+  if (value === "submitted") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  if (value === "needs_review") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (value === "reopened") return OWNER_SEMANTIC_TONES.progress.badgeClass;
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+};
+
+const getSetupGuidance = (message: string) => {
+  const normalized = message.toLowerCase();
+  const needsShiftAssignment =
+    normalized.includes("assigned shift") ||
+    normalized.includes("assign a staff member") ||
+    normalized.includes("assign the correct shift") ||
+    normalized.includes("outside its end-shift window");
+
+  if (!needsShiftAssignment) return null;
+
+  return normalized.includes("outside its end-shift window")
+    ? "Current shift does not match the allowed end-shift window. Ask the owner or manager to confirm your active shift assignment."
+    : "Shift assignment is required before submitting end shift. Ask the owner or manager to assign the correct active shift.";
 };
 
 const extractPresenceCodeFromQrText = (text: string) => {
@@ -374,18 +476,18 @@ const getScannerErrorMessage = (error: unknown) => {
   const errorMessage = error instanceof Error ? error.message : String(error);
 
   if (/permission|notallowed|denied/i.test(errorMessage)) {
-    return "Akses kamera ditolak. Aktifkan izin kamera lalu coba lagi.";
+    return "Camera access was denied. Enable camera permission and try again.";
   }
 
   if (/notfound|not found|overconstrained/i.test(errorMessage)) {
-    return "Kamera tidak ditemukan. Pastikan perangkat memiliki kamera dan izin kamera aktif.";
+    return "Camera was not found. Make sure the device has a camera and camera permission is enabled.";
   }
 
   if (/notreadable|trackstart|in use/i.test(errorMessage)) {
-    return "Kamera sedang digunakan aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.";
+    return "Camera is being used by another app. Close that app and try again.";
   }
 
-  return "Gagal membuka scanner QR. Periksa izin kamera lalu coba lagi.";
+  return "Failed to open the QR scanner. Check camera permission and try again.";
 };
 
 export default function AttendancePage() {
@@ -400,6 +502,8 @@ export default function AttendancePage() {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(
     null,
   );
+  const [activeAttendanceTab, setActiveAttendanceTab] =
+    useState<StaffAttendanceTab>("absence");
   const [presenceCode, setPresenceCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [locationMessage, setLocationMessage] = useState("");
@@ -408,6 +512,14 @@ export default function AttendancePage() {
   const [scannerLoading, setScannerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [shiftClosingData, setShiftClosingData] = useState<ShiftClosingData | null>(null);
+  const [shiftClosingLoading, setShiftClosingLoading] = useState(false);
+  const [shiftClosingRefreshing, setShiftClosingRefreshing] = useState(false);
+  const [shiftClosingSubmitting, setShiftClosingSubmitting] = useState(false);
+  const [shiftClosingError, setShiftClosingError] = useState("");
+  const [shiftClosingNotice, setShiftClosingNotice] = useState("");
+  const [cashCounted, setCashCounted] = useState("");
+  const [closingNotes, setClosingNotes] = useState("");
 
   const html5QrCodeRef = useRef<Html5QrcodeInstance | null>(null);
   const scannerStartingRef = useRef(false);
@@ -418,6 +530,20 @@ export default function AttendancePage() {
   const canClockIn = !todayAttendance;
   const canClockOut = todayAttendance && !todayAttendance.clock_out_at;
   const isCompletedToday = todayAttendance && todayAttendance.clock_out_at;
+  const canSubmitShiftClosing = useMemo(() => {
+    if (!shiftClosingData || shiftClosingSubmitting) return false;
+    if (shiftClosingData.closing?.status === "closed") return false;
+
+    const parsed = Number(cashCounted);
+    return cashCounted !== "" && Number.isFinite(parsed) && parsed >= 0;
+  }, [cashCounted, shiftClosingData, shiftClosingSubmitting]);
+  const recentAttendanceDays = useMemo(() => {
+    return getRecentDateStrings(today, 3).map((date) => ({
+      date,
+      attendance:
+        attendanceList.find((record) => record.attendance_date === date) ?? null,
+    }));
+  }, [attendanceList, today]);
 
   const fetchPageData = useCallback(async () => {
     if (!userId) {
@@ -521,7 +647,7 @@ export default function AttendancePage() {
       setTodayAttendance(todayRecord ?? null);
     } catch (error) {
       console.error("Failed to fetch staff attendance page data:", error);
-      showError("Gagal mengambil data absensi staff.");
+      showError("Failed to load staff attendance data.");
     } finally {
       setLoading(false);
     }
@@ -530,6 +656,60 @@ export default function AttendancePage() {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+
+  const loadShiftClosingData = useCallback(
+    async ({ quiet = false }: { quiet?: boolean } = {}) => {
+      if (!userId || currentUser?.role !== "staff") return;
+
+      setShiftClosingError("");
+      if (!quiet) setShiftClosingLoading(true);
+      if (quiet) setShiftClosingRefreshing(true);
+
+      try {
+        const params = new URLSearchParams({ businessDate: today });
+        const response = await fetch(`/api/staff/bookkeeping/shift-closing?${params.toString()}`, {
+          headers: {
+            "x-user-id": userId,
+            "x-user-name": currentUser?.name ?? staff?.name ?? "Staff",
+            "x-user-role": "staff",
+          },
+        });
+
+        const result = (await response.json().catch(() => ({}))) as {
+          data?: ShiftClosingData;
+          error?: string;
+        };
+
+        if (!response.ok || !result.data) {
+          setShiftClosingData(null);
+          setShiftClosingError(result.error || "Shift closing data could not be loaded.");
+          return;
+        }
+
+        setShiftClosingData(result.data);
+        setCashCounted(
+          result.data.closing?.cashCounted === null || result.data.closing?.cashCounted === undefined
+            ? ""
+            : String(result.data.closing.cashCounted),
+        );
+        setClosingNotes(result.data.closing?.notes || "");
+      } catch (error) {
+        console.error("Failed to load shift closing inside attendance:", error);
+        setShiftClosingData(null);
+        setShiftClosingError(error instanceof Error ? error.message : "Shift closing data could not be loaded.");
+      } finally {
+        setShiftClosingLoading(false);
+        setShiftClosingRefreshing(false);
+      }
+    },
+    [currentUser?.name, currentUser?.role, staff?.name, today, userId],
+  );
+
+  useEffect(() => {
+    if (!loading) {
+      void loadShiftClosingData();
+    }
+  }, [loadShiftClosingData, loading]);
 
   const stopQrScanner = useCallback(async () => {
     scannerHasDecodedRef.current = false;
@@ -594,7 +774,7 @@ export default function AttendancePage() {
           scannerHasDecodedRef.current = true;
           setPresenceCode(scannedCode);
           setCodeError("");
-          setScannerMessage("QR berhasil terbaca. Silakan lanjutkan presensi.");
+          setScannerMessage("QR was read successfully. Continue attendance submission.");
 
           if (navigator.vibrate) {
             navigator.vibrate(200);
@@ -605,7 +785,7 @@ export default function AttendancePage() {
       );
 
       setScannerLoading(false);
-      setScannerMessage("Arahkan kamera ke QR presensi yang tersedia di outlet.");
+      setScannerMessage("Point the camera at the attendance QR available at the outlet.");
     } catch (error) {
       console.error("Failed to open html5-qrcode scanner:", error);
       setScannerLoading(false);
@@ -625,54 +805,54 @@ export default function AttendancePage() {
     setLocationMessage("");
 
     if (!userId) {
-      showError("Session staff tidak ditemukan. Silakan login ulang.");
+      showError("Staff session was not found. Please log in again.");
       return;
     }
 
     if (!staff) {
-      showError("Data staff tidak ditemukan.");
+      showError("Staff data was not found.");
       return;
     }
 
     if (staff.status !== "active") {
-      showError("Akun staff tidak aktif dan tidak bisa melakukan absensi.");
+      showError("This staff account is inactive and cannot submit attendance.");
       return;
     }
 
     if (!staff.staff_code) {
-      showError("Kode staff tidak ditemukan. Hubungi owner/manager.");
+      showError("Staff code was not found. Contact the owner or manager.");
       return;
     }
 
     if (!staff.shift_id || !staff.shift) {
-      showError("Staff belum memiliki shift kerja. Hubungi owner/manager.");
+      showError("Staff has no assigned shift. Contact the owner or manager.");
       return;
     }
 
     if (isCompletedToday) {
-      showError("Absensi hari ini sudah lengkap.");
+      showError("Today's attendance is already complete.");
       return;
     }
 
     if (!storeSettings) {
-      showError("Pengaturan lokasi outlet belum tersedia. Hubungi owner/manager.");
+      showError("Outlet location settings are not available. Contact the owner or manager.");
       return;
     }
 
     if (storeSettings.store_latitude === null || storeSettings.store_longitude === null) {
-      showError("Lokasi outlet belum diatur. Hubungi owner/manager.");
+      showError("Outlet location has not been configured. Contact the owner or manager.");
       return;
     }
 
     if (!storeSettings.attendance_radius_meters || storeSettings.attendance_radius_meters <= 0) {
-      showError("Radius absensi outlet belum valid. Hubungi owner/manager.");
+      showError("Outlet attendance radius is not valid. Contact the owner or manager.");
       return;
     }
 
     const normalizedCode = presenceCode.trim();
 
     if (!normalizedCode) {
-      const message = "Scan QR presensi terlebih dahulu.";
+      const message = "Scan the attendance QR first.";
       setCodeError(message);
       showError(message);
       return;
@@ -681,7 +861,7 @@ export default function AttendancePage() {
     setSubmitting(true);
 
     try {
-      setLocationMessage("Memeriksa lokasi Anda...");
+      setLocationMessage("Checking your location...");
 
       let position: GeolocationPosition;
 
@@ -698,25 +878,25 @@ export default function AttendancePage() {
         : null;
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        throw new Error("Data lokasi tidak valid. Aktifkan lokasi perangkat lalu coba lagi.");
+        throw new Error("Location data is invalid. Enable device location and try again.");
       }
 
       if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-        throw new Error("Data lokasi tidak valid. Aktifkan lokasi perangkat lalu coba lagi.");
+        throw new Error("Location data is invalid. Enable device location and try again.");
       }
 
       if (accuracy === null) {
-        throw new Error("Akurasi lokasi tidak tersedia. Aktifkan mode lokasi akurat lalu coba lagi.");
+        throw new Error("Location accuracy is not available. Enable high-accuracy location mode and try again.");
       }
 
       if (accuracy > MAX_LOCATION_ACCURACY_METERS) {
         throw new Error(
-          `Akurasi lokasi belum cukup. Akurasi saat ini sekitar ${Math.round(accuracy)} m, maksimal ${MAX_LOCATION_ACCURACY_METERS} m. Coba aktifkan GPS/lokasi akurat lalu scan ulang.`,
+          `Location accuracy is not sufficient. Current accuracy is around ${Math.round(accuracy)} m, maximum ${MAX_LOCATION_ACCURACY_METERS} m. Enable GPS/high-accuracy location and scan again.`,
         );
       }
 
       setLocationMessage(
-        `Lokasi berhasil dibaca dengan akurasi ±${Math.round(accuracy)} m. Memproses absensi...`,
+        `Location was read with accuracy ±${Math.round(accuracy)} m. Processing attendance...`,
       );
 
       const { data, error } = await supabase.rpc("submit_qr_attendance", {
@@ -738,7 +918,7 @@ export default function AttendancePage() {
       } | null;
 
       if (!result?.success) {
-        throw new Error("Absensi gagal diproses. Silakan scan QR terbaru.");
+        throw new Error("Attendance could not be processed. Please scan the latest QR code.");
       }
 
       setPresenceCode("");
@@ -746,17 +926,17 @@ export default function AttendancePage() {
       await fetchPageData();
 
       const formattedDistance = result.distanceMeters
-        ? ` Jarak: ${formatDistance(result.distanceMeters)}.`
+        ? ` Distance: ${formatDistance(result.distanceMeters)}.`
         : "";
 
       const successMessage = result.statusLabel
-        ? `${result.title ?? "Absensi berhasil"}. Status: ${result.statusLabel}.${formattedDistance}`
-        : `${result.message ?? "Absensi berhasil."}${formattedDistance}`;
+        ? `${result.title ?? "Attendance submitted"}. Status: ${result.statusLabel}.${formattedDistance}`
+        : `${result.message ?? "Attendance submitted."}${formattedDistance}`;
 
       showSuccess(successMessage);
     } catch (error) {
       const rawMessage =
-        error instanceof Error ? error.message : "Gagal melakukan absensi.";
+        error instanceof Error ? error.message : "Failed to submit attendance.";
       const message = rawMessage.replace(/^ERROR:\s*/i, "");
 
       setCodeError(message);
@@ -766,348 +946,497 @@ export default function AttendancePage() {
     }
   };
 
+  const handleShiftClosingSubmit = async () => {
+    if (!userId || currentUser?.role !== "staff") {
+      setShiftClosingError("Staff access is required.");
+      return;
+    }
+
+    setShiftClosingSubmitting(true);
+    setShiftClosingError("");
+    setShiftClosingNotice("");
+
+    try {
+      const response = await fetch("/api/staff/bookkeeping/shift-closing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+          "x-user-name": currentUser?.name ?? staff?.name ?? "Staff",
+          "x-user-role": "staff",
+        },
+        body: JSON.stringify({
+          businessDate: today,
+          cashCounted,
+          notes: closingNotes,
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: {
+          status: string;
+          cashDifference: number;
+        };
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        setShiftClosingError(result.error || "Shift closing could not be submitted.");
+        return;
+      }
+
+      const difference = Number(result.data?.cashDifference ?? 0);
+      setShiftClosingNotice(
+        `Shift closing submitted as ${formatClosingStatus(result.data?.status)}. Difference: ${formatCurrency(difference)}.`,
+      );
+      await loadShiftClosingData({ quiet: true });
+    } catch (error) {
+      console.error("Failed to submit shift closing inside attendance:", error);
+      setShiftClosingError(error instanceof Error ? error.message : "Shift closing could not be submitted.");
+    } finally {
+      setShiftClosingSubmitting(false);
+    }
+  };
+
   const currentActionLabel = canClockIn
     ? "Clock In"
     : canClockOut
       ? "Clock Out"
-      : "Absensi Selesai";
+      : "Attendance Completed";
+
+  const renderMobileTabset = () => (
+    <div className="grid grid-cols-2 gap-2 lg:hidden">
+      {staffAttendanceTabs.map((tab) => {
+        const isActive = activeAttendanceTab === tab.id;
+
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveAttendanceTab(tab.id)}
+            className={`rounded-lg border px-3 py-2.5 text-left transition ${
+              isActive
+                ? "border-gray-900 bg-gray-900 text-white"
+                : "border-gray-200 bg-white text-gray-600"
+            }`}
+          >
+            <p className="text-sm font-bold">{tab.label}</p>
+            <p className={`mt-0.5 text-xs ${isActive ? "text-gray-200" : "text-gray-400"}`}>
+              {tab.description}
+            </p>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderMetricCard = (
+    label: string,
+    value: string,
+    detail: string,
+    toneClass: string = OWNER_SEMANTIC_TONES.neutral.cardClass,
+  ) => (
+    <div className={`rounded-lg border p-3 ${toneClass}`}>
+      <p className="text-xs font-semibold text-gray-500">{label}</p>
+      <p className="mt-1 truncate text-base font-bold text-gray-950">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-gray-600">{detail}</p>
+    </div>
+  );
+
+  const renderStatusBadge = (label: string, className: string) => (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+      {label}
+    </span>
+  );
+
+  const renderAbsencePanel = () => (
+    <div className="grid gap-4 xl:min-h-full xl:grid-cols-[minmax(320px,420px)_1fr]">
+      <section className="flex min-h-0 flex-col space-y-4">
+        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-gray-950">{staff?.name ?? "Staff"}</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {staff?.staff_code ?? "-"} / {staff?.staff_type ?? staff?.role ?? "-"}
+              </p>
+            </div>
+
+            {renderStatusBadge(
+              isCompletedToday ? "Completed" : canClockOut ? "Working" : "Not Clocked In",
+              isCompletedToday
+                ? OWNER_SEMANTIC_TONES.success.badgeClass
+                : canClockOut
+                  ? OWNER_SEMANTIC_TONES.info.badgeClass
+                  : OWNER_SEMANTIC_TONES.neutral.badgeClass,
+            )}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.info.cardClass}`}>
+              <p className="text-sm font-bold text-gray-950">QR Attendance</p>
+              <p className="mt-1 text-sm leading-6 text-gray-700">
+                Scan the official outlet QR and keep location access enabled.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {renderMetricCard(
+                "Clock In",
+                formatDateTime(todayAttendance?.clock_in_at),
+                getStatusLabel(todayAttendance?.check_in_status),
+                todayAttendance?.clock_in_at
+                  ? OWNER_SEMANTIC_TONES.success.cardClass
+                  : OWNER_SEMANTIC_TONES.neutral.cardClass,
+              )}
+              {renderMetricCard(
+                "Clock Out",
+                formatDateTime(todayAttendance?.clock_out_at),
+                getStatusLabel(todayAttendance?.check_out_status),
+                todayAttendance?.clock_out_at
+                  ? OWNER_SEMANTIC_TONES.success.cardClass
+                  : OWNER_SEMANTIC_TONES.neutral.cardClass,
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <button
+                type="button"
+                onClick={startQrScanner}
+                disabled={submitting || Boolean(isCompletedToday)}
+                className="h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Open Camera
+              </button>
+              <button
+                type="button"
+                onClick={handleAttendanceSubmit}
+                disabled={
+                  submitting ||
+                  Boolean(isCompletedToday) ||
+                  !presenceCode.trim() ||
+                  !staff?.shift ||
+                  !storeSettings ||
+                  storeSettings.store_latitude === null ||
+                  storeSettings.store_longitude === null
+                }
+                className="h-11 rounded-lg bg-gray-900 px-5 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+              >
+                {submitting ? "Processing..." : currentActionLabel}
+              </button>
+            </div>
+
+            <input
+              type="text"
+              value={presenceCode}
+              onChange={(event) => {
+                setPresenceCode(event.target.value.trim());
+                setCodeError("");
+              }}
+              placeholder="QR code"
+              className="h-11 w-full rounded-lg border border-gray-300 px-4 font-mono text-sm uppercase outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+              disabled={submitting || Boolean(isCompletedToday)}
+            />
+
+            {codeError ? (
+              <div className={`rounded-lg border p-3 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+                {codeError}
+              </div>
+            ) : null}
+
+            {locationMessage ? (
+              <div className={`rounded-lg border p-3 text-sm ${OWNER_SEMANTIC_TONES.info.badgeClass}`}>
+                {locationMessage}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="text-base font-bold text-gray-950">Assigned Shift</h2>
+          {staff?.shift ? (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              {renderMetricCard(
+                "Shift",
+                staff.shift.shift_name,
+                `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`,
+              )}
+              {renderMetricCard(
+                "Clock In Window",
+                `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.check_in_grace_until)}`,
+                "Attendance grace period",
+              )}
+              {renderMetricCard(
+                "Clock Out Window",
+                `${formatTime(staff.shift.end_time)} - ${formatTime(staff.shift.check_out_grace_until)}`,
+                "Checkout grace period",
+              )}
+            </div>
+          ) : (
+            <div className={`mt-3 rounded-lg border p-3 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+              Staff has no assigned shift.
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {renderMetricCard("Method", "QR Attendance", "Outlet code verification")}
+          {renderMetricCard(
+            "Radius",
+            storeSettings?.attendance_radius_meters
+              ? `${storeSettings.attendance_radius_meters} m`
+              : "Not Set",
+            "Location validation range",
+          )}
+          {renderMetricCard(
+            "Today",
+            isCompletedToday ? "Completed" : canClockOut ? "Working" : "Ready",
+            formatDate(today),
+            isCompletedToday
+              ? OWNER_SEMANTIC_TONES.success.cardClass
+              : canClockOut
+                ? OWNER_SEMANTIC_TONES.info.cardClass
+                : OWNER_SEMANTIC_TONES.neutral.cardClass,
+          )}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div>
+            <h2 className="text-base font-bold text-gray-950">Attendance History</h2>
+            <p className="mt-1 text-sm text-gray-500">Latest attendance records for this staff account.</p>
+          </div>
+
+          <div className="mt-4 min-h-0 flex-1 space-y-2 xl:overflow-y-auto xl:pr-1">
+            {recentAttendanceDays.map(({ date, attendance }) => {
+              const absent = !attendance;
+
+              return (
+                <div
+                  key={date}
+                  className="rounded-lg border border-gray-200 bg-white p-3 transition hover:bg-gray-50"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="font-bold text-gray-950">{formatDate(date)}</p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {attendance?.shift?.shift_name ?? "No Shift"}
+                      </p>
+                    </div>
+                    <div className="text-sm text-gray-600 lg:text-right">
+                      <p>Duration: {attendance ? getDuration(attendance.clock_in_at, attendance.clock_out_at) : "-"}</p>
+                      <p>In: {attendance ? formatDistance(attendance.clock_in_distance_meters) : "-"}</p>
+                      <p>Out: {attendance ? formatDistance(attendance.clock_out_distance_meters) : "-"}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <p className="text-xs text-gray-500">Clock In</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {attendance ? formatDateTime(attendance.clock_in_at) : "-"}
+                      </p>
+                      <div className="mt-2">
+                        {renderStatusBadge(
+                          absent ? "Absent" : getStatusLabel(attendance?.check_in_status),
+                          absent
+                            ? OWNER_SEMANTIC_TONES.danger.badgeClass
+                            : getStatusClassName(attendance?.check_in_status),
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <p className="text-xs text-gray-500">Clock Out</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {attendance ? formatDateTime(attendance.clock_out_at) : "-"}
+                      </p>
+                      <div className="mt-2">
+                        {renderStatusBadge(
+                          absent ? "Absent" : getStatusLabel(attendance?.check_out_status),
+                          absent
+                            ? OWNER_SEMANTIC_TONES.danger.badgeClass
+                            : getStatusClassName(attendance?.check_out_status),
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {!storeSettings || storeSettings.store_latitude === null || storeSettings.store_longitude === null ? (
+          <div className={`rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.warning.badgeClass}`}>
+            Outlet location is incomplete. Complete the outlet location and attendance radius first.
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+
+  const renderShiftClosingPanel = () => (
+    <div className="grid gap-4 xl:grid-cols-[minmax(320px,420px)_1fr]">
+      <section className="space-y-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">End Shift</h2>
+              <p className="mt-1 text-sm text-gray-500">Blind cash count for today&apos;s assigned shift.</p>
+            </div>
+            {shiftClosingData
+              ? renderStatusBadge(
+                  formatClosingStatus(shiftClosingData.closing?.status),
+                  getClosingStatusClassName(shiftClosingData.closing?.status),
+                )
+              : null}
+          </div>
+
+          {shiftClosingLoading ? (
+            <div className="mt-4 rounded-lg border border-dashed border-gray-300 p-5 text-sm font-semibold text-gray-500">
+              Loading shift closing...
+            </div>
+          ) : shiftClosingData ? (
+            <div className="mt-4 space-y-3">
+              <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.info.cardClass}`}>
+                <p className="text-sm font-bold text-gray-950">Blind Cash Count</p>
+                <p className="mt-1 text-sm leading-6 text-gray-700">
+                  Count physical cash first. Expected cash is hidden until submit.
+                </p>
+              </div>
+
+              {renderMetricCard(
+                "Shift",
+                shiftClosingData.shift.shiftName,
+                `${formatTime(shiftClosingData.shift.startTime)} - ${formatTime(shiftClosingData.shift.endTime)}`,
+              )}
+              {renderMetricCard(
+                "Business Date",
+                shiftClosingData.businessDate,
+                shiftClosingData.staff.name,
+              )}
+
+              <button
+                type="button"
+                onClick={() => void loadShiftClosingData({ quiet: true })}
+                disabled={shiftClosingRefreshing || shiftClosingLoading}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ArrowPathIcon className={`h-4 w-4 ${shiftClosingRefreshing ? "animate-spin" : ""}`} />
+                Refresh Data
+              </button>
+            </div>
+          ) : (
+            <div className={`mt-4 rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.warning.badgeClass}`}>
+              {getSetupGuidance(shiftClosingError) || shiftClosingError || "Shift closing is not ready yet."}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div>
+          <h2 className="text-base font-bold text-gray-950">Cash Submission</h2>
+          <p className="mt-1 text-sm text-gray-500">Submit counted drawer cash after the shift ends.</p>
+        </div>
+
+        {shiftClosingData ? (
+          <div className="mt-4 flex flex-1 flex-col">
+            <div className="space-y-3">
+            <label className="block text-sm font-semibold text-gray-700">
+              Cash Counted
+              <input
+                type="number"
+                min="0"
+                value={cashCounted}
+                onChange={(event) => setCashCounted(event.target.value)}
+                placeholder="Enter counted cash"
+                disabled={shiftClosingData.closing?.status === "closed"}
+                className="mt-2 h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-base font-bold text-gray-950 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:bg-gray-100 disabled:text-gray-400"
+              />
+            </label>
+
+            <label className="block text-sm font-semibold text-gray-700">
+              Notes
+              <textarea
+                value={closingNotes}
+                onChange={(event) => setClosingNotes(event.target.value)}
+                placeholder="Optional note, required by SOP if there is a cash difference."
+                rows={4}
+                disabled={shiftClosingData.closing?.status === "closed"}
+                className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:bg-gray-100 disabled:text-gray-400"
+              />
+            </label>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleShiftClosingSubmit}
+              disabled={!canSubmitShiftClosing}
+              className="mt-auto flex h-11 w-full items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+            >
+              {shiftClosingSubmitting ? "Submitting..." : "Submit Shift Closing"}
+            </button>
+          </div>
+        ) : null}
+
+        {shiftClosingError && shiftClosingData ? (
+          <div className={`mt-4 rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+            {getSetupGuidance(shiftClosingError) || shiftClosingError}
+          </div>
+        ) : null}
+
+        {shiftClosingNotice ? (
+          <div className={`mt-4 rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.success.badgeClass}`}>
+            {shiftClosingNotice}
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-gray-900" />
-          <p className="mt-4 text-sm text-gray-500">Memuat data absensi...</p>
+          <p className="mt-4 text-sm text-gray-500">Loading attendance data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100dvh-64px)] bg-gray-50">
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
-              Absensi Staff
-            </h1>
-            <p className="mt-1 text-sm text-gray-600 md:text-base">
-              Lakukan presensi dengan QR resmi yang tersedia di outlet.
-            </p>
-          </div>
+    <main className="min-h-[calc(100dvh-56px)] bg-white lg:h-[calc(100vh-56px)] lg:overflow-hidden">
+      <div className="flex min-h-[calc(100dvh-56px)] lg:h-full lg:min-h-0">
+          <SidebarTabset
+            title="Staff Attendance"
+            description="Daily absence and end-shift tasks."
+            items={staffAttendanceTabs}
+            activeId={activeAttendanceTab}
+            onSelect={setActiveAttendanceTab}
+          />
 
-          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm">
-            <p className="font-semibold text-gray-900">{formatDate(today)}</p>
-            <p className="text-gray-500">Presensi terverifikasi</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto px-4 py-4 md:px-6">
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[420px_1fr]">
-          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-900 text-white">
-                <ClockIcon className="h-8 w-8" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {staff?.name ?? "Staff"}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {staff?.staff_code ?? "-"} • {staff?.staff_type ?? staff?.role ?? "-"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-gray-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Shift Kerja
-              </p>
-
-              {staff?.shift ? (
-                <div className="mt-2">
-                  <p className="text-lg font-bold text-gray-900">
-                    {staff.shift.shift_name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {formatTime(staff.shift.start_time)} - {formatTime(staff.shift.end_time)}
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-gray-500">Masuk tepat waktu</p>
-                      <p className="font-semibold text-gray-900">
-                        {formatTime(staff.shift.start_time)} - {formatTime(staff.shift.check_in_grace_until)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-gray-500">Pulang tepat waktu</p>
-                      <p className="font-semibold text-gray-900">
-                        {formatTime(staff.shift.end_time)} - {formatTime(staff.shift.check_out_grace_until)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          <section className="flex min-w-0 flex-1 flex-col bg-gray-50">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 sm:p-4 md:p-5">
+              {renderMobileTabset()}
+              {activeAttendanceTab === "absence" ? (
+                renderAbsencePanel()
               ) : (
-                <p className="mt-2 text-sm text-red-600">
-                  Staff belum memiliki shift kerja.
-                </p>
+                renderShiftClosingPanel()
               )}
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Status Hari Ini
-                  </p>
-                  <p className="mt-1 text-lg font-bold text-gray-900">
-                    {currentActionLabel}
-                  </p>
-                </div>
-
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    isCompletedToday
-                      ? "bg-green-100 text-green-700"
-                      : canClockOut
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {isCompletedToday
-                    ? "Selesai"
-                    : canClockOut
-                      ? "Sudah Clock In"
-                      : "Belum Clock In"}
-                </span>
-              </div>
-
-              {todayAttendance && (
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Clock In</p>
-                    <p className="mt-1 font-semibold text-gray-900">
-                      {formatDateTime(todayAttendance.clock_in_at)}
-                    </p>
-                    <span
-                      className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClassName(
-                        todayAttendance.check_in_status,
-                      )}`}
-                    >
-                      {getStatusLabel(todayAttendance.check_in_status)}
-                    </span>
-                  </div>
-
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Clock Out</p>
-                    <p className="mt-1 font-semibold text-gray-900">
-                      {formatDateTime(todayAttendance.clock_out_at)}
-                    </p>
-                    <span
-                      className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClassName(
-                        todayAttendance.check_out_status,
-                      )}`}
-                    >
-                      {getStatusLabel(todayAttendance.check_out_status)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4 space-y-2.5">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">
-                  Presensi QR
-                </label>
-                <p className="mt-1 text-xs text-gray-500">
-                  Scan QR resmi di outlet untuk mencatat kehadiran.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={startQrScanner}
-                disabled={submitting || Boolean(isCompletedToday)}
-                className="flex h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Buka Kamera
-              </button>
-
-              <div className="grid grid-cols-[1fr_auto] gap-2">
-                <input
-                  type="text"
-                  value={presenceCode}
-                  onChange={(event) => {
-                    setPresenceCode(event.target.value.trim());
-                    setCodeError("");
-                  }}
-                  placeholder="Kode QR"
-                  className="h-11 min-w-0 rounded-xl border border-gray-300 px-4 font-mono text-sm uppercase outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  disabled={submitting || Boolean(isCompletedToday)}
-                />
-
-                <button
-                  type="button"
-                  onClick={handleAttendanceSubmit}
-                  disabled={
-                    submitting ||
-                    Boolean(isCompletedToday) ||
-                    !presenceCode.trim() ||
-                    !staff?.shift ||
-                    !storeSettings ||
-                    storeSettings.store_latitude === null ||
-                    storeSettings.store_longitude === null
-                  }
-                  className="h-11 rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {submitting ? "Memproses..." : currentActionLabel}
-                </button>
-              </div>
-
-              {codeError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {codeError}
-                </div>
-              )}
-
-              {locationMessage && (
-                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                  {locationMessage}
-                </div>
-              )}
-
-              <p className="text-xs text-gray-500">
-                Pastikan Anda berada di area outlet saat melakukan presensi.
-              </p>
             </div>
           </section>
 
-          <section className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <KeyIcon className="h-6 w-6 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Metode</p>
-                    <p className="font-bold text-gray-900">QR Presensi</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <MapPinIcon className="h-6 w-6 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Radius</p>
-                    <p className="font-bold text-gray-900">
-                      {storeSettings?.attendance_radius_meters ? `${storeSettings.attendance_radius_meters} m` : "Belum diset"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <QrCodeIcon className="h-6 w-6 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p className="font-bold text-gray-900">
-                      {isCompletedToday ? "Selesai" : "Siap Absen"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-bold text-gray-900">
-                Riwayat Absensi
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Riwayat presensi staff terbaru.
-              </p>
-
-              <div className="mt-4 space-y-3 xl:max-h-[calc(100vh-370px)] xl:overflow-y-auto xl:pr-1">
-                {attendanceList.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
-                    Belum ada riwayat absensi.
-                  </div>
-                ) : (
-                  attendanceList.map((attendance) => (
-                    <div
-                      key={attendance.id}
-                      className="rounded-xl border border-gray-200 p-3"
-                    >
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <p className="font-bold text-gray-900">
-                            {formatDate(attendance.attendance_date)}
-                          </p>
-                          <p className="mt-1 text-sm text-gray-500">
-                            {attendance.shift?.shift_name ?? "Tanpa Shift"}
-                          </p>
-                        </div>
-
-                        <div className="text-sm text-gray-600 lg:text-right">
-                          <p>
-                            Durasi: {getDuration(attendance.clock_in_at, attendance.clock_out_at)}
-                          </p>
-                          <p>
-                            Jarak in: {formatDistance(attendance.clock_in_distance_meters)}
-                          </p>
-                          <p>
-                            Jarak out: {formatDistance(attendance.clock_out_distance_meters)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div className="rounded-xl bg-gray-50 p-3">
-                          <p className="text-xs text-gray-500">Clock In</p>
-                          <p className="mt-1 font-semibold text-gray-900">
-                            {formatDateTime(attendance.clock_in_at)}
-                          </p>
-                          <span
-                            className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClassName(
-                              attendance.check_in_status,
-                            )}`}
-                          >
-                            {getStatusLabel(attendance.check_in_status)}
-                          </span>
-                        </div>
-
-                        <div className="rounded-xl bg-gray-50 p-3">
-                          <p className="text-xs text-gray-500">Clock Out</p>
-                          <p className="mt-1 font-semibold text-gray-900">
-                            {formatDateTime(attendance.clock_out_at)}
-                          </p>
-                          <span
-                            className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClassName(
-                              attendance.check_out_status,
-                            )}`}
-                          >
-                            {getStatusLabel(attendance.check_out_status)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
 
         {scannerOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Scan QR Presensi</h3>
-                  <p className="text-sm text-gray-500">Arahkan kamera ke QR presensi.</p>
+                  <h3 className="text-lg font-bold text-gray-900">Scan QR Attendance</h3>
+                  <p className="text-sm text-gray-500">Point the camera at the attendance QR.</p>
                 </div>
 
                 <button
@@ -1115,7 +1444,7 @@ export default function AttendancePage() {
                   onClick={() => void stopQrScanner()}
                   className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
-                  Tutup
+                  Close
                 </button>
               </div>
 
@@ -1127,7 +1456,7 @@ export default function AttendancePage() {
                     <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white">
                       <div className="text-center">
                         <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-white" />
-                        <p className="mt-3 text-sm font-medium">Membuka kamera...</p>
+                        <p className="mt-3 text-sm font-medium">Opening camera...</p>
                       </div>
                     </div>
                   )}
@@ -1140,24 +1469,14 @@ export default function AttendancePage() {
                 )}
 
                 <p className="mt-4 text-xs text-gray-500">
-                  Pastikan izin kamera aktif sebelum melakukan scan.
+                  Make sure camera permission is enabled before scanning.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {!storeSettings || storeSettings.store_latitude === null || storeSettings.store_longitude === null ? (
-          <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-            <div className="flex gap-3">
-              <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
-              <p>
-                Lokasi outlet belum lengkap. Lengkapi pengaturan lokasi dan radius presensi terlebih dahulu.
-              </p>
-            </div>
-          </div>
-        ) : null}
       </div>
-    </div>
+    </main>
   );
 }

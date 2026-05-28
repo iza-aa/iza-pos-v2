@@ -24,6 +24,7 @@ import DateRangeFilter, {
 import {
   ChartCard,
   EmptyState,
+  MetricCard,
   StandardTooltip,
 } from "../shared/DashboardPrimitives";
 import { formatCurrency, formatNumber } from "../shared/dashboardUtils";
@@ -33,7 +34,9 @@ import {
   buildTopSellingMenus,
   getQuadrantData,
 } from "./salesLogic";
+import useBookkeepingSalesSummary from "./useBookkeepingSalesSummary";
 import useSalesDashboardData from "./useSalesDashboardData";
+import type { PaymentBreakdownRow } from "@/lib/services/bookkeeping/bookkeepingTypes";
 
 const formatAxisCurrency = (value: number) => {
   if (value >= 1_000_000) return `Rp ${Number(value / 1_000_000).toFixed(1)}m`;
@@ -60,11 +63,32 @@ function statusTone(status: string) {
 export default function SalesDashboard() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const data = useSalesDashboardData();
+  const salesSummary = useBookkeepingSalesSummary(dateRange);
   const products = buildSalesPerformance(data, dateRange);
   const topMenus = buildTopSellingMenus(products);
   const categoryRevenue = buildCategoryRevenue(products);
   const quadrantData = getQuadrantData(products);
   type ProductPerformanceRow = (typeof products)[number];
+  const paymentColumns: Array<StandardTableColumn<PaymentBreakdownRow>> = [
+    {
+      key: "method",
+      header: "Payment Method",
+      render: (row) => <span className="font-semibold capitalize text-gray-900">{row.method}</span>,
+      sortValue: (row) => row.method,
+    },
+    {
+      key: "orders",
+      header: "Orders",
+      render: (row) => formatNumber(row.orders),
+      sortValue: (row) => row.orders,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (row) => <span className="font-semibold text-gray-900">{formatCurrency(row.amount)}</span>,
+      sortValue: (row) => row.amount,
+    },
+  ];
   const profitabilityColumns: Array<StandardTableColumn<ProductPerformanceRow>> = [
     {
       key: "name",
@@ -135,6 +159,66 @@ export default function SalesDashboard() {
           Some sales data could not be loaded. Available widgets will still render.
         </div>
       ) : null}
+
+      {salesSummary.error ? (
+        <div
+          className={`rounded-xl border p-3 text-sm font-medium ${OWNER_SEMANTIC_TONES.warning.badgeClass}`}
+        >
+          Sales financial summary could not be loaded. Product performance widgets will still render.
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <MetricCard
+          label="Gross Sales"
+          value={formatCurrency(salesSummary.summary.grossSales)}
+          helper="Total order value before discount."
+          tone="progress"
+        />
+        <MetricCard
+          label="Net Sales"
+          value={formatCurrency(salesSummary.summary.netSales)}
+          helper="Sales after discount from valid orders."
+          tone="success"
+        />
+        <MetricCard
+          label="Discounts"
+          value={formatCurrency(salesSummary.summary.discounts)}
+          helper="Reward, voucher, and manual discount impact."
+          tone="premium"
+        />
+        <MetricCard
+          label="Tax Collected"
+          value={formatCurrency(salesSummary.summary.taxCollected)}
+          helper="Customer tax kept separate from sales revenue."
+          tone="neutral"
+        />
+        <MetricCard
+          label="Cash Sales"
+          value={formatCurrency(salesSummary.summary.cashExpected)}
+          helper="Cash from valid paid orders only."
+          tone="waiting"
+        />
+        <MetricCard
+          label="Orders"
+          value={formatNumber(salesSummary.summary.totalOrders)}
+          helper="Valid paid orders in the selected period."
+          tone="info"
+        />
+      </div>
+
+      <ChartCard
+        title="Payment Method Breakdown"
+        subtitle="Automatic split from valid paid orders in the selected period."
+      >
+        <StandardTable
+          columns={paymentColumns}
+          data={salesSummary.paymentBreakdown}
+          getRowKey={(row) => row.method}
+          emptyLabel={salesSummary.loading ? "Loading payment data..." : "No payment data in this period."}
+          minWidthClassName="min-w-[620px]"
+        />
+      </ChartCard>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ChartCard

@@ -1,14 +1,12 @@
 import type { DateRangeValue } from "@/app/components/shared";
 
 export type BookkeepingTab =
-  | "overview"
   | "closings"
   | "ledger"
   | "cost-margin"
   | "expenses"
   | "exceptions"
-  | "reports"
-  | "settings";
+  | "reports";
 
 export type ClosingSection = "shift" | "daily";
 

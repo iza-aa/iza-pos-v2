@@ -16,10 +16,11 @@ STANDARISASI BADGE/LABEL
 `#BFE5DF` |
 INI BISA DIAMBIL DARI theme.ts
 
-STANDARISASI CARD CONTENT, INFOBOX, CARD ANALYTICS DI DASHBOARD OWNER
+STANDARISASI CARD CONTENT, INFOBOX
 1. Tidak menggunakan icon 
 2. warna contentnya tergantung standarisasi warna chart diatas
-3. anda bisa mencontoh infobox yang ada didashboard
+3. anda bisa mencontoh infobox yang ada didashboard owner
+4. Padding juga sama
 
 STANDARISASI TABLE
 1. Menggunakan StandardTable.tsx

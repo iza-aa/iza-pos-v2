@@ -6,11 +6,9 @@ import {
   ArchiveBoxIcon,
   ChartPieIcon,
   ClipboardDocumentCheckIcon,
-  Cog6ToothIcon,
   DocumentChartBarIcon,
   ExclamationTriangleIcon,
   ReceiptPercentIcon,
-  Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import {
   DateRangeFilter,
@@ -25,22 +23,14 @@ import type {
   ShiftClosingRow,
   BookkeepingTab,
 } from "@/lib/services/bookkeeping/bookkeepingTypes";
-import OverviewTab from "./tabs/OverviewTab";
 import ClosingsTab from "./tabs/ClosingsTab";
 import AutoLedgerTab from "./tabs/AutoLedgerTab";
 import CostMarginTab from "./tabs/CostMarginTab";
 import ExpensesTab from "./tabs/ExpensesTab";
 import ExceptionsTab from "./tabs/ExceptionsTab";
 import ReportsTab from "./tabs/ReportsTab";
-import SettingsTab from "./tabs/SettingsTab";
 
 const tabs = [
-  {
-    id: "overview" as const,
-    label: "Overview",
-    description: "Financial result",
-    icon: Squares2X2Icon,
-  },
   {
     id: "closings" as const,
     label: "Closings",
@@ -77,12 +67,6 @@ const tabs = [
     description: "Exports & history",
     icon: DocumentChartBarIcon,
   },
-  {
-    id: "settings" as const,
-    label: "Settings",
-    description: "Tax & charge",
-    icon: Cog6ToothIcon,
-  },
 ];
 
 const isBookkeepingTab = (value: string | null): value is BookkeepingTab => {
@@ -116,10 +100,10 @@ export default function OwnerBookkeeping() {
 
   const activeTab = useMemo<BookkeepingTab>(() => {
     const tab = searchParams.get("tab");
-    return isBookkeepingTab(tab) ? tab : "overview";
+    if (tab === "settings") return "expenses";
+    if (tab === "overview") return "closings";
+    return isBookkeepingTab(tab) ? tab : "closings";
   }, [searchParams]);
-
-  const needsPeriodData = activeTab !== "settings";
 
   const loadData = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
     if (!quiet) setLoading(true);
@@ -165,8 +149,17 @@ export default function OwnerBookkeeping() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
+    if (tab === "settings") {
+      router.replace("/owner/bookkeeping?tab=expenses");
+      return;
+    }
+    if (tab === "overview") {
+      router.replace("/owner/bookkeeping?tab=closings");
+      return;
+    }
+
     if (tab && !isBookkeepingTab(tab)) {
-      router.replace("/owner/bookkeeping?tab=overview");
+      router.replace("/owner/bookkeeping?tab=closings");
     }
   }, [router, searchParams]);
 
@@ -177,13 +170,8 @@ export default function OwnerBookkeeping() {
 
   useEffect(() => {
     setNotice("");
-    if (!needsPeriodData) {
-      setLoading(false);
-      return;
-    }
-
     void loadData();
-  }, [loadData, needsPeriodData]);
+  }, [loadData]);
 
   const postGenerateRequest = async (url: string): Promise<GenerateResult> => {
     const currentUser = getCurrentUser();
@@ -656,7 +644,6 @@ export default function OwnerBookkeeping() {
   };
 
   const renderTab = () => {
-    if (activeTab === "settings") return <SettingsTab />;
     if (!data) return null;
     if (activeTab === "closings") {
       return (
@@ -711,7 +698,17 @@ export default function OwnerBookkeeping() {
         />
       );
     }
-    return <OverviewTab data={data} />;
+    return (
+      <ClosingsTab
+        data={data}
+        closingDaily={closingDaily}
+        reopeningDaily={reopeningDaily}
+        reviewingShiftId={reviewingShiftId}
+        onApproveDaily={handleCloseDaily}
+        onReopenDaily={handleReopenDaily}
+        onRequestShiftReview={(row, note) => handleReviewShiftClosing(row, "reopen", note)}
+      />
+    );
   };
 
   return (
@@ -730,11 +727,9 @@ export default function OwnerBookkeeping() {
         <section className="flex min-w-0 flex-1 flex-col bg-gray-50">
           <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
             <div className="space-y-4">
-              {needsPeriodData ? (
-                <div className="grid grid-cols-1">
-                  <DateRangeFilter value={dateRange} onChange={setDateRange} />
-                </div>
-              ) : null}
+              <div className="grid grid-cols-1">
+                <DateRangeFilter value={dateRange} onChange={setDateRange} />
+              </div>
 
               {error ? (
                 <div className="rounded-2xl border border-[#F6C99F] bg-[#FFF1E6] p-4 text-sm font-semibold text-[#B45309]">
@@ -748,7 +743,7 @@ export default function OwnerBookkeeping() {
                 </div>
               ) : null}
 
-              {needsPeriodData && loading ? (
+              {loading ? (
                 <div className="rounded-2xl border border-gray-200 bg-white p-8 text-sm font-semibold text-gray-500 shadow-sm">
                   Loading bookkeeping data...
                 </div>

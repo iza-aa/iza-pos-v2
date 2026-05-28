@@ -174,6 +174,11 @@ export default function StaffEndShiftPage() {
         return;
       }
 
+      if (user.role === "staff") {
+        router.replace("/staff/attendance");
+        return;
+      }
+
       if (user.role !== "staff" && user.role !== "owner") {
         router.replace("/staff/dashboard");
         return;
@@ -296,7 +301,7 @@ export default function StaffEndShiftPage() {
   return (
     <main className="min-h-[calc(100vh-56px)] bg-gray-50">
       <section className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex flex-col gap-4 px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6 xl:px-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-950 md:text-3xl">End Shift</h1>
             <p className="mt-1 text-sm text-gray-500">
@@ -304,7 +309,7 @@ export default function StaffEndShiftPage() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto md:justify-end">
             {currentUser?.role === "owner" && data?.staffOptions?.length ? (
               <select
                 value={selectedStaffId || data.staff.id}
@@ -312,7 +317,7 @@ export default function StaffEndShiftPage() {
                   setSelectedStaffId(event.target.value);
                   setNotice("");
                 }}
-                className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+                className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900 sm:w-64"
               >
                 {data.staffOptions.map((staff) => (
                   <option key={staff.id} value={staff.id}>
@@ -325,7 +330,7 @@ export default function StaffEndShiftPage() {
               type="date"
               value={businessDate}
               onChange={(event) => setBusinessDate(event.target.value)}
-              className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+              className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900 sm:w-48"
             />
             <button
               type="button"
@@ -340,7 +345,7 @@ export default function StaffEndShiftPage() {
         </div>
       </section>
 
-      <section className="mx-auto space-y-4 px-4 py-4 md:px-6">
+      <section className="mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-6 xl:px-8">
         {error ? (
           (() => {
             const guidance = getSetupGuidance(error);
@@ -384,7 +389,7 @@ export default function StaffEndShiftPage() {
           </div>
         ) : data ? (
           <>
-            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:p-7">
               <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-500">{formatDate(data.businessDate)}</p>
@@ -399,7 +404,7 @@ export default function StaffEndShiftPage() {
                 </span>
               </div>
 
-              <div className="mt-5">
+              <div className="mx-auto mt-6 max-w-3xl">
                 <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
                   <EyeSlashIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
                   <div>
@@ -410,7 +415,7 @@ export default function StaffEndShiftPage() {
                   </div>
                 </div>
 
-                <label className="mt-5 block text-sm font-semibold text-gray-700">
+                <label className="mt-6 block text-sm font-semibold text-gray-700">
                   Cash Counted
                   <input
                     type="number"
@@ -419,7 +424,7 @@ export default function StaffEndShiftPage() {
                     onChange={(event) => setCashCounted(event.target.value)}
                     placeholder="Enter counted cash"
                     disabled={data.closing?.status === "closed"}
-                    className="mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+                    className="mt-2 h-14 w-full rounded-xl border border-gray-200 bg-white px-4 text-lg font-bold text-gray-950 outline-none focus:border-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
                   />
                 </label>
 

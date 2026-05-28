@@ -5,7 +5,9 @@ import { supabase } from "@/lib/config/supabaseClient";
 import { getCurrentUser } from "@/lib/utils";
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
   ArrowUpRightIcon,
+  BanknotesIcon,
   BellAlertIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -130,22 +132,22 @@ const addDays = (dateString: string, days: number) => {
 
 const getGreeting = () => {
   const hour = Number(
-    new Intl.DateTimeFormat("id-ID", {
+    new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Jakarta",
       hour: "2-digit",
       hour12: false,
     }).format(new Date()),
   );
 
-  if (hour < 11) return "Selamat pagi";
-  if (hour < 15) return "Selamat siang";
-  if (hour < 18) return "Selamat sore";
-  return "Selamat malam";
+  if (hour < 11) return "Good morning";
+  if (hour < 15) return "Good afternoon";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 };
 
 const formatDateLabel = (dateString: string) => {
   const [year, month, day] = dateString.split("-").map(Number);
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -166,7 +168,7 @@ const formatTime = (value?: string | null) => {
 
   if (Number.isNaN(date.getTime())) return "-";
 
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -175,7 +177,7 @@ const formatTime = (value?: string | null) => {
 };
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("id-ID", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
@@ -239,24 +241,24 @@ const getStaffTypeLabel = (value?: string | null) => {
 const getAttendanceStatus = (attendance: AttendanceRecord | null) => {
   if (!attendance?.clock_in_at) {
     return {
-      label: "Belum Clock In",
-      subtitle: "Silakan lakukan absensi sebelum mulai bekerja",
-      badge: "Belum",
+      label: "Not Clocked In",
+      subtitle: "Please clock in before starting work",
+      badge: "Pending",
     };
   }
 
   if (attendance.clock_in_at && !attendance.clock_out_at) {
     return {
-      label: "Sedang Bekerja",
+      label: "Currently Working",
       subtitle: `Clock in ${formatTime(attendance.clock_in_at)}`,
-      badge: "Aktif",
+      badge: "Active",
     };
   }
 
   return {
-    label: "Absensi Selesai",
+    label: "Attendance Completed",
     subtitle: `${formatTime(attendance.clock_in_at)} - ${formatTime(attendance.clock_out_at)}`,
-    badge: "Selesai",
+    badge: "Completed",
   };
 };
 
@@ -366,7 +368,7 @@ export default function StaffDashboardPage() {
             .maybeSingle();
 
           if (shiftResult.error) {
-            console.warn("Gagal memuat shift staff:", describeSupabaseError(shiftResult.error));
+            console.warn("Failed to load staff shift:", describeSupabaseError(shiftResult.error));
           } else {
             shift = (shiftResult.data || null) as ShiftRecord | null;
           }
@@ -382,7 +384,7 @@ export default function StaffDashboardPage() {
           .maybeSingle();
 
         if (attendanceResult.error) {
-          console.warn("Gagal memuat presensi staff:", describeSupabaseError(attendanceResult.error));
+          console.warn("Failed to load staff attendance:", describeSupabaseError(attendanceResult.error));
         }
 
         const ordersResult = await supabase
@@ -393,7 +395,7 @@ export default function StaffDashboardPage() {
           .order("created_at", { ascending: false });
 
         if (ordersResult.error) {
-          console.warn("Gagal memuat order staff dashboard:", describeSupabaseError(ordersResult.error));
+          console.warn("Failed to load staff dashboard orders:", describeSupabaseError(ordersResult.error));
         }
 
         setDashboardData({
@@ -402,8 +404,8 @@ export default function StaffDashboardPage() {
           orders: (ordersResult.data || []) as OrderRecord[],
         });
       } catch (fetchError) {
-        console.error("Gagal memuat dashboard staff:", describeSupabaseError(fetchError));
-        setError("Gagal memuat data dashboard. Periksa koneksi lalu coba lagi.");
+        console.error("Failed to load staff dashboard:", describeSupabaseError(fetchError));
+        setError("Failed to load dashboard data. Check the connection and try again.");
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -451,7 +453,7 @@ export default function StaffDashboardPage() {
         .maybeSingle();
 
       if (userError) {
-        console.error("Gagal validasi user staff:", describeSupabaseError(userError));
+        console.error("Failed to validate staff user:", describeSupabaseError(userError));
         localStorage.clear();
         window.location.href = "/staff/login";
         return;
@@ -518,40 +520,40 @@ export default function StaffDashboardPage() {
 
     if (!dashboardData.staff?.shift_id) {
       alerts.push({
-        title: "Shift belum ditentukan",
-        description: "Hubungi manager jika kamu belum memiliki shift aktif.",
+        title: "Shift is not assigned",
+        description: "Contact the manager if you do not have an active shift.",
         toneClass: "border-red-200 bg-red-50",
       });
     }
 
     if (!dashboardData.attendance?.clock_in_at) {
       alerts.push({
-        title: "Belum clock in",
-        description: "Lakukan absensi sebelum mulai bekerja.",
+        title: "Not clocked in",
+        description: "Clock in before starting work.",
         toneClass: "border-amber-200 bg-amber-50",
       });
     }
 
     if (dashboardData.attendance?.clock_in_at && !dashboardData.attendance.clock_out_at) {
       alerts.push({
-        title: "Clock out belum dilakukan",
-        description: "Jangan lupa clock out setelah selesai shift.",
+        title: "Clock out is not done yet",
+        description: "Remember to clock out after finishing your shift.",
         toneClass: "border-blue-200 bg-blue-50",
       });
     }
 
     if (metrics.newOrderCount > 0) {
       alerts.push({
-        title: `${metrics.newOrderCount} order baru menunggu diproses`,
-        description: "Buka halaman order untuk membantu proses pesanan.",
+        title: `${metrics.newOrderCount} new orders are waiting to be processed`,
+        description: "Open the order page to help process orders.",
         toneClass: "border-amber-200 bg-amber-50",
       });
     }
 
     if (metrics.partiallyServedOrderCount > 0) {
       alerts.push({
-        title: `${metrics.partiallyServedOrderCount} order partially served`,
-        description: "Pastikan item yang tersisa segera diselesaikan.",
+        title: `${metrics.partiallyServedOrderCount} partially served orders`,
+        description: "Make sure the remaining items are completed soon.",
         toneClass: "border-blue-200 bg-blue-50",
       });
     }
@@ -560,6 +562,7 @@ export default function StaffDashboardPage() {
   }, [dashboardData.attendance, dashboardData.staff?.shift_id, metrics.newOrderCount, metrics.partiallyServedOrderCount]);
 
   const recentActiveOrders = metrics.activeOrders.slice(0, 8);
+  const isCashier = String(currentUser?.staff_type || dashboardData.staff?.staff_type || "").toLowerCase() === "cashier";
 
   return (
     <main className="h-[calc(100vh-64px)] overflow-hidden bg-gray-100">
@@ -581,7 +584,7 @@ export default function StaffDashboardPage() {
             className="inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ArrowPathIcon className={`h-4 w-4 text-gray-700 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Memuat..." : "Refresh"}
+            {refreshing ? "Loading..." : "Refresh"}
           </button>
         </div>
 
@@ -593,7 +596,7 @@ export default function StaffDashboardPage() {
 
         <div className="grid shrink-0 grid-cols-2 gap-3 px-6 xl:grid-cols-4">
           <MetricCard
-            title="Status Presensi"
+            title="Attendance Status"
             value={attendanceStatus.label}
             subtitle={attendanceStatus.subtitle}
             badge={attendanceStatus.badge}
@@ -601,21 +604,21 @@ export default function StaffDashboardPage() {
             iconBg={dashboardData.attendance?.clock_in_at ? "bg-green-100" : "bg-amber-100"}
           />
           <MetricCard
-            title="Shift Hari Ini"
-            value={shift?.shift_name || "Belum Ada"}
-            subtitle={shift ? `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}` : "Shift belum ditentukan"}
+            title="Today's Shift"
+            value={shift?.shift_name || "Pending"}
+            subtitle={shift ? `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}` : "Shift is not assigned"}
             icon={ClockIcon}
             iconBg={shift ? "bg-blue-100" : "bg-red-100"}
           />
           <MetricCard
-            title="Order Aktif"
+            title="Order Active"
             value={metrics.activeOrderCount}
             subtitle="New, on process, partially served"
             icon={ShoppingBagIcon}
             iconBg="bg-purple-100"
           />
           <MetricCard
-            title="Selesai Hari Ini"
+            title="Completed Hari Ini"
             value={metrics.completedOrderCount}
             subtitle={formatCurrency(metrics.revenue)}
             icon={CheckCircleIcon}
@@ -625,11 +628,11 @@ export default function StaffDashboardPage() {
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 px-6 pb-2 xl:grid-cols-3">
           <SectionCard
-            title="Aktivitas Hari Ini"
-            subtitle="Status shift dan presensi kamu."
+            title="Today's Activity"
+            subtitle="Your shift and attendance status."
             action={
               <a href="/staff/attendance" className="text-sm font-semibold text-gray-700 hover:text-gray-900">
-                Absensi
+                Attendance
               </a>
             }
           >
@@ -640,9 +643,9 @@ export default function StaffDashboardPage() {
               </div>
               <div className="rounded-lg bg-gray-100 p-3">
                 <p className="text-xs text-gray-500">Shift</p>
-                <p className="mt-1 text-lg font-bold text-gray-900">{shift?.shift_name || "Belum Ada Shift"}</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">{shift?.shift_name || "No Shift Assigned"}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  {shift ? `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}` : "Hubungi manager untuk pengaturan shift."}
+                  {shift ? `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}` : "Contact the manager to set up your shift."}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -664,11 +667,11 @@ export default function StaffDashboardPage() {
           </SectionCard>
 
           <SectionCard
-            title="Order Aktif"
-            subtitle="Daftar order yang perlu dipantau."
+            title="Order Active"
+            subtitle="Orders that need monitoring."
             action={
               <a href="/staff/order" className="text-sm font-semibold text-gray-700 hover:text-gray-900">
-                Lihat order
+                View orders
               </a>
             }
           >
@@ -694,7 +697,7 @@ export default function StaffDashboardPage() {
             <div className="mt-3 space-y-2">
               {loading ? (
                 <div className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
-                  Memuat order...
+                  Loading orders...
                 </div>
               ) : recentActiveOrders.length > 0 ? (
                 recentActiveOrders.map((order, index) => (
@@ -714,36 +717,92 @@ export default function StaffDashboardPage() {
                 ))
               ) : (
                 <div className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
-                  Tidak ada order aktif saat ini.
+                  No active orders right now.
                 </div>
               )}
             </div>
           </SectionCard>
 
-          <SectionCard
-            title="Catatan Kerja"
-            subtitle="Hal yang perlu diperhatikan hari ini."
-            action={<BellAlertIcon className="h-5 w-5 text-gray-700" />}
-          >
-            {loading ? (
-              <div className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
-                Memuat catatan...
-              </div>
-            ) : alertItems.length > 0 ? (
-              <div className="space-y-2">
-                {alertItems.map((item, index) => (
-                  <div key={index} className={`rounded-lg border p-3 ${item.toneClass}`}>
-                    <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-gray-600">{item.description}</p>
+          {isCashier ? (
+            <SectionCard
+              title="End Shift"
+              subtitle="Count physical cash before owner closing."
+              action={<BanknotesIcon className="h-5 w-5 text-gray-700" />}
+            >
+              <div className="flex h-full flex-col">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-white p-2 shadow-sm">
+                      <BanknotesIcon className="h-5 w-5 text-blue-700" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-blue-950">Blind Cash Count</p>
+                      <p className="mt-1 text-xs leading-5 text-blue-800">
+                        Enter the total physical cash in the drawer. Expected cash is hidden until submit.
+                      </p>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-gray-100 p-3">
+                    <p className="text-xs text-gray-500">Shift</p>
+                    <p className="mt-1 truncate text-base font-bold text-gray-900">{shift?.shift_name || "Pending"}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {shift ? `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}` : "Contact manager"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-gray-100 p-3">
+                    <p className="text-xs text-gray-500">Date</p>
+                    <p className="mt-1 text-base font-bold text-gray-900">{today}</p>
+                    <p className="mt-1 text-xs text-gray-500">Business date</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {dashboardData.attendance?.clock_out_at ? "Ready to submit cash closing" : "Submit after the shift ends"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-gray-600">
+                    Make sure cash has not been mixed with the next shift drawer.
+                  </p>
+                </div>
+
+                <a
+                  href="/staff/attendance"
+                  className="mt-auto flex h-11 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800"
+                >
+                  Open Attendance
+                  <ArrowRightIcon className="h-4 w-4" />
+                </a>
               </div>
-            ) : (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-gray-700">
-                Semua aman. Tidak ada catatan penting untuk saat ini.
-              </div>
-            )}
-          </SectionCard>
+            </SectionCard>
+          ) : (
+            <SectionCard
+              title="Work Notes"
+              subtitle="Items to watch today."
+              action={<BellAlertIcon className="h-5 w-5 text-gray-700" />}
+            >
+              {loading ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
+                  Loading notes...
+                </div>
+              ) : alertItems.length > 0 ? (
+                <div className="space-y-2">
+                  {alertItems.map((item, index) => (
+                    <div key={index} className={`rounded-lg border p-3 ${item.toneClass}`}>
+                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-gray-600">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-gray-700">
+                  All clear. There are no important notes right now.
+                </div>
+              )}
+            </SectionCard>
+          )}
         </div>
       </section>
     </main>

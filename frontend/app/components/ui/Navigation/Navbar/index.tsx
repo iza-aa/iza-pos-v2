@@ -64,14 +64,12 @@ const menuConfig = {
     cashier: [
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
       { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
-      { label: 'End Shift', path: '/staff/end-shift', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
       { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
       { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     ],
     barista: [
       { label: 'Dashboard', path: '/staff/dashboard', icon: Squares2X2Icon, iconSolid: Squares2X2IconSolid },
       { label: 'POS', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
-      { label: 'End Shift', path: '/staff/end-shift', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
       { label: 'Attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
       { label: 'Order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     ],
