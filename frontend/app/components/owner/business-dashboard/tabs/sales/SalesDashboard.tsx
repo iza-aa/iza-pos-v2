@@ -38,10 +38,25 @@ import useBookkeepingSalesSummary from "./useBookkeepingSalesSummary";
 import useSalesDashboardData from "./useSalesDashboardData";
 import type { PaymentBreakdownRow } from "@/lib/services/bookkeeping/bookkeepingTypes";
 
+type PaymentBreakdownDisplayRow = PaymentBreakdownRow & {
+  isTotal?: boolean;
+};
+
+type ProfitabilityStatusInput = {
+  status?: "ready" | "cost_data_needed" | "recipe_needed";
+  sold: number;
+  revenue: number;
+  margin: number | null;
+};
+
 const formatAxisCurrency = (value: number) => {
   if (value >= 1_000_000) return `Rp ${Number(value / 1_000_000).toFixed(1)}m`;
   if (value >= 1_000) return `Rp ${Number(value / 1_000).toFixed(0)}k`;
   return `Rp ${Number(value).toFixed(0)}`;
+};
+
+const formatOptionalCurrency = (value: number | null | undefined) => {
+  return value === null || value === undefined ? "Cost Data Needed" : formatCurrency(value);
 };
 
 function statusTone(status: string) {
@@ -60,6 +75,18 @@ function statusTone(status: string) {
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 }
 
+function getProfitabilityStatus({ status, sold, revenue, margin }: ProfitabilityStatusInput) {
+  if (status === "cost_data_needed" || status === "recipe_needed" || margin === null) {
+    return "Needs Cost Data";
+  }
+
+  if (revenue <= 0 || sold <= 0) return "No Sales";
+  if (sold >= 10 && margin >= 60) return "Star Menu";
+  if (margin < 30) return "Low Margin";
+  if (sold < 3) return "Low Demand";
+  return "Healthy";
+}
+
 export default function SalesDashboard() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const data = useSalesDashboardData();
@@ -68,25 +95,80 @@ export default function SalesDashboard() {
   const topMenus = buildTopSellingMenus(products);
   const categoryRevenue = buildCategoryRevenue(products);
   const quadrantData = getQuadrantData(products);
+  const paymentTotalAmount = salesSummary.paymentBreakdown.reduce((sum, row) => sum + row.amount, 0);
   type ProductPerformanceRow = (typeof products)[number];
-  const paymentColumns: Array<StandardTableColumn<PaymentBreakdownRow>> = [
+  const productsByKey = new Map<string, ProductPerformanceRow>();
+
+  products.forEach((product) => {
+    productsByKey.set(product.id, product);
+    productsByKey.set(product.name.trim().toLowerCase(), product);
+  });
+
+  const profitabilityRows: ProductPerformanceRow[] = salesSummary.menuMargins.length
+    ? salesSummary.menuMargins.map((row) => {
+        const matchingProduct =
+          productsByKey.get(row.id) ?? productsByKey.get(row.menuName.trim().toLowerCase());
+
+        return {
+          id: row.id,
+          name: row.menuName,
+          category: matchingProduct?.category ?? "-",
+          sold: row.quantitySold,
+          revenue: row.revenue,
+          estimatedCost: row.estimatedCogs,
+          grossProfit: row.grossProfit,
+          margin: row.marginPct,
+          status: getProfitabilityStatus({
+            status: row.status,
+            sold: row.quantitySold,
+            revenue: row.revenue,
+            margin: row.marginPct,
+          }),
+        };
+      })
+    : products;
+  const paymentBreakdownRows: PaymentBreakdownDisplayRow[] =
+    salesSummary.paymentBreakdown.length > 0 || salesSummary.summary.totalOrders > 0
+      ? [
+          ...salesSummary.paymentBreakdown,
+          {
+            method: "Total",
+            orders: salesSummary.summary.totalOrders,
+            amount: paymentTotalAmount,
+            isTotal: true,
+          },
+        ]
+      : [];
+  const paymentColumns: Array<StandardTableColumn<PaymentBreakdownDisplayRow>> = [
     {
       key: "method",
       header: "Payment Method",
-      render: (row) => <span className="font-semibold capitalize text-gray-900">{row.method}</span>,
-      sortValue: (row) => row.method,
+      render: (row) => (
+        <span className={`${row.isTotal ? "font-bold " : "text-gray-950 "}`}>
+          {row.method}
+        </span>
+      ),
+      isAction: true,
     },
     {
       key: "orders",
       header: "Orders",
-      render: (row) => formatNumber(row.orders),
-      sortValue: (row) => row.orders,
+      render: (row) => (
+        <span className={row.isTotal ? "font-bold text-gray-950" : ""}>
+          {formatNumber(row.orders)}
+        </span>
+      ),
+      isAction: true,
     },
     {
       key: "amount",
       header: "Amount",
-      render: (row) => <span className="font-semibold text-gray-900">{formatCurrency(row.amount)}</span>,
-      sortValue: (row) => row.amount,
+      render: (row) => (
+        <span className={`${row.isTotal ? "text-gray-950 font-bold" : "text-gray-900"}`}>
+          {formatCurrency(row.amount)}
+        </span>
+      ),
+      isAction: true,
     },
   ];
   const profitabilityColumns: Array<StandardTableColumn<ProductPerformanceRow>> = [
@@ -116,7 +198,7 @@ export default function SalesDashboard() {
     },
     {
       key: "estimatedCost",
-      header: "Estimated Cost",
+      header: "COGS Estimate",
       render: (item) =>
         item.estimatedCost === null ? "Cost data needed" : formatCurrency(item.estimatedCost),
       sortValue: (item) => item.estimatedCost ?? -1,
@@ -170,16 +252,16 @@ export default function SalesDashboard() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
         <MetricCard
-          label="Gross Sales"
-          value={formatCurrency(salesSummary.summary.grossSales)}
-          helper="Total order value before discount."
-          tone="progress"
+          label="Net Profit Estimate"
+          value={formatOptionalCurrency(salesSummary.summary.netProfitEstimate)}
+          helper="Revenue minus discounts, food cost, and operating expenses."
+          tone={salesSummary.summary.netProfitEstimate === null ? "warning" : "success"}
         />
         <MetricCard
-          label="Net Sales"
-          value={formatCurrency(salesSummary.summary.netSales)}
-          helper="Sales after discount from valid orders."
-          tone="success"
+          label="Revenue"
+          value={formatCurrency(salesSummary.summary.grossSales)}
+          helper="Valid order value before any discount or cost."
+          tone="progress"
         />
         <MetricCard
           label="Discounts"
@@ -188,22 +270,22 @@ export default function SalesDashboard() {
           tone="premium"
         />
         <MetricCard
+          label="Food Cost"
+          value={formatOptionalCurrency(salesSummary.summary.estimatedCogs)}
+          helper="COGS estimate from bookkeeping menu margin data."
+          tone={salesSummary.summary.estimatedCogs === null ? "warning" : "coffee"}
+        />
+        <MetricCard
+          label="Operating Expenses"
+          value={formatCurrency(salesSummary.summary.operatingExpenses)}
+          helper="Recorded operational expenses in this period."
+          tone="waiting"
+        />
+        <MetricCard
           label="Tax Collected"
           value={formatCurrency(salesSummary.summary.taxCollected)}
           helper="Customer tax kept separate from sales revenue."
           tone="neutral"
-        />
-        <MetricCard
-          label="Cash Sales"
-          value={formatCurrency(salesSummary.summary.cashExpected)}
-          helper="Cash from valid paid orders only."
-          tone="waiting"
-        />
-        <MetricCard
-          label="Orders"
-          value={formatNumber(salesSummary.summary.totalOrders)}
-          helper="Valid paid orders in the selected period."
-          tone="info"
         />
       </div>
 
@@ -213,8 +295,8 @@ export default function SalesDashboard() {
       >
         <StandardTable
           columns={paymentColumns}
-          data={salesSummary.paymentBreakdown}
-          getRowKey={(row) => row.method}
+          data={paymentBreakdownRows}
+          getRowKey={(row) => (row.isTotal ? "total" : row.method)}
           emptyLabel={salesSummary.loading ? "Loading payment data..." : "No payment data in this period."}
           minWidthClassName="min-w-[620px]"
         />
@@ -345,13 +427,17 @@ export default function SalesDashboard() {
 
       <ChartCard
         title="Profitability Table"
-        subtitle="Estimated cost uses base recipe and inventory cost data when available."
+        subtitle="COGS estimate uses the same bookkeeping source as Food Cost."
       >
         <StandardTable
           columns={profitabilityColumns}
-          data={products}
+          data={profitabilityRows}
           getRowKey={(item) => item.id}
-          emptyLabel={data.loading ? "Loading sales data..." : "No profitability data yet."}
+          emptyLabel={
+            salesSummary.loading || data.loading
+              ? "Loading profitability data..."
+              : "No profitability data yet."
+          }
         />
       </ChartCard>
     </div>

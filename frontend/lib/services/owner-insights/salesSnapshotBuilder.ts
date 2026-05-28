@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadBookkeepingDashboardDataFromClient } from "@/lib/services/bookkeeping/bookkeepingService";
 import { buildMetric, toNumber } from "./metricSnapshotBuilder";
 import {
   buildRecommendationPeriodContext,
@@ -137,6 +138,9 @@ const summarizeOrders = (orders: SalesOrderRow[]) => {
   };
 };
 
+const nullableNumber = (value: number | null | undefined) =>
+  value === null || value === undefined ? null : value;
+
 const buildMenuPerformance = ({
   orderItems,
   validOrderIds,
@@ -187,11 +191,13 @@ const buildSalesAllowedIssues = ({
   topMenus,
   weakMenus,
   categoryRevenue,
+  missingFinancialCostData,
 }: {
   metrics: Record<string, RecommendationMetric>;
   topMenus: ReturnType<typeof buildMenuPerformance>;
   weakMenus: Array<{ name: string; comparisonQuantity: number; selectedPeriodQuantity: number }>;
   categoryRevenue: Array<{ name: string; revenue: number; revenueShare: number }>;
+  missingFinancialCostData: boolean;
 }): RecommendationAllowedIssue[] => {
   const issues: RecommendationAllowedIssue[] = [];
   const revenue = Number(metrics.totalRevenue.value ?? 0);
@@ -206,6 +212,8 @@ const buildSalesAllowedIssues = ({
   const topMenu = topMenus[0];
   const topCategory = categoryRevenue[0];
   const weakMenu = weakMenus[0];
+  const netProfitEstimate = metrics.netProfitEstimate.value;
+  const foodCost = metrics.foodCost.value;
 
   if (revenue === 0 && orders === 0) {
     issues.push({
@@ -285,6 +293,26 @@ const buildSalesAllowedIssues = ({
       expectedImpact:
         "Lifting AOV improves revenue even if order volume has not fully recovered.",
       metricKeys: ["averageOrderValue", "totalRevenue"],
+    });
+  }
+
+  if (missingFinancialCostData) {
+    issues.push({
+      id: "sales-food-cost-data-needed",
+      title: "Food Cost Data Needs Completion",
+      priority: "medium",
+      confidence: "high",
+      problem:
+        "Net Profit Estimate cannot be trusted until Food Cost/COGS data is complete.",
+      evidence: [
+        `Food Cost is ${formatEvidenceNumber(foodCost as number | null, "IDR")}.`,
+        `Net Profit Estimate is ${formatEvidenceNumber(netProfitEstimate as number | null, "IDR")}.`,
+      ],
+      recommendationHint:
+        "Complete menu recipes and inventory item costs first, then regenerate the sales recommendation before making margin decisions.",
+      expectedImpact:
+        "Reliable COGS prevents the owner from optimizing sales using incomplete profit data.",
+      metricKeys: ["foodCost", "netProfitEstimate"],
     });
   }
 
@@ -428,6 +456,10 @@ export async function buildSalesRecommendationSnapshot(
   const comparisonValidOrders = comparisonOrders.filter(isValidSalesOrder);
   const selectedSummary = summarizeOrders(selectedOrders);
   const comparisonSummary = summarizeOrders(comparisonOrders);
+  const bookkeepingData = await loadBookkeepingDashboardDataFromClient(supabase, {
+    startDate: period.selected.startDate,
+    endDate: period.selected.endDate,
+  });
   const selectedOrderIds = new Set(selectedValidOrders.map((order) => order.id));
   const comparisonOrderIds = new Set(comparisonValidOrders.map((order) => order.id));
   const selectedMenus = buildMenuPerformance({
@@ -467,18 +499,48 @@ export async function buildSalesRecommendationSnapshot(
     })
     .sort((a, b) => b.revenue - a.revenue);
   const metrics = {
+    netProfitEstimate: buildMetric({
+      value: nullableNumber(bookkeepingData.summary.netProfitEstimate),
+      unit: "IDR",
+      source: "bookkeeping summary: revenue minus discounts, food cost, and operating expenses",
+      displayLabel: "Net Profit Estimate",
+    }),
     totalRevenue: buildMetric({
-      value: selectedSummary.revenue,
+      value: bookkeepingData.summary.grossSales,
       previousValue: comparisonSummary.revenue,
       unit: "IDR",
-      source: "orders.total filtered with Sales dashboard valid-order rules",
-      displayLabel: "Total Revenue",
+      source: "bookkeeping summary grossSales, matching Sales dashboard Revenue card",
+      displayLabel: "Revenue",
+    }),
+    discounts: buildMetric({
+      value: bookkeepingData.summary.discounts,
+      unit: "IDR",
+      source: "bookkeeping summary discounts",
+      displayLabel: "Discounts",
+    }),
+    foodCost: buildMetric({
+      value: nullableNumber(bookkeepingData.summary.estimatedCogs),
+      unit: "IDR",
+      source: "bookkeeping menu margin COGS, matching Sales dashboard Food Cost card",
+      displayLabel: "Food Cost",
+    }),
+    operatingExpenses: buildMetric({
+      value: bookkeepingData.summary.operatingExpenses,
+      unit: "IDR",
+      source: "bookkeeping expenses in the selected period",
+      displayLabel: "Operating Expenses",
+    }),
+    taxCollected: buildMetric({
+      value: bookkeepingData.summary.taxCollected,
+      unit: "IDR",
+      source: "bookkeeping summary taxCollected",
+      displayLabel: "Tax Collected",
     }),
     totalOrders: buildMetric({
-      value: selectedSummary.orderCount,
+      value: bookkeepingData.summary.totalOrders,
       previousValue: comparisonSummary.orderCount,
       unit: "count",
-      source: "orders.id filtered with Sales dashboard valid-order rules",
+      source: "bookkeeping summary totalOrders",
       displayLabel: "Total Orders",
     }),
     averageOrderValue: buildMetric({
@@ -523,6 +585,35 @@ export async function buildSalesRecommendationSnapshot(
       },
     },
     tables: {
+      paymentBreakdown: {
+        title: "Payment Method Breakdown",
+        description: "Payment split from valid paid orders, including total row.",
+        rows: [
+          ...bookkeepingData.paymentBreakdown,
+          {
+            method: "Total",
+            orders: bookkeepingData.summary.totalOrders,
+            amount: bookkeepingData.paymentBreakdown.reduce(
+              (sum, row) => sum + row.amount,
+              0,
+            ),
+          },
+        ],
+      },
+      menuMargins: {
+        title: "Profitability Table",
+        description:
+          "Menu profitability rows using the same bookkeeping COGS source as Food Cost.",
+        rows: bookkeepingData.menuMargins.slice(0, 10).map((row) => ({
+          menuName: row.menuName,
+          quantitySold: row.quantitySold,
+          revenue: row.revenue,
+          foodCost: row.estimatedCogs,
+          grossProfit: row.grossProfit,
+          marginPct: row.marginPct,
+          status: row.status,
+        })),
+      },
       weakMenus: {
         title: "Weak Menus",
         description:
@@ -535,11 +626,15 @@ export async function buildSalesRecommendationSnapshot(
       topMenus: selectedMenus,
       weakMenus,
       categoryRevenue,
+      missingFinancialCostData:
+        bookkeepingData.summary.estimatedCogs === null ||
+        bookkeepingData.summary.netProfitEstimate === null ||
+        bookkeepingData.menuMargins.some((row) => row.status !== "ready"),
     }),
     dataQuality: {
       missingFields: [],
       unsupportedClaims: [
-        "Do not mention margin, gross profit, or estimated cost unless cost data is included.",
+        "Only mention margin, gross profit, Food Cost, COGS, or Net Profit Estimate using tables.menuMargins or the financial metrics in this snapshot.",
         "Do not mention products that are not listed in charts.topMenus or tables.weakMenus.",
         "Do not claim today/yesterday unless the period labels are single-day labels.",
       ],

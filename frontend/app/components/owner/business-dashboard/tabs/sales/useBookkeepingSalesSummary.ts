@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/utils";
 import type {
   BookkeepingSummary,
+  MenuMarginRow,
   PaymentBreakdownRow,
 } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import type { DateRangeValue } from "../DateRangeFilter";
@@ -13,12 +14,14 @@ type BookkeepingSalesSummary = {
     BookkeepingSummary,
     | "grossSales"
     | "discounts"
-    | "netSales"
+    | "estimatedCogs"
+    | "operatingExpenses"
+    | "netProfitEstimate"
     | "taxCollected"
-    | "cashExpected"
     | "totalOrders"
   >;
   paymentBreakdown: PaymentBreakdownRow[];
+  menuMargins: MenuMarginRow[];
   loading: boolean;
   error: string;
 };
@@ -26,9 +29,10 @@ type BookkeepingSalesSummary = {
 const emptySummary: BookkeepingSalesSummary["summary"] = {
   grossSales: 0,
   discounts: 0,
-  netSales: 0,
+  estimatedCogs: null,
+  operatingExpenses: 0,
+  netProfitEstimate: null,
   taxCollected: 0,
-  cashExpected: 0,
   totalOrders: 0,
 };
 
@@ -36,6 +40,7 @@ export default function useBookkeepingSalesSummary(dateRange: DateRangeValue) {
   const [data, setData] = useState<BookkeepingSalesSummary>({
     summary: emptySummary,
     paymentBreakdown: [],
+    menuMargins: [],
     loading: true,
     error: "",
   });
@@ -72,6 +77,7 @@ export default function useBookkeepingSalesSummary(dateRange: DateRangeValue) {
           data?: {
             summary?: Partial<BookkeepingSummary>;
             paymentBreakdown?: PaymentBreakdownRow[];
+            menuMargins?: MenuMarginRow[];
           };
           error?: string;
         };
@@ -86,12 +92,22 @@ export default function useBookkeepingSalesSummary(dateRange: DateRangeValue) {
           summary: {
             grossSales: Number(result.data.summary.grossSales ?? 0),
             discounts: Number(result.data.summary.discounts ?? 0),
-            netSales: Number(result.data.summary.netSales ?? 0),
+            estimatedCogs:
+              result.data.summary.estimatedCogs === null ||
+              result.data.summary.estimatedCogs === undefined
+                ? null
+                : Number(result.data.summary.estimatedCogs),
+            operatingExpenses: Number(result.data.summary.operatingExpenses ?? 0),
+            netProfitEstimate:
+              result.data.summary.netProfitEstimate === null ||
+              result.data.summary.netProfitEstimate === undefined
+                ? null
+                : Number(result.data.summary.netProfitEstimate),
             taxCollected: Number(result.data.summary.taxCollected ?? 0),
-            cashExpected: Number(result.data.summary.cashExpected ?? 0),
             totalOrders: Number(result.data.summary.totalOrders ?? 0),
           },
           paymentBreakdown: result.data.paymentBreakdown ?? [],
+          menuMargins: result.data.menuMargins ?? [],
           loading: false,
           error: "",
         });
@@ -101,6 +117,7 @@ export default function useBookkeepingSalesSummary(dateRange: DateRangeValue) {
         setData({
           summary: emptySummary,
           paymentBreakdown: [],
+          menuMargins: [],
           loading: false,
           error: error instanceof Error ? error.message : "Sales summary could not be loaded.",
         });

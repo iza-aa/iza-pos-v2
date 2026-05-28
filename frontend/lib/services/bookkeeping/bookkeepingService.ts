@@ -548,8 +548,7 @@ const buildMenuMargins = ({
         status: "ready" as const,
       };
     })
-    .sort((left, right) => right.revenue - left.revenue)
-    .slice(0, 10);
+    .sort((left, right) => right.revenue - left.revenue);
 };
 
 const buildRecipeCostMaps = ({

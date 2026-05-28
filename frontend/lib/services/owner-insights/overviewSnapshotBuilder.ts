@@ -203,10 +203,22 @@ const getTopPaymentMethod = (orders: OverviewOrderRow[]) => {
 const getBusinessHealthScore = (summary: ReturnType<typeof summarizeOrders>) => {
   const serviceScore =
     summary.averageServiceMinutes === null
-      ? 70
+      ? summary.validOrderCount > 0
+        ? 50
+        : 0
       : Math.max(0, Math.min(100, 100 - Math.max(0, summary.averageServiceMinutes - 10) * 3));
+  const sampleCap =
+    summary.validOrderCount >= 10
+      ? 100
+      : summary.validOrderCount >= 5
+        ? 80
+        : summary.validOrderCount >= 3
+          ? 70
+          : summary.validOrderCount >= 1
+            ? 55
+            : 35;
 
-  return Math.round(
+  const score = Math.round(
     Math.max(
       0,
       Math.min(
@@ -217,6 +229,8 @@ const getBusinessHealthScore = (summary: ReturnType<typeof summarizeOrders>) => 
       ),
     ),
   );
+
+  return Math.min(score, sampleCap);
 };
 
 const formatEvidenceNumber = (value: number | string | null, unit: string) => {
@@ -297,6 +311,26 @@ const buildOverviewAllowedIssues = (
       expectedImpact:
         "Confirming the source of zero activity protects the owner from missing real sales or operational downtime.",
       metricKeys: ["totalRevenue", "totalOrders"],
+    });
+  }
+
+  if (orders > 0 && orders < 5) {
+    issues.push({
+      id: "overview-low-order-sample",
+      title: "Business Health Has Low Data",
+      priority: "low",
+      confidence: "high",
+      problem:
+        "The selected period has too few valid orders for the health score to be treated as a strong performance signal.",
+      evidence: [
+        `Total Orders is ${formatEvidenceNumber(orders, "count")}.`,
+        `Business Health Score is ${formatEvidenceNumber(businessHealthScore, "count")} / 100.`,
+      ],
+      recommendationHint:
+        "Use the score as a monitoring signal only, and wait for more orders before concluding the business is healthy or unhealthy.",
+      expectedImpact:
+        "Separating low data from true performance prevents the owner from overreacting to one or two orders.",
+      metricKeys: ["totalOrders", "businessHealthScore"],
     });
   }
 
@@ -573,7 +607,7 @@ export async function buildOverviewRecommendationSnapshot(
     businessHealthScore: buildMetric({
       value: businessHealthScore,
       unit: "count",
-      source: "weighted completion, cancellation, and service-time score",
+      source: "weighted completion, cancellation, service-time, and low-order sample cap",
       displayLabel: "Business Health Score",
     }),
     topPaymentMethod: buildMetric({

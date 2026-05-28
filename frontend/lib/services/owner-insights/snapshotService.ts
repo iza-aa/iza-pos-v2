@@ -10,7 +10,7 @@ import type { OwnerInsightPeriod } from "./recommendationSnapshotTypes";
 
 export type { OwnerInsightPeriod } from "./recommendationSnapshotTypes";
 
-const OWNER_INSIGHT_PROMPT_VERSION = "v13";
+const OWNER_INSIGHT_PROMPT_VERSION = "v14";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const isDateString = (value: string | undefined) =>

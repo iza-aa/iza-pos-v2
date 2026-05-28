@@ -35,6 +35,7 @@ import {
   toNumber,
 } from "../shared/dashboardUtils";
 import BusinessHealthSummary from "./BusinessHealthSummary";
+import useBookkeepingSalesSummary from "../sales/useBookkeepingSalesSummary";
 import {
   buildAovTrendComparison,
   buildBusinessHealth,
@@ -46,6 +47,7 @@ import useOverviewDashboardData from "./useOverviewDashboardData";
 export default function OverviewDashboard() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const data = useOverviewDashboardData();
+  const salesSummary = useBookkeepingSalesSummary(dateRange);
   const previousRange = getPreviousDateRange(dateRange);
   const rangeOrders = data.orders.filter(
     (order) =>
@@ -68,7 +70,7 @@ export default function OverviewDashboard() {
   const aov = validRangeOrders.length ? revenue / validRangeOrders.length : 0;
   const paymentMix = buildPaymentMix(rangeOrders);
   const topPayment = paymentMix[0]?.name ?? "-";
-  const businessHealth = buildBusinessHealth(rangeOrders, previousOrders);
+  const businessHealth = buildBusinessHealth(rangeOrders, previousOrders, salesSummary.summary);
 
   return (
     <div className="space-y-4">
@@ -215,7 +217,7 @@ export default function OverviewDashboard() {
 
         <ChartCard
           title="Business Health Summary"
-          subtitle="Combines growth, completion, cancellation, and service-time."
+          subtitle="Demand, profit quality, operational flow, and data confidence."
         >
           <BusinessHealthSummary health={businessHealth} />
         </ChartCard>

@@ -1,5 +1,6 @@
 import type { DateRangeValue } from "../DateRangeFilter";
 import type { OrderRow } from "../shared/dashboardTypes";
+import type { BookkeepingSummary } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import {
   getDatesBetween,
   getOrderBusinessDate,
@@ -92,13 +93,74 @@ export function buildAovTrendComparison(
 }
 
 function percentChange(current: number, previous: number) {
-  if (previous === 0) return current > 0 ? 100 : 0;
+  if (previous === 0) return null;
   return ((current - previous) / previous) * 100;
 }
 
 export function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
+
+const scorePercentageHigherIsBetter = (value: number | null, target: number, floor = 0) => {
+  if (value === null || target <= 0) return null;
+  return clampScore(((value - floor) / (target - floor)) * 100);
+};
+
+const scorePercentageLowerIsBetter = (value: number | null, healthy: number, risk: number) => {
+  if (value === null) return null;
+  if (value <= healthy) return 100;
+  if (value >= risk) return 0;
+  return clampScore(100 - ((value - healthy) / (risk - healthy)) * 100);
+};
+
+const scoreGrowth = (value: number | null) => {
+  if (value === null) return null;
+  return clampScore(50 + value / 2);
+};
+
+const scoreMovement = (
+  current: number,
+  previous: number,
+  {
+    noCurrentScore = 0,
+    newActivityScore = 55,
+  }: { noCurrentScore?: number; newActivityScore?: number } = {},
+) => {
+  if (current <= 0) return noCurrentScore;
+  if (previous <= 0) return newActivityScore;
+  return scoreGrowth(percentChange(current, previous));
+};
+
+const averageScores = (scores: Array<number | null>) => {
+  const availableScores = scores.filter((score): score is number => score !== null);
+  if (!availableScores.length) return null;
+  return availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length;
+};
+
+const getScoreLabel = (score: number | null) => {
+  if (score === null) return "No Data";
+  if (score >= 80) return "Good";
+  if (score >= 60) return "Stable";
+  if (score >= 40) return "Watch";
+  return "Risk";
+};
+
+const getLowestDriver = (drivers: Array<{ label: string; score: number | null }>) => {
+  const availableDrivers = drivers.filter(
+    (driver): driver is { label: string; score: number } => driver.score !== null,
+  );
+
+  if (!availableDrivers.length) return "Data Confidence";
+
+  return availableDrivers.reduce((lowest, driver) =>
+    driver.score < lowest.score ? driver : lowest,
+  ).label;
+};
+
+export type BusinessHealthFinancials = Pick<
+  BookkeepingSummary,
+  "grossSales" | "discounts" | "estimatedCogs" | "netProfitEstimate"
+>;
 
 function getAverageServiceMinutes(orders: OrderRow[]) {
   const durations = orders
@@ -124,6 +186,7 @@ function getAverageServiceMinutes(orders: OrderRow[]) {
 export function buildBusinessHealth(
   currentOrders: OrderRow[],
   previousOrders: OrderRow[],
+  financials?: BusinessHealthFinancials | null,
 ) {
   const currentValidOrders = currentOrders.filter(isValidSalesOrder);
   const previousValidOrders = previousOrders.filter(isValidSalesOrder);
@@ -137,6 +200,25 @@ export function buildBusinessHealth(
   );
   const revenueGrowth = percentChange(currentRevenue, previousRevenue);
   const orderGrowth = percentChange(currentValidOrders.length, previousValidOrders.length);
+  const currentAov = currentValidOrders.length ? currentRevenue / currentValidOrders.length : 0;
+  const previousAov = previousValidOrders.length ? previousRevenue / previousValidOrders.length : 0;
+  const aovGrowth = percentChange(currentAov, previousAov);
+  const hasFinancials = Boolean(financials);
+  const grossSales = financials?.grossSales ?? currentRevenue;
+  const netProfitMargin =
+    financials?.netProfitEstimate === null ||
+    financials?.netProfitEstimate === undefined ||
+    grossSales <= 0
+      ? null
+      : (financials.netProfitEstimate / grossSales) * 100;
+  const foodCostRatio =
+    financials?.estimatedCogs === null ||
+    financials?.estimatedCogs === undefined ||
+    grossSales <= 0
+      ? null
+      : (financials.estimatedCogs / grossSales) * 100;
+  const discountRate =
+    hasFinancials && grossSales > 0 ? ((financials?.discounts ?? 0) / grossSales) * 100 : null;
   const completedOrders = currentOrders.filter((order) =>
     ["completed", "served", "paid"].includes(String(order.status ?? "").toLowerCase()),
   ).length;
@@ -152,27 +234,120 @@ export function buildBusinessHealth(
   const service = getAverageServiceMinutes(currentOrders);
   const serviceScore =
     service.minutes === null
-      ? 70
+      ? currentOrders.length > 0
+        ? 40
+        : 0
       : clampScore(100 - Math.max(0, service.minutes - 10) * 3);
-  const score = clampScore(
-    clampScore(50 + revenueGrowth / 2) * 0.25 +
-      clampScore(50 + orderGrowth / 2) * 0.2 +
-      completionRate * 0.25 +
-      clampScore(100 - cancelledRate * 3) * 0.2 +
-      serviceScore * 0.1,
+  const demandScore =
+    averageScores([
+      scoreMovement(currentRevenue, previousRevenue),
+      scoreMovement(currentValidOrders.length, previousValidOrders.length),
+    ]) ?? 0;
+  const transactionQualityScore =
+    currentValidOrders.length > 0
+      ? (scoreMovement(currentAov, previousAov, {
+          noCurrentScore: 0,
+          newActivityScore: 50,
+        }) ?? 50)
+      : null;
+  const profitQualityScore = averageScores([
+    scorePercentageHigherIsBetter(netProfitMargin, 20, -10),
+    scorePercentageLowerIsBetter(foodCostRatio, 35, 55),
+    scorePercentageLowerIsBetter(discountRate, 5, 15),
+  ]);
+  const operationalFlowScore =
+    currentOrders.length > 0
+      ? (averageScores([
+          completionRate,
+          clampScore(100 - cancelledRate * 3),
+          serviceScore,
+        ]) ?? 0)
+      : null;
+  const dataConfidenceScore =
+    currentValidOrders.length >= 10
+      ? 100
+      : currentValidOrders.length >= 5
+        ? 70
+        : currentValidOrders.length >= 3
+          ? 50
+          : currentValidOrders.length === 2
+            ? 35
+            : currentValidOrders.length === 1
+              ? 25
+              : 0;
+  const effectiveProfitQualityScore = profitQualityScore ?? 50;
+  const effectiveOperationalFlowScore = operationalFlowScore ?? 0;
+  const uncappedScore = clampScore(
+    demandScore * 0.3 +
+      effectiveProfitQualityScore * 0.35 +
+      effectiveOperationalFlowScore * 0.25 +
+      dataConfidenceScore * 0.1,
   );
+  const sampleCap =
+    currentValidOrders.length >= 10
+      ? 100
+      : currentValidOrders.length >= 5
+        ? 80
+        : currentValidOrders.length >= 3
+          ? 65
+          : currentValidOrders.length === 2
+            ? 55
+            : currentValidOrders.length === 1
+              ? 45
+              : 30;
+  const score = Math.min(uncappedScore, sampleCap);
+  const confidence =
+    currentValidOrders.length >= 10
+      ? "Reliable"
+      : currentValidOrders.length >= 5
+        ? "Moderate"
+        : currentValidOrders.length > 0
+          ? "Low Data"
+          : "No Signal";
   const status =
-    score >= 80 ? "Healthy" : score >= 60 ? "Watch" : "Needs Attention";
+    currentValidOrders.length > 0 && currentValidOrders.length < 5
+      ? "Low Data"
+      : score >= 80
+        ? "Healthy"
+        : score >= 60
+          ? "Watch"
+          : "Needs Attention";
 
   return {
     score,
     status,
+    confidence,
+    weakestDriver: getLowestDriver([
+      { label: "Demand", score: demandScore },
+      { label: "Transaction Quality", score: transactionQualityScore },
+      { label: "Profit Quality", score: profitQualityScore },
+      { label: "Operational Flow", score: operationalFlowScore },
+    ]),
+    validOrderCount: currentValidOrders.length,
+    totalOrderCount: currentOrders.length,
+    dataConfidenceScore,
+    demandScore,
+    transactionQualityScore,
+    profitQualityScore,
+    operationalFlowScore,
+    averageOrderValue: currentAov,
+    aovGrowth,
+    netProfitEstimate: financials?.netProfitEstimate ?? null,
+    netProfitMargin,
+    foodCostRatio,
+    discountRate,
     revenueGrowth,
     orderGrowth,
     completionRate,
     cancelledRate,
     serviceMinutes: service.minutes,
     serviceSampleSize: service.sampleSize,
+    labels: {
+      demand: getScoreLabel(demandScore),
+      transactionQuality: getScoreLabel(transactionQualityScore),
+      profitQuality: getScoreLabel(profitQualityScore),
+      operationalFlow: getScoreLabel(operationalFlowScore),
+    },
   };
 }
 

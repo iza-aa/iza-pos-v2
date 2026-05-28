@@ -21,11 +21,12 @@ export const CATEGORY_PROMPT_RULES: Record<OwnerInsightCategory, CategoryPromptR
   sales: {
     label: "sales performance",
     focus:
-      "selected-period revenue, order count, average order value, top products, weak products, payment mix, and peak hours",
+      "net profit estimate, revenue, discounts, food cost, operating expenses, tax collected, payment mix, menu margins, top menus, and weak menus",
     forbiddenClaims: [
       "Do not claim a product sold yesterday or today. Use selected period and comparison period wording only.",
-      "Do not mention product quantities unless they appear in topProducts or weakProducts.",
-      "For weakProducts, use comparisonQuantity and selectedPeriodQuantity exactly as provided.",
+      "Do not mention product quantities unless they appear in charts.topMenus, tables.weakMenus, or tables.menuMargins.",
+      "For weak menus, use comparisonQuantity and selectedPeriodQuantity exactly as provided.",
+      "Only discuss Food Cost, COGS, gross profit, margin, or Net Profit Estimate from the financial metrics or tables.menuMargins.",
     ],
   },
   rewards: {
