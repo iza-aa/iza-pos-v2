@@ -101,7 +101,7 @@ Fitur:
      - `frontend/lib/services/activity/activityLogger.ts`
    - Subfitur:
      - Melihat audit aktivitas sistem seperti update order, correction, bookkeeping, dan staff activity.
-     - Menelusuri aktor, aksi, entity terdampak, ringkasan perubahan, tag, dan waktu kejadian.
+     - Menelusuri user/aktor, aksi, resource terdampak, severity, ringkasan perubahan, tag, dan waktu kejadian.
    - Tabel utama:
      - `activity_logs`
    - Teknis:
@@ -116,6 +116,7 @@ Fitur:
      - `inventory_items`, `stock_reports`, `kitchen_station_movements`, `orders`, `products`, `attendance`, `activity_logs`
    - Teknis:
      - Notifikasi bersifat live-query/client-side signal, bukan push notification HP.
+     - Notifikasi activity log owner membaca aktivitas harian dan memetakan severity `critical`/`warning` di sisi client agar tetap toleran terhadap variasi kolom audit.
 
 6. Menu bundle dan discount owner
    - Lokasi kode:
@@ -427,6 +428,7 @@ Fitur:
 3. Activity logging
    - Tabel: `activity_logs`
    - Dipakai oleh owner/manager untuk audit aksi penting.
+   - Field audit utama mencakup `user_id`, `user_name`, `user_role`, `action`, `action_category`, `action_description`, `resource_type`, `resource_id`, `resource_name`, `severity`, `tags`, dan `changes_summary`.
 
 4. Notification shared
    - Lokasi kode:

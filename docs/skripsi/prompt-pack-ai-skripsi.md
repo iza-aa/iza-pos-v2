@@ -50,6 +50,7 @@ Gunakan bahasa formal akademik, tetapi tetap jelas dan tidak berlebihan.
 - Table QR memakai `floors`, `tables`, dan `table_sessions`.
 - Presensi operasional memakai `attendance`, `presensi_shift`, `presence_code`, `shifts`, `staff_shift_weekly_assignments`, dan `staff_shift_daily_assignments`.
 - Koreksi/cancel/refund order memakai `order_corrections` dan dapat terkait dengan `usage_transactions`, `usage_transaction_details`, `bookkeeping_exceptions`, dan `activity_logs`.
+- Activity log memakai `activity_logs` dengan field audit seperti `user_id`, `user_name`, `user_role`, `action`, `action_category`, `action_description`, `resource_type`, `resource_id`, `resource_name`, `severity`, `tags`, dan `changes_summary`.
 - Upload profile, foto menu, receipt restock, dan receipt expense menggunakan Supabase storage melalui API upload terkait.
 
 ## Output Yang Diinginkan

@@ -67,10 +67,13 @@ type AttendanceRow = {
 
 type ActivityLogRow = {
   id: string;
-  action_description: string | null;
-  resource_type: string | null;
-  severity: string | null;
-  created_at: string | null;
+  action?: string | null;
+  action_description?: string | null;
+  action_category?: string | null;
+  entity_type?: string | null;
+  resource_type?: string | null;
+  severity?: string | null;
+  created_at?: string | null;
 };
 
 type BookkeepingOverview = {
@@ -237,12 +240,11 @@ export default function useOwnerNotifications(enabled: boolean) {
           .limit(200),
         supabase
           .from("activity_logs")
-          .select("id,action_description,resource_type,severity,created_at")
-          .in("severity", ["critical", "warning"])
+          .select("*")
           .gte("created_at", startIso)
           .lte("created_at", endIso)
           .order("created_at", { ascending: false })
-          .limit(20)
+          .limit(50)
           .then((result) => {
             const message = result.error?.message.toLowerCase() || "";
             return message.includes("activity_logs") || message.includes("schema cache")
@@ -271,7 +273,9 @@ export default function useOwnerNotifications(enabled: boolean) {
       const orders = (ordersResult.data ?? []) as OrderRow[];
       const products = (productsResult.data ?? []) as ProductRow[];
       const attendanceRows = (attendanceResult.data ?? []) as AttendanceRow[];
-      const activityLogs = (activityLogsResult.data ?? []) as ActivityLogRow[];
+      const activityLogs = ((activityLogsResult.data ?? []) as ActivityLogRow[])
+        .filter((log) => ["critical", "warning"].includes(String(log.severity || "").toLowerCase()))
+        .slice(0, 20);
       const bookkeeping = bookkeepingResult;
 
       const summary = bookkeeping?.summary;
@@ -480,14 +484,20 @@ export default function useOwnerNotifications(enabled: boolean) {
         });
       }
 
-      const criticalLogs = activityLogs.filter((log) => log.severity === "critical");
-      const warningLogs = activityLogs.filter((log) => log.severity === "warning");
+      const criticalLogs = activityLogs.filter((log) => String(log.severity || "").toLowerCase() === "critical");
+      const warningLogs = activityLogs.filter((log) => String(log.severity || "").toLowerCase() === "warning");
       if (criticalLogs.length > 0 || warningLogs.length >= 3) {
         const firstLog = criticalLogs[0] || warningLogs[0];
+        const activityDescription =
+          firstLog?.action_description ||
+          [firstLog?.action, firstLog?.resource_type || firstLog?.entity_type]
+            .filter(Boolean)
+            .join(" ") ||
+          `${criticalLogs.length} critical and ${warningLogs.length} warning activity log event(s) detected today.`;
         next.push({
           id: `owner-activity-risk-${today}-${criticalLogs.length}-${warningLogs.length}-${firstLog?.id || "logs"}`,
           title: criticalLogs.length ? "Critical activity log event" : "Multiple warning activity events",
-          message: firstLog?.action_description || `${criticalLogs.length} critical and ${warningLogs.length} warning activity log event(s) detected today.`,
+          message: activityDescription,
           severity: criticalLogs.length ? "critical" : "warning",
           source: "Activity Log",
           createdAt: firstLog?.created_at || now,

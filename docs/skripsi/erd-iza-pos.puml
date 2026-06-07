@@ -439,11 +439,18 @@ entity order_corrections {
 entity activity_logs {
   * id : uuid
   --
-  actor_id : uuid
-  actor_role : text
+  user_id : uuid
+  user_name : text
+  user_role : text
   action : text
-  entity_type : text
-  entity_id : uuid
+  action_category : text
+  action_description : text
+  resource_type : text
+  resource_id : uuid
+  resource_name : text
+  severity : text
+  tags : text
+  changes_summary : text
   created_at : timestamptz
 }
 
@@ -514,6 +521,6 @@ bookkeeping_entries }o..|| usage_transactions : source
 bookkeeping_entries }o..|| bookkeeping_expenses : source
 bookkeeping_exceptions }o..|| order_corrections : source
 
-staff ||--o{ activity_logs : actor
+staff ||--o{ activity_logs : user
 
 @enduml

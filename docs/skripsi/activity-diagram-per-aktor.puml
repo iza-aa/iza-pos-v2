@@ -17,7 +17,7 @@ fork again
   :Review inventory dashboard;
   :Analisis stock status, batch risk, movement, staff report;
 fork again
-  :Review staff dashboard;
+  :Review staff analytics;
   :Analisis attendance, late, overtime, productivity;
 fork again
   :Review operation dashboard;
@@ -95,10 +95,10 @@ fork again
   :Generate/regenerate QR table;
   :Update status/posisi meja;
 fork again
-  :Kelola staff/reward/bookkeeping operations;
+  :Kelola staff dan closing;
   :Pantau staff dan attendance;
-  :Kelola reward bila diperlukan;
-  :Lihat shift closing/expense operational;
+  :Atur opening cash dan closing float;
+  :Review shift closing dan expense operational;
 end fork
 
 :Pantau manager notification;
