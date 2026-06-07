@@ -1,15 +1,16 @@
-/**
- * Date utility functions for Jakarta timezone (UTC+7)
- */
+import {
+  formatJakartaDate as formatJakartaDateFromTime,
+  formatJakartaDateTime as formatJakartaDateTimeFromTime,
+  formatJakartaTime as formatJakartaTimeFromTime,
+  parseSupabaseTimestamp as parseSupabaseTimestampFromTime,
+} from "../constants/time";
 
 /**
  * Parse Supabase timestamp string to Jakarta timezone Date object
  * Supabase stores timestamps in UTC, we need to parse them correctly
  */
 export function parseSupabaseTimestamp(timestamp: string): Date {
-  // If timestamp doesn't have 'Z', add it to ensure UTC parsing
-  const utcTimestamp = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
-  return new Date(utcTimestamp);
+  return parseSupabaseTimestampFromTime(timestamp);
 }
 
 /**
@@ -24,12 +25,7 @@ export function getJakartaNow(): Date {
  * Example: "17 Nov 2024"
  */
 export function formatJakartaDate(date: Date): string {
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Jakarta'
-  }).format(date);
+  return formatJakartaDateFromTime(date);
 }
   
 /**
@@ -37,12 +33,7 @@ export function formatJakartaDate(date: Date): string {
  * Example: "14:30"
  */
 export function formatJakartaTime(date: Date): string {
-  return new Intl.DateTimeFormat('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Jakarta'
-  }).format(date);
+  return formatJakartaTimeFromTime(date);
 }
 
 /**
@@ -50,15 +41,7 @@ export function formatJakartaTime(date: Date): string {
  * Example: "17 Nov 2024, 14:30"
  */
 export function formatJakartaDateTime(date: Date): string {
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Jakarta'
-  }).format(date);
+  return formatJakartaDateTimeFromTime(date);
 }
 
 /**
@@ -74,4 +57,47 @@ export function getMinutesDifference(laterDate: Date, earlierDate: Date): number
  */
 export function getJakartaTimestampForDB(): string {
   return new Date().toISOString();
+}
+
+export function getJakartaDateValue(timestamp?: string | null): string {
+  if (!timestamp) return "";
+  const date = parseSupabaseTimestamp(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const getPart = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const year = getPart("year");
+  const month = getPart("month");
+  const day = getPart("day");
+
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+export function getJakartaDateTimeRange(dateValue: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return {
+      start: new Date().toISOString(),
+      end: new Date().toISOString(),
+    };
+  }
+
+  const start = new Date(Date.UTC(year, month - 1, day, -7, 0, 0, 0)).toISOString();
+  const end = new Date(Date.UTC(year, month - 1, day, 16, 59, 59, 999)).toISOString();
+
+  return { start, end };
+}
+
+export function getJakartaDateRangeForQuery(startDate: string, endDate: string) {
+  return {
+    start: getJakartaDateTimeRange(startDate).start,
+    end: getJakartaDateTimeRange(endDate).end,
+  };
 }

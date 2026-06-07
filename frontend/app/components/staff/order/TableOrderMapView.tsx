@@ -215,7 +215,7 @@ export default function TableOrderMapView({ orders }: TableOrderMapViewProps) {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm mt-6">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm mt-2">
       <div className="border-b border-gray-200 px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>

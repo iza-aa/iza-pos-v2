@@ -5,6 +5,7 @@ export const OWNER_INSIGHT_CATEGORIES = [
   "inventory",
   "staff",
   "operations",
+  "activity_log",
 ] as const;
 
 export type OwnerInsightCategory = (typeof OWNER_INSIGHT_CATEGORIES)[number];
@@ -59,6 +60,7 @@ const ALLOWED_ACTION_HREFS = new Set([
   "/owner/dashboard?tab=inventory",
   "/owner/dashboard?tab=staff",
   "/owner/dashboard?tab=operations",
+  "/owner/activitylog",
 ]);
 
 const trimText = (value: unknown, maxLength: number) => {
@@ -153,11 +155,13 @@ export function buildDataSummaryInsight(
     expectedImpact:
       "The owner can still read the basic business condition without waiting for the AI call to succeed.",
     actionLabel: "View this tab",
-    actionHref:
-      category === "overview"
-        ? "/owner/dashboard?tab=sales"
-        : category === "rewards"
-          ? "/owner/dashboard?tab=customer"
-          : `/owner/dashboard?tab=${category}`,
+      actionHref:
+        category === "overview"
+          ? "/owner/dashboard?tab=sales"
+          : category === "rewards"
+            ? "/owner/dashboard?tab=customer"
+            : category === "activity_log"
+              ? "/owner/activitylog"
+            : `/owner/dashboard?tab=${category}`,
   };
 }

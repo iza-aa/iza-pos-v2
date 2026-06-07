@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
-import { COLORS } from "@/lib/constants";
+import { getStaffHomePath, normalizeStaffType } from "@/lib/utils/staffAccess";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { supabase } from "@/lib/config/supabaseClient";
-import { ClockIcon, FireIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { ClockIcon, FireIcon } from "@heroicons/react/24/outline";
 
 interface KitchenOrder {
   id: string;
@@ -81,6 +82,24 @@ function getVariantLabel(variants?: Record<string, string>) {
   return Object.values(variants).filter(Boolean).join(", ");
 }
 
+const getKitchenStatusTone = (status: KitchenOrder["kitchen_status"]) => {
+  if (status === "pending") return OWNER_SEMANTIC_TONES.waiting.badgeClass;
+  if (status === "cooking") return OWNER_SEMANTIC_TONES.progress.badgeClass;
+  return OWNER_SEMANTIC_TONES.success.badgeClass;
+};
+
+const getKitchenStatusLabel = (status: KitchenOrder["kitchen_status"]) => {
+  if (status === "pending") return "Pending";
+  if (status === "cooking") return "Cooking";
+  return "Ready";
+};
+
+const renderStatusBadge = (label: string, className: string) => (
+  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+    {label}
+  </span>
+);
+
 function EmptyKanbanColumn({
   title,
   description,
@@ -89,10 +108,7 @@ function EmptyKanbanColumn({
   description: string;
 }) {
   return (
-    <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/60 px-6 py-8 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-        <CheckCircleIcon className="h-8 w-8 text-gray-400" />
-      </div>
+    <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 py-8 text-center">
       <h3 className="text-base font-semibold text-gray-800">{title}</h3>
       <p className="mt-2 max-w-[260px] text-sm leading-6 text-gray-500">
         {description}
@@ -125,8 +141,14 @@ function KitchenOrderCard({
           </p>
         </div>
 
-        <div className="flex h-11 min-w-11 items-center justify-center rounded-2xl bg-gray-100 px-3">
-          <span className="text-lg font-black text-gray-800">{item.quantity}x</span>
+        <div className="flex flex-col items-end gap-2">
+          {renderStatusBadge(
+            getKitchenStatusLabel(item.kitchen_status),
+            getKitchenStatusTone(item.kitchen_status),
+          )}
+          <div className="flex h-10 min-w-10 items-center justify-center rounded-lg bg-gray-100 px-3">
+            <span className="text-base font-black text-gray-800">{item.quantity}x</span>
+          </div>
         </div>
       </div>
 
@@ -189,14 +211,7 @@ function KitchenOrderCard({
       ) : (
         <button
           onClick={() => onUpdateStatus(item.id, "ready")}
-          className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-offset-2"
-          style={{ backgroundColor: COLORS.PRIMARY }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.backgroundColor = "#7AB839";
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.backgroundColor = COLORS.PRIMARY;
-          }}
+          className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
         >
           Mark Ready
         </button>
@@ -215,11 +230,11 @@ export default function KitchenPage() {
   // Page protection - only for Owner, Kitchen staff
   useEffect(() => {
     const currentUser = getCurrentUser();
-    const staffType = localStorage.getItem("staff_type");
+    const staffType = normalizeStaffType(localStorage.getItem("staff_type"));
 
     // Allow: Owner OR Kitchen
     if (currentUser?.role !== "owner" && staffType !== "kitchen") {
-      window.location.href = "/staff/dashboard";
+      window.location.href = getStaffHomePath(staffType);
     }
   }, []);
 
@@ -353,18 +368,8 @@ export default function KitchenPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg border border-gray-300">
-              <ClockIcon className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">
-                {pendingCount} Pending
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg border border-gray-300">
-              <FireIcon className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">
-                {cookingCount} Cooking
-              </span>
-            </div>
+            {renderStatusBadge(`${pendingCount} Pending`, OWNER_SEMANTIC_TONES.waiting.badgeClass)}
+            {renderStatusBadge(`${cookingCount} Cooking`, OWNER_SEMANTIC_TONES.progress.badgeClass)}
           </div>
         </div>
       </div>
@@ -408,11 +413,8 @@ export default function KitchenPage() {
       {/* Content */}
       <div className="flex-1 overflow-hidden bg-gray-100 px-6 pb-6">
         {orders.length === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white/60">
+          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white">
             <div className="text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircleIcon className="w-8 h-8 text-gray-400" />
-              </div>
               <h3 className="text-lg font-semibold text-gray-700 mb-2">No Orders</h3>
               <p className="text-sm text-gray-500">No pending orders in kitchen</p>
             </div>
@@ -420,21 +422,16 @@ export default function KitchenPage() {
         ) : (
           <div className="grid h-full min-h-0 grid-cols-1 gap-4 2xl:grid-cols-2">
             {columns.map((column) => {
-              const Icon = column.icon;
               const columnOrders = getColumnOrders(column.id);
 
               return (
                 <section
                   key={column.id}
-                  className="flex min-h-0 flex-col rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
+                  className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-gray-50 p-3 shadow-sm"
                 >
-                  <div className="mb-3 flex-shrink-0 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+                  <div className="mb-3 flex-shrink-0 rounded-lg border border-gray-200 bg-white px-4 py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100">
-                          <Icon className="h-5 w-5 text-gray-600" />
-                        </div>
-
                         <div className="min-w-0">
                           <h2 className="text-base font-bold text-gray-950">
                             {column.title}
@@ -445,11 +442,12 @@ export default function KitchenPage() {
                         </div>
                       </div>
 
-                      <div className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-gray-900 px-3">
-                        <span className="text-sm font-black text-white">
-                          {column.count}
-                        </span>
-                      </div>
+                      {renderStatusBadge(
+                        String(column.count),
+                        column.id === "pending"
+                          ? OWNER_SEMANTIC_TONES.waiting.badgeClass
+                          : OWNER_SEMANTIC_TONES.progress.badgeClass,
+                      )}
                     </div>
                   </div>
 

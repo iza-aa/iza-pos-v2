@@ -7,7 +7,7 @@ interface CartItem {
   price: number;
   quantity: number;
   image: string | null;
-  variants?: any[];
+  variants?: unknown[];
 }
 
 interface CartDrawerProps {
@@ -16,6 +16,21 @@ interface CartDrawerProps {
   onClose: () => void;
   onUpdateQuantity: (itemId: string, change: number) => void;
   onCheckout: () => void;
+}
+
+function getVariantLabel(variant: unknown): string | null {
+  if (typeof variant === "string") {
+    return variant.trim() || null;
+  }
+
+  if (!variant || typeof variant !== "object" || Array.isArray(variant)) {
+    return null;
+  }
+
+  const record = variant as Record<string, unknown>;
+  const value = record.optionName ?? record.name ?? record.label ?? record.option_name;
+
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export default function CartDrawer({ cart, isOpen, onClose, onUpdateQuantity, onCheckout }: CartDrawerProps) {
@@ -61,6 +76,11 @@ export default function CartDrawer({ cart, isOpen, onClose, onUpdateQuantity, on
                 <h3 className="font-semibold text-gray-900 text-sm mb-1 truncate">
                   {item.name}
                 </h3>
+                {item.variants?.length ? (
+                  <p className="mb-1 truncate text-xs text-gray-500">
+                    {item.variants.map(getVariantLabel).filter(Boolean).join(", ")}
+                  </p>
+                ) : null}
                 <p className="text-sm font-bold text-gray-900">
                   Rp {(item.price * item.quantity).toLocaleString('id-ID')}
                 </p>

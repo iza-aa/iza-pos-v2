@@ -12,6 +12,7 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { SidebarTabset } from "@/app/components/shared";
+import { useLanguage, type TranslationKey } from "@/app/components/shared/i18n";
 import type { OwnerInsightCategory } from "@/lib/services/owner-insights/insightSchema";
 import OverviewTab from "./tabs/OverviewTab";
 import SalesTab from "./tabs/SalesTab";
@@ -25,53 +26,53 @@ type CustomerSection = "performance" | "create-discount";
 
 const tabs: Array<{
   id: DashboardTab;
-  label: string;
-  description: string;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
   icon: typeof Squares2X2Icon;
   children?: Array<{
     id: CustomerSection;
-    label: string;
+    labelKey: TranslationKey;
     icon: typeof ChartBarIcon;
   }>;
 }> = [
   {
     id: "overview",
-    label: "Overview",
-    description: "Executive view",
+    labelKey: "owner.dashboard.overview",
+    descriptionKey: "owner.dashboard.overviewDescription",
     icon: Squares2X2Icon,
   },
   {
     id: "sales",
-    label: "Sales",
-    description: "Revenue signals",
+    labelKey: "owner.dashboard.sales",
+    descriptionKey: "owner.dashboard.salesDescription",
     icon: ChartBarIcon,
   },
   {
     id: "customer",
-    label: "Customer",
-    description: "Loyalty health",
+    labelKey: "owner.dashboard.customer",
+    descriptionKey: "owner.dashboard.customerDescription",
     icon: UserCircleIcon,
     children: [
-      { id: "performance", label: "Performance", icon: ChartBarIcon },
-      { id: "create-discount", label: "Create Discount", icon: GiftIcon },
+      { id: "performance", labelKey: "owner.dashboard.customerPerformance", icon: ChartBarIcon },
+      { id: "create-discount", labelKey: "owner.dashboard.createDiscount", icon: GiftIcon },
     ],
   },
   {
     id: "inventory",
-    label: "Inventory",
-    description: "Stock risk",
+    labelKey: "owner.dashboard.inventory",
+    descriptionKey: "owner.dashboard.inventoryDescription",
     icon: CubeIcon,
   },
   {
     id: "staff",
-    label: "Staff",
-    description: "Shift health",
+    labelKey: "owner.dashboard.staff",
+    descriptionKey: "owner.dashboard.staffDescription",
     icon: UserGroupIcon,
   },
   {
     id: "operations",
-    label: "Operation",
-    description: "Bottleneck flow",
+    labelKey: "owner.dashboard.operation",
+    descriptionKey: "owner.dashboard.operationDescription",
     icon: ClipboardDocumentListIcon,
   },
 ];
@@ -87,6 +88,19 @@ const isCustomerSection = (value: string | null): value is CustomerSection => {
 export default function OwnerBusinessDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
+  const localizedTabs = useMemo(
+    () => tabs.map((tab) => ({
+      ...tab,
+      label: t(tab.labelKey),
+      description: t(tab.descriptionKey),
+      children: tab.children?.map((child) => ({
+        ...child,
+        label: t(child.labelKey),
+      })),
+    })),
+    [t],
+  );
   const activeTab = useMemo<DashboardTab>(() => {
     const tab = searchParams.get("tab");
     if (tab === "rewards") return "customer";
@@ -134,15 +148,15 @@ export default function OwnerBusinessDashboard() {
     <main className="h-[calc(100vh-56px)] overflow-hidden bg-white">
       <div className="flex h-full min-h-0">
         <SidebarTabset
-          title="Business Command"
-          description="Analytics, decisions, and AI insights."
-          items={tabs}
+          title={t("owner.dashboard.title")}
+          description={t("owner.dashboard.description")}
+          items={localizedTabs}
           activeId={activeTab}
           activeChildId={activeCustomerSection}
           onSelect={setActiveTab}
           onChildSelect={(_, section) => setCustomerSection(section)}
-          mobileOpenLabel="Open owner dashboard menu"
-          mobileCloseLabel="Close owner dashboard menu"
+          mobileOpenLabel={t("owner.dashboard.mobileOpen")}
+          mobileCloseLabel={t("owner.dashboard.mobileClose")}
         />
 
         <section className="flex min-w-0 flex-1 flex-col bg-gray-50">

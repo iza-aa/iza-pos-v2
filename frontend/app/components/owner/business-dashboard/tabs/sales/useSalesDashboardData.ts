@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/config/supabaseClient";
+import {
+  loadDashboardOrderCorrections,
+  type DashboardOrderCorrectionRow,
+} from "../shared/orderCorrectionClient";
 import type {
   CategoryRow,
   InventoryItemRow,
@@ -40,6 +44,38 @@ const getErrorMessages = (
   errors: Array<{ message?: string } | null | undefined>,
 ) => errors.map((error) => error?.message).filter(Boolean).join(" ");
 
+const applyOrderCorrections = (
+  orders: OrderRow[],
+  corrections: DashboardOrderCorrectionRow[],
+) => {
+  const correctionByOrderId = new Map(
+    corrections
+      .filter((correction) => correction.order_id)
+      .map((correction) => [correction.order_id as string, correction]),
+  );
+
+  return orders.map((order) => {
+    const correction = correctionByOrderId.get(order.id);
+    if (!correction) return order;
+
+    return {
+      ...order,
+      original_status: order.status,
+      status: "cancelled",
+      correction_id: correction.id,
+      correction_status: correction.status,
+      correction_physical_status: correction.physical_status,
+      correction_note: correction.note,
+    };
+  });
+};
+
+const normalizeProductAvailability = (products: ProductRow[]) =>
+  products.map((product) => ({
+    ...product,
+    is_available: product.available,
+  }));
+
 export default function useSalesDashboardData() {
   const [data, setData] = useState<SalesDashboardData>(emptyData);
 
@@ -57,6 +93,7 @@ export default function useSalesDashboardData() {
         recipes,
         recipeIngredients,
         inventoryItems,
+        orderCorrections,
       ] =
         await Promise.all([
           supabase
@@ -68,7 +105,7 @@ export default function useSalesDashboardData() {
             .select("order_id,product_id,product_name,quantity,total_price"),
           supabase
             .from("products")
-            .select("id,name,price,stock,available,is_available,type,category_id,category:categories(name)")
+            .select("id,name,price,stock,available,type,category_id,category:categories(name)")
             .order("name", { ascending: true }),
           supabase.from("categories").select("id,name"),
           supabase
@@ -77,8 +114,9 @@ export default function useSalesDashboardData() {
             .eq("recipe_type", "base"),
           supabase
             .from("recipe_ingredients")
-            .select("recipe_id,inventory_item_id,ingredient_name,quantity_needed,unit"),
+            .select("recipe_id,inventory_item_id,ingredient_name,quantity_needed,unit,costing_mode"),
           supabase.from("inventory_items").select("*"),
+          loadDashboardOrderCorrections(),
         ]);
       const productFallbackResult = productRelationResult.error
         ? await supabase
@@ -90,9 +128,14 @@ export default function useSalesDashboardData() {
       if (!mounted) return;
 
       setData({
-        orders: (orders.data ?? []) as unknown as OrderRow[],
+        orders: applyOrderCorrections(
+          (orders.data ?? []) as unknown as OrderRow[],
+          orderCorrections.data ?? [],
+        ),
         orderItems: (orderItems.data ?? []) as unknown as OrderItemRow[],
-        products: (productFallbackResult.data ?? []) as unknown as ProductRow[],
+        products: normalizeProductAvailability(
+          (productFallbackResult.data ?? []) as unknown as ProductRow[],
+        ),
         categories: (categories.data ?? []) as unknown as CategoryRow[],
         recipes: (recipes.data ?? []) as unknown as RecipeRow[],
         recipeIngredients: (recipeIngredients.data ?? []) as unknown as RecipeIngredientRow[],
@@ -106,6 +149,7 @@ export default function useSalesDashboardData() {
           recipes.error,
           recipeIngredients.error,
           inventoryItems.error,
+          orderCorrections.error,
         ]),
       });
     };

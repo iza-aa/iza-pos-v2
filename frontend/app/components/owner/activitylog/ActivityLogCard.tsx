@@ -35,9 +35,9 @@ const severityMap: Record<ActivityLog['severity'], SeverityMeta> = {
   warning: {
     label: 'Warning',
     icon: ExclamationCircleIcon,
-    iconBoxClass: 'border-yellow-200 bg-yellow-50 text-yellow-700',
-    badgeClass: 'border-yellow-200 bg-yellow-50 text-yellow-700',
-    accentClass: 'bg-yellow-400',
+    iconBoxClass: 'border-red-200 bg-red-50 text-red-700',
+    badgeClass: 'border-red-200 bg-red-50 text-red-700',
+    accentClass: 'bg-red-400',
   },
   critical: {
     label: 'Critical',

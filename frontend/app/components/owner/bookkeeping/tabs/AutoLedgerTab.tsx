@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { StandardModal } from "@/app/components/shared";
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
+import { useLanguage } from "@/app/components/shared/i18n";
 import type { BookkeepingDashboardData, BookkeepingEntry } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import {
   SemanticBadge,
@@ -72,10 +73,12 @@ const getGroupStatus = (entries: BookkeepingEntry[]): BookkeepingEntry["status"]
 
 export default function AutoLedgerTab({
   data,
+  loading = false,
   savingAdjustment = false,
   onCreateAdjustment,
 }: {
   data: BookkeepingDashboardData;
+  loading?: boolean;
   savingAdjustment?: boolean;
   onCreateAdjustment?: (form: {
     businessDate: string;
@@ -87,6 +90,7 @@ export default function AutoLedgerTab({
     note: string;
   }) => void;
 }) {
+  const { t } = useLanguage();
   const [adjustmentOpen, setAdjustmentOpen] = useState(false);
   const [adjustmentForm, setAdjustmentForm] = useState({
     businessDate: data.dateRange.endDate,
@@ -159,13 +163,13 @@ export default function AutoLedgerTab({
   const columns: Array<StandardTableColumn<LedgerGroup>> = [
     {
       key: "entryAt",
-      header: "Date/Time",
+      header: t("owner.bookkeeping.dateTime"),
       render: (row) => formatDateTime(row.entryAt),
       sortValue: (row) => row.entryAt,
     },
     {
       key: "source",
-      header: "Source",
+      header: t("owner.bookkeeping.source"),
       render: (row) => (
         <div>
           <p className="font-semibold text-gray-900">{getGroupSourceLabel(row)}</p>
@@ -187,12 +191,12 @@ export default function AutoLedgerTab({
     },
     {
       key: "paymentMethod",
-      header: "Payment Method",
+      header: t("owner.bookkeeping.paymentMethod"),
       render: (row) => <span className="capitalize">{row.paymentMethod || "-"}</span>,
     },
     {
       key: "amount",
-      header: "Net Impact",
+      header: t("owner.bookkeeping.netImpact"),
       render: (row) => (
         <span className={`font-semibold ${row.netImpact < 0 ? "text-red-700" : row.netImpact > 0 ? "text-green-700" : "text-gray-900"}`}>
           {row.netImpact < 0 ? "-" : ""}{formatCurrency(Math.abs(row.netImpact))}
@@ -202,15 +206,15 @@ export default function AutoLedgerTab({
     },
     {
       key: "status",
-      header: "Status",
+      header: t("owner.bookkeeping.status"),
       render: (row) => <SemanticBadge tone={statusTone(row.status)}>{formatLabel(row.status)}</SemanticBadge>,
     },
   ];
 
   return (
     <StandardPanel
-      title="Auto Ledger"
-      description="Automatic financial view from paid orders, inventory cost, expenses, and adjustments."
+      title={t("owner.bookkeeping.ledger")}
+      description={t("owner.bookkeeping.autoLedgerDescription")}
       action={
         <div className="flex flex-wrap gap-2">
           <button
@@ -219,27 +223,28 @@ export default function AutoLedgerTab({
             disabled={!onCreateAdjustment || savingAdjustment}
             className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Add Adjustment
+            {t("owner.bookkeeping.addAdjustment")}
           </button>
         </div>
       }
     >
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-600">
         {entrySummary
-          ? `Showing ${ledgerGroups.length} transaction group(s). Included movements: ${entrySummary}.`
-          : "No financial movement is available yet. Paid orders, expenses, and owner-approved adjustments will appear here automatically."}
+          ? t("owner.bookkeeping.transactionSummary", { count: ledgerGroups.length, summary: entrySummary })
+          : t("owner.bookkeeping.noFinancialMovement")}
       </div>
       <StandardTable
         columns={columns}
         data={ledgerGroups}
         getRowKey={(row) => row.id}
-        emptyLabel="No ledger movement in this period."
+        loading={loading}
+        emptyLabel={t("owner.bookkeeping.noLedgerMovement")}
         minWidthClassName="min-w-[1080px]"
       />
       <StandardModal
         isOpen={adjustmentOpen}
-        title="Manual Adjustment"
-        description="Use this for owner-approved corrections that need an audit trail."
+        title={t("owner.bookkeeping.manualAdjustment")}
+        description={t("owner.bookkeeping.manualAdjustmentDescription")}
         maxWidthClassName="max-w-2xl"
         onClose={() => setAdjustmentOpen(false)}
         footer={
@@ -249,7 +254,7 @@ export default function AutoLedgerTab({
               onClick={() => setAdjustmentOpen(false)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              Cancel
+              {t("owner.bookkeeping.cancel")}
             </button>
             <button
               type="button"
@@ -268,14 +273,14 @@ export default function AutoLedgerTab({
               }
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {savingAdjustment ? "Saving..." : "Save Adjustment"}
+              {savingAdjustment ? t("owner.bookkeeping.saving") : t("owner.bookkeeping.saveAdjustment")}
             </button>
           </>
         }
       >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="text-sm font-semibold text-gray-700">
-                Business Date
+                {t("owner.bookkeeping.businessDate")}
                 <input
                   type="date"
                   value={adjustmentForm.businessDate}
@@ -287,7 +292,7 @@ export default function AutoLedgerTab({
                 />
               </label>
               <label className="text-sm font-semibold text-gray-700">
-                Direction
+                {t("owner.bookkeeping.direction")}
                 <select
                   value={adjustmentForm.direction}
                   onChange={(event) => setAdjustmentForm((current) => ({
@@ -302,7 +307,7 @@ export default function AutoLedgerTab({
                 </select>
               </label>
               <label className="text-sm font-semibold text-gray-700">
-                Category
+                {t("owner.bookkeeping.category")}
                 <input
                   type="text"
                   value={adjustmentForm.category}
@@ -315,7 +320,7 @@ export default function AutoLedgerTab({
                 />
               </label>
               <label className="text-sm font-semibold text-gray-700">
-                Amount
+                {t("owner.bookkeeping.amount")}
                 <input
                   type="number"
                   min="0"
@@ -329,7 +334,7 @@ export default function AutoLedgerTab({
                 />
               </label>
               <label className="text-sm font-semibold text-gray-700">
-                Payment Method
+                {t("owner.bookkeeping.paymentMethod")}
                 <input
                   type="text"
                   value={adjustmentForm.paymentMethod}
@@ -337,12 +342,12 @@ export default function AutoLedgerTab({
                     ...current,
                     paymentMethod: event.target.value,
                   }))}
-                  placeholder="Optional"
+                  placeholder={t("owner.bookkeeping.optional")}
                   className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
                 />
               </label>
               <label className="text-sm font-semibold text-gray-700">
-                Source Label
+                {t("owner.bookkeeping.sourceLabel")}
                 <input
                   type="text"
                   value={adjustmentForm.sourceLabel}
@@ -355,7 +360,7 @@ export default function AutoLedgerTab({
                 />
               </label>
               <label className="text-sm font-semibold text-gray-700 md:col-span-2">
-                Audit Note
+                {t("owner.bookkeeping.auditNote")}
                 <textarea
                   value={adjustmentForm.note}
                   onChange={(event) => setAdjustmentForm((current) => ({

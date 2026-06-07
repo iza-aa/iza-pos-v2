@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     const cashDifference = cashCounted === null ? null : cashCounted - expectedDrawerCash;
     const hasShiftClosingRows = mergedShiftClosings.length > 0;
     const allShiftClosingsSubmitted = hasShiftClosingRows && mergedShiftClosings.every((row) => (
-      (row.status === "submitted" || row.status === "closed") &&
+      row.status === "closed" &&
       row.cashCounted !== null &&
       row.cashCounted !== undefined
     ));
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     if (!allShiftClosingsSubmitted) {
       return NextResponse.json(
-        { error: "All shifts must submit counted cash before owner approval." },
+        { error: "All shifts must be approved by manager before owner approval." },
         { status: 409 },
       );
     }

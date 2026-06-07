@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowPathRoundedSquareIcon,
   ArrowUpTrayIcon,
@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { formatCurrency } from '@/lib/constants'
 import { showError } from '@/lib/services/errorHandling'
+import { getCurrentUser } from '@/lib/utils'
 
 interface InventoryItem {
   id: string
@@ -20,15 +21,25 @@ interface InventoryItem {
   supplier: string
 }
 
+export type RestockPayload = {
+  quantity: number
+  notes: string
+  costPerUnit?: number
+  supplier?: string
+  receiptUrl?: string
+  receivedDate?: string
+  expiryDate?: string
+}
+
 interface RestockModalProps {
   isOpen: boolean
   onClose: () => void
   item: InventoryItem | null
-  onRestock: (itemId: string, quantity: number, notes: string, cost?: number) => Promise<void>
+  onRestock: (itemId: string, payload: RestockPayload) => Promise<void>
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500'
+  'w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500'
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message
@@ -41,49 +52,164 @@ const parseNumber = (value: string) => {
   return Number.isFinite(numberValue) ? numberValue : 0
 }
 
+const getBatchDateKey = (dateValue: string) =>
+  (dateValue || new Date().toISOString().slice(0, 10)).replaceAll('-', '')
+
+const buildBatchItemCode = (itemName: string) => {
+  const normalized = itemName
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+  const words = normalized.split(/\s+/).filter(Boolean)
+  const code = words.length > 1
+    ? words.map((word) => word[0]).join('')
+    : words[0] || 'ITEM'
+  return code.slice(0, 8)
+}
+
+const buildBatchPreview = (itemName: string, receivedDate: string) =>
+  `B-${buildBatchItemCode(itemName)}-${getBatchDateKey(receivedDate)}-###`
+
+const uploadInvoiceReceipt = async (file: File, itemId: string) => {
+  const currentUser = getCurrentUser()
+  if (!currentUser) {
+    throw new Error('User session is required to upload receipt.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('item_id', itemId)
+
+  const response = await fetch('/api/manager/inventory/receipt', {
+    method: 'POST',
+    headers: {
+      'x-user-id': currentUser.id,
+      'x-user-name': currentUser.name,
+      'x-user-role': currentUser.role,
+    },
+    body: formData,
+  })
+
+  const result = await response.json() as { success?: boolean; receiptUrl?: string; error?: string }
+
+  if (!response.ok || !result.success || !result.receiptUrl) {
+    throw new Error(result.error || 'Receipt could not be uploaded.')
+  }
+
+  return result.receiptUrl
+}
+
 export default function RestockModal({ isOpen, onClose, item, onRestock }: RestockModalProps) {
   const [quantity, setQuantity] = useState('')
   const [notes, setNotes] = useState('')
-  const [costPerUnit, setCostPerUnit] = useState('')
+  const [purchaseTotal, setPurchaseTotal] = useState('')
+  const [supplier, setSupplier] = useState('')
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receivedDate, setReceivedDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
   const [loading, setLoading] = useState(false)
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const quantityRef = useRef<HTMLInputElement>(null)
+  const costRef = useRef<HTMLInputElement>(null)
+  const supplierRef = useRef<HTMLInputElement>(null)
+  const receiptRef = useRef<HTMLInputElement>(null)
+  const receivedDateRef = useRef<HTMLInputElement>(null)
+  const itemId = item?.id || ''
+  const itemSupplier = item?.supplier || ''
 
   useEffect(() => {
     if (!isOpen) {
       setQuantity('')
       setNotes('')
-      setCostPerUnit('')
+      setPurchaseTotal('')
+      setSupplier('')
+      setReceiptFile(null)
+      setReceivedDate(new Date().toISOString().slice(0, 10))
+      setExpiryDate('')
       setLoading(false)
+      setAttemptedSubmit(false)
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isOpen || !itemId) return
+    setSupplier(itemSupplier)
+    setReceivedDate((current) => current || new Date().toISOString().slice(0, 10))
+  }, [isOpen, itemId, itemSupplier])
+
   const quantityNumber = useMemo(() => parseNumber(quantity), [quantity])
-  const costNumber = useMemo(() => parseNumber(costPerUnit), [costPerUnit])
+  const purchaseTotalNumber = useMemo(() => parseNumber(purchaseTotal), [purchaseTotal])
+  const unitCostNumber = quantityNumber > 0 && purchaseTotalNumber > 0 ? purchaseTotalNumber / quantityNumber : 0
   const newStock = item ? item.currentStock + quantityNumber : 0
-  const totalCost = quantityNumber > 0 && costNumber > 0 ? quantityNumber * costNumber : 0
-  const isValid = Boolean(item) && quantityNumber > 0 && costNumber >= 0
+  const batchPreview = item ? buildBatchPreview(item.name, receivedDate) : '-'
+  const purchaseSupplier = supplier.trim()
+  const invalidClass = (invalid: boolean) => attemptedSubmit && invalid ? 'border-red-400 bg-red-50' : ''
 
   if (!isOpen || !item) return null
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    setAttemptedSubmit(true)
 
     if (quantityNumber <= 0) {
+      quantityRef.current?.focus()
       showError('Enter a valid restock quantity greater than 0.')
       return
     }
 
-    if (costPerUnit && costNumber < 0) {
-      showError('Cost per unit cannot be negative.')
+    if (purchaseTotalNumber <= 0) {
+      costRef.current?.focus()
+      showError('Purchase total is required and must be greater than 0.')
+      return
+    }
+
+    if (expiryDate && receivedDate && expiryDate < receivedDate) {
+      showError('Expiry date cannot be earlier than received date.')
+      return
+    }
+
+    if (!supplier.trim()) {
+      supplierRef.current?.focus()
+      showError('Supplier is required for restock tracking.')
+      return
+    }
+
+    if (!receivedDate) {
+      receivedDateRef.current?.focus()
+      showError('Received date is required for batch tracking.')
+      return
+    }
+
+    if (!receiptFile) {
+      receiptRef.current?.focus()
+      showError('Receipt photo is required for restock audit.')
       return
     }
 
     setLoading(true)
 
     try {
-      await onRestock(item.id, quantityNumber, notes.trim(), costPerUnit ? costNumber : undefined)
+      const receiptUrl = await uploadInvoiceReceipt(receiptFile, item.id)
+
+      await onRestock(item.id, {
+        quantity: quantityNumber,
+        notes: notes.trim(),
+        costPerUnit: unitCostNumber,
+        supplier: supplier.trim(),
+        receiptUrl,
+        receivedDate: receivedDate || undefined,
+        expiryDate: expiryDate || undefined,
+      })
       setQuantity('')
       setNotes('')
-      setCostPerUnit('')
+      setPurchaseTotal('')
+      setSupplier(item.supplier || '')
+      setReceiptFile(null)
+      setReceivedDate(new Date().toISOString().slice(0, 10))
+      setExpiryDate('')
+      setAttemptedSubmit(false)
       onClose()
     } catch (error) {
       showError(getErrorMessage(error))
@@ -117,7 +243,7 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-6">
+        <form onSubmit={handleSubmit} noValidate className="min-h-0 overflow-y-auto p-6">
           <div className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
             <div className="space-y-4">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -139,12 +265,13 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
                   </label>
                   <div className="relative">
                     <input
+                      ref={quantityRef}
                       type="number"
                       value={quantity}
                       onChange={(event) => setQuantity(event.target.value)}
                       placeholder="0"
-                      className={`${inputClass} pr-16`}
-                      min="0"
+                      className={`${inputClass} pr-16 ${invalidClass(quantityNumber <= 0)}`}
+                      min="0.01"
                       step="0.01"
                       disabled={loading}
                       required
@@ -158,24 +285,25 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-800">
-                    Cost Per Unit
+                    Purchase Total <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
                       Rp
                     </span>
                     <input
+                      ref={costRef}
                       type="number"
-                      value={costPerUnit}
-                      onChange={(event) => setCostPerUnit(event.target.value)}
+                      value={purchaseTotal}
+                      onChange={(event) => setPurchaseTotal(event.target.value)}
                       placeholder="0"
-                      className={`${inputClass} pl-11`}
-                      min="0"
+                      className={`${inputClass} pl-11 ${invalidClass(purchaseTotalNumber <= 0)}`}
+                      min="0.01"
                       step="0.01"
                       disabled={loading}
                     />
                   </div>
-                  <p className="mt-2 text-xs text-gray-400">Optional purchase cost for this restock.</p>
+                  <p className="mt-2 text-xs text-gray-400">Enter the total purchase price from the receipt. Unit cost is calculated automatically.</p>
                 </div>
               </div>
 
@@ -184,28 +312,102 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
                 <textarea
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Example: PO #12345, Batch A123, Expiry 2026-01"
+                  placeholder="Example: PO #12345 or supplier invoice note"
                   className={`${inputClass} min-h-28 resize-none`}
                   rows={4}
                   disabled={loading}
                 />
               </div>
-                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+
+              <div className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="mb-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800">
+                      Purchase Supplier <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      ref={supplierRef}
+                      type="text"
+                      value={supplier}
+                      onChange={(event) => setSupplier(event.target.value)}
+                      placeholder="Supplier name"
+                      className={`${inputClass} ${invalidClass(!supplier.trim())}`}
+                      disabled={loading}
+                    />
+                    <p className="mt-2 text-xs text-gray-400">Use this when buying from a different supplier.</p>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="mb-2 block text-sm font-semibold text-gray-800">
+                    Receipt Photo <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={receiptRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(event) => setReceiptFile(event.target.files?.[0] ?? null)}
+                    className={`w-full rounded-lg border bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-900 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white ${attemptedSubmit && !receiptFile ? 'border-red-400 bg-red-50' : 'border-gray-900'}`}
+                    disabled={loading}
+                    required
+                  />
+                  <p className="mt-2 text-xs text-gray-400">
+                    Uploaded to the invoice bucket and linked to this restock batch.
+                  </p>
+                </div>
+
+                <div className="mb-3 flex items-center gap-2">
+                  <ArrowPathRoundedSquareIcon className="h-4 w-4 text-gray-700" />
+                  <p className="text-sm font-semibold text-gray-900">Batch & Expiry</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800">
+                      Received Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      ref={receivedDateRef}
+                      type="date"
+                      value={receivedDate}
+                      onChange={(event) => setReceivedDate(event.target.value)}
+                      className={`${inputClass} ${invalidClass(!receivedDate)}`}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={expiryDate}
+                      onChange={(event) => setExpiryDate(event.target.value)}
+                      className={inputClass}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-gray-500">
+                  The system creates one batch per restock group. Split the restock only when supplier, expiry date, received date, or purchase cost is different.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <CurrencyDollarIcon className="h-4 w-4 text-gray-700" />
                   <p className="text-sm font-semibold text-gray-900">Cost Summary</p>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-500">Cost / Unit</span>
+                    <span className="text-gray-500">Purchase Total</span>
                     <span className="font-semibold text-gray-900">
-                      {costNumber > 0 ? formatCurrency(costNumber) : '-'}
+                      {purchaseTotalNumber > 0 ? formatCurrency(purchaseTotalNumber) : '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-2">
-                    <span className="text-gray-500">Total Cost</span>
+                    <span className="text-gray-500">Unit Purchase Cost</span>
                     <span className="font-bold text-gray-900">
-                      {totalCost > 0 ? formatCurrency(totalCost) : '-'}
+                      {unitCostNumber > 0 ? formatCurrency(unitCostNumber) : '-'}
                     </span>
                   </div>
                 </div>
@@ -253,7 +455,30 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
                   <BuildingStorefrontIcon className="h-4 w-4 text-gray-700" />
                   <p className="text-sm font-semibold text-gray-900">Supplier</p>
                 </div>
-                <p className="text-sm text-gray-600">{item.supplier || 'No supplier set'}</p>
+                <p className="text-sm font-semibold text-gray-900">{purchaseSupplier || 'No supplier set'}</p>
+                {item.supplier && purchaseSupplier !== item.supplier ? (
+                  <p className="mt-2 text-xs font-semibold text-gray-500">
+                    Previous supplier: {item.supplier}.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm font-semibold text-gray-900">Batch Preview</p>
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Batch</span>
+                    <span className="font-semibold text-gray-900">{batchPreview}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Received</span>
+                    <span className="font-semibold text-gray-900">{receivedDate || '-'}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Expiry</span>
+                    <span className="font-semibold text-gray-900">{expiryDate || '-'}</span>
+                  </div>
+                </div>
               </div>
 
 
@@ -271,7 +496,7 @@ export default function RestockModal({ isOpen, onClose, item, onRestock }: Resto
             </button>
             <button
               type="submit"
-              disabled={loading || !isValid}
+              disabled={loading}
               className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Confirm Restock'}

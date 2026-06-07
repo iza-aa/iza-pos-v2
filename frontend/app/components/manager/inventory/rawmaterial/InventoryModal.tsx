@@ -1,19 +1,22 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArchiveBoxIcon,
-  ExclamationTriangleIcon,
   PencilSquareIcon,
   PlusIcon,
   TruckIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
+import { showError } from '@/lib/services/errorHandling'
 
 interface InventoryItem {
   id: string
   name: string
   category: string
+  stationScope: 'barista' | 'kitchen' | 'shared'
+  trackingMode: InventoryTrackingMode
+  parLevel: number
   currentStock: number
   reorderLevel: number
   unit: string
@@ -25,6 +28,9 @@ interface InventoryItem {
 interface InventoryFormData {
   name: string
   category: string
+  stationScope: 'barista' | 'kitchen' | 'shared'
+  trackingMode: InventoryTrackingMode
+  parLevel: number
   currentStock: number
   reorderLevel: number
   unit: string
@@ -40,11 +46,42 @@ interface InventoryModalProps {
 }
 
 const categories = ['Ingredients', 'Packaging', 'Cleaning', 'Supplies']
+const stationScopes = [
+  { value: 'shared', label: 'Shared', description: 'Visible to barista and kitchen' },
+  { value: 'barista', label: 'Barista', description: 'Beverage station material' },
+  { value: 'kitchen', label: 'Kitchen', description: 'Food preparation material' },
+] as const
+type InventoryTrackingMode =
+  | 'direct_auto_deduct'
+  | 'kitchen_station_auto_deduct'
+  | 'bulk_usage_expense'
+const trackingModes = [
+  {
+    value: 'direct_auto_deduct',
+    label: 'Direct Auto-Deduct',
+    description: 'Bar/direct item. POS deducts from Inventory Master.',
+  },
+  {
+    value: 'kitchen_station_auto_deduct',
+    label: 'Kitchen Station',
+    description: 'Protein or expensive kitchen item. Transfer to station before service.',
+  },
+  {
+    value: 'bulk_usage_expense',
+    label: 'Bulk Usage / Expense',
+    description: 'Opened or moved to kitchen as bulk cost. Skipped by POS auto-deduct.',
+  },
+] as const
 const units = ['kg', 'g', 'L', 'mL', 'pcs', 'box', 'pack']
+const inputClass =
+  'w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500'
 
 const initialFormData: InventoryFormData = {
   name: '',
   category: 'Ingredients',
+  stationScope: 'shared',
+  trackingMode: 'direct_auto_deduct',
+  parLevel: 0,
   currentStock: 0,
   reorderLevel: 0,
   unit: 'kg',
@@ -87,6 +124,10 @@ const formatNumber = (value: number) => {
   }).format(value)
 }
 
+const formatTrackingMode = (value: InventoryTrackingMode) => {
+  return trackingModes.find((mode) => mode.value === value)?.label || 'Direct Auto-Deduct'
+}
+
 export default function InventoryModal({
   isOpen,
   onClose,
@@ -95,76 +136,99 @@ export default function InventoryModal({
   editItem,
 }: InventoryModalProps) {
   const [formData, setFormData] = useState<InventoryFormData>(initialFormData)
-  const [error, setError] = useState('')
+  const [reorderLevelInput, setReorderLevelInput] = useState('')
+  const [parLevelInput, setParLevelInput] = useState('')
+  const [touchedSubmit, setTouchedSubmit] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const reorderRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setError('')
+    setTouchedSubmit(false)
 
     if (editItem) {
       setFormData({
         name: editItem.name,
         category: editItem.category,
+        stationScope: editItem.stationScope ?? 'shared',
+        trackingMode: editItem.trackingMode ?? 'direct_auto_deduct',
+        parLevel: editItem.parLevel ?? 0,
         currentStock: editItem.currentStock,
         reorderLevel: editItem.reorderLevel,
         unit: editItem.unit,
         supplier: editItem.supplier,
       })
+      setReorderLevelInput(String(editItem.reorderLevel || ''))
+      setParLevelInput(String(editItem.parLevel || ''))
       return
     }
 
     setFormData(initialFormData)
+    setReorderLevelInput('')
+    setParLevelInput('')
   }, [editItem, isOpen])
 
+  const parsedReorderLevel = Number(reorderLevelInput)
+  const reorderLevelNumber = Number.isFinite(parsedReorderLevel) ? parsedReorderLevel : 0
+
   const previewStatus = useMemo(
-    () => getStockStatus(formData.currentStock, formData.reorderLevel),
-    [formData.currentStock, formData.reorderLevel],
+    () => getStockStatus(formData.currentStock, reorderLevelNumber),
+    [formData.currentStock, reorderLevelNumber],
   )
 
   const updateField = <K extends keyof InventoryFormData>(
     field: K,
     value: InventoryFormData[K],
   ) => {
-    setFormData((previous) => ({ ...previous, [field]: value }))
+    setFormData((previous) => {
+      if (field === 'trackingMode' && (value === 'kitchen_station_auto_deduct' || value === 'bulk_usage_expense')) {
+        return { ...previous, [field]: value, stationScope: 'kitchen' }
+      }
+
+      return { ...previous, [field]: value }
+    })
   }
 
   const handleClose = () => {
-    setError('')
+    setTouchedSubmit(false)
     onClose()
   }
 
+  const invalidClass = (invalid: boolean) => touchedSubmit && invalid ? 'border-red-400 bg-red-50' : ''
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setError('')
+    setTouchedSubmit(true)
 
     const name = formData.name.trim()
-    const supplier = formData.supplier.trim()
+    const reorderLevel = Number(reorderLevelInput)
 
     if (!name) {
-      setError('Item name is required.')
+      nameRef.current?.focus()
+      showError('Item name is required.')
       return
     }
 
-    if (!supplier) {
-      setError('Supplier name is required.')
-      return
-    }
-
-    if (formData.currentStock < 0 || formData.reorderLevel < 0) {
-      setError('Stock and reorder level cannot be negative.')
+    if (!Number.isFinite(reorderLevel) || reorderLevel <= 0) {
+      reorderRef.current?.focus()
+      showError('Reorder level is required and must be greater than 0.')
       return
     }
 
     const normalizedData: InventoryFormData = {
       ...formData,
       name,
-      supplier,
+      reorderLevel,
+      parLevel: Number.isFinite(Number(parLevelInput)) ? Number(parLevelInput) : 0,
+      currentStock: editItem ? editItem.currentStock : 0,
+      supplier: editItem ? editItem.supplier : '',
     }
 
     if (editItem && onUpdate) {
       onUpdate({
         ...editItem,
         ...normalizedData,
-        status: getStockStatus(normalizedData.currentStock, normalizedData.reorderLevel),
+        currentStock: editItem.currentStock,
+        status: getStockStatus(editItem.currentStock, normalizedData.reorderLevel),
         lastRestocked: editItem.lastRestocked || new Date().toISOString(),
       })
     } else {
@@ -194,8 +258,8 @@ export default function InventoryModal({
               </h2>
               <p className="mt-1 text-sm text-gray-500">
                 {editItem
-                  ? 'Update item details, reorder level, and supplier information.'
-                  : 'Create a new raw material, packaging, or supply item.'}
+                  ? 'Update item details and reorder level. Supplier changes are recorded through Restock.'
+                  : 'Create the item master first. Add stock, supplier, cost, batch, and receipt through Restock.'}
               </p>
             </div>
           </div>
@@ -210,28 +274,22 @@ export default function InventoryModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            {error ? (
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            ) : null}
-
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.9fr]">
               <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Item name
+                    Item name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    ref={nameRef}
                     type="text"
-                    required
                     value={formData.name}
                     onChange={(event) => updateField('name', event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                    className={`${inputClass} ${invalidClass(!formData.name.trim())}`}
                     placeholder="Example: Coffee Beans"
+                    required
                   />
                 </div>
 
@@ -243,7 +301,7 @@ export default function InventoryModal({
                     <select
                       value={formData.category}
                       onChange={(event) => updateField('category', event.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                      className={inputClass}
                     >
                       {categories.map((category) => (
                         <option key={category} value={category}>
@@ -260,7 +318,7 @@ export default function InventoryModal({
                     <select
                       value={formData.unit}
                       onChange={(event) => updateField('unit', event.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                      className={inputClass}
                     >
                       {units.map((unit) => (
                         <option key={unit} value={unit}>
@@ -271,58 +329,136 @@ export default function InventoryModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      {editItem ? 'Current stock' : 'Initial stock'}
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      step="0.01"
-                      value={formData.currentStock}
-                      onChange={(event) => updateField('currentStock', Number(event.target.value))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                      placeholder="0"
-                    />
-                    {editItem ? (
+                <div>
+                  {editItem ? (
+                    <div className="mb-4">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                        Current stock
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.currentStock}
+                        disabled
+                        className={inputClass}
+                        placeholder="0"
+                      />
                       <p className="mt-1 text-xs text-gray-400">
-                        Use restock/usage history for audit-sensitive stock changes.
+                        Stock changes are handled by Restock or Adjust Stock so the audit trail stays clean.
                       </p>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Reorder level
+                      Reorder level <span className="text-red-500">*</span>
                     </label>
                     <input
+                      ref={reorderRef}
                       type="number"
-                      required
                       min="0"
                       step="0.01"
-                      value={formData.reorderLevel}
-                      onChange={(event) => updateField('reorderLevel', Number(event.target.value))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                      value={reorderLevelInput}
+                      onChange={(event) => setReorderLevelInput(event.target.value)}
+                      className={`${inputClass} ${invalidClass(!Number.isFinite(Number(reorderLevelInput)) || Number(reorderLevelInput) <= 0)}`}
                       placeholder="Minimum stock before reorder"
+                      required
                     />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Stock quantity is recorded through Restock for purchases or Adjust Stock for corrections.
+                    </p>
                   </div>
                 </div>
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Supplier
+                    Station scope
+                  </label>
+                  {(formData.trackingMode === 'kitchen_station_auto_deduct' || formData.trackingMode === 'bulk_usage_expense') && (
+                    <p className="mb-2 text-xs font-medium text-gray-500">
+                      Kitchen Station and Bulk Usage items are always assigned to Kitchen.
+                    </p>
+                  )}
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    {stationScopes.map((scope) => {
+                      const selected = formData.stationScope === scope.value
+                      const lockedToKitchen =
+                        formData.trackingMode === 'kitchen_station_auto_deduct' ||
+                        formData.trackingMode === 'bulk_usage_expense'
+                      const disabled = lockedToKitchen && scope.value !== 'kitchen'
+
+                      return (
+                        <button
+                          key={scope.value}
+                          type="button"
+                          onClick={() => {
+                            if (!disabled) updateField('stationScope', scope.value)
+                          }}
+                          disabled={disabled}
+                          className={`rounded-lg border px-3 py-2 text-left transition ${
+                            selected
+                              ? 'border-gray-900 bg-gray-900 text-white'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                          } ${disabled ? 'cursor-not-allowed opacity-40 hover:border-gray-200' : ''}`}
+                        >
+                          <span className="block text-sm font-semibold">{scope.label}</span>
+                          <span className={`mt-0.5 block text-xs ${selected ? 'text-gray-200' : 'text-gray-500'}`}>
+                            {scope.description}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Par level
                   </label>
                   <input
-                    type="text"
-                    required
-                    value={formData.supplier}
-                    onChange={(event) => updateField('supplier', event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                    placeholder="Example: PT Kopi Nusantara"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={parLevelInput}
+                    onChange={(event) => setParLevelInput(event.target.value)}
+                    className={inputClass}
+                    placeholder="Daily station target, optional"
                   />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Used for kitchen station top-up planning. Leave blank when this item does not need daily par control.
+                  </p>
                 </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Tracking mode
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {trackingModes.map((mode) => {
+                      const selected = formData.trackingMode === mode.value
+
+                      return (
+                        <button
+                          key={mode.value}
+                          type="button"
+                          onClick={() => updateField('trackingMode', mode.value)}
+                          className={`rounded-lg border px-3 py-2 text-left transition ${
+                            selected
+                              ? 'border-gray-900 bg-gray-900 text-white'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          <span className="block text-sm font-semibold">{mode.label}</span>
+                          <span className={`mt-0.5 block text-xs ${selected ? 'text-gray-200' : 'text-gray-500'}`}>
+                            {mode.description}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
               </div>
 
               <aside className="space-y-3">
@@ -339,7 +475,10 @@ export default function InventoryModal({
                           {formData.name.trim() || 'Unnamed item'}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
-                          {formData.category} • {formData.unit}
+                          {formData.category} • {formData.stationScope} • {formData.unit}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-gray-700">
+                          {formatTrackingMode(formData.trackingMode)}
                         </p>
                       </div>
                       <span
@@ -353,15 +492,21 @@ export default function InventoryModal({
 
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div className="rounded-lg bg-gray-50 p-3">
-                        <p className="text-xs text-gray-500">Current stock</p>
+                        <p className="text-xs text-gray-500">{editItem ? 'Current stock' : 'Starting stock'}</p>
                         <p className="mt-1 text-sm font-semibold text-gray-900">
-                          {formatNumber(formData.currentStock)} {formData.unit}
+                          {formatNumber(editItem ? formData.currentStock : 0)} {formData.unit}
                         </p>
                       </div>
                       <div className="rounded-lg bg-gray-50 p-3">
                         <p className="text-xs text-gray-500">Reorder at</p>
                         <p className="mt-1 text-sm font-semibold text-gray-900">
-                          {formatNumber(formData.reorderLevel)} {formData.unit}
+                          {formatNumber(reorderLevelNumber)} {formData.unit}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <p className="text-xs text-gray-500">Par level</p>
+                        <p className="mt-1 text-sm font-semibold text-gray-900">
+                          {formatNumber(Number(parLevelInput) || 0)} {formData.unit}
                         </p>
                       </div>
                     </div>
@@ -374,10 +519,12 @@ export default function InventoryModal({
                     <h3 className="text-sm font-semibold text-gray-900">Supplier info</h3>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {formData.supplier.trim() || 'Supplier has not been set.'}
+                    {editItem
+                      ? formData.supplier.trim() || 'Supplier has not been set.'
+                      : 'Supplier will be recorded on first Restock.'}
                   </p>
                   <p className="mt-2 text-xs leading-5 text-gray-400">
-                    Supplier information helps managers track restock sources and purchase follow-ups.
+                    Restock records the active supplier, purchase total, batch number, expiry date, and receipt photo for audit.
                   </p>
                 </div>
               </aside>

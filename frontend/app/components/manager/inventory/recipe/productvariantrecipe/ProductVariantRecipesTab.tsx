@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowPathIcon,
   BeakerIcon,
   MagnifyingGlassIcon,
   PlusIcon,
@@ -117,12 +116,12 @@ export default function ProductVariantRecipesTab() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastState | null>(null)
 
-  const showToast = (type: ToastType, message: string) => {
+  const showToast = useCallback((type: ToastType, message: string) => {
     setToast({ type, message })
     window.setTimeout(() => setToast(null), 3500)
-  }
+  }, [])
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
 
     try {
@@ -175,11 +174,11 @@ export default function ProductVariantRecipesTab() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [showToast])
 
   useEffect(() => {
     void loadData()
-  }, [])
+  }, [loadData])
 
   const productsWithVariants = useMemo(() => {
     const productIdsWithGroups = new Set(
@@ -344,28 +343,10 @@ export default function ProductVariantRecipesTab() {
   }, [selectedProductId])
 
   return (
-    <div className="flex h-full flex-col bg-gray-50">
-      <section className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-4 md:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 md:text-xl">Product Variant Recipes</h2>
-            <p className="mt-1 max-w-3xl text-sm text-gray-500">
-              Add or subtract ingredients for a specific product and variant option. Example: Americano + Large adds 5g coffee beans, while Matcha + Large can add matcha powder instead.
-            </p>
-          </div>
+    <div className="h-full overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
+      <section>
 
-          <button
-            type="button"
-            onClick={() => void loadData()}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            Refresh
-          </button>
-        </div>
-      </section>
 
-      <section className="flex-1 overflow-hidden p-4 md:p-6">
         {toast ? (
           <div
             className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
@@ -380,7 +361,7 @@ export default function ProductVariantRecipesTab() {
           </div>
         ) : null}
 
-        <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
           <div className="overflow-auto rounded-lg border border-gray-200 bg-white p-4">
             <div className="mb-4 flex items-center gap-3">
               <div className="rounded-lg bg-gray-100 p-3">
@@ -500,7 +481,7 @@ export default function ProductVariantRecipesTab() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white">
+          <div className="flex flex-col rounded-lg border border-gray-200 bg-white">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="font-semibold text-gray-900">Saved Adjustments</h3>
@@ -519,7 +500,7 @@ export default function ProductVariantRecipesTab() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4">
+            <div className="p-4">
               {loading ? (
                 <div className="flex h-64 items-center justify-center text-sm text-gray-500">
                   Loading product variant recipes...

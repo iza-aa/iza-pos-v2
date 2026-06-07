@@ -101,6 +101,22 @@ type BookkeepingExpenseRow = {
   note?: string | null;
 };
 
+type OrderCorrectionRow = {
+  id: string;
+  order_id: string;
+  order_number?: string | null;
+  requested_by_name?: string | null;
+  requested_by_role?: string | null;
+  correction_type: string;
+  physical_status: string;
+  status: "logged" | "reviewed";
+  note?: string | null;
+  created_at: string;
+  reviewed_by_name?: string | null;
+  reviewed_by_role?: string | null;
+  reviewed_at?: string | null;
+};
+
 type DailyClosingDatabaseRow = {
   id: string;
   business_date: string;
@@ -238,7 +254,7 @@ async function loadStoredBookkeepingRows({
   dateRange: DateRangeValue;
   supabase: ReturnType<typeof createBookkeepingSupabaseClient>;
 }) {
-  const [entriesResult, exceptionsResult, reportsResult, expensesResult] = await Promise.all([
+  const [entriesResult, exceptionsResult, reportsResult, expensesResult, correctionsResult] = await Promise.all([
     supabase
       .from("bookkeeping_entries")
       .select("*")
@@ -263,12 +279,19 @@ async function loadStoredBookkeepingRows({
       .gte("expense_date", dateRange.startDate)
       .lte("expense_date", dateRange.endDate)
       .order("expense_date", { ascending: false }),
+    supabase
+      .from("order_corrections")
+      .select("*")
+      .gte("created_at", `${dateRange.startDate}T00:00:00+07:00`)
+      .lte("created_at", `${dateRange.endDate}T23:59:59+07:00`)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (entriesResult.error) throw entriesResult.error;
   if (exceptionsResult.error) throw exceptionsResult.error;
   if (reportsResult.error) throw reportsResult.error;
   if (expensesResult.error) throw expensesResult.error;
+  if (correctionsResult.error) throw correctionsResult.error;
 
   const shiftClosingsResult = await supabase
     .from("bookkeeping_shift_closings")
@@ -289,6 +312,13 @@ async function loadStoredBookkeepingRows({
 
   const dailyClosingRow = dailyClosingResult.data as DailyClosingDatabaseRow | null;
 
+  const storedExceptions = (exceptionsResult.data || []) as BookkeepingExceptionRow[];
+  const storedCorrectionSourceIds = new Set(
+    storedExceptions
+      .filter((row) => row.source_table === "order_corrections" && row.source_id)
+      .map((row) => row.source_id),
+  );
+
   return {
     entries: ((entriesResult.data || []) as BookkeepingEntryRow[]).map((row): BookkeepingEntry => ({
       id: row.id,
@@ -305,16 +335,39 @@ async function loadStoredBookkeepingRows({
       status: mapEntryStatus(row.status),
       note: row.note || undefined,
     })),
-    exceptions: ((exceptionsResult.data || []) as BookkeepingExceptionRow[]).map((row): BookkeepingException => ({
-      id: row.id,
-      businessDate: row.business_date,
-      severity: row.severity,
-      type: row.type,
-      description: row.description,
-      source: row.source_id || row.source_table || "Bookkeeping source",
-      suggestedFix: row.suggested_fix || "Review the source data and update the bookkeeping record.",
-      status: row.status === "ignored_with_note" ? "acknowledged" : row.status,
-    })),
+    exceptions: [
+      ...((correctionsResult.data || []) as OrderCorrectionRow[])
+        .filter((row) => !storedCorrectionSourceIds.has(row.id))
+        .map((row): BookkeepingException => ({
+          id: `order-correction-${row.id}`,
+          businessDate: row.created_at.slice(0, 10),
+          severity: row.physical_status === "not_processed" ? "medium" : "high",
+          type: "Order Correction Request",
+          description: `Order ${row.order_number ?? row.order_id} correction: ${row.note || "No note provided."}`,
+          source: row.reviewed_by_name
+            ? `Reviewed by ${row.reviewed_by_name}`
+            : `${row.requested_by_name ?? "Staff"} (${row.requested_by_role ?? "staff"})`,
+          suggestedFix:
+            row.physical_status === "not_processed"
+              ? "Confirm no product was made. If valid, resolve this review item."
+              : "Confirm product was made or served. Treat as operational loss unless original data is wrong.",
+          status: row.status === "reviewed" ? "acknowledged" : "open",
+          reviewStatus: row.status === "reviewed" ? "reviewed" : "waiting_manager_review",
+          reviewedByName: row.reviewed_by_name ?? null,
+          reviewedByRole: row.reviewed_by_role ?? null,
+          reviewedAt: row.reviewed_at ?? null,
+        })),
+      ...storedExceptions.map((row): BookkeepingException => ({
+        id: row.id,
+        businessDate: row.business_date,
+        severity: row.severity,
+        type: row.type,
+        description: row.description,
+        source: row.source_id || row.source_table || "Bookkeeping source",
+        suggestedFix: row.suggested_fix || "Review the source data and update the bookkeeping record.",
+        status: row.status === "ignored_with_note" ? "acknowledged" : row.status,
+      })),
+    ],
     shiftClosings: ((shiftClosingsResult.data || []) as ShiftClosingDatabaseRow[]).map((row): ShiftClosingRow => ({
       id: row.shift_id || row.id,
       shiftName: row.shift_name,

@@ -14,6 +14,7 @@ import {
   type CustomerTableSession,
   validateStoredCustomerTableSession,
 } from "@/lib/customer/customerSession";
+import { getProductKitchenAvailability } from "@/lib/services/inventory/inventoryBatchService";
 
 interface Category {
   id: string;
@@ -30,8 +31,28 @@ interface Product {
   price: number;
   image: string | null;
   available: boolean;
+  unavailableReason?: string;
   hasVariants: boolean;
   description?: string;
+}
+
+interface MenuBundleItem {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  image: string | null;
+  available: boolean;
+}
+
+interface MenuBundle {
+  id: string;
+  name: string;
+  description: string;
+  bundlePrice: number;
+  normalPrice: number;
+  items: MenuBundleItem[];
 }
 
 interface CartItem {
@@ -68,6 +89,23 @@ interface ProductRow {
   has_variants: boolean | null;
   description: string | null;
   category: ProductCategoryRelation | ProductCategoryRelation[] | null;
+}
+
+interface MenuBundleRow {
+  id: string;
+  name: string | null;
+  description: string | null;
+  bundle_price: number | string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+}
+
+interface MenuBundleItemRow {
+  id: string;
+  bundle_id: string | null;
+  product_id: string | null;
+  quantity: number | string | null;
+  sort_order: number | string | null;
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -209,6 +247,7 @@ export default function CustomerMenuPage() {
 
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [products, setProducts] = useState<Product[]>([]);
+  const [bundles, setBundles] = useState<MenuBundle[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableSession, setTableSession] = useState<CustomerTableSession | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -291,21 +330,101 @@ export default function CustomerMenuPage() {
 
     const rows = (data ?? []) as ProductRow[];
 
-    const mappedProducts = rows.map((product) => ({
+    const kitchenAvailability = await getProductKitchenAvailability(
+      rows.map((product) => product.id),
+    ).catch((availabilityError) => {
+      console.warn("Failed to load kitchen product availability:", availabilityError);
+      return new Map();
+    });
+
+    const mappedProducts = rows.map((product) => {
+      const availability = kitchenAvailability.get(product.id);
+      const isKitchenReady = availability?.available !== false;
+      return {
       id: product.id,
       name: product.name,
       category: getCategoryName(product.category),
       categoryId: product.category_id ?? "",
       price: Number(product.price) || 0,
       image: product.image,
-      available: product.available === true,
+      available: product.available === true && isKitchenReady,
+      unavailableReason: !isKitchenReady ? availability?.reason : undefined,
       hasVariants: product.has_variants === true,
       description: product.description ?? undefined,
-    }));
+      };
+    });
 
     setProducts(mappedProducts);
     setCategories(buildCategoriesFromProducts(mappedProducts));
+    await fetchBundles(mappedProducts);
     setLoadingProducts(false);
+  }
+
+  async function fetchBundles(menuProducts: Product[]) {
+    const today = new Date().toISOString().slice(0, 10);
+    const [bundleResult, itemResult] = await Promise.all([
+      supabase
+        .from("menu_bundles")
+        .select("id,name,description,bundle_price,starts_at,ends_at")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("menu_bundle_items")
+        .select("id,bundle_id,product_id,quantity,sort_order")
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    if (bundleResult.error || itemResult.error) {
+      setBundles([]);
+      return;
+    }
+
+    const productById = new Map(menuProducts.map((product) => [product.id, product]));
+    const itemRows = (itemResult.data ?? []) as MenuBundleItemRow[];
+    const activeBundles = ((bundleResult.data ?? []) as MenuBundleRow[])
+      .filter((bundle) => {
+        const startsAt = bundle.starts_at ? String(bundle.starts_at).slice(0, 10) : "";
+        const endsAt = bundle.ends_at ? String(bundle.ends_at).slice(0, 10) : "";
+        return (!startsAt || startsAt <= today) && (!endsAt || endsAt >= today);
+      })
+      .map((bundle) => {
+        const items = itemRows
+          .filter((item) => item.bundle_id === bundle.id)
+          .sort((left, right) => Number(left.sort_order ?? 0) - Number(right.sort_order ?? 0))
+          .map((item) => {
+            const product = item.product_id ? productById.get(item.product_id) : undefined;
+            if (!product) return null;
+            return {
+              id: item.id,
+              productId: product.id,
+              productName: product.name,
+              quantity: Math.max(1, Math.floor(Number(item.quantity ?? 1))),
+              unitPrice: product.price,
+              image: product.image,
+              available: product.available,
+            } satisfies MenuBundleItem;
+          })
+          .filter((item): item is MenuBundleItem => item !== null);
+        const normalPrice = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
+        return {
+          id: bundle.id,
+          name: bundle.name || "Menu Bundle",
+          description: bundle.description || "",
+          bundlePrice: Number(bundle.bundle_price) || 0,
+          normalPrice,
+          items,
+        } satisfies MenuBundle;
+      })
+      .filter(
+        (bundle) =>
+          bundle.items.length >= 2 &&
+          bundle.bundlePrice > 0 &&
+          bundle.items.every((item) => item.available),
+      );
+
+    setBundles(activeBundles);
   }
 
   const filteredProducts = useMemo(() => {
@@ -322,6 +441,10 @@ export default function CustomerMenuPage() {
   }, [products, searchQuery, selectedCategory]);
 
   const addToCart = (product: Product) => {
+    if (!product.available) {
+      return;
+    }
+
     if (product.hasVariants) {
       setSelectedProduct(product);
       setShowVariantModal(true);
@@ -361,6 +484,10 @@ export default function CustomerMenuPage() {
     totalPrice: number,
     quantity: number,
   ) => {
+    if (!product.available) {
+      return;
+    }
+
     const cartItem: CartItem = {
       id: `${product.id}-${Date.now()}`,
       productId: product.id,
@@ -374,6 +501,28 @@ export default function CustomerMenuPage() {
     setCart((currentCart) => [...currentCart, cartItem]);
     setShowVariantModal(false);
     setSelectedProduct(null);
+  };
+
+  const addBundleToCart = (bundle: MenuBundle) => {
+    const normalTotal = Math.max(1, bundle.normalPrice);
+    const now = Date.now();
+    const bundleItems = bundle.items.map((item, index) => {
+      const lineNormalTotal = item.unitPrice * item.quantity;
+      const lineBundleTotal = Math.round((lineNormalTotal / normalTotal) * bundle.bundlePrice);
+      const unitBundlePrice = Math.max(0, Math.round(lineBundleTotal / item.quantity));
+
+      return {
+        id: `${bundle.id}-${item.productId}-${now}-${index}`,
+        productId: item.productId,
+        name: item.productName,
+        price: unitBundlePrice,
+        quantity: item.quantity,
+        image: item.image ?? "",
+        variants: [{ optionName: `Bundle: ${bundle.name}` }],
+      } satisfies CartItem;
+    });
+
+    setCart((currentCart) => [...currentCart, ...bundleItems]);
   };
 
   const updateQuantity = (itemId: string, change: number) => {
@@ -443,19 +592,78 @@ export default function CustomerMenuPage() {
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
           </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No products found
-          </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToCart={addToCart}
-              />
-            ))}
+          <div className="space-y-5">
+            {bundles.length > 0 && selectedCategory === "all" && !searchQuery.trim() ? (
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-base font-bold text-gray-900">Menu Bundles</h2>
+                  <span className="text-xs font-semibold text-gray-500">Limited offers</span>
+                </div>
+                <div className="space-y-3">
+                  {bundles.map((bundle) => (
+                    <article
+                      key={bundle.id}
+                      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold text-gray-900">{bundle.name}</h3>
+                          {bundle.description ? (
+                            <p className="mt-1 text-xs text-gray-500">{bundle.description}</p>
+                          ) : null}
+                          <p className="mt-2 text-xs text-gray-500">
+                            {bundle.items
+                              .map((item) => `${item.quantity}x ${item.productName}`)
+                              .join(", ")}
+                          </p>
+                        </div>
+                        {bundle.normalPrice > bundle.bundlePrice ? (
+                          <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                            Save Rp {(bundle.normalPrice - bundle.bundlePrice).toLocaleString("id-ID")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-4 flex items-center justify-between gap-3">
+                        <div>
+                          {bundle.normalPrice > bundle.bundlePrice ? (
+                            <p className="text-xs text-gray-400 line-through">
+                              Rp {bundle.normalPrice.toLocaleString("id-ID")}
+                            </p>
+                          ) : null}
+                          <p className="text-base font-bold text-gray-900">
+                            Rp {bundle.bundlePrice.toLocaleString("id-ID")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => addBundleToCart(bundle)}
+                          className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-gray-800"
+                        >
+                          Add Bundle
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                No products found
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={addToCart}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

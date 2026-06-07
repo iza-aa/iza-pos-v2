@@ -17,8 +17,8 @@ type RoleGuardProps = {
 type GuardState = "checking" | "allowed" | "redirecting";
 
 const dashboardByRole: Record<UserRole, string> = {
-  staff: "/staff/dashboard",
-  manager: "/manager/dashboard",
+  staff: "/staff/attendance",
+  manager: "/manager/menu",
   owner: "/owner/dashboard",
 };
 

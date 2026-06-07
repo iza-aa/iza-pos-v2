@@ -41,8 +41,8 @@ export default function AIInsightCarousel({
   const hasAiRecommendation = showDetail && Boolean(insight);
   const canNavigate = hasAiRecommendation && insights.length > 1;
   const recommendationLabel = hasAiRecommendation
-    ? "Regenerate Recommendation"
-    : "Generate Recommendation";
+    ? "Refresh Owner Advice"
+    : "Generate Owner Advice";
   const showPrevious = () => {
     setIndex((current) => (current === 0 ? insights.length - 1 : current - 1));
   };
@@ -74,7 +74,7 @@ export default function AIInsightCarousel({
         <div className="md:px-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-700">
             <SparklesIcon className="h-4 w-4" />
-            AI Insight Summary
+            Owner Insight Summary
           </div>
 
           <h2 className="mt-5 text-sm font-bold leading-tight text-gray-900">
@@ -83,9 +83,9 @@ export default function AIInsightCarousel({
 
           <p className="mt-2 text-sm leading-7 text-gray-700 md:text-lg">
             {loading
-              ? "Preparing today's business snapshot so the recommendation can use the latest available signals."
+              ? "Preparing the store snapshot so the advice can use the latest available signals."
               : insight?.problem ??
-                "No recommendation has been generated yet. Generate one from the active tab context and selected date range."}
+                "No owner advice has been generated yet. Generate one from the active tab context and selected date range."}
           </p>
 
           {generating ? (
@@ -105,13 +105,13 @@ export default function AIInsightCarousel({
                   }
                 `}</style>
                 <span className={thinkingTextClassName}>
-                Thinking through the business signals...
+                Turning the business signals into owner-friendly advice...
                 </span>
               </div>
             </div>
           ) : hasAiRecommendation && insight ? (
             <div className="mt-3">
-              <p className="text-sm font-bold text-gray-900">Recommendation:</p>
+              <p className="text-sm font-bold text-gray-900">What to check:</p>
               <p className="mt-2 text-sm leading-7 text-gray-700 md:text-lg">
                 {insight.recommendation}
               </p>
@@ -197,7 +197,7 @@ export default function AIInsightCarousel({
             <div className="flex items-start justify-between border-b border-gray-100 p-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  Recommendation Detail
+                  Owner Advice Detail
                 </p>
                 <h3 className="mt-1 text-xl font-bold text-gray-900">
                   {insight.title}
@@ -216,7 +216,7 @@ export default function AIInsightCarousel({
             <div className="space-y-4 p-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  Business Issue
+                  What Happened
                 </p>
                 <p className="mt-2 text-sm leading-7 text-gray-700">
                   {insight.problem}
@@ -239,7 +239,7 @@ export default function AIInsightCarousel({
 
               <div className="rounded-2xl bg-gray-900 p-4 text-white">
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-300">
-                  Recommended Action
+                  What To Check
                 </p>
                 <p className="mt-2 text-sm leading-7">
                   {insight.recommendation}
@@ -248,7 +248,7 @@ export default function AIInsightCarousel({
 
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  Expected Impact
+                  Why It Matters
                 </p>
                 <p className="mt-2 text-sm leading-7 text-gray-700">
                   {insight.expectedImpact}

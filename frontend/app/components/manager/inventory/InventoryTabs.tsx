@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ClipboardList, Package, TrendingUp, SlidersHorizontal, Layers, ChevronDown, ChevronRight, Menu, X } from 'lucide-react'
+import { ClipboardList, Package, TrendingUp, SlidersHorizontal, Layers, ChevronDown, ChevronRight, Menu, X, AlertTriangle } from 'lucide-react'
 
 export type InventoryTabType =
-  | 'raw-materials'
+  | 'raw-materials-list'
+  | 'raw-materials-batches'
   | 'variants'
   | 'recipe-dishes'
   | 'recipe-variants'
   | 'usage-history'
+  | 'stock-reports'
 
 interface InventoryTabsProps {
   activeTab: InventoryTabType
@@ -20,14 +22,16 @@ export default function InventoryTabs({
   onTabChange,
 }: InventoryTabsProps) {
   const [isRecipeExpanded, setIsRecipeExpanded] = useState(false)
+  const [isRawMaterialsExpanded, setIsRawMaterialsExpanded] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const tabItems = [
     {
       id: 'raw-materials' as const,
-      label: 'Raw Materials',
-      description: 'Ingredients & stock levels',
+      label: 'Inventory Master',
+      description: 'Main stock & batch records',
       icon: Package,
+      hasSubmenu: true,
     },
     {
       id: 'variants' as const,
@@ -48,22 +52,44 @@ export default function InventoryTabs({
       description: 'Audits & stock movements',
       icon: TrendingUp,
     },
+    {
+      id: 'stock-reports' as const,
+      label: 'Stock Reports',
+      description: 'Barista & kitchen reports',
+      icon: AlertTriangle,
+    },
   ]
 
   const recipeSubTabs = [
-    { id: 'recipe-dishes' as const, label: 'Dishes (Base Recipes)', icon: ClipboardList },
+    { id: 'recipe-dishes' as const, label: 'Base Recipes', icon: ClipboardList },
     { id: 'recipe-variants' as const, label: 'Product Variant Recipes', icon: Layers },
+  ]
+  const rawMaterialsSubTabs = [
+    { id: 'raw-materials-list' as const, label: 'Inventory Master', icon: ClipboardList },
+    { id: 'raw-materials-batches' as const, label: 'Batch Stock', icon: Layers },
   ]
 
   const isRecipeTabActive = activeTab === 'recipe-dishes' || activeTab === 'recipe-variants'
+  const isRawMaterialsTabActive = activeTab === 'raw-materials-list' || activeTab === 'raw-materials-batches'
 
   useEffect(() => {
     if (isRecipeTabActive) {
       setIsRecipeExpanded(true)
     }
-  }, [isRecipeTabActive])
+    if (isRawMaterialsTabActive) {
+      setIsRawMaterialsExpanded(true)
+    }
+  }, [isRecipeTabActive, isRawMaterialsTabActive])
 
-  const handleTabClick = (tabId: 'raw-materials' | 'variants' | 'recipes' | 'usage-history') => {
+  const handleTabClick = (tabId: 'raw-materials' | 'variants' | 'recipes' | 'usage-history' | 'stock-reports') => {
+    if (tabId === 'raw-materials') {
+      setIsRawMaterialsExpanded((current) => !current)
+      if (!isRawMaterialsTabActive) {
+        onTabChange('raw-materials-list')
+      }
+      return
+    }
+
     if (tabId === 'recipes') {
       setIsRecipeExpanded((current) => !current)
       // Automatically activate first sub-tab when parent is opened if not already on a sub-tab
@@ -80,6 +106,12 @@ export default function InventoryTabs({
   const handleRecipeSubTabClick = (tabId: 'recipe-dishes' | 'recipe-variants') => {
     onTabChange(tabId)
     setIsRecipeExpanded(true)
+    setIsMobileOpen(false)
+  }
+
+  const handleRawMaterialsSubTabClick = (tabId: 'raw-materials-list' | 'raw-materials-batches') => {
+    onTabChange(tabId)
+    setIsRawMaterialsExpanded(true)
     setIsMobileOpen(false)
   }
 
@@ -120,11 +152,22 @@ export default function InventoryTabs({
 
         <h2 className="mb-4 text-lg font-bold text-gray-900">Inventory</h2>
 
-        <div className="space-y-2 flex-1 overflow-y-auto">
+        <div className="space-y-2 flex-1 min-h-0 overflow-y-auto">
           {tabItems.map((item) => {
             const Icon = item.icon
             // Parent is considered active if exact match or if any sub-tab is active
-            const isActiveParent = item.id === 'recipes' ? isRecipeTabActive : activeTab === item.id
+            const isActiveParent =
+              item.id === 'recipes'
+                ? isRecipeTabActive
+                : item.id === 'raw-materials'
+                  ? isRawMaterialsTabActive
+                  : activeTab === item.id
+            const isExpanded =
+              item.id === 'recipes'
+                ? isRecipeExpanded
+                : item.id === 'raw-materials'
+                  ? isRawMaterialsExpanded
+                  : false
 
             return (
               <div key={item.id} className="space-y-1">
@@ -152,8 +195,8 @@ export default function InventoryTabs({
                       </div>
                     </div>
                     {item.hasSubmenu && (
-                      <div className={`transition-transform duration-200 ${isRecipeExpanded ? 'rotate-0' : ''}`}>
-                        {isRecipeExpanded ? (
+                      <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-0' : ''}`}>
+                        {isExpanded ? (
                           <ChevronDown className="h-4 w-4 shrink-0" />
                         ) : (
                           <ChevronRight className="h-4 w-4 shrink-0" />
@@ -163,7 +206,32 @@ export default function InventoryTabs({
                   </div>
                 </button>
 
-                {item.hasSubmenu && isRecipeExpanded && (
+                {item.id === 'raw-materials' && item.hasSubmenu && isRawMaterialsExpanded && (
+                  <div className="ml-6 border-l border-gray-200 pl-3 py-1 space-y-1">
+                    {rawMaterialsSubTabs.map((subTab) => {
+                      const SubIcon = subTab.icon
+                      const isSubActive = activeTab === subTab.id
+
+                      return (
+                        <button
+                          key={subTab.id}
+                          type="button"
+                          onClick={() => handleRawMaterialsSubTabClick(subTab.id)}
+                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
+                            isSubActive
+                              ? 'bg-gray-100 text-gray-900 font-bold'
+                              : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                        >
+                          <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-gray-900' : 'text-gray-400'}`} />
+                          {subTab.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {item.id === 'recipes' && item.hasSubmenu && isRecipeExpanded && (
                   <div className="ml-6 border-l border-gray-200 pl-3 py-1 space-y-1">
                     {recipeSubTabs.map((subTab) => {
                       const SubIcon = subTab.icon

@@ -41,6 +41,7 @@ type SidebarTabsetProps<
   onChildSelect?: (parentId: TId, childId: TChildId) => void;
   mobileOpenLabel?: string;
   mobileCloseLabel?: string;
+  desktopSticky?: boolean;
 };
 
 export default function SidebarTabset<
@@ -56,6 +57,7 @@ export default function SidebarTabset<
   onChildSelect,
   mobileOpenLabel = "Open navigation menu",
   mobileCloseLabel = "Close navigation menu",
+  desktopSticky = false,
 }: SidebarTabsetProps<TId, TChildId>) {
   const [showSidebar, setShowSidebar] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<TId>>(new Set());
@@ -125,7 +127,9 @@ export default function SidebarTabset<
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-gray-200 bg-white p-4 transition-transform lg:static lg:z-auto lg:flex lg:w-64 lg:translate-x-0 lg:flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-gray-200 bg-white p-4 transition-transform lg:inset-auto lg:z-auto lg:flex lg:w-64 lg:translate-x-0 lg:flex-col ${
+          desktopSticky ? "lg:sticky lg:top-14 lg:max-h-[calc(100vh-56px)] lg:self-start lg:overflow-y-auto" : "lg:static"
+        } ${
           showSidebar ? "translate-x-0" : "-translate-x-full"
         }`}
       >

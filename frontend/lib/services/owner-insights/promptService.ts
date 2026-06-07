@@ -26,14 +26,16 @@ export function buildOwnerInsightPrompt(
   const hasAllowedIssues =
     Array.isArray((snapshot as { allowedIssues?: unknown }).allowedIssues);
 
-  return `You are a Business Intelligence Advisor for the owner of IZA POS.
+  return `You are an operational business assistant for the owner of IZA POS.
+The owner may not have an accounting or analytics background.
+Your job is to translate business and accounting signals into simple store-operation advice.
 
 Task:
-Create up to 5 business recommendations for category: ${categoryContext.label}.
+Create up to 5 owner-friendly operational recommendations for category: ${categoryContext.label}.
 Business focus for this category: ${categoryContext.focus}.
 Analyze only from the provided snapshot JSON.
 Do not invent numbers, trends, or facts that are not present in the snapshot.
-Use clear, professional, actionable English.
+Use clear, simple, actionable English.
 ${hasAllowedIssues ? "You may only create insights from snapshot.allowedIssues. Do not create new problems." : ""}
 
 Period context:
@@ -68,16 +70,19 @@ Mandatory rules:
 11. Never describe the comparison period as "yesterday" unless comparisonPeriod.startDate equals comparisonPeriod.endDate in the snapshot.
 12. Evidence must be traceable to an exact field/value in the snapshot. If a metric is not present, do not infer it.
 13. If a product, category, staff member, or payment method is not present in the snapshot, do not mention it.
-14. For actionHref, use only relevant internal routes from this list:
+14. Do not create fictional examples. If recommending bundles, add-ons, upsells, or menu checks, use generic wording such as "another available menu item", "available add-on", or "menu item that already exists in the POS" unless the exact product name appears in the snapshot.
+15. For actionHref, use only relevant internal routes from this list:
     - /owner/dashboard?tab=sales
     - /owner/dashboard?tab=customer
     - /owner/dashboard?tab=inventory
     - /owner/dashboard?tab=staff
     - /owner/dashboard?tab=operations
+    - /owner/activitylog
 ${categoryContext.forbiddenClaims
-  .map((rule, index) => `${15 + index}. ${rule}`)
+  .map((rule, index) => `${16 + index}. ${rule}`)
   .join("\n")}
 ${hasAllowedIssues ? "\nCritical allowedIssues rules:\n- Every output item id must exactly match one snapshot.allowedIssues.id.\n- Use the matching allowed issue problem, evidence, recommendationHint, and expectedImpact as your source.\n- If snapshot.allowedIssues is empty, return an empty JSON array.\n- Do not turn neutral metrics into problems unless they appear in allowedIssues." : ""}
+${hasAllowedIssues ? "\nOwner-friendly writing rules:\n- Translate the matching allowed issue into daily store language.\n- The title should describe the store condition, not the accounting term.\n- The problem field should answer: what happened?\n- The recommendation field should answer: what should the owner check first?\n- The expectedImpact field should answer: why does this matter for store operations?\n- You may mention metrics such as AOV, COGS, margin, or profit estimate as supporting data, but do not lead with them when a simpler store-operation explanation is possible.\n- Prefer practical checks such as menu availability, staff checkout prompts, order completion, payment flow, stock readiness, recipe data completeness, and data recording quality.\n- When suggesting upsells or bundles, do not name a sample item that is not in the snapshot. Say \"pair it with an available add-on\" or \"combine it with another existing menu item\" instead." : ""}
 ${hasAllowedIssues ? "\nEvidence quality rules:\n- The problem must include at least one exact number copied from the matching allowedIssues.evidence.\n- The recommendation must explain which metric should be prioritized first when multiple metrics are involved.\n- Avoid vague words such as significantly, lower, higher, or declined unless the sentence also includes the exact value or percentage from evidence." : ""}
 
 Snapshot JSON:
@@ -92,6 +97,7 @@ export function buildJsonRepairPrompt(
 Do not add markdown or explanation.
 Every item must use English and must have category "${category}", non-empty evidence array, non-empty problem, and non-empty recommendation.
 Do not add facts, products, quantities, dates, or trends that were not already present in the original response.
+Do not add sample products or bundle examples that were not already present in the original response.
 If the original response used unsupported period wording, replace it with "selected period" or "comparison period".
 
 Response:

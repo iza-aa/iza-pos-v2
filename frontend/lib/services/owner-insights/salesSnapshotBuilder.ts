@@ -5,6 +5,10 @@ import {
   buildRecommendationPeriodContext,
   isDateInPeriod,
 } from "./periodService";
+import {
+  applyInsightOrderCorrections,
+  type InsightOrderCorrectionRow,
+} from "./orderCorrectionUtils";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
@@ -406,6 +410,7 @@ export async function buildSalesRecommendationSnapshot(
     orderItemsResult,
     productRelationResult,
     categoriesResult,
+    orderCorrectionsResult,
   ] = await Promise.all([
     supabase
       .from("orders")
@@ -419,6 +424,7 @@ export async function buildSalesRecommendationSnapshot(
       .select("id,name,category_id,category:categories(name)")
       .order("name", { ascending: true }),
     supabase.from("categories").select("id,name"),
+    supabase.from("order_corrections").select("id,order_id,status,physical_status,note"),
   ]);
   const productFallbackResult = productRelationResult.error
     ? await supabase
@@ -435,7 +441,16 @@ export async function buildSalesRecommendationSnapshot(
     throw new Error(`Owner AI could not read sales order items: ${orderItemsResult.error.message}`);
   }
 
-  const orders = (ordersResult.data ?? []) as SalesOrderRow[];
+  if (orderCorrectionsResult.error) {
+    throw new Error(
+      `Owner AI could not read sales order corrections: ${orderCorrectionsResult.error.message}`,
+    );
+  }
+
+  const orders = applyInsightOrderCorrections(
+    (ordersResult.data ?? []) as SalesOrderRow[],
+    (orderCorrectionsResult.data ?? []) as InsightOrderCorrectionRow[],
+  );
   const orderItems = (orderItemsResult.data ?? []) as SalesOrderItemRow[];
   const products = (productFallbackResult.data ?? []) as SalesProductRow[];
   const categories = (categoriesResult.data ?? []) as SalesCategoryRow[];

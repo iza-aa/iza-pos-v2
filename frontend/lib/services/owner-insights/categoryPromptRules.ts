@@ -27,6 +27,7 @@ export const CATEGORY_PROMPT_RULES: Record<OwnerInsightCategory, CategoryPromptR
       "Do not mention product quantities unless they appear in charts.topMenus, tables.weakMenus, or tables.menuMargins.",
       "For weak menus, use comparisonQuantity and selectedPeriodQuantity exactly as provided.",
       "Only discuss Food Cost, COGS, gross profit, margin, or Net Profit Estimate from the financial metrics or tables.menuMargins.",
+      "Do not suggest specific bundle pairings or example menu items unless those exact menu items appear in charts.topMenus, tables.weakMenus, or tables.menuMargins. Never invent examples such as pastry, dessert, sandwich, or snack.",
     ],
   },
   rewards: {
@@ -43,12 +44,12 @@ export const CATEGORY_PROMPT_RULES: Record<OwnerInsightCategory, CategoryPromptR
   inventory: {
     label: "inventory risk",
     focus:
-      "critical stock, restock cost, inventory data quality, stock movement value, highest usage item, and expiry tracking readiness",
+      "critical stock, restock cost, inventory data quality, stock movement value, highest usage item, batch expiry risk, and FEFO/FIFO readiness",
     forbiddenClaims: [
-      "Do not claim any item is expired because expiry date data is not available.",
-      "Do not recommend FIFO or FEFO as an active alert; only recommend adding batch and expiry fields first.",
+      "Only claim expiry or FEFO risk when it is supported by batchStock rows.",
+      "If batchStock rows are unavailable, recommend completing batch data before making expiry claims.",
       "Do not compare mixed inventory units by quantity when all items are selected; use Rupiah stock movement value instead.",
-      "Do not mention supplier performance because supplier data is not included.",
+      "Mention supplier names only as batch purchase context; do not rank supplier performance without repeated purchase evidence.",
     ],
   },
   staff: {
@@ -71,6 +72,17 @@ export const CATEGORY_PROMPT_RULES: Record<OwnerInsightCategory, CategoryPromptR
       "Do not treat served as the only completed state; completed and served can both represent finished order flow.",
       "Do not infer customer satisfaction because customer feedback data is not included.",
       "Do not infer staff performance here because staff-specific data belongs to the Staff tab.",
+    ],
+  },
+  activity_log: {
+    label: "activity log audit",
+    focus:
+      "audit trail quality, critical events, warning events, destructive actions, inventory corrections, financial changes, staff/system changes, top users, and missing change summaries",
+    forbiddenClaims: [
+      "Only discuss users, actions, categories, severities, and resources that appear in the activity log snapshot.",
+      "Do not accuse a user of abuse or fraud; recommend verification and approval checks instead.",
+      "Do not claim an action caused stock, sales, or financial loss unless the change summary or resource data supports it.",
+      "Use selected period wording instead of today unless the selected period contains exactly one date.",
     ],
   },
 };

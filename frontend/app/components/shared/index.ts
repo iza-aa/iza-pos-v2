@@ -4,6 +4,7 @@ export { default as StaffCard } from './StaffCard'
 export { default as StaffTable } from './StaffTable'
 export { default as SidebarTabset } from './SidebarTabset'
 export { default as StandardModal } from './StandardModal'
+export { default as ExportButton } from './ExportButton'
 export {
   default as DateRangeFilter,
   getDefaultDateRange,

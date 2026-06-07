@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StandardModal } from "@/app/components/shared";
+import { useLanguage } from "@/app/components/shared/i18n";
 import { getCurrentUser } from "@/lib/utils";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
@@ -20,6 +21,7 @@ const emptySettings: BookkeepingFinancialSettings = {
 };
 
 export default function SettingsTab() {
+  const { t } = useLanguage();
   const [settings, setSettings] =
     useState<BookkeepingFinancialSettings>(emptySettings);
   const [draftSettings, setDraftSettings] =
@@ -37,7 +39,7 @@ export default function SettingsTab() {
   useEffect(() => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       setLoading(false);
       return;
     }
@@ -60,7 +62,7 @@ export default function SettingsTab() {
         };
 
         if (!response.ok || !result.settings) {
-          throw new Error(result.error || "Settings could not be loaded.");
+          throw new Error(result.error || t("owner.bookkeeping.settingsLoadError"));
         }
 
         const nextSettings = {
@@ -72,14 +74,14 @@ export default function SettingsTab() {
         setDraftSettings(nextSettings);
       } catch (loadError) {
         console.error("Failed to load bookkeeping settings:", loadError);
-        setError(loadError instanceof Error ? loadError.message : "Settings could not be loaded.");
+        setError(loadError instanceof Error ? loadError.message : t("owner.bookkeeping.settingsLoadError"));
       } finally {
         setLoading(false);
       }
     };
 
     void loadSettings();
-  }, []);
+  }, [t]);
 
   const openEditModal = () => {
     setDraftSettings(settings);
@@ -89,7 +91,7 @@ export default function SettingsTab() {
   const saveSettings = async () => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       return;
     }
 
@@ -117,7 +119,7 @@ export default function SettingsTab() {
       };
 
       if (!response.ok || !result.success || !result.settings) {
-        throw new Error(result.error || "Settings could not be saved.");
+        throw new Error(result.error || t("owner.bookkeeping.settingsSaveError"));
       }
 
       const nextSettings = {
@@ -128,10 +130,10 @@ export default function SettingsTab() {
       setSettings(nextSettings);
       setDraftSettings(nextSettings);
       setModalOpen(false);
-      showSuccess("Financial settings saved.");
+      showSuccess(t("owner.bookkeeping.settingsSaved"));
     } catch (saveError) {
       console.error("Failed to save bookkeeping settings:", saveError);
-      showError(saveError instanceof Error ? saveError.message : "Settings could not be saved.");
+      showError(saveError instanceof Error ? saveError.message : t("owner.bookkeeping.settingsSaveError"));
     } finally {
       setSaving(false);
     }
@@ -140,8 +142,8 @@ export default function SettingsTab() {
   return (
     <>
       <StandardPanel
-        title="Tax & Charge Settings"
-        description="Rules used by POS orders and bookkeeping reports. Tax is tracked separately from sales and expenses."
+        title={t("owner.bookkeeping.taxSettings")}
+        description={t("owner.bookkeeping.taxSettingsDescription")}
         action={
           <button
             type="button"
@@ -149,7 +151,7 @@ export default function SettingsTab() {
             disabled={loading}
             className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Edit Settings
+            {t("owner.bookkeeping.editSettings")}
           </button>
         }
       >
@@ -162,25 +164,25 @@ export default function SettingsTab() {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.info.cardClass}`}>
-              <p className="text-xs font-bold text-gray-500">Customer Tax</p>
+              <p className="text-xs font-bold text-gray-500">{t("owner.bookkeeping.customerTax")}</p>
               <p className="mt-1 text-base font-bold text-gray-950">
-                {settings.taxEnabled ? `${settings.taxLabel || "Tax"} ${settings.taxRate}%` : "Disabled"}
+                {settings.taxEnabled ? `${settings.taxLabel || "Tax"} ${settings.taxRate}%` : t("owner.bookkeeping.disabled")}
               </p>
-              <p className="mt-1 text-xs leading-5 text-gray-600">Tax payable, not operating expense.</p>
+              <p className="mt-1 text-xs leading-5 text-gray-600">{t("owner.bookkeeping.taxPayableNote")}</p>
             </div>
             <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.neutral.cardClass}`}>
-              <p className="text-xs font-bold text-gray-500">Service Charge</p>
+              <p className="text-xs font-bold text-gray-500">{t("owner.bookkeeping.serviceCharge")}</p>
               <p className="mt-1 text-base font-bold text-gray-950">
-                {settings.serviceChargeEnabled ? `${settings.serviceChargeRate}%` : "Disabled"}
+                {settings.serviceChargeEnabled ? `${settings.serviceChargeRate}%` : t("owner.bookkeeping.disabled")}
               </p>
-              <p className="mt-1 text-xs leading-5 text-gray-600">Optional store service fee.</p>
+              <p className="mt-1 text-xs leading-5 text-gray-600">{t("owner.bookkeeping.serviceFeeNote")}</p>
             </div>
             <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.neutral.cardClass}`}>
-              <p className="text-xs font-bold text-gray-500">Last Updated</p>
+              <p className="text-xs font-bold text-gray-500">{t("owner.bookkeeping.lastUpdated")}</p>
               <p className="mt-1 text-base font-bold text-gray-950">
                 {settings.updatedAt ? formatDateTime(settings.updatedAt) : "-"}
               </p>
-              <p className="mt-1 text-xs leading-5 text-gray-600">Latest financial setting change.</p>
+              <p className="mt-1 text-xs leading-5 text-gray-600">{t("owner.bookkeeping.latestSettingChange")}</p>
             </div>
           </div>
         </div>
@@ -188,8 +190,8 @@ export default function SettingsTab() {
 
       <StandardModal
         isOpen={modalOpen}
-        title="Edit Tax & Charge Settings"
-        description="Adjust POS tax and service charge rules used by bookkeeping reports."
+        title={t("owner.bookkeeping.editTaxSettings")}
+        description={t("owner.bookkeeping.editTaxSettingsDescription")}
         onClose={() => setModalOpen(false)}
         footer={
           <>
@@ -198,7 +200,7 @@ export default function SettingsTab() {
               onClick={() => setModalOpen(false)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              Cancel
+              {t("owner.bookkeeping.cancel")}
             </button>
             <button
               type="button"
@@ -206,7 +208,7 @@ export default function SettingsTab() {
               disabled={saving || loading}
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Settings"}
+              {saving ? t("owner.bookkeeping.saving") : t("owner.bookkeeping.saveSettings")}
             </button>
           </>
         }
@@ -215,9 +217,9 @@ export default function SettingsTab() {
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-gray-950">Customer Tax</h3>
+                <h3 className="text-sm font-bold text-gray-950">{t("owner.bookkeeping.customerTax")}</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Collected from customers and reported as tax payable.
+                  {t("owner.bookkeeping.customerTaxDescription")}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
@@ -232,13 +234,13 @@ export default function SettingsTab() {
                   }
                   className="h-4 w-4 rounded border-gray-300"
                 />
-                Enabled
+                {t("owner.bookkeeping.enabled")}
               </label>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-gray-700">
-                Tax Label
+                {t("owner.bookkeeping.taxLabel")}
                 <input
                   type="text"
                   value={draftSettings.taxLabel}
@@ -254,7 +256,7 @@ export default function SettingsTab() {
               </label>
 
               <label className="text-sm font-semibold text-gray-700">
-                Tax Rate
+                {t("owner.bookkeeping.taxRate")}
                 <div className="mt-2 flex h-11 overflow-hidden rounded-lg border border-gray-300 focus-within:border-gray-900">
                   <input
                     type="number"
@@ -277,20 +279,22 @@ export default function SettingsTab() {
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-              <p className="font-bold text-gray-950">Preview</p>
+              <p className="font-bold text-gray-950">{t("owner.bookkeeping.preview")}</p>
               <p className="mt-2">
-                On Rp 100.000 sales, {draftSettings.taxLabel || "Tax"} collected is{" "}
-                <span className="font-bold text-gray-950">{formatCurrency(taxPreview)}</span>.
+                {t("owner.bookkeeping.taxPreview", {
+                  label: draftSettings.taxLabel || "Tax",
+                  amount: formatCurrency(taxPreview),
+                })}
               </p>
-              <p className="mt-1">Report net sales excludes this tax so owner profit is not overstated.</p>
+              <p className="mt-1">{t("owner.bookkeeping.netSalesExcludesTax")}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-gray-950">Service Charge</h3>
-                <p className="mt-1 text-sm text-gray-500">Applied to dine-in orders only. Takeaway does not receive this charge.</p>
+                <h3 className="text-sm font-bold text-gray-950">{t("owner.bookkeeping.serviceCharge")}</h3>
+                <p className="mt-1 text-sm text-gray-500">{t("owner.bookkeeping.serviceChargeDescription")}</p>
               </div>
               <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
                 <input
@@ -304,12 +308,12 @@ export default function SettingsTab() {
                   }
                   className="h-4 w-4 rounded border-gray-300"
                 />
-                Enabled
+                {t("owner.bookkeeping.enabled")}
               </label>
             </div>
 
             <label className="block text-sm font-semibold text-gray-700">
-              Rate
+              {t("owner.bookkeeping.rate")}
               <div className="mt-2 flex h-11 max-w-xs overflow-hidden rounded-lg border border-gray-300 focus-within:border-gray-900">
                 <input
                   type="number"

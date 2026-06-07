@@ -4,23 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArchiveBoxIcon,
+  BanknotesIcon,
   ChartPieIcon,
   ClipboardDocumentCheckIcon,
-  DocumentChartBarIcon,
   ExclamationTriangleIcon,
-  ReceiptPercentIcon,
 } from "@heroicons/react/24/outline";
 import {
   DateRangeFilter,
   getDefaultDateRange,
+  getTodayDateRange,
   SidebarTabset,
   type DateRangeValue,
 } from "@/app/components/shared";
+import { useLanguage } from "@/app/components/shared/i18n";
+import { getJakartaTodayDate, toUtcDateOnly } from "@/lib/services/bookkeeping/bookkeepingDate";
 import { getCurrentUser } from "@/lib/utils";
 import type {
   BookkeepingDashboardData,
-  BookkeepingException,
-  ShiftClosingRow,
+  BookkeepingExpense,
   BookkeepingTab,
 } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import ClosingsTab from "./tabs/ClosingsTab";
@@ -28,44 +29,37 @@ import AutoLedgerTab from "./tabs/AutoLedgerTab";
 import CostMarginTab from "./tabs/CostMarginTab";
 import ExpensesTab from "./tabs/ExpensesTab";
 import ExceptionsTab from "./tabs/ExceptionsTab";
-import ReportsTab from "./tabs/ReportsTab";
 
 const tabs = [
   {
     id: "closings" as const,
-    label: "Closings",
-    description: "Daily approval",
+    labelKey: "owner.bookkeeping.closings",
+    descriptionKey: "owner.bookkeeping.closingsDescription",
     icon: ClipboardDocumentCheckIcon,
   },
   {
     id: "ledger" as const,
-    label: "Auto Ledger",
-    description: "Financial movement",
+    labelKey: "owner.bookkeeping.ledger",
+    descriptionKey: "owner.bookkeeping.ledgerDescription",
     icon: ArchiveBoxIcon,
   },
   {
     id: "cost-margin" as const,
-    label: "Cost & Margin",
-    description: "COGS health",
+    labelKey: "owner.bookkeeping.costMargin",
+    descriptionKey: "owner.bookkeeping.costMarginDescription",
     icon: ChartPieIcon,
   },
   {
     id: "expenses" as const,
-    label: "Expenses",
-    description: "Operating cost",
-    icon: ReceiptPercentIcon,
+    labelKey: "owner.bookkeeping.expenses",
+    descriptionKey: "owner.bookkeeping.expensesDescription",
+    icon: BanknotesIcon,
   },
   {
     id: "exceptions" as const,
-    label: "Exceptions",
-    description: "Review queue",
+    labelKey: "owner.bookkeeping.exceptions",
+    descriptionKey: "owner.bookkeeping.exceptionsDescription",
     icon: ExclamationTriangleIcon,
-  },
-  {
-    id: "reports" as const,
-    label: "Reports",
-    description: "Exports & history",
-    icon: DocumentChartBarIcon,
   },
 ];
 
@@ -73,26 +67,109 @@ const isBookkeepingTab = (value: string | null): value is BookkeepingTab => {
   return tabs.some((tab) => tab.id === value);
 };
 
-type GenerateResult = {
-  success?: boolean;
-  error?: string;
-  exceptions?: { total: number; created: number; updated: number };
-  shiftClosings?: { total: number; created: number; updated: number; skipped: number };
-  reports?: { created: number };
+const getYesterdayDateRange = (): DateRangeValue => {
+  const date = toUtcDateOnly(getJakartaTodayDate());
+  date.setUTCDate(date.getUTCDate() - 1);
+  const yesterday = date.toISOString().slice(0, 10);
+  return { startDate: yesterday, endDate: yesterday };
 };
+
+function BusinessDateFilter({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useLanguage();
+  const todayRange = getTodayDateRange();
+  const yesterdayRange = getYesterdayDateRange();
+  const setBusinessDate = (nextDate: string) => onChange(nextDate);
+
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <p className="text-sm font-bold text-gray-950">{t("owner.bookkeeping.businessDate")}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {t("owner.bookkeeping.businessDateDescription")}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: "today", label: t("owner.bookkeeping.today"), value: todayRange.endDate },
+              { id: "yesterday", label: t("owner.bookkeeping.yesterday"), value: yesterdayRange.endDate },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => setBusinessDate(preset.value)}
+                className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                  value === preset.value
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="date"
+            value={value}
+            onChange={(event) => setBusinessDate(event.target.value)}
+            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none transition focus:border-gray-900"
+            aria-label={t("owner.bookkeeping.businessDate")}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const createEmptyBookkeepingData = (dateRange: DateRangeValue): BookkeepingDashboardData => ({
+  dateRange,
+  summary: {
+    grossSales: 0,
+    discounts: 0,
+    netSales: 0,
+    taxCollected: 0,
+    estimatedCogs: null,
+    grossProfit: null,
+    operatingExpenses: 0,
+    netProfitEstimate: null,
+    openingCashTotal: 0,
+    cashExpected: 0,
+    expectedDrawerCash: 0,
+    cashToDeposit: 0,
+    closingFloatTotal: 0,
+    cashDifference: null,
+    totalOrders: 0,
+    cancelledOrders: 0,
+    unresolvedExceptions: 0,
+  },
+  paymentBreakdown: [],
+  entries: [],
+  expenses: [],
+  exceptions: [],
+  reports: [],
+  menuMargins: [],
+  shiftClosings: [],
+  dailyClosing: null,
+});
 
 export default function OwnerBookkeeping() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [data, setData] = useState<BookkeepingDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingAdjustment, setSavingAdjustment] = useState(false);
-  const [generatingReport, setGeneratingReport] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
   const [deletingExpenseId, setDeletingExpenseId] = useState("");
-  const [updatingExceptionId, setUpdatingExceptionId] = useState("");
-  const [reviewingShiftId, setReviewingShiftId] = useState("");
   const [closingDaily, setClosingDaily] = useState(false);
   const [reopeningDaily, setReopeningDaily] = useState(false);
   const [error, setError] = useState("");
@@ -101,9 +178,23 @@ export default function OwnerBookkeeping() {
   const activeTab = useMemo<BookkeepingTab>(() => {
     const tab = searchParams.get("tab");
     if (tab === "settings") return "expenses";
+    if (tab === "reports") return "closings";
     if (tab === "overview") return "closings";
     return isBookkeepingTab(tab) ? tab : "closings";
   }, [searchParams]);
+
+  const localizedTabs = useMemo(
+    () => tabs.map((tab) => ({
+      ...tab,
+      label: t(tab.labelKey),
+      description: t(tab.descriptionKey),
+    })),
+    [t],
+  );
+
+  const setClosingBusinessDate = (businessDate: string) => {
+    setDateRange({ startDate: businessDate, endDate: businessDate });
+  };
 
   const loadData = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
     if (!quiet) setLoading(true);
@@ -112,7 +203,7 @@ export default function OwnerBookkeeping() {
     try {
       const currentUser = getCurrentUser();
       if (!currentUser || currentUser.role !== "owner") {
-        throw new Error("Owner access required.");
+        throw new Error(t("owner.bookkeeping.ownerRequired"));
       }
 
       const params = new URLSearchParams({
@@ -134,23 +225,27 @@ export default function OwnerBookkeeping() {
       };
 
       if (!response.ok || !result.data) {
-        throw new Error(result.error || "Bookkeeping data could not be loaded.");
+        throw new Error(result.error || t("owner.bookkeeping.loadError"));
       }
 
       setData(result.data);
     } catch (loadError) {
       console.error("Failed to load bookkeeping data:", loadError);
       setData(null);
-      setError("Bookkeeping data could not be loaded. Available widgets will render again after the data source is available.");
+      setError(t("owner.bookkeeping.loadError"));
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, t]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab === "settings") {
       router.replace("/owner/bookkeeping?tab=expenses");
+      return;
+    }
+    if (tab === "reports") {
+      router.replace("/owner/bookkeeping?tab=closings");
       return;
     }
     if (tab === "overview") {
@@ -173,31 +268,6 @@ export default function OwnerBookkeeping() {
     void loadData();
   }, [loadData]);
 
-  const postGenerateRequest = async (url: string): Promise<GenerateResult> => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      throw new Error("Owner access required.");
-    }
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": currentUser.id,
-        "x-user-name": currentUser.name,
-        "x-user-role": currentUser.role,
-      },
-      body: JSON.stringify({ dateRange }),
-    });
-
-    const result = (await response.json().catch(() => ({}))) as GenerateResult;
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || "Bookkeeping action could not be completed.");
-    }
-
-    return result;
-  };
-
   const handleCreateAdjustment = async (form: {
     businessDate: string;
     category: string;
@@ -209,7 +279,7 @@ export default function OwnerBookkeeping() {
   }) => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       return;
     }
 
@@ -235,45 +305,25 @@ export default function OwnerBookkeeping() {
       };
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Manual adjustment could not be created.");
+        throw new Error(result.error || t("owner.bookkeeping.adjustmentCreateError"));
       }
 
-      setNotice("Manual adjustment saved.");
+      setNotice(t("owner.bookkeeping.adjustmentSaved"));
       await loadData({ quiet: true });
     } catch (adjustmentError) {
       console.error("Failed to create manual adjustment:", adjustmentError);
       setError(
         adjustmentError instanceof Error
           ? adjustmentError.message
-          : "Manual adjustment could not be created.",
+          : t("owner.bookkeeping.adjustmentCreateError"),
       );
     } finally {
       setSavingAdjustment(false);
     }
   };
 
-  const handleGenerateReport = async () => {
-    setGeneratingReport(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const result = await postGenerateRequest("/api/owner/bookkeeping/reports/generate");
-      setNotice(`Report generated: ${result.reports?.created ?? 0} snapshot created.`);
-      await loadData({ quiet: true });
-    } catch (generateError) {
-      console.error("Failed to generate bookkeeping report:", generateError);
-      setError(
-        generateError instanceof Error
-          ? generateError.message
-          : "Bookkeeping report could not be generated.",
-      );
-    } finally {
-      setGeneratingReport(false);
-    }
-  };
-
-  const handleCreateExpense = async (form: {
+  const handleSaveExpense = async (form: {
+    id?: string;
     expenseDate: string;
     category: string;
     amount: string;
@@ -284,7 +334,7 @@ export default function OwnerBookkeeping() {
   }) => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       return;
     }
 
@@ -293,16 +343,21 @@ export default function OwnerBookkeeping() {
     setNotice("");
 
     try {
-      const response = await fetch("/api/owner/bookkeeping/expenses/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
+      const response = await fetch(
+        form.id
+          ? "/api/owner/bookkeeping/expenses/update"
+          : "/api/owner/bookkeeping/expenses/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": currentUser.id,
+            "x-user-name": currentUser.name,
+            "x-user-role": currentUser.role,
+          },
+          body: JSON.stringify(form),
         },
-        body: JSON.stringify(form),
-      });
+      );
 
       const result = (await response.json().catch(() => ({}))) as {
         success?: boolean;
@@ -310,91 +365,31 @@ export default function OwnerBookkeeping() {
       };
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Bookkeeping expense could not be created.");
+        throw new Error(result.error || t("owner.bookkeeping.expenseSaveError"));
       }
 
-      setNotice("Expense saved.");
+      setNotice(form.id ? t("owner.bookkeeping.expenseUpdated") : t("owner.bookkeeping.expenseSaved"));
       await loadData({ quiet: true });
-    } catch (createError) {
-      console.error("Failed to create expense:", createError);
+    } catch (saveError) {
+      console.error("Failed to save bookkeeping expense:", saveError);
       setError(
-        createError instanceof Error
-          ? createError.message
-          : "Bookkeeping expense could not be created.",
+        saveError instanceof Error
+          ? saveError.message
+          : t("owner.bookkeeping.expenseSaveError"),
       );
     } finally {
       setSavingExpense(false);
     }
   };
 
-  const handleUpdateException = async (
-    exception: BookkeepingException,
-    status: "acknowledged" | "resolved",
-  ) => {
+  const handleDeleteExpense = async (expense: BookkeepingExpense) => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       return;
     }
 
-    setUpdatingExceptionId(exception.id);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/exceptions/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
-        },
-        body: JSON.stringify({
-          id: exception.id,
-          status,
-          exception: {
-            businessDate: exception.businessDate,
-            severity: exception.severity,
-            type: exception.type,
-            description: exception.description,
-            source: exception.source,
-            suggestedFix: exception.suggestedFix,
-          },
-        }),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Bookkeeping exception could not be updated.");
-      }
-
-      setNotice(`Exception marked as ${status}.`);
-      await loadData({ quiet: true });
-    } catch (updateError) {
-      console.error("Failed to update exception:", updateError);
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "Bookkeeping exception could not be updated.",
-      );
-    } finally {
-      setUpdatingExceptionId("");
-    }
-  };
-
-  const handleDeleteExpense = async (id: string) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
-      return;
-    }
-
-    setDeletingExpenseId(id);
+    setDeletingExpenseId(expense.id);
     setError("");
     setNotice("");
 
@@ -407,7 +402,7 @@ export default function OwnerBookkeeping() {
           "x-user-name": currentUser.name,
           "x-user-role": currentUser.role,
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: expense.id }),
       });
 
       const result = (await response.json().catch(() => ({}))) as {
@@ -416,82 +411,27 @@ export default function OwnerBookkeeping() {
       };
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Bookkeeping expense could not be deleted.");
+        throw new Error(result.error || t("owner.bookkeeping.expenseDeleteError"));
       }
 
-      setNotice("Expense deleted.");
+      setNotice(t("owner.bookkeeping.expenseDeleted"));
       await loadData({ quiet: true });
     } catch (deleteError) {
-      console.error("Failed to delete expense:", deleteError);
+      console.error("Failed to delete bookkeeping expense:", deleteError);
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Bookkeeping expense could not be deleted.",
+          : t("owner.bookkeeping.expenseDeleteError"),
       );
     } finally {
       setDeletingExpenseId("");
     }
   };
 
-  const handleUpdateExpense = async (form: {
-    id?: string;
-    expenseDate: string;
-    category: string;
-    amount: string;
-    paymentMethod: string;
-    vendor: string;
-    receiptUrl: string;
-    note: string;
-  }) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
-      return;
-    }
-
-    setSavingExpense(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/expenses/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
-        },
-        body: JSON.stringify(form),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Bookkeeping expense could not be updated.");
-      }
-
-      setNotice("Expense updated.");
-      await loadData({ quiet: true });
-    } catch (updateError) {
-      console.error("Failed to update expense:", updateError);
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "Bookkeeping expense could not be updated.",
-      );
-    } finally {
-      setSavingExpense(false);
-    }
-  };
-
   const handleCloseDaily = async (notes: string) => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       return;
     }
 
@@ -519,83 +459,27 @@ export default function OwnerBookkeeping() {
       };
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Daily closing could not be completed.");
+        throw new Error(result.error || t("owner.bookkeeping.dailyCloseError"));
       }
 
-      setNotice(`Daily closing saved as ${result.status}.`);
+      setNotice(t("owner.bookkeeping.dailySavedStatus", { status: result.status || "-" }));
       await loadData({ quiet: true });
     } catch (closeError) {
       console.error("Failed to close daily:", closeError);
       setError(
         closeError instanceof Error
           ? closeError.message
-          : "Daily closing could not be completed.",
+          : t("owner.bookkeeping.dailyCloseError"),
       );
     } finally {
       setClosingDaily(false);
     }
   };
 
-  const handleReviewShiftClosing = async (
-    row: ShiftClosingRow,
-    action: "approve" | "reopen",
-    note: string,
-  ) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
-      return;
-    }
-
-    setReviewingShiftId(row.id);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/closings/shift/review", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
-        },
-        body: JSON.stringify({
-          businessDate: row.businessDate,
-          shiftId: row.id,
-          action,
-          note,
-        }),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        status?: string;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Shift closing could not be reviewed.");
-      }
-
-      setNotice(`Shift closing saved as ${result.status}.`);
-      await loadData({ quiet: true });
-    } catch (reviewError) {
-      console.error("Failed to review shift closing:", reviewError);
-      setError(
-        reviewError instanceof Error
-          ? reviewError.message
-          : "Shift closing could not be reviewed.",
-      );
-    } finally {
-      setReviewingShiftId("");
-    }
-  };
-
   const handleReopenDaily = async (businessDate: string, reason: string) => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== "owner") {
-      setError("Owner access required.");
+      setError(t("owner.bookkeeping.ownerRequired"));
       return;
     }
 
@@ -622,17 +506,17 @@ export default function OwnerBookkeeping() {
       };
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Daily closing could not be reopened.");
+        throw new Error(result.error || t("owner.bookkeeping.dailyReopenError"));
       }
 
-      setNotice(`Daily closing saved as ${result.status}.`);
+      setNotice(t("owner.bookkeeping.dailySavedStatus", { status: result.status || "-" }));
       await loadData({ quiet: true });
     } catch (reopenError) {
       console.error("Failed to reopen daily closing:", reopenError);
       setError(
         reopenError instanceof Error
           ? reopenError.message
-          : "Daily closing could not be reopened.",
+          : t("owner.bookkeeping.dailyReopenError"),
       );
     } finally {
       setReopeningDaily(false);
@@ -643,39 +527,40 @@ export default function OwnerBookkeeping() {
     router.push(`/owner/bookkeeping?tab=${tab}`);
   };
 
+  const displayData = data ?? createEmptyBookkeepingData(dateRange);
+
   const renderTab = () => {
-    if (!data) return null;
     if (activeTab === "closings") {
       return (
         <ClosingsTab
-          data={data}
+          data={displayData}
+          loading={loading}
           closingDaily={closingDaily}
           reopeningDaily={reopeningDaily}
-          reviewingShiftId={reviewingShiftId}
           onApproveDaily={handleCloseDaily}
           onReopenDaily={handleReopenDaily}
-          onRequestShiftReview={(row, note) => handleReviewShiftClosing(row, "reopen", note)}
         />
       );
     }
     if (activeTab === "ledger") {
       return (
         <AutoLedgerTab
-          data={data}
+          data={displayData}
+          loading={loading}
           savingAdjustment={savingAdjustment}
           onCreateAdjustment={handleCreateAdjustment}
         />
       );
     }
-    if (activeTab === "cost-margin") return <CostMarginTab data={data} />;
+    if (activeTab === "cost-margin") return <CostMarginTab data={displayData} loading={loading} />;
     if (activeTab === "expenses") {
       return (
         <ExpensesTab
-          data={data}
-          saving={savingExpense}
-          deletingId={deletingExpenseId}
-          onCreateExpense={handleCreateExpense}
-          onUpdateExpense={handleUpdateExpense}
+          data={displayData}
+          loading={loading}
+          savingExpense={savingExpense}
+          deletingExpenseId={deletingExpenseId}
+          onSaveExpense={handleSaveExpense}
           onDeleteExpense={handleDeleteExpense}
         />
       );
@@ -683,30 +568,19 @@ export default function OwnerBookkeeping() {
     if (activeTab === "exceptions") {
       return (
         <ExceptionsTab
-          data={data}
-          updatingId={updatingExceptionId}
-          onUpdateException={handleUpdateException}
-        />
-      );
-    }
-    if (activeTab === "reports") {
-      return (
-        <ReportsTab
-          data={data}
-          generating={generatingReport}
-          onGenerate={handleGenerateReport}
+          data={displayData}
+          loading={loading}
         />
       );
     }
     return (
       <ClosingsTab
-        data={data}
+        data={displayData}
+        loading={loading}
         closingDaily={closingDaily}
         reopeningDaily={reopeningDaily}
-        reviewingShiftId={reviewingShiftId}
         onApproveDaily={handleCloseDaily}
         onReopenDaily={handleReopenDaily}
-        onRequestShiftReview={(row, note) => handleReviewShiftClosing(row, "reopen", note)}
       />
     );
   };
@@ -715,20 +589,27 @@ export default function OwnerBookkeeping() {
     <main className="h-[calc(100vh-56px)] overflow-hidden bg-white">
       <div className="flex h-full min-h-0">
         <SidebarTabset
-          title="Bookkeeping"
-          description="Automatic closing, ledger, margin, and reports."
-          items={tabs}
+          title={t("owner.bookkeeping.title")}
+          description={t("owner.bookkeeping.description")}
+          items={localizedTabs}
           activeId={activeTab}
           onSelect={setActiveTab}
-          mobileOpenLabel="Open bookkeeping menu"
-          mobileCloseLabel="Close bookkeeping menu"
+          mobileOpenLabel={t("owner.bookkeeping.mobileOpen")}
+          mobileCloseLabel={t("owner.bookkeeping.mobileClose")}
         />
 
         <section className="flex min-w-0 flex-1 flex-col bg-gray-50">
           <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
             <div className="space-y-4">
               <div className="grid grid-cols-1">
-                <DateRangeFilter value={dateRange} onChange={setDateRange} />
+                {activeTab === "closings" ? (
+                  <BusinessDateFilter
+                    value={dateRange.endDate}
+                    onChange={setClosingBusinessDate}
+                  />
+                ) : (
+                  <DateRangeFilter value={dateRange} onChange={setDateRange} />
+                )}
               </div>
 
               {error ? (
@@ -743,13 +624,7 @@ export default function OwnerBookkeeping() {
                 </div>
               ) : null}
 
-              {loading ? (
-                <div className="rounded-2xl border border-gray-200 bg-white p-8 text-sm font-semibold text-gray-500 shadow-sm">
-                  Loading bookkeeping data...
-                </div>
-              ) : (
-                renderTab()
-              )}
+              {renderTab()}
             </div>
           </div>
         </section>

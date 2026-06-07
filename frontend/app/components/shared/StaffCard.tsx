@@ -36,6 +36,8 @@ interface StaffCardProps {
   onEdit: () => void;
   onDelete?: () => void;
   showActions?: boolean;
+  onGenerateAccessCode?: () => void;
+  isGeneratingAccessCode?: boolean;
 }
 
 const formatLabel = (value: unknown) => {
@@ -151,6 +153,8 @@ export default function StaffCard({
   onEdit,
   onDelete,
   showActions = true,
+  onGenerateAccessCode,
+  isGeneratingAccessCode = false,
 }: StaffCardProps) {
   const staffRole = String(staff.role ?? "").toLowerCase();
   const shouldShowStaffType = staffRole === "staff";
@@ -253,21 +257,34 @@ export default function StaffCard({
         </div>
       </div>
 
-      {showActions && (
+      {(showActions || onGenerateAccessCode) && (
         <div
           className={`grid gap-2 border-t border-gray-100 bg-gray-50 p-4 ${
-            onDelete ? "grid-cols-2" : "grid-cols-1"
+            showActions && onDelete ? "grid-cols-2" : "grid-cols-1"
           }`}
         >
-          <button
-            type="button"
-            onClick={onEdit}
-            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
-          >
-            Edit
-          </button>
+          {onGenerateAccessCode ? (
+            <button
+              type="button"
+              onClick={onGenerateAccessCode}
+              disabled={isGeneratingAccessCode}
+              className="w-full rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGeneratingAccessCode ? "Generating..." : "Generate Code"}
+            </button>
+          ) : null}
 
-          {onDelete && (
+          {showActions ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+            >
+              Edit
+            </button>
+          ) : null}
+
+          {showActions && onDelete && (
             <button
               type="button"
               onClick={onDelete}

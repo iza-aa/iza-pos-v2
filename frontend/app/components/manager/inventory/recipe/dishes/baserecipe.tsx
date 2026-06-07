@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  EyeIcon,
-  EyeSlashIcon,
   MagnifyingGlassIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline'
@@ -17,7 +15,10 @@ interface RecipeIngredient {
   ingredient_name: string
   quantity_needed: number
   unit: string
+  costing_mode?: RecipeCostingMode | null
 }
+
+type RecipeCostingMode = 'deduct_from_pos' | 'cost_estimate_only' | 'kitchen_overhead'
 
 interface Recipe {
   id: string
@@ -65,6 +66,7 @@ interface RecipeIngredientDbRow {
   ingredient_name?: string | null
   quantity_needed: number
   unit: string
+  costing_mode?: RecipeCostingMode | null
 }
 
 interface InventoryLookupRow {
@@ -105,25 +107,24 @@ const buildRecipeActivityValue = (recipe: {
     name: ingredient.ingredient_name,
     quantity: ingredient.quantity_needed,
     unit: ingredient.unit,
+    costingMode: ingredient.costing_mode || 'deduct_from_pos',
   })),
 })
 
+const getCostingModeLabel = (mode?: RecipeCostingMode | null) => {
+  if (mode === 'kitchen_overhead') return 'Overhead'
+  if (mode === 'cost_estimate_only') return 'Cost only'
+  return 'POS deduct'
+}
+
 export default function RecipeDishesTab() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [showStats, setShowStats] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null)
-
-  useEffect(() => {
-    const saved = localStorage.getItem('inventory_show_stats')
-    if (saved !== null) {
-      setShowStats(JSON.parse(saved))
-    }
-  }, [])
 
   useEffect(() => {
     void fetchData()
@@ -152,7 +153,7 @@ export default function RecipeDishesTab() {
 
       const { data: ingredientsData, error: ingredientsError } = await supabase
         .from('recipe_ingredients')
-        .select('recipe_id, inventory_item_id, ingredient_name, quantity_needed, unit')
+        .select('recipe_id, inventory_item_id, ingredient_name, quantity_needed, unit, costing_mode')
 
       if (ingredientsError) throw ingredientsError
 
@@ -179,6 +180,7 @@ export default function RecipeDishesTab() {
               ingredient_name: inventoryItem?.name || ingredient.ingredient_name || 'Unknown item',
               quantity_needed: Number(ingredient.quantity_needed) || 0,
               unit: ingredient.unit,
+              costing_mode: ingredient.costing_mode || 'deduct_from_pos',
             }
           })
 
@@ -272,6 +274,7 @@ export default function RecipeDishesTab() {
         ingredient_name: ingredient.ingredient_name,
         quantity_needed: ingredient.quantity_needed,
         unit: ingredient.unit,
+        costing_mode: ingredient.costing_mode || 'deduct_from_pos',
       }))
 
       const { error: ingredientsError } = await supabase.from('recipe_ingredients').insert(ingredients)
@@ -326,6 +329,7 @@ export default function RecipeDishesTab() {
         ingredient_name: ingredient.ingredient_name,
         quantity_needed: ingredient.quantity_needed,
         unit: ingredient.unit,
+        costing_mode: ingredient.costing_mode || 'deduct_from_pos',
       }))
 
       const { error: ingredientsError } = await supabase.from('recipe_ingredients').insert(ingredients)
@@ -367,9 +371,34 @@ export default function RecipeDishesTab() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <section className="shrink-0 border-b border-gray-200 bg-white p-4 md:p-6">
-        <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+    <div className="h-full overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
+      <section>
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Total Dishes</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">{stats.totalProducts}</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Menu products available</p>
+            </div>
+            <div className="rounded-2xl border border-[#BFEF75] bg-[#F6FFE8] p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">With Recipe</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">{stats.withRecipe}</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Ready for stock deduction</p>
+            </div>
+            <div className="rounded-2xl border border-[#FFC9C9] bg-[#FFF1F1] p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Without Recipe</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">{stats.withoutRecipe}</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Needs ingredient setup</p>
+            </div>
+            <div className="rounded-2xl border border-[#FFE58A] bg-[#FFF9D7] p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Coverage</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">{coverage}%</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Recipe coverage rate</p>
+            </div>
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-bold text-gray-900 md:text-xl">Dishes (Base Recipes)</h2>
             <p className="text-xs text-gray-500 md:text-sm">
@@ -378,23 +407,6 @@ export default function RecipeDishesTab() {
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 md:gap-4 lg:w-auto">
-            <button
-              type="button"
-              onClick={() => {
-                const newVal = !showStats
-                setShowStats(newVal)
-                localStorage.setItem('inventory_show_stats', JSON.stringify(newVal))
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition hover:bg-gray-50"
-              title={showStats ? 'Hide statistics' : 'Show statistics'}
-            >
-              {showStats ? (
-                <EyeSlashIcon className="h-5 w-5 text-gray-600" />
-              ) : (
-                <EyeIcon className="h-5 w-5 text-gray-600" />
-              )}
-            </button>
-
             <div className="relative flex-1 lg:flex-none">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 md:h-5 md:w-5" />
               <input
@@ -402,35 +414,12 @@ export default function RecipeDishesTab() {
                 placeholder="Search dishes..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 md:pl-10 lg:w-64"
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 md:pl-10 lg:w-64"
               />
             </div>
           </div>
         </div>
 
-        {showStats && (
-          <div className="grid grid-cols-2 gap-3 pt-4 md:gap-4 md:pt-6 lg:grid-cols-4">
-            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-600 md:text-sm">Total Dishes</div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">{stats.totalProducts}</div>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-600 md:text-sm">With Recipe</div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">{stats.withRecipe}</div>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-600 md:text-sm">Without Recipe</div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">{stats.withoutRecipe}</div>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-600 md:text-sm">Coverage</div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">{coverage}%</div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="flex-1 overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
         {loading ? (
           <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">
             Loading base recipes...
@@ -480,8 +469,15 @@ export default function RecipeDishesTab() {
                             <span className="min-w-0 flex-1 truncate text-gray-700">
                               {ingredient.ingredient_name}
                             </span>
-                            <span className="ml-2 font-medium text-gray-900">
-                              {ingredient.quantity_needed} {ingredient.unit}
+                            <span className="ml-2 flex shrink-0 items-center gap-2">
+                              <span className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                                {getCostingModeLabel(ingredient.costing_mode)}
+                              </span>
+                              <span className="font-medium text-gray-900">
+                                {ingredient.costing_mode === 'kitchen_overhead'
+                                  ? '-'
+                                  : `${ingredient.quantity_needed} ${ingredient.unit}`}
+                              </span>
                             </span>
                           </div>
                         ))}

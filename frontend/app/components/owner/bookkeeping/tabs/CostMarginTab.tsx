@@ -1,6 +1,7 @@
 "use client";
 
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
+import { useLanguage } from "@/app/components/shared/i18n";
 import type { BookkeepingDashboardData, MenuMarginRow } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import {
   MetricCard,
@@ -10,51 +11,58 @@ import {
   formatLabel,
 } from "../BookkeepingPrimitives";
 
-export default function CostMarginTab({ data }: { data: BookkeepingDashboardData }) {
+export default function CostMarginTab({
+  data,
+  loading = false,
+}: {
+  data: BookkeepingDashboardData;
+  loading?: boolean;
+}) {
+  const { t } = useLanguage();
   const missingCostCount = data.menuMargins.filter((row) => row.status !== "ready").length;
 
   const columns: Array<StandardTableColumn<MenuMarginRow>> = [
     {
       key: "menuName",
-      header: "Menu Name",
+      header: t("owner.bookkeeping.menuName"),
       render: (row) => <span className="font-semibold text-gray-900">{row.menuName}</span>,
     },
     {
       key: "quantitySold",
-      header: "Quantity Sold",
+      header: t("owner.bookkeeping.quantitySold"),
       render: (row) => row.quantitySold,
       sortValue: (row) => row.quantitySold,
     },
     {
       key: "revenue",
-      header: "Revenue",
+      header: t("owner.bookkeeping.revenue"),
       render: (row) => formatCurrency(row.revenue),
       sortValue: (row) => row.revenue,
     },
     {
       key: "estimatedCogs",
-      header: "Food Cost",
+      header: t("owner.bookkeeping.foodCost"),
       render: (row) => {
         if (row.estimatedCogs !== null) return formatCurrency(row.estimatedCogs);
-        return row.status === "recipe_needed" ? "Recipe Needed" : "Cost Data Needed";
+        return row.status === "recipe_needed" ? t("owner.bookkeeping.recipeNeeded") : t("owner.bookkeeping.costDataNeeded");
       },
       sortValue: (row) => row.estimatedCogs ?? -1,
     },
     {
       key: "grossProfit",
-      header: "Gross Profit",
+      header: t("owner.bookkeeping.grossProfit"),
       render: (row) => row.grossProfit === null ? "-" : formatCurrency(row.grossProfit),
       sortValue: (row) => row.grossProfit ?? -1,
     },
     {
       key: "marginPct",
-      header: "Margin",
+      header: t("owner.bookkeeping.margin"),
       render: (row) => row.marginPct === null ? "-" : `${row.marginPct.toFixed(1)}%`,
       sortValue: (row) => row.marginPct ?? -1,
     },
     {
       key: "status",
-      header: "Status",
+      header: t("owner.bookkeeping.status"),
       render: (row) => (
         <SemanticBadge tone={row.status === "ready" ? "success" : "warning"}>
           {formatLabel(row.status)}
@@ -67,40 +75,41 @@ export default function CostMarginTab({ data }: { data: BookkeepingDashboardData
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Food Cost"
+          label={t("owner.bookkeeping.foodCost")}
           value={formatCurrency(data.summary.estimatedCogs)}
-          description="Uses actual inventory usage when available, otherwise recipe cost."
+          description={t("owner.bookkeeping.actualUsageOrRecipe")}
           tone={data.summary.estimatedCogs === null ? "warning" : "coffee"}
         />
         <MetricCard
-          label="Gross Profit"
+          label={t("owner.bookkeeping.grossProfit")}
           value={formatCurrency(data.summary.grossProfit)}
-          description="Net sales minus estimated COGS."
+          description={t("owner.bookkeeping.netSalesMinusCogs")}
           tone={data.summary.grossProfit === null ? "warning" : "success"}
         />
         <MetricCard
-          label="Missing Cost Rows"
+          label={t("owner.bookkeeping.missingCostRows")}
           value={missingCostCount}
-          description="Menu rows that still need recipe or item cost data."
+          description={t("owner.bookkeeping.missingCostRowsDescription")}
           tone={missingCostCount > 0 ? "danger" : "success"}
         />
         <MetricCard
-          label="Operating Expenses"
+          label={t("owner.bookkeeping.operatingExpenses")}
           value={formatCurrency(data.summary.operatingExpenses)}
-          description="Owner-entered operating expenses in this period."
+          description={t("owner.bookkeeping.operatingCostPeriod")}
           tone="neutral"
         />
       </div>
 
       <StandardPanel
-        title="Menu Profitability Table"
-        description="Revenue and margin by menu. Profit is hidden when recipe or item cost data is incomplete."
+        title={t("owner.bookkeeping.menuProfitability")}
+        description={t("owner.bookkeeping.menuProfitabilityDescription")}
       >
         <StandardTable
           columns={columns}
           data={data.menuMargins}
           getRowKey={(row) => row.id}
-          emptyLabel="No menu sales in this period."
+          loading={loading}
+          emptyLabel={t("owner.bookkeeping.noMenuSales")}
           minWidthClassName="min-w-[980px]"
         />
       </StandardPanel>

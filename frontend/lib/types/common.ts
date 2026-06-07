@@ -55,6 +55,7 @@ export interface MenuItem {
   image?: string; // Alias for UI
   is_available: boolean;
   available?: boolean; // Alias for UI
+  unavailableReason?: string;
   hasVariants?: boolean;
   variantGroups?: string[]; // For UI display
   type?: "food" | "drink"; // Product type for order routing
@@ -229,7 +230,7 @@ export type InventoryUnit =
   | "box"
   | "bottle";
 
-export type TransactionType = "in" | "out" | "adjustment" | "usage";
+export type TransactionType = "in" | "out" | "adjustment" | "usage" | "testing_usage";
 
 export interface InventoryItem {
   id: string;

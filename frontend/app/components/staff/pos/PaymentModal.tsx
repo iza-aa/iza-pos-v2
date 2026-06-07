@@ -29,6 +29,7 @@ interface PaymentModalProps {
     pagerNumber?: string;
   }) => void;
   totalAmount: number;
+  getTotalAmount?: (fulfillmentMethod: FulfillmentMethod) => number;
   isSubmitting?: boolean;
 }
 
@@ -37,6 +38,7 @@ export default function PaymentModal({
   onClose,
   onConfirm,
   totalAmount,
+  getTotalAmount,
   isSubmitting = false,
 }: PaymentModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -64,9 +66,11 @@ export default function PaymentModal({
     return null;
   }
 
+  const activeTotalAmount = getTotalAmount?.(fulfillmentMethod) ?? totalAmount;
+
   const calculateChange = () => {
     const received = Number(cashReceived) || 0;
-    return Math.max(0, received - totalAmount);
+    return Math.max(0, received - activeTotalAmount);
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -82,7 +86,7 @@ export default function PaymentModal({
       return;
     }
 
-    if (paymentMethod === 'cash' && received < totalAmount) {
+    if (paymentMethod === 'cash' && received < activeTotalAmount) {
       showError('Cash received must be greater than or equal to total amount.');
       return;
     }
@@ -361,13 +365,13 @@ export default function PaymentModal({
                 id="cash-received"
                 type="number"
                 required
-                min={totalAmount}
+                min={activeTotalAmount}
                 step="1000"
                 value={cashReceived}
                 onChange={(event) => setCashReceived(event.target.value)}
                 disabled={isSubmitting}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                placeholder={`Minimum ${formatCurrency(totalAmount)}`}
+                placeholder={`Minimum ${formatCurrency(activeTotalAmount)}`}
               />
 
               {cashReceived ? (
@@ -417,7 +421,7 @@ export default function PaymentModal({
               </span>
 
               <span className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totalAmount)}
+                {formatCurrency(activeTotalAmount)}
               </span>
             </div>
           </section>

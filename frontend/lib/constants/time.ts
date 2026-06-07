@@ -35,6 +35,75 @@ export const EXPIRATION_TIMES = {
   TEMP_PASSWORD: 24 * TIME_UNITS.HOUR,   // 24 hours - Temporary password
 } as const;
 
+export const APP_TIME_ZONE = "Asia/Jakarta";
+
+export function parseSupabaseTimestamp(timestamp: string): Date {
+  const trimmed = String(timestamp || "").trim();
+  if (!trimmed) return new Date(NaN);
+
+  const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
+  return new Date(hasTimeZone ? trimmed : `${trimmed}Z`);
+}
+
+export function formatJakartaDate(date: Date): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: APP_TIME_ZONE,
+  }).format(date);
+}
+
+export function formatJakartaTime(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: APP_TIME_ZONE,
+  }).formatToParts(date);
+
+  const getPart = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${getPart("hour")}:${getPart("minute")}`;
+}
+
+export function formatJakartaDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: APP_TIME_ZONE,
+  }).format(date);
+}
+
+export function formatJakartaDateTimeParts(timestamp: string) {
+  const date = parseSupabaseTimestamp(timestamp);
+  return {
+    date: Number.isNaN(date.getTime()) ? "-" : formatJakartaDate(date),
+    time: Number.isNaN(date.getTime()) ? "-" : formatJakartaTime(date),
+  };
+}
+
+export function formatTimeAgo(timestamp: string): string {
+  const now = new Date();
+  const past = parseSupabaseTimestamp(timestamp);
+  if (Number.isNaN(past.getTime())) return "-";
+
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / TIME_UNITS.MINUTE);
+  const diffHours = Math.floor(diffMs / TIME_UNITS.HOUR);
+  const diffDays = Math.floor(diffMs / TIME_UNITS.DAY);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+
+  return formatJakartaDate(past);
+}
+
 // Helper function to calculate time difference in minutes
 export function getMinutesDifference(startTime: Date, endTime: Date): number {
   return Math.floor((endTime.getTime() - startTime.getTime()) / TIME_UNITS.MINUTE);

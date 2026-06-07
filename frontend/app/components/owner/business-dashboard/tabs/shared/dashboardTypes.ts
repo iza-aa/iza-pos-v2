@@ -1,5 +1,11 @@
 export type OrderRow = {
   id: string;
+  order_number?: string | null;
+  original_status?: string | null;
+  correction_id?: string | null;
+  correction_status?: string | null;
+  correction_physical_status?: string | null;
+  correction_note?: string | null;
   total: number | string | null;
   discount?: number | string | null;
   status: string | null;
@@ -61,6 +67,7 @@ export type RecipeIngredientRow = {
   ingredient_name?: string | null;
   quantity_needed: number | string | null;
   unit?: string | null;
+  costing_mode?: "deduct_from_pos" | "cost_estimate_only" | "kitchen_overhead" | null;
 };
 
 export type InventoryItemRow = {
@@ -72,6 +79,21 @@ export type InventoryItemRow = {
   category: string | null;
   price_per_unit?: number | string | null;
   cost_per_unit?: number | string | null;
+};
+
+export type InventoryBatchRow = {
+  id: string;
+  inventory_item_id: string | null;
+  batch_number: string | null;
+  supplier: string | null;
+  received_at: string | null;
+  expiry_date: string | null;
+  quantity_received: number | string | null;
+  quantity_remaining: number | string | null;
+  unit: string | null;
+  unit_cost: number | string | null;
+  invoice_reference?: string | null;
+  receipt_url?: string | null;
 };
 
 export type StaffRow = {
@@ -131,15 +153,26 @@ export type UsageTransactionDetailRow = {
   new_stock?: number | string | null;
 };
 
+export type StockReportRow = {
+  id: string;
+  material_name: string | null;
+  report_type: string | null;
+  status: string | null;
+  reported_by_role?: string | null;
+  created_at: string | null;
+};
+
 export type DashboardData = {
   orders: OrderRow[];
   orderItems: OrderItemRow[];
   products: ProductRow[];
   inventoryItems: InventoryItemRow[];
+  inventoryBatches: InventoryBatchRow[];
   staff: StaffRow[];
   attendance: AttendanceRow[];
   usageTransactions: UsageTransactionRow[];
   usageTransactionDetails: UsageTransactionDetailRow[];
+  stockReports: StockReportRow[];
   loading: boolean;
   error: string;
 };

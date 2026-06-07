@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentStaffInfo, getCurrentUser } from "@/lib/utils";
+import { getStaffHomePath, normalizeStaffType } from "@/lib/utils/staffAccess";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
 import MenuCategories from "@/app/components/staff/pos/MenuCategories";
@@ -37,6 +38,10 @@ import {
 	calculateOrderFinancialTotals,
 	defaultFinancialSettings,
 } from "@/lib/services/bookkeeping/financialSettings";
+import {
+	getProductKitchenAvailability,
+	recordOrderInventoryUsageWithBatches,
+} from "@/lib/services/inventory/inventoryBatchService";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import type { MenuItem, SelectedVariant } from "@/lib/types";
 
@@ -172,6 +177,8 @@ const toDisplayMenuItem = (item: MenuItem) => ({
 	category: item.category,
 	price: item.price,
 	image: item.image || item.image_url || "",
+	available: item.available !== false,
+	unavailableReason: item.unavailableReason,
 });
 
 const normalizePaymentMethodForDatabase = (method?: string): string => {
@@ -228,14 +235,10 @@ export default function POSPage() {
 
 	useEffect(() => {
 		const currentUser = getCurrentUser();
-		const staffType = localStorage.getItem("staff_type");
+		const staffType = normalizeStaffType(localStorage.getItem("staff_type"));
 
-		if (
-			currentUser?.role !== "owner" &&
-			staffType !== "cashier" &&
-			staffType !== "barista"
-		) {
-			window.location.href = "/staff/dashboard";
+		if (currentUser?.role !== "owner" && staffType !== "cashier") {
+			window.location.href = getStaffHomePath(staffType);
 		}
 	}, []);
 
@@ -349,22 +352,32 @@ export default function POSPage() {
 			}
 
 			if (data) {
+				const kitchenAvailability = await getProductKitchenAvailability(
+					data.map((product) => product.id)
+				).catch((availabilityError) => {
+					console.warn("Failed to load kitchen product availability:", availabilityError);
+					return new Map();
+				});
+
 				setFoodItems(
-					data.map(
-						(p) =>
-							({
-								id: p.id,
-								name: p.name,
-								category: p.category?.name || "Unknown",
-								categoryId: p.category_id,
-								price: p.price,
-								image: p.image || "",
-								image_url: p.image_url || p.image || "",
-								hasVariants: Boolean(p.has_variants),
-								is_available: Boolean(p.available),
-								available: Boolean(p.available),
-							} as MenuItem)
-					)
+					data.map((p) => {
+						const availability = kitchenAvailability.get(p.id);
+						const isKitchenReady = availability?.available !== false;
+
+						return {
+							id: p.id,
+							name: p.name,
+							category: p.category?.name || "Unknown",
+							categoryId: p.category_id,
+							price: p.price,
+							image: p.image || "",
+							image_url: p.image_url || p.image || "",
+							hasVariants: Boolean(p.has_variants),
+							is_available: Boolean(p.available) && isKitchenReady,
+							available: Boolean(p.available) && isKitchenReady,
+							unavailableReason: !isKitchenReady ? availability?.reason : undefined,
+						} as MenuItem;
+					})
 				);
 			}
 
@@ -376,6 +389,11 @@ export default function POSPage() {
 
 	const handleQuantityChange = (id: string, delta: number) => {
 		const item = foodItems.find((foodItem) => foodItem.id === id);
+
+		if (delta > 0 && item?.available === false) {
+			showError(item.unavailableReason || "Menu item is not ready.");
+			return;
+		}
 
 		if (item?.hasVariants) {
 			if (delta > 0) {
@@ -446,6 +464,11 @@ export default function POSPage() {
 	};
 
 	const handleItemClick = (item: MenuItem) => {
+		if (item.available === false) {
+			showError(item.unavailableReason || "Menu item is not ready.");
+			return;
+		}
+
 		if (item.hasVariants) {
 			setSelectedItem(item);
 			setVariantSidebarOpen(true);
@@ -461,6 +484,12 @@ export default function POSPage() {
 		totalPrice: number,
 		quantity: number
 	) => {
+		const menuItem = foodItems.find((foodItem) => foodItem.id === item.id);
+		if (menuItem?.available === false) {
+			showError(menuItem.unavailableReason || "Menu item is not ready.");
+			return;
+		}
+
 		const cartItem: CartItem = {
 			id: `${item.id}-${Date.now()}`,
 			productId: item.id,
@@ -502,9 +531,12 @@ export default function POSPage() {
 		return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 	};
 
-	const calculateFinancialTotals = () => {
+	const calculateFinancialTotals = (
+		fulfillmentMethod: FulfillmentMethod = "pager",
+	) => {
 		return calculateOrderFinancialTotals(calculateTotal(), financialSettings, {
 			orderType: "Dine in",
+			fulfillmentMethod,
 		});
 	};
 
@@ -527,10 +559,10 @@ export default function POSPage() {
 			}
 
 			const { id: staffId, name: staffName, staffCode, roleAbbr } = staff;
-			const financialTotals = calculateFinancialTotals();
 			const orderNumber = `ORD-${Date.now()}`;
 			const fulfillmentMethod: FulfillmentMethod =
 				paymentData.fulfillmentMethod || "counter_pickup";
+			const orderFinancialTotals = calculateFinancialTotals(fulfillmentMethod);
 
 			const pagerNumber =
 				fulfillmentMethod === "pager"
@@ -564,10 +596,10 @@ export default function POSPage() {
 						pager_number: pagerNumber,
 						pickup_code: orderNumber,
 						status: "new",
-						subtotal: financialTotals.subtotal,
-						tax: financialTotals.tax,
+						subtotal: orderFinancialTotals.subtotal,
+						tax: orderFinancialTotals.tax,
 						discount: 0,
-						total: financialTotals.total,
+						total: orderFinancialTotals.total,
 						payment_method: paymentMethod,
 						payment_status: "paid",
 						created_by: staffId,
@@ -650,8 +682,8 @@ export default function POSPage() {
 					{
 						order_id: orderData.id,
 						payment_method: paymentTransactionMethod,
-						amount_paid: paymentData.cashAmount || financialTotals.total,
-						amount_change: Math.max((paymentData.cashAmount || financialTotals.total) - financialTotals.total, 0),
+						amount_paid: paymentData.cashAmount || orderFinancialTotals.total,
+						amount_change: Math.max((paymentData.cashAmount || orderFinancialTotals.total) - orderFinancialTotals.total, 0),
 						status: "success",
 						created_by: staffId,
 					},
@@ -667,6 +699,31 @@ export default function POSPage() {
 				throw paymentError;
 			}
 
+			let inventoryChangesSummary: string[] = [];
+
+			try {
+				const inventoryUsageResult = await recordOrderInventoryUsageWithBatches({
+					orderId: orderData.id,
+					orderNumber,
+					items: cart.map((item) => ({
+						productId: item.productId,
+						productName: item.name,
+						quantity: item.quantity,
+						variants: item.variants,
+					})),
+					performedBy: staffId,
+					performedByName: `${staffName} - ${roleAbbr}`,
+				});
+
+				inventoryChangesSummary = inventoryUsageResult.usageSummary ?? [];
+
+				if (!inventoryUsageResult.batchEnabled) {
+					console.warn("Inventory batch tracking skipped because batch SQL is not enabled.");
+				}
+			} catch (inventoryError) {
+				console.warn("Failed to record inventory usage for order:", inventoryError);
+			}
+
 
 			await logActivity({
 				action: "CREATE",
@@ -677,16 +734,17 @@ export default function POSPage() {
 				resourceName: orderNumber,
 				newValue: {
 					order_number: orderNumber,
-					total: financialTotals.total,
-					subtotal: financialTotals.subtotal,
-					service_charge: financialTotals.serviceCharge,
-					tax: financialTotals.tax,
+					total: orderFinancialTotals.total,
+					subtotal: orderFinancialTotals.subtotal,
+					service_charge: orderFinancialTotals.serviceCharge,
+					tax: orderFinancialTotals.tax,
 					items_count: cart.length,
 					payment_method: paymentMethod,
 					fulfillment_method: fulfillmentMethod,
 					pager_number: pagerNumber,
 					pickup_code: orderNumber,
 				},
+				changesSummary: inventoryChangesSummary,
 				severity: "info",
 				tags: ["order", "create", "pos"],
 			});
@@ -952,6 +1010,9 @@ export default function POSPage() {
 				}}
 				onConfirm={handlePlaceOrder}
 				totalAmount={financialTotals.total}
+				getTotalAmount={(fulfillmentMethod) =>
+					calculateFinancialTotals(fulfillmentMethod).total
+				}
 				isSubmitting={placingOrder}
 			/>
 		</main>

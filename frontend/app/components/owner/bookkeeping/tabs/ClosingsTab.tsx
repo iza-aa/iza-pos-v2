@@ -1,19 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { StandardModal } from "@/app/components/shared";
+import { useMemo } from "react";
+import { ExportButton } from "@/app/components/shared";
+import { useLanguage } from "@/app/components/shared/i18n";
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
+import { showError, showSuccess } from "@/lib/services/errorHandling";
 import type {
   BookkeepingDashboardData,
   ShiftClosingRow,
 } from "@/lib/services/bookkeeping/bookkeepingTypes";
+import { downloadXlsxWorkbook } from "@/lib/utils/exportExcel";
 import {
   MetricCard,
   SemanticBadge,
   StandardPanel,
   formatCurrency,
-  formatDateTime,
-  formatLabel,
 } from "../BookkeepingPrimitives";
 
 const hasCashCount = (row: ShiftClosingRow) => row.cashCounted !== null && row.cashCounted !== undefined;
@@ -28,26 +29,29 @@ const needsManagerReview = (row: ShiftClosingRow) => (
   (hasCashCount(row) && getCashDifference(row) !== 0)
 );
 
+const getShiftStatusLabelKey = (row: ShiftClosingRow) => {
+  if (!hasCashCount(row)) return "owner.bookkeeping.waitingCount";
+  if (row.status === "closed") return "owner.bookkeeping.managerApproved";
+  if (needsManagerReview(row)) return "owner.bookkeeping.needsReview";
+  return "owner.bookkeeping.needsApproval";
+};
+
 export default function ClosingsTab({
   data,
+  loading = false,
   closingDaily = false,
   reopeningDaily = false,
-  reviewingShiftId = "",
   onApproveDaily,
   onReopenDaily,
-  onRequestShiftReview,
 }: {
   data: BookkeepingDashboardData;
+  loading?: boolean;
   closingDaily?: boolean;
   reopeningDaily?: boolean;
-  reviewingShiftId?: string;
   onApproveDaily?: (notes: string) => void;
   onReopenDaily?: (businessDate: string, reason: string) => void;
-  onRequestShiftReview?: (row: ShiftClosingRow, note: string) => void;
 }) {
-  const [ownerNote, setOwnerNote] = useState("");
-  const [reviewModalRow, setReviewModalRow] = useState<ShiftClosingRow | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
+  const { t } = useLanguage();
   const dailyClosing = data.dailyClosing;
   const closingBusinessDate = data.dateRange.endDate;
   const shiftRows = data.shiftClosings.filter((row) => row.businessDate === closingBusinessDate);
@@ -72,41 +76,166 @@ export default function ClosingsTab({
     ((row.cashDifference ?? 0) !== 0 && hasCashCount(row))
   )).length;
   const allShiftsCounted = shiftRows.length > 0 && missingCashCount === 0;
+  const allShiftsManagerApproved = shiftRows.length > 0 && shiftRows.every((row) => row.status === "closed");
   const cashDifference = allShiftsCounted
     ? shiftCountedTotal - expectedDrawerTotal
     : null;
   const readyToApprove =
     allShiftsCounted &&
+    allShiftsManagerApproved &&
     cashDifference === 0 &&
     reviewShiftCount === 0 &&
     openExceptionCount === 0 &&
     dailyClosing?.status !== "closed";
   const isClosed = dailyClosing?.status === "closed";
-  const closingStatus = dailyClosing?.status ?? (readyToApprove ? "ready_to_close" : "draft");
-  const statusTone =
-    closingStatus === "closed"
-      ? "success"
-      : closingStatus === "ready_to_close"
-        ? "info"
-        : closingStatus === "needs_review" || reviewShiftCount > 0 || missingCashCount > 0
-          ? "warning"
-          : closingStatus === "reopened"
-            ? "danger"
-            : "neutral";
-  const conclusion = (() => {
-    if (shiftRows.length === 0) return "Belum ada closing shift dari staff untuk periode ini.";
-    if (missingCashCount > 0) return `${missingCashCount} shift belum submit cash count. Tunggu staff selesai end shift.`;
-    if (reviewShiftCount > 0) return `${reviewShiftCount} shift perlu dicek ulang oleh manager sebelum owner approve.`;
-    if (openExceptionCount > 0) return `${openExceptionCount} exception masih terbuka dan perlu diselesaikan.`;
-    if (cashDifference !== 0) return "Total cash tidak sesuai dengan expected drawer. Minta manager review sebelum approve.";
-    if (isClosed) return `Closing sudah approved${dailyClosing?.approvedAt ? ` pada ${formatDateTime(dailyClosing.approvedAt)}` : ""}.`;
-    return "Semua shift sudah sesuai. Owner bisa approve closing hari ini.";
-  })();
+  const exportDailyClosingWorkbook = async () => {
+    try {
+      const entries = data.entries.filter((entry) => entry.businessDate === closingBusinessDate);
+      const expenses = data.expenses.filter((expense) => expense.expenseDate === closingBusinessDate);
+      const exceptions = data.exceptions.filter((exception) => exception.businessDate === closingBusinessDate);
+      const filename = `daily-shift-closing-${closingBusinessDate}.xlsx`;
 
+      await downloadXlsxWorkbook(filename, [
+        {
+          name: "Daily Summary",
+          rows: [
+            ["Business Date", closingBusinessDate],
+            ["Daily Status", dailyClosing?.status ?? "draft"],
+            ["Gross Sales", dailyClosing?.grossSales ?? data.summary.grossSales],
+            ["Discount Total", dailyClosing?.discountTotal ?? data.summary.discounts],
+            ["Net Sales", dailyClosing?.netSales ?? netSalesTotal],
+            ["Tax Collected", data.summary.taxCollected],
+            ["Estimated COGS", dailyClosing?.cogsEstimate ?? data.summary.estimatedCogs ?? 0],
+            ["Expense Total", dailyClosing?.expenseTotal ?? data.summary.operatingExpenses],
+            ["Gross Profit Estimate", dailyClosing?.grossProfitEstimate ?? data.summary.grossProfit ?? 0],
+            ["Net Profit Estimate", dailyClosing?.netProfitEstimate ?? data.summary.netProfitEstimate ?? 0],
+            ["Opening Cash Total", dailyClosing?.openingCashTotal ?? data.summary.openingCashTotal],
+            ["Cash Sales", dailyClosing?.cashExpected ?? cashSalesTotal],
+            ["Expected Drawer Cash", dailyClosing?.expectedDrawerCash ?? expectedDrawerTotal],
+            ["Counted Cash", dailyClosing?.cashCounted ?? (allShiftsCounted ? shiftCountedTotal : "")],
+            ["Cash Difference", dailyClosing?.cashDifference ?? cashDifference ?? ""],
+            ["Cash To Deposit", dailyClosing?.cashToDeposit ?? data.summary.cashToDeposit],
+            ["Closing Float Total", dailyClosing?.closingFloatTotal ?? data.summary.closingFloatTotal],
+            ["Total Orders", data.summary.totalOrders],
+            ["Cancelled Orders", data.summary.cancelledOrders],
+            ["Unresolved Exceptions", dailyClosing?.unresolvedExceptionCount ?? openExceptionCount],
+            ["Approved At", dailyClosing?.approvedAt ?? ""],
+            ["Notes", dailyClosing?.notes ?? ""],
+          ],
+        },
+        {
+          name: "Shift Closings",
+          rows: [
+            [
+              "Shift",
+              "Business Date",
+              "Gross Sales",
+              "Discount",
+              "Net Sales",
+              "Cash Sales",
+              "Non-cash Sales",
+              "Opening Cash",
+              "Expected Cash",
+              "Counted Cash",
+              "Difference",
+              "Cash To Deposit",
+              "Closing Float",
+              "Float Policy",
+              "Cancelled Orders",
+              "Status",
+              "Opened At",
+              "Closed At",
+            ],
+            ...shiftRows.map((row) => [
+              row.shiftName,
+              row.businessDate,
+              row.grossSales,
+              row.discountTotal,
+              row.netSales,
+              row.cashExpected,
+              row.nonCashSales,
+              row.openingCash,
+              row.expectedDrawerCash,
+              row.cashCounted ?? "",
+              hasCashCount(row) ? getCashDifference(row) : "",
+              row.cashToDeposit,
+              row.closingFloat,
+              row.floatPolicy,
+              row.cancelledCount,
+              t(getShiftStatusLabelKey(row)),
+              row.openedAt ?? "",
+              row.closedAt ?? "",
+            ]),
+          ],
+        },
+        {
+          name: "Payment Breakdown",
+          rows: [
+            ["Payment Method", "Orders", "Amount"],
+            ...data.paymentBreakdown.map((payment) => [payment.method, payment.orders, payment.amount]),
+          ],
+        },
+        {
+          name: "Ledger Entries",
+          rows: [
+            ["Entry At", "Business Date", "Type", "Category", "Source", "Payment Method", "Direction", "Amount", "Status", "Note"],
+            ...entries.map((entry) => [
+              entry.entryAt,
+              entry.businessDate,
+              entry.type,
+              entry.category,
+              entry.source,
+              entry.paymentMethod ?? "",
+              entry.direction,
+              entry.amount,
+              entry.status,
+              entry.note ?? "",
+            ]),
+          ],
+        },
+        {
+          name: "Expenses",
+          rows: [
+            ["Date", "Category", "Amount", "Payment Method", "Vendor", "Receipt", "Note"],
+            ...expenses.map((expense) => [
+              expense.expenseDate,
+              expense.category,
+              expense.amount,
+              expense.paymentMethod ?? "",
+              expense.vendor ?? "",
+              expense.receiptUrl ?? "",
+              expense.note ?? "",
+            ]),
+          ],
+        },
+        {
+          name: "Exceptions",
+          rows: [
+            ["Date", "Severity", "Type", "Description", "Source", "Suggested Fix", "Status", "Manager Review"],
+            ...exceptions.map((exception) => [
+              exception.businessDate,
+              exception.severity,
+              exception.type,
+              exception.description,
+              exception.source,
+              exception.suggestedFix,
+              exception.status,
+              exception.reviewStatus ?? "",
+            ]),
+          ],
+        },
+      ]);
+
+      showSuccess("Daily closing workbook exported.");
+    } catch (error) {
+      console.error("Failed to export daily closing workbook:", error);
+      showError("Failed to export daily closing workbook.");
+    }
+  };
   const columns: Array<StandardTableColumn<ShiftClosingRow>> = [
     {
       key: "shiftName",
-      header: "Shift",
+      header: t("owner.bookkeeping.shift"),
       render: (row) => (
         <div>
           <p className="font-semibold text-gray-900">{row.shiftName}</p>
@@ -116,43 +245,43 @@ export default function ClosingsTab({
     },
     {
       key: "netSales",
-      header: "Net Sales",
+      header: t("owner.bookkeeping.netSales"),
       render: (row) => <span className="font-semibold text-gray-900">{formatCurrency(row.netSales)}</span>,
       sortValue: (row) => row.netSales,
     },
     {
       key: "cashExpected",
-      header: "Cash Sales",
+      header: t("owner.bookkeeping.cashSales"),
       render: (row) => formatCurrency(row.cashExpected),
       sortValue: (row) => row.cashExpected,
     },
     {
       key: "nonCashSales",
-      header: "Non-cash",
+      header: t("owner.bookkeeping.nonCash"),
       render: (row) => formatCurrency(row.nonCashSales),
       sortValue: (row) => row.nonCashSales,
     },
     {
       key: "openingCash",
-      header: "Opening Cash",
+      header: t("owner.bookkeeping.openingCash"),
       render: (row) => formatCurrency(row.openingCash),
       sortValue: (row) => row.openingCash,
     },
     {
       key: "expectedDrawerCash",
-      header: "Expected Cash",
+      header: t("owner.bookkeeping.expectedCash"),
       render: (row) => <span className="font-semibold text-gray-900">{formatCurrency(row.expectedDrawerCash)}</span>,
       sortValue: (row) => row.expectedDrawerCash,
     },
     {
       key: "cashCounted",
-      header: "Counted Cash",
-      render: (row) => hasCashCount(row) ? formatCurrency(row.cashCounted ?? 0) : "Waiting staff",
+      header: t("owner.bookkeeping.countedCash"),
+      render: (row) => hasCashCount(row) ? formatCurrency(row.cashCounted ?? 0) : t("owner.bookkeeping.waitingStaff"),
       sortValue: (row) => row.cashCounted ?? 0,
     },
     {
       key: "cashDifference",
-      header: "Difference",
+      header: t("owner.bookkeeping.difference"),
       render: (row) => {
         if (!hasCashCount(row)) return "-";
         const difference = getCashDifference(row);
@@ -163,44 +292,16 @@ export default function ClosingsTab({
     },
     {
       key: "status",
-      header: "Status",
+      header: t("owner.bookkeeping.status"),
       render: (row) => {
-        const tone =
-          row.status === "closed"
+        const label = t(getShiftStatusLabelKey(row));
+        const tone = !hasCashCount(row)
+          ? "warning"
+          : row.status === "closed"
             ? "success"
-            : row.status === "submitted"
-              ? "info"
-              : row.status === "needs_review"
-                ? "warning"
-                : row.status === "reopened"
-                  ? "danger"
-                  : "neutral";
+            : "warning";
 
-        return <SemanticBadge tone={tone}>{formatLabel(row.status)}</SemanticBadge>;
-      },
-    },
-    {
-      key: "actions",
-      header: "Actions",
-      isAction: true,
-      render: (row) => {
-        if (!needsManagerReview(row) || isClosed) {
-          return <span className="text-xs font-semibold text-gray-400">No action</span>;
-        }
-
-        return (
-          <button
-            type="button"
-            onClick={() => {
-              setReviewNote("");
-              setReviewModalRow(row);
-            }}
-            disabled={!onRequestShiftReview || reviewingShiftId === row.id}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {reviewingShiftId === row.id ? "Sending..." : "Request Review"}
-          </button>
-        );
+        return <SemanticBadge tone={tone}>{label}</SemanticBadge>;
       },
     },
   ];
@@ -208,160 +309,71 @@ export default function ClosingsTab({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Net Sales" value={formatCurrency(netSalesTotal)} description="Total sales after discounts." tone="success" />
-        <MetricCard label="Cash Sales" value={formatCurrency(cashSalesTotal)} description="Cash payment from orders." tone="waiting" />
-        <MetricCard label="Expected Cash" value={formatCurrency(expectedDrawerTotal)} description="Opening cash plus cash sales." tone="progress" />
+        <MetricCard label={t("owner.bookkeeping.netSales")} value={formatCurrency(netSalesTotal)} description={t("owner.bookkeeping.afterDiscounts")} tone="success" />
+        <MetricCard label={t("owner.bookkeeping.cashSales")} value={formatCurrency(cashSalesTotal)} description={t("owner.bookkeeping.cashPaymentOrders")} tone="waiting" />
+        <MetricCard label={t("owner.bookkeeping.expectedCash")} value={formatCurrency(expectedDrawerTotal)} description={t("owner.bookkeeping.openingPlusCashSales")} tone="progress" />
         <MetricCard
-          label="Counted Cash"
+          label={t("owner.bookkeeping.countedCash")}
           value={allShiftsCounted ? formatCurrency(shiftCountedTotal) : `${shiftRows.length - missingCashCount}/${shiftRows.length} shift`}
-          description="Submitted by staff at end shift."
+          description={t("owner.bookkeeping.submittedByStaff")}
           tone={allShiftsCounted ? "success" : "waiting"}
         />
         <MetricCard
-          label="Cash Difference"
+          label={t("owner.bookkeeping.cashDifference")}
           value={cashDifference === null ? "-" : formatCurrency(cashDifference)}
-          description={cashDifference === 0 ? "Cash matches expected." : "Needs manager review."}
+          description={cashDifference === 0 ? t("owner.bookkeeping.cashMatches") : t("owner.bookkeeping.needsManagerReview")}
           tone={cashDifference === null ? "neutral" : cashDifference === 0 ? "success" : "danger"}
         />
       </div>
 
       <StandardPanel
-        title="Daily Closing"
-        description="Owner checkpoint dari closing shift staff. Owner cukup approve jika kas sesuai, atau minta manager review jika ada selisih."
+        title={t("owner.bookkeeping.dailyShiftClosing")}
+        description={t("owner.bookkeeping.dailyShiftClosingDescription")}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <ExportButton
+              label={t("owner.bookkeeping.exportDaily")}
+              disabled={loading}
+              items={[
+                {
+                  id: "daily-shift-closing",
+                  label: t("owner.bookkeeping.dailyWorkbook"),
+                  onClick: () => void exportDailyClosingWorkbook(),
+                  disabled: loading,
+                },
+              ]}
+            />
             {isClosed ? (
               <button
                 type="button"
-                onClick={() => onReopenDaily?.(dailyClosing.businessDate, ownerNote)}
+                onClick={() => onReopenDaily?.(closingBusinessDate, "Owner reopened daily report.")}
                 disabled={!onReopenDaily || reopeningDaily}
                 className="rounded-xl border border-[#F7B8C3] bg-white px-4 py-3 text-sm font-bold text-[#BE123C] shadow-sm transition hover:bg-[#FFF1F2] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {reopeningDaily ? "Reopening..." : "Reopen Closing"}
+                {reopeningDaily ? t("owner.bookkeeping.reopening") : t("owner.bookkeeping.reopenDaily")}
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => onApproveDaily?.(ownerNote)}
+                onClick={() => onApproveDaily?.("")}
                 disabled={!onApproveDaily || closingDaily || !readyToApprove}
                 className="rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
               >
-                {closingDaily ? "Approving..." : "Approve Closing"}
+                {closingDaily ? t("owner.bookkeeping.approving") : t("owner.bookkeeping.approveDaily")}
               </button>
             )}
           </div>
         }
       >
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-          <div className="min-w-0">
-            <StandardTable
-              columns={columns}
-              data={shiftRows}
-              getRowKey={(row) => row.id}
-              emptyLabel="No shift closing submitted yet."
-              minWidthClassName="min-w-[1120px]"
-            />
-          </div>
-          <div className="space-y-3">
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-bold text-gray-500">Closing Status</p>
-                <SemanticBadge tone={statusTone}>{formatLabel(closingStatus)}</SemanticBadge>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-gray-600">{conclusion}</p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-sm font-bold text-gray-500">Review Checklist</p>
-              <div className="mt-3 space-y-2 text-sm font-semibold text-gray-700">
-                <p>{shiftRows.length > 0 ? "Pass" : "Waiting"} - Shift rows available</p>
-                <p>{allShiftsCounted ? "Pass" : "Waiting"} - Staff cash count submitted</p>
-                <p>{cashDifference === 0 ? "Pass" : "Needs review"} - Cash matches expected</p>
-                <p>{reviewShiftCount === 0 ? "Pass" : "Needs review"} - No shift review item</p>
-                <p>{openExceptionCount === 0 ? "Pass" : "Needs review"} - No open exception</p>
-              </div>
-            </div>
-            <label className="block text-sm font-semibold text-gray-700">
-              Owner Note
-              <textarea
-                value={ownerNote}
-                onChange={(event) => setOwnerNote(event.target.value)}
-                placeholder="Optional note for approval or reopen reason"
-                rows={4}
-                className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-              />
-            </label>
-          </div>
-        </div>
+        <StandardTable
+          columns={columns}
+          data={shiftRows}
+          getRowKey={(row) => row.id}
+          loading={loading}
+          emptyLabel={t("owner.bookkeeping.noShiftClosing")}
+          minWidthClassName="min-w-[980px]"
+        />
       </StandardPanel>
-
-      <StandardModal
-        isOpen={Boolean(reviewModalRow)}
-        title="Request Manager Review"
-        description={reviewModalRow ? `${reviewModalRow.shiftName} - ${reviewModalRow.businessDate}` : undefined}
-        maxWidthClassName="max-w-lg"
-        onClose={() => setReviewModalRow(null)}
-        footer={
-          reviewModalRow ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setReviewModalRow(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRequestShiftReview?.(reviewModalRow, reviewNote);
-                  setReviewModalRow(null);
-                }}
-                disabled={!onRequestShiftReview || reviewingShiftId === reviewModalRow.id}
-                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {reviewingShiftId === reviewModalRow.id ? "Sending..." : "Send Review Request"}
-              </button>
-            </>
-          ) : null
-        }
-      >
-        {reviewModalRow ? (
-          <>
-            <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm md:grid-cols-3">
-              <div>
-                <p className="font-semibold text-gray-500">Expected</p>
-                <p className="mt-1 font-bold text-gray-950">{formatCurrency(reviewModalRow.expectedDrawerCash)}</p>
-              </div>
-              <div>
-                <p className="font-semibold text-gray-500">Counted</p>
-                <p className="mt-1 font-bold text-gray-950">
-                  {hasCashCount(reviewModalRow) ? formatCurrency(reviewModalRow.cashCounted ?? 0) : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-gray-500">Difference</p>
-                <p className="mt-1 font-bold text-gray-950">
-                  {hasCashCount(reviewModalRow)
-                    ? formatCurrency(reviewModalRow.cashDifference ?? ((reviewModalRow.cashCounted ?? 0) - reviewModalRow.expectedDrawerCash))
-                    : "-"}
-                </p>
-              </div>
-            </div>
-
-            <label className="mt-5 block text-sm font-semibold text-gray-700">
-              Review Note
-              <textarea
-                value={reviewNote}
-                onChange={(event) => setReviewNote(event.target.value)}
-                placeholder="Tell manager what needs to be checked"
-                rows={4}
-                className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                autoFocus
-              />
-            </label>
-          </>
-        ) : null}
-      </StandardModal>
     </div>
   );
 }

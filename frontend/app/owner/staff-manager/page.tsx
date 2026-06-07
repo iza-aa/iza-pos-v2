@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ViewModeToggle, DeleteModal } from "@/app/components/ui";
 import {
@@ -31,6 +31,7 @@ import {
   MapPinIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 type StaffRole = "staff" | "manager" | "owner";
 type StaffManagerTab = "staff" | "attendance";
@@ -380,6 +381,7 @@ const getCookieIdentity = () => {
 };
 
 export default function StaffManagerPage() {
+  const { t } = useLanguage();
   const [staffList, setStaffList] = useState<StaffRecord[]>([]);
   const [shiftList, setShiftList] = useState<ShiftRecord[]>([]);
   const [viewMode, setViewMode] = useState<StaffViewMode>("card");
@@ -590,32 +592,32 @@ export default function StaffManagerPage() {
     login_code: undefined,
   }));
 
-  const staffManagerTabs = [
+  const staffManagerTabs = useMemo(() => [
     {
       id: "staff" as const,
-      label: "Staff Data",
-      description: "Profiles and access",
+      label: t("owner.staff.data"),
+      description: t("owner.staff.dataDescription"),
       icon: UsersIcon,
     },
     {
       id: "attendance" as const,
-      label: "Staff Attendance",
-      description: "Attendance and shifts",
+      label: t("owner.staff.attendance"),
+      description: t("owner.staff.attendanceDescription"),
       icon: ClockIcon,
       children: [
         {
           id: "monitor" as const,
-          label: "Attendance Monitor",
+          label: t("owner.staff.attendanceMonitor"),
           icon: ClockIcon,
         },
         {
           id: "settings" as const,
-          label: "Attendance Settings",
+          label: t("owner.staff.attendanceSettings"),
           icon: MapPinIcon,
         },
       ],
     },
-  ];
+  ], [t]);
 
   const getAttendanceDateRangeProps = (range: DateRangeValue) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -1050,8 +1052,8 @@ export default function StaffManagerPage() {
   return (
     <div className="flex h-[calc(100vh-55px)] overflow-hidden bg-gray-100">
       <SidebarTabset
-        title="Staff Manager"
-        description="Manage staff data and attendance records."
+        title={t("owner.staff.managerTitle")}
+        description={t("owner.staff.managerDescription")}
         items={staffManagerTabs}
         activeId={activeTab}
         activeChildId={activeTab === "attendance" ? activeAttendanceTab : undefined}
@@ -1060,8 +1062,8 @@ export default function StaffManagerPage() {
           setActiveTab(tab);
           setActiveAttendanceTab(child);
         }}
-        mobileOpenLabel="Open staff manager menu"
-        mobileCloseLabel="Close staff manager menu"
+        mobileOpenLabel={t("owner.staff.mobileOpen")}
+        mobileCloseLabel={t("owner.staff.mobileClose")}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1157,7 +1159,7 @@ export default function StaffManagerPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Staff Login Code
+                {t("owner.staff.loginCode")}
               </p>
               <h2 className="mt-1 text-xl font-bold text-gray-900">
                 {generatedLoginCode.staffName}
@@ -1234,11 +1236,11 @@ export default function StaffManagerPage() {
           setSelectedStaff(null);
         }}
         onConfirm={confirmDeleteStaff}
-        title="Delete Staff"
+        title={t("owner.staff.deleteStaff")}
         itemName={selectedStaff?.name || ""}
-        description="Deleted staff cannot be restored. Are you sure?"
-        confirmText="Delete"
-        cancelText="Cancel"
+        description={t("owner.staff.deleteDescription")}
+        confirmText={t("owner.staff.delete")}
+        cancelText={t("owner.bookkeeping.cancel")}
       />
     </div>
   );

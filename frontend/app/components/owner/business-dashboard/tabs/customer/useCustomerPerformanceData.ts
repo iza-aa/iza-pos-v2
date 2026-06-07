@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/config/supabaseClient";
+import {
+  loadDashboardOrderCorrections,
+  type DashboardOrderCorrectionRow,
+} from "../shared/orderCorrectionClient";
 import type { OrderRow } from "../shared/dashboardTypes";
 
 export type CustomerPerformanceData = {
@@ -16,6 +20,32 @@ const emptyData: CustomerPerformanceData = {
   error: "",
 };
 
+const applyOrderCorrections = (
+  orders: OrderRow[],
+  corrections: DashboardOrderCorrectionRow[],
+) => {
+  const correctionByOrderId = new Map(
+    corrections
+      .filter((correction) => correction.order_id)
+      .map((correction) => [correction.order_id as string, correction]),
+  );
+
+  return orders.map((order) => {
+    const correction = correctionByOrderId.get(order.id);
+    if (!correction) return order;
+
+    return {
+      ...order,
+      original_status: order.status,
+      status: "cancelled",
+      correction_id: correction.id,
+      correction_status: correction.status,
+      correction_physical_status: correction.physical_status,
+      correction_note: correction.note,
+    };
+  });
+};
+
 export default function useCustomerPerformanceData() {
   const [data, setData] = useState<CustomerPerformanceData>(emptyData);
 
@@ -25,17 +55,23 @@ export default function useCustomerPerformanceData() {
     const load = async () => {
       setData((current) => ({ ...current, loading: true, error: "" }));
 
-      const { data: orders, error } = await supabase
-        .from("orders")
-        .select("id,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id")
-        .order("created_at", { ascending: true });
+      const [orders, orderCorrections] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("id,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id")
+          .order("created_at", { ascending: true }),
+        loadDashboardOrderCorrections(),
+      ]);
 
       if (!mounted) return;
 
       setData({
-        orders: (orders ?? []) as unknown as OrderRow[],
+        orders: applyOrderCorrections(
+          (orders.data ?? []) as unknown as OrderRow[],
+          orderCorrections.data ?? [],
+        ),
         loading: false,
-        error: error?.message ?? "",
+        error: [orders.error?.message, orderCorrections.error?.message].filter(Boolean).join(" "),
       });
     };
 

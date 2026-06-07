@@ -12,12 +12,14 @@ import {
 import { supabase } from '@/lib/config/supabaseClient'
 import { showError } from '@/lib/services/errorHandling'
 import { isPositiveNumber } from '@/lib/utils'
+import { getCompatibleUnits } from '@/lib/utils/unitConversion'
 
 interface RecipeIngredient {
   inventory_item_id: string
   ingredient_name?: string
   quantity_needed: number
   unit: string
+  costing_mode?: RecipeCostingMode | null
 }
 
 interface Recipe {
@@ -34,6 +36,7 @@ type RecipePayload = {
     quantity_needed: number
     unit: string
     ingredient_name: string
+    costing_mode: RecipeCostingMode
   }[]
 }
 
@@ -56,6 +59,7 @@ interface IngredientInput {
   ingredient_name: string
   quantity_needed: number
   unit: string
+  costing_mode: RecipeCostingMode
 }
 
 interface InventoryItem {
@@ -64,13 +68,17 @@ interface InventoryItem {
   unit: string
   category?: string | null
   current_stock?: number | null
+  tracking_mode?: 'direct_auto_deduct' | 'kitchen_station_auto_deduct' | 'bulk_usage_expense' | null
 }
+
+type RecipeCostingMode = 'deduct_from_pos' | 'cost_estimate_only' | 'kitchen_overhead'
 
 const createEmptyIngredient = (): IngredientInput => ({
   inventory_item_id: '',
   ingredient_name: '',
   quantity_needed: 0,
   unit: '',
+  costing_mode: 'deduct_from_pos',
 })
 
 const formatNumber = (value: number | null | undefined) => {
@@ -78,6 +86,46 @@ const formatNumber = (value: number | null | undefined) => {
   return Number(value).toLocaleString('en-US', {
     maximumFractionDigits: 2,
   })
+}
+
+const getDefaultCostingMode = (mode?: InventoryItem['tracking_mode']): RecipeCostingMode => {
+  if (mode === 'bulk_usage_expense') return 'cost_estimate_only'
+  return 'deduct_from_pos'
+}
+
+const getCostingModeLabel = (mode?: RecipeCostingMode) => {
+  if (mode === 'kitchen_overhead') return 'Kitchen overhead'
+  if (mode === 'cost_estimate_only') return 'Cost estimate only'
+  return 'Deduct from POS'
+}
+
+const getTrackingModeLabel = (mode?: InventoryItem['tracking_mode'], costingMode?: RecipeCostingMode) => {
+  if (costingMode === 'kitchen_overhead') return 'Kitchen overhead'
+  if (costingMode === 'cost_estimate_only') return 'Cost estimate'
+  if (mode === 'kitchen_station_auto_deduct') return 'Kitchen deduct'
+  return 'Auto deduct'
+}
+
+const getQuantityLabel = (costingMode?: RecipeCostingMode) => {
+  if (costingMode === 'kitchen_overhead') return 'Qty not required'
+  if (costingMode === 'cost_estimate_only') return 'Costing Qty / Portion'
+  return 'Deduct Qty / Portion'
+}
+
+const getQuantityHelpText = (mode?: InventoryItem['tracking_mode'], costingMode?: RecipeCostingMode) => {
+  if (costingMode === 'kitchen_overhead') {
+    return 'Recorded through Bulk Opened as general kitchen cost, not assigned to this menu.'
+  }
+
+  if (costingMode === 'cost_estimate_only') {
+    return 'Used for menu cost and margin. Stock is recorded through Bulk Opened.'
+  }
+
+  if (mode === 'kitchen_station_auto_deduct') {
+    return 'Used by POS from Kitchen Station Ready stock.'
+  }
+
+  return 'Used by POS for automatic stock deduction.'
 }
 
 export default function RecipeModal({
@@ -106,6 +154,7 @@ export default function RecipeModal({
           ingredient_name: ingredient.ingredient_name || '',
           quantity_needed: Number(ingredient.quantity_needed) || 0,
           unit: ingredient.unit,
+          costing_mode: ingredient.costing_mode || 'deduct_from_pos',
         })),
       )
       return
@@ -121,7 +170,7 @@ export default function RecipeModal({
     try {
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('id, name, unit, category, current_stock')
+        .select('id, name, unit, category, current_stock, tracking_mode')
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -172,6 +221,7 @@ export default function RecipeModal({
         ingredient_name: item.name,
         quantity_needed: 0,
         unit: item.unit,
+        costing_mode: getDefaultCostingMode(item.tracking_mode),
       },
     ])
   }
@@ -198,6 +248,7 @@ export default function RecipeModal({
             inventory_item_id: '',
             ingredient_name: '',
             unit: '',
+            costing_mode: 'deduct_from_pos',
           }
           return nextIngredients
         }
@@ -207,6 +258,17 @@ export default function RecipeModal({
           ingredient_name: selectedItem.name,
           quantity_needed: currentIngredient.quantity_needed || 0,
           unit: selectedItem.unit,
+          costing_mode: getDefaultCostingMode(selectedItem.tracking_mode),
+        }
+
+        return nextIngredients
+      }
+
+      if (field === 'costing_mode' && value === 'kitchen_overhead') {
+        nextIngredients[index] = {
+          ...currentIngredient,
+          costing_mode: 'kitchen_overhead',
+          quantity_needed: 0,
         }
 
         return nextIngredients
@@ -246,12 +308,13 @@ export default function RecipeModal({
         !ingredient.inventory_item_id ||
         !ingredient.ingredient_name.trim() ||
         !ingredient.unit.trim() ||
-        !isPositiveNumber(ingredient.quantity_needed)
+        !ingredient.costing_mode ||
+        (ingredient.costing_mode !== 'kitchen_overhead' && !isPositiveNumber(ingredient.quantity_needed))
       )
     })
 
     if (hasInvalidIngredient) {
-      showError('Complete all ingredient details with a valid quantity.')
+      showError('Complete all ingredient details. Quantity is required unless the ingredient is Kitchen overhead.')
       return
     }
 
@@ -262,6 +325,7 @@ export default function RecipeModal({
         ingredient_name: ingredient.ingredient_name,
         quantity_needed: Number(ingredient.quantity_needed),
         unit: ingredient.unit,
+        costing_mode: ingredient.costing_mode,
       })),
     }
 
@@ -346,7 +410,12 @@ export default function RecipeModal({
               </div>
             ) : (
               <div className="space-y-3">
-                {ingredients.map((ingredient, index) => (
+                {ingredients.map((ingredient, index) => {
+                  const selectedInventoryItem = availableIngredients.find((item) => item.id === ingredient.inventory_item_id)
+                  const trackingMode = selectedInventoryItem?.tracking_mode
+                  const quantityDisabled = ingredient.costing_mode === 'kitchen_overhead'
+
+                  return (
                   <div
                     key={`${ingredient.inventory_item_id || 'new'}-${index}`}
                     className="rounded-lg border border-gray-200 bg-white p-4"
@@ -357,9 +426,16 @@ export default function RecipeModal({
                           {index + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {ingredient.ingredient_name || 'New Ingredient'}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {ingredient.ingredient_name || 'New Ingredient'}
+                            </p>
+                            {ingredient.inventory_item_id ? (
+                              <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                                {getTrackingModeLabel(trackingMode, ingredient.costing_mode)}
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="text-xs text-gray-500">
                             {ingredient.unit ? `Unit: ${ingredient.unit}` : 'Select an inventory item'}
                           </p>
@@ -391,7 +467,7 @@ export default function RecipeModal({
                           <option value="">Select ingredient...</option>
                           {availableIngredients.map((item) => (
                             <option key={item.id} value={item.id}>
-                              {item.name} ({item.unit})
+                              {item.name} ({item.unit}) - {getTrackingModeLabel(item.tracking_mode, getDefaultCostingMode(item.tracking_mode))}
                             </option>
                           ))}
                         </select>
@@ -399,12 +475,13 @@ export default function RecipeModal({
 
                       <div>
                         <label className="mb-1.5 block text-xs font-medium text-gray-600">
-                          Quantity Needed
+                          {getQuantityLabel(ingredient.costing_mode)}
                         </label>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
+                          disabled={quantityDisabled}
                           value={ingredient.quantity_needed || ''}
                           onChange={(event) =>
                             handleIngredientChange(
@@ -413,24 +490,61 @@ export default function RecipeModal({
                               Number(event.target.value) || 0,
                             )
                           }
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
-                          placeholder="0"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:bg-gray-50 disabled:text-gray-400"
+                          placeholder={quantityDisabled ? 'Not assigned' : '0'}
                         />
+                        {ingredient.inventory_item_id ? (
+                          <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                            {getQuantityHelpText(trackingMode, ingredient.costing_mode)}
+                          </p>
+                        ) : null}
                       </div>
 
                       <div>
                         <label className="mb-1.5 block text-xs font-medium text-gray-600">Unit</label>
-                        <input
-                          type="text"
+                        <select
                           value={ingredient.unit}
-                          readOnly
-                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600 outline-none"
-                          placeholder="-"
-                        />
+                          onChange={(event) => handleIngredientChange(index, 'unit', event.target.value)}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                        >
+                          {(getCompatibleUnits(selectedInventoryItem?.unit || ingredient.unit).length > 0
+                            ? getCompatibleUnits(selectedInventoryItem?.unit || ingredient.unit)
+                            : [ingredient.unit || '-']
+                          ).map((unit) => (
+                            <option key={unit} value={unit}>
+                              {unit}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+
+                    <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <label className="mb-1.5 block text-xs font-medium text-gray-600">
+                        Cost behavior
+                      </label>
+                      <select
+                        value={ingredient.costing_mode}
+                        onChange={(event) =>
+                          handleIngredientChange(index, 'costing_mode', event.target.value as RecipeCostingMode)
+                        }
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                      >
+                        <option value="deduct_from_pos">{getCostingModeLabel('deduct_from_pos')}</option>
+                        <option value="cost_estimate_only">{getCostingModeLabel('cost_estimate_only')}</option>
+                        <option value="kitchen_overhead">{getCostingModeLabel('kitchen_overhead')}</option>
+                      </select>
+                      <p className="mt-1 text-[11px] leading-4 text-gray-500">
+                        {ingredient.costing_mode === 'kitchen_overhead'
+                          ? 'For salt, sugar, seasoning, or tiny garnish. Cost is captured from Bulk Opened, not this menu.'
+                          : ingredient.costing_mode === 'cost_estimate_only'
+                            ? 'For rice, sauce, vegetables, or packaging standards. It affects menu margin but is not deducted by POS.'
+                            : 'For critical ingredients that POS should deduct or use for menu readiness.'}
+                      </p>
+                    </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

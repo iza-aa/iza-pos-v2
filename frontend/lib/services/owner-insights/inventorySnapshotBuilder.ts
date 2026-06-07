@@ -43,6 +43,28 @@ type UsageTransactionDetailRow = {
   new_stock?: number | string | null;
 };
 
+type StockReportRow = {
+  id: string;
+  material_name?: string | null;
+  report_type?: string | null;
+  status?: string | null;
+  reported_by_role?: string | null;
+  created_at?: string | null;
+};
+
+type InventoryBatchRow = {
+  id: string;
+  inventory_item_id?: string | null;
+  batch_number?: string | null;
+  supplier?: string | null;
+  received_at?: string | null;
+  expiry_date?: string | null;
+  quantity_received?: number | string | null;
+  quantity_remaining?: number | string | null;
+  unit?: string | null;
+  unit_cost?: number | string | null;
+};
+
 const normalizeInventoryTransactionType = (type?: string | null) => {
   const raw = String(type || "sale").toLowerCase();
   if (raw === "order_usage") return "sale";
@@ -346,16 +368,67 @@ const buildExpiryReadinessRows = (inventoryItems: InventoryItemRow[]) => {
     }));
 };
 
+const getDaysUntilExpiry = (expiryDate: string | null | undefined) => {
+  if (!expiryDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(`${expiryDate}T00:00:00`);
+  if (Number.isNaN(expiry.getTime())) return null;
+  return Math.ceil((expiry.getTime() - today.getTime()) / 86_400_000);
+};
+
+const buildBatchRows = (
+  batches: InventoryBatchRow[],
+  inventoryItems: InventoryItemRow[],
+) => {
+  const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+
+  return batches
+    .map((batch) => {
+      const item = batch.inventory_item_id
+        ? inventoryById.get(batch.inventory_item_id)
+        : undefined;
+      const remaining = toNumber(batch.quantity_remaining);
+      const unitCost = toNumber(batch.unit_cost) || getInventoryUnitCost(item);
+      const daysUntilExpiry = getDaysUntilExpiry(batch.expiry_date);
+
+      return {
+        itemName: item?.name || "Inventory item",
+        category: item?.category || "Inventory",
+        batchNumber: batch.batch_number || "-",
+        supplier: batch.supplier || "-",
+        receivedAt: batch.received_at || null,
+        expiryDate: batch.expiry_date || null,
+        daysUntilExpiry,
+        quantityReceived: toNumber(batch.quantity_received),
+        quantityRemaining: remaining,
+        unit: batch.unit || item?.unit || "",
+        unitCost,
+        value: remaining * unitCost,
+      };
+    })
+    .sort((a, b) => {
+      const expiryA = a.expiryDate || "9999-12-31";
+      const expiryB = b.expiryDate || "9999-12-31";
+      if (expiryA !== expiryB) return expiryA.localeCompare(expiryB);
+      return String(a.receivedAt || "").localeCompare(String(b.receivedAt || ""));
+    });
+};
+
 const buildInventoryAllowedIssues = ({
   metrics,
   lowStockRows,
   mostUsed,
   expiryReadinessRows,
+  batchRows,
+  stockReportRows,
 }: {
   metrics: Record<string, RecommendationMetric>;
   lowStockRows: ReturnType<typeof buildInventoryRows>;
   mostUsed: ReturnType<typeof buildUsageValueByItem>[number] | undefined;
   expiryReadinessRows: ReturnType<typeof buildExpiryReadinessRows>;
+  batchRows: ReturnType<typeof buildBatchRows>;
+  stockReportRows: StockReportRow[];
 }): RecommendationAllowedIssue[] => {
   const issues: RecommendationAllowedIssue[] = [];
   const criticalItems = Number(metrics.criticalItems.value ?? 0);
@@ -365,7 +438,47 @@ const buildInventoryAllowedIssues = ({
   const stockOutValue = Number(metrics.stockOutValue.value ?? 0);
   const stockOutPrevious = Number(metrics.stockOutValue.previousValue ?? 0);
   const stockOutChange = metrics.stockOutValue.changePct ?? 0;
+  const pendingStockReports = Number(metrics.pendingStockReports?.value ?? 0);
   const lowestStockItem = lowStockRows[0];
+  const activeBatchRows = batchRows.filter((batch) => batch.quantityRemaining > 0);
+  const expiredBatchRows = activeBatchRows.filter(
+    (batch) => batch.daysUntilExpiry !== null && batch.daysUntilExpiry < 0,
+  );
+  const nearExpiryBatchRows = activeBatchRows.filter(
+    (batch) =>
+      batch.daysUntilExpiry !== null &&
+      batch.daysUntilExpiry >= 0 &&
+      batch.daysUntilExpiry <= 7,
+  );
+
+  if (pendingStockReports > 0) {
+    const repeatedReport = Array.from(
+      stockReportRows.reduce((map, report) => {
+        const key = report.material_name || "Unknown material";
+        map.set(key, (map.get(key) ?? 0) + 1);
+        return map;
+      }, new Map<string, number>()),
+    ).sort((left, right) => right[1] - left[1])[0];
+
+    issues.push({
+      id: "inventory-pending-stock-reports",
+      title: "Staff Stock Reports Need Follow Up",
+      priority: "medium",
+      confidence: "high",
+      problem: "Barista or kitchen staff submitted stock reports that are still waiting for manager review.",
+      evidence: [
+        `Pending Stock Reports is ${formatEvidenceNumber(pendingStockReports, "count")}.`,
+        repeatedReport
+          ? `${repeatedReport[0]} appears in ${formatEvidenceNumber(repeatedReport[1], "count")} stock report(s).`
+          : "No repeated stock report item was detected.",
+      ],
+      recommendationHint:
+        "Ask the manager to review pending stock reports and resolve repeated material issues before they affect menu availability.",
+      expectedImpact:
+        "Following up staff reports helps prevent stock issues from being lost during busy shifts.",
+      metricKeys: ["pendingStockReports"],
+    });
+  }
 
   if (dataIssues > 0) {
     issues.push({
@@ -482,7 +595,7 @@ const buildInventoryAllowedIssues = ({
     });
   }
 
-  if (expiryReadinessRows.length > 0) {
+  if (expiryReadinessRows.length > 0 && batchRows.length === 0) {
     issues.push({
       id: "inventory-expiry-tracking-gap",
       title: "Expiry Tracking Is Not Ready Yet",
@@ -497,6 +610,29 @@ const buildInventoryAllowedIssues = ({
         "Add batch, received date, and expiry date fields before enabling FIFO or FEFO expiry alerts.",
       expectedImpact:
         "Expiry-ready data will allow the owner to manage waste risk without AI guessing spoilage.",
+      metricKeys: ["expiryReadiness"],
+    });
+  }
+
+  if (expiredBatchRows.length > 0 || nearExpiryBatchRows.length > 0) {
+    const mostUrgentBatch = [...expiredBatchRows, ...nearExpiryBatchRows][0];
+
+    issues.push({
+      id: "inventory-batch-expiry-risk",
+      title: "Batch Expiry Risk Needs Review",
+      priority: expiredBatchRows.length > 0 ? "high" : "medium",
+      confidence: "high",
+      problem:
+        "Active inventory batches have expiry risk in the current batch stock data.",
+      evidence: [
+        `Expired active batches is ${formatEvidenceNumber(expiredBatchRows.length, "count")}.`,
+        `Near-expiry active batches is ${formatEvidenceNumber(nearExpiryBatchRows.length, "count")}.`,
+        `Most urgent batch is ${mostUrgentBatch.itemName} batch ${mostUrgentBatch.batchNumber}.`,
+      ],
+      recommendationHint:
+        "Ask the manager to review Batch Stock, prioritize FEFO usage, and decide whether near-expiry stock should be used, discounted, or written off.",
+      expectedImpact:
+        "Acting on batch-level expiry data helps reduce waste and keeps FIFO/FEFO discipline visible to the owner.",
       metricKeys: ["expiryReadiness"],
     });
   }
@@ -529,7 +665,7 @@ export async function buildInventoryRecommendationSnapshot(
   insightPeriod?: OwnerInsightPeriod,
 ): Promise<RecommendationSnapshot> {
   const period = buildRecommendationPeriodContext(insightPeriod);
-  const [inventoryResult, transactionResult, detailResult] = await Promise.all([
+  const [inventoryResult, transactionResult, detailResult, stockReportResult, batchResult] = await Promise.all([
     supabase.from("inventory_items").select("*").order("name", { ascending: true }),
     supabase
       .from("usage_transactions")
@@ -540,6 +676,18 @@ export async function buildInventoryRecommendationSnapshot(
       .select(
         "usage_transaction_id,inventory_item_id,ingredient_name,quantity_used,unit,previous_stock,new_stock",
       ),
+    supabase
+      .from("stock_reports")
+      .select("id,material_name,report_type,status,reported_by_role,created_at")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("inventory_batches")
+      .select(
+        "id,inventory_item_id,batch_number,supplier,received_at,expiry_date,quantity_received,quantity_remaining,unit,unit_cost",
+      )
+      .order("expiry_date", { ascending: true, nullsFirst: false })
+      .limit(200),
   ]);
 
   if (inventoryResult.error) {
@@ -563,6 +711,12 @@ export async function buildInventoryRecommendationSnapshot(
   const inventoryItems = (inventoryResult.data ?? []) as InventoryItemRow[];
   const transactions = (transactionResult.data ?? []) as UsageTransactionRow[];
   const details = (detailResult.data ?? []) as UsageTransactionDetailRow[];
+  const stockReports = stockReportResult.error
+    ? []
+    : ((stockReportResult.data ?? []) as StockReportRow[]);
+  const batches = batchResult.error
+    ? []
+    : ((batchResult.data ?? []) as InventoryBatchRow[]);
   const selectedTransactions = transactions.filter((transaction) =>
     isTransactionInPeriod(transaction, period.selected),
   );
@@ -572,6 +726,7 @@ export async function buildInventoryRecommendationSnapshot(
   const selectedDetails = getDetailsForTransactions(details, selectedTransactions);
   const comparisonDetails = getDetailsForTransactions(details, comparisonTransactions);
   const inventoryRows = buildInventoryRows(inventoryItems);
+  const batchRows = buildBatchRows(batches, inventoryItems);
   const lowStockRows = [
     ...inventoryRows.filter((item) => item.minimum > 0 && item.current <= item.minimum),
     ...inventoryRows.filter((item) => item.minimum > 0 && item.current > item.minimum),
@@ -594,6 +749,17 @@ export async function buildInventoryRecommendationSnapshot(
   });
   const mostUsed = usageByItem[0];
   const expiryReadinessRows = buildExpiryReadinessRows(inventoryItems);
+  const selectedStockReports = stockReports.filter((report) => {
+    const createdAt = report.created_at?.slice(0, 10);
+    return Boolean(
+      createdAt &&
+        createdAt >= period.selected.startDate &&
+        createdAt <= period.selected.endDate,
+    );
+  });
+  const pendingStockReports = selectedStockReports.filter(
+    (report) => report.status === "pending",
+  );
   const metrics = {
     totalItems: buildMetric({
       value: inventoryRows.length,
@@ -663,6 +829,13 @@ export async function buildInventoryRecommendationSnapshot(
       source: "largest stock-out value by inventory item in selected period",
       displayLabel: "Highest Usage Value",
     }),
+    pendingStockReports: buildMetric({
+      value: pendingStockReports.length,
+      previousValue: null,
+      unit: "count",
+      source: "stock_reports.status pending in selected period",
+      displayLabel: "Pending Stock Reports",
+    }),
   } satisfies Record<string, RecommendationMetric>;
 
   return {
@@ -719,20 +892,56 @@ export async function buildInventoryRecommendationSnapshot(
           "Perishable-looking items that would benefit from batch expiry tracking.",
         rows: expiryReadinessRows,
       },
+      batchStock: {
+        title: "Batch Stock",
+        description:
+          "Batch, supplier, received date, expiry date, remaining quantity, and batch value from inventory_batches.",
+        rows: batchRows.slice(0, 20).map((batch) => ({
+          itemName: batch.itemName,
+          category: batch.category,
+          batchNumber: batch.batchNumber,
+          supplier: batch.supplier,
+          receivedAt: batch.receivedAt,
+          expiryDate: batch.expiryDate,
+          daysUntilExpiry: batch.daysUntilExpiry,
+          quantityRemaining: batch.quantityRemaining,
+          unit: batch.unit,
+          unitCost: batch.unitCost,
+          value: batch.value,
+        })),
+      },
+      staffStockReports: {
+        title: "Staff Stock Reports",
+        description: "Stock issues submitted by barista and kitchen staff.",
+        rows: selectedStockReports.slice(0, 10).map((report) => ({
+          materialName: report.material_name ?? null,
+          reportType: report.report_type ?? null,
+          status: report.status ?? null,
+          reportedByRole: report.reported_by_role ?? null,
+          createdAt: report.created_at ?? null,
+        })),
+      },
     },
     allowedIssues: buildInventoryAllowedIssues({
       metrics,
       lowStockRows,
       mostUsed,
       expiryReadinessRows,
+      batchRows,
+      stockReportRows: selectedStockReports,
     }),
     dataQuality: {
-      missingFields: ["batch", "received_date", "expiry_date"],
+      missingFields: batchResult.error
+        ? ["inventory_batches"]
+        : [],
       unsupportedClaims: [
-        "Do not claim any item is expired because expiry date data is not available.",
-        "Do not recommend FIFO or FEFO actions as active alerts; only recommend adding expiry and batch fields first.",
+        batchRows.length > 0
+          ? "Only claim expiry or FEFO risk when it is supported by batchStock rows."
+          : "Do not claim any item is expired because no batchStock rows are available.",
         "Do not compare mixed units by quantity when all items are selected; use Rupiah movement value instead.",
-        "Do not mention supplier performance because supplier data is not included.",
+        batchRows.length > 0
+          ? "Supplier names may be mentioned only as batch purchase context; do not rank supplier performance without repeated purchase evidence."
+          : "Do not mention supplier performance because supplier data is not included.",
       ],
       warnings: [],
     },
@@ -741,6 +950,8 @@ export async function buildInventoryRecommendationSnapshot(
       fetchedTransactionRows: transactions.length,
       selectedTransactionRows: selectedTransactions.length,
       selectedDetailRows: selectedDetails.length,
+      selectedStockReportRows: selectedStockReports.length,
+      fetchedBatchRows: batchRows.length,
     },
   };
 }

@@ -36,7 +36,7 @@ export default function DatabaseChatbot({ isOpen, onClose }: DatabaseChatbotProp
         timestamp: new Date()
       }])
     }
-  }, [isOpen])
+  }, [isOpen, messages.length])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -107,11 +107,11 @@ export default function DatabaseChatbot({ isOpen, onClose }: DatabaseChatbotProp
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-      <div className="bg-white rounded-t-3xl md:rounded-3xl w-full md:max-w-2xl h-[90vh] md:h-[600px] flex flex-col shadow-2xl">
+      <div className="bg-white rounded-t-3xl md:rounded-3xl w-full md:max-w-2xl h-[90vh] md:h-150 flex flex-col shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <SparklesIcon className="w-6 h-6 text-white" />
             </div>
             <div>

@@ -20,12 +20,25 @@ export type OrderFinancialTotals = {
 
 type OrderFinancialOptions = {
   orderType?: string | null;
+  fulfillmentMethod?: string | null;
 };
 
 const roundMoney = (value: number) => Math.round(value);
 
 const isDineInOrder = (orderType?: string | null) => {
   return (orderType ?? "").trim().toLowerCase().replace(/[-_]/g, " ").includes("dine");
+};
+
+const shouldApplyServiceCharge = (options: OrderFinancialOptions) => {
+  const fulfillmentMethod = (options.fulfillmentMethod ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]/g, " ");
+
+  if (fulfillmentMethod === "counter pickup") return false;
+  if (fulfillmentMethod === "pager" || fulfillmentMethod === "table service") return true;
+
+  return isDineInOrder(options.orderType);
 };
 
 export function calculateOrderFinancialTotals(
@@ -36,7 +49,7 @@ export function calculateOrderFinancialTotals(
   const subtotal = Math.max(Number(rawSubtotal) || 0, 0);
   const taxRate = settings.taxEnabled ? Math.max(Number(settings.taxRate) || 0, 0) / 100 : 0;
   const serviceChargeRate =
-    settings.serviceChargeEnabled && isDineInOrder(options.orderType)
+    settings.serviceChargeEnabled && shouldApplyServiceCharge(options)
       ? Math.max(Number(settings.serviceChargeRate) || 0, 0) / 100
       : 0;
   const serviceCharge = roundMoney(subtotal * serviceChargeRate);

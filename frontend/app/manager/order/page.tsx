@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
-import { POLLING_INTERVALS, getWeeksAgo, getMonthsAgo } from "@/lib/constants";
-import OrderHeader from "@/app/components/staff/order/OrderHeader";
+import { POLLING_INTERVALS } from "@/lib/constants";
 import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
-import { DateFilterDropdown } from "@/app/components/owner/activitylog";
+import DateRangeFilter, {
+  getDefaultDateRange,
+  type DateRangeValue,
+} from "@/app/components/shared/DateRangeFilter";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/config/supabaseClient";
@@ -22,6 +24,8 @@ import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import TableOrderMapView from "@/app/components/staff/order/TableOrderMapView";
 import { getCurrentUser } from "@/lib/utils/auth";
+import { reverseOrderInventoryUsageWithBatches } from "@/lib/services/inventory/inventoryBatchService";
+import OrderCorrectionModal from "@/app/components/staff/order/OrderCorrectionModal";
 
 interface Order {
   id: string;
@@ -45,6 +49,19 @@ interface Order {
   pagerNumber?: string | null;
   pickupCode?: string | null;
 }
+
+type OrderCorrectionReview = {
+  id: string;
+  orderId: string;
+  orderNumber?: string | null;
+  requestedByName?: string | null;
+  requestedByRole?: string | null;
+  correctionType: string;
+  physicalStatus: string;
+  status: "logged" | "reviewed";
+  note?: string | null;
+  createdAt: string;
+};
 
 type KanbanColumnKey = "new" | "preparing" | "partially-served" | "completed";
 
@@ -134,17 +151,17 @@ export default function ManagerOrderPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("card");
-  const [dateFilter, setDateFilter] = useState<
-    "all" | "today" | "week" | "month" | "custom"
-  >("all");
-  const [customDateRange, setCustomDateRange] = useState({
-    start: "",
-    end: "",
-  });
+  const [dateRange, setDateRange] = useState<DateRangeValue>(() =>
+    getDefaultDateRange(),
+  );
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
+  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
+  const [orderCorrections, setOrderCorrections] = useState<OrderCorrectionReview[]>([]);
+  const [reviewingCorrectionId, setReviewingCorrectionId] = useState("");
 
   useEffect(() => {
     fetchOrders();
+    fetchOrderCorrections();
 
     const channel = supabase
       .channel("manager-orders-changes")
@@ -164,7 +181,10 @@ export default function ManagerOrderPage() {
       )
       .subscribe();
 
-    const interval = setInterval(fetchOrders, POLLING_INTERVALS.SLOW);
+    const interval = setInterval(() => {
+      fetchOrders();
+      fetchOrderCorrections();
+    }, POLLING_INTERVALS.SLOW);
 
     return () => {
       supabase.removeChannel(channel);
@@ -173,10 +193,44 @@ export default function ManagerOrderPage() {
   }, []);
 
   useEffect(() => {
+    void fetchOrderCorrections();
+  }, [dateRange]);
+
+  useEffect(() => {
     if (viewMode === "card" && !isStatusFilter(orderFilter)) {
       setOrderFilter("all");
     }
   }, [orderFilter, viewMode]);
+
+  async function fetchOrderCorrections() {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) return;
+
+      const params = new URLSearchParams({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      });
+
+      const response = await fetch(`/api/orders/corrections?${params.toString()}`, {
+        headers: {
+          "x-user-id": currentUser.id,
+          "x-user-name": currentUser.name,
+          "x-user-role": currentUser.role,
+        },
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        data?: OrderCorrectionReview[];
+      };
+
+      if (response.ok) {
+        setOrderCorrections(result.data || []);
+      }
+    } catch (error) {
+      console.warn("Failed to load order corrections:", error);
+    }
+  }
 
   async function fetchOrders() {
     setLoading(true);
@@ -408,6 +462,45 @@ export default function ManagerOrderPage() {
     }
   }
 
+  async function handleReviewCorrection(correctionId: string) {
+    const currentUser = getCurrentUser();
+    if (!currentUser || (currentUser.role !== "manager" && currentUser.role !== "owner")) {
+      showError("Manager access required to review correction requests.");
+      return;
+    }
+
+    setReviewingCorrectionId(correctionId);
+    try {
+      const response = await fetch("/api/orders/corrections", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+          "x-user-name": currentUser.name,
+          "x-user-role": currentUser.role,
+        },
+        body: JSON.stringify({
+          action: "review",
+          correctionId,
+          reviewNote: "Reviewed from manager order page.",
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Correction request could not be reviewed.");
+      }
+
+      showSuccess("Correction request marked as reviewed.");
+      await fetchOrders();
+      await fetchOrderCorrections();
+    } catch (error) {
+      showError(error instanceof Error ? error.message : "Correction request could not be reviewed.");
+    } finally {
+      setReviewingCorrectionId("");
+    }
+  }
+
   async function handleProcessOrder(orderId: string) {
     try {
       const { error } = await supabase
@@ -555,6 +648,15 @@ export default function ManagerOrderPage() {
 
     try {
       const deletedOrder = orderList.find((order) => order.id === orderId);
+      const currentUser = getCurrentUser();
+
+      await reverseOrderInventoryUsageWithBatches({
+        orderId,
+        orderNumber: deletedOrder?.orderNumber,
+        performedByName: currentUser
+          ? `${currentUser.name} - ${currentUser.role}`
+          : "Manager",
+      });
 
       const { data: usageTransactions, error: usageFetchError } = await supabase
         .from("usage_transactions")
@@ -672,11 +774,6 @@ export default function ManagerOrderPage() {
     }
   }
 
-  const now = new Date();
-  const today = now.toDateString();
-  const weekAgo = getWeeksAgo(1);
-  const monthAgo = getMonthsAgo(1);
-
   const isCardView = viewMode === "card";
   const isTableListView = viewMode === "table";
   const shouldShowOrderFilter = isCardView || isTableListView;
@@ -684,6 +781,26 @@ export default function ManagerOrderPage() {
   const activeFilterOptions = isCardView
     ? statusFilterOptions
     : tableFilterOptions;
+
+  const dateRangeOrders = orderList.filter((order) => {
+    const orderDateValue = order.createdAt.slice(0, 10);
+    return orderDateValue >= dateRange.startDate && orderDateValue <= dateRange.endDate;
+  });
+
+  const correctionOrderIds = new Set(orderCorrections.map((correction) => correction.orderId));
+  const correctableDateRangeOrders = dateRangeOrders.filter(
+    (order) => !correctionOrderIds.has(order.id),
+  );
+  const loggedCorrectionByOrderId = new Map(
+    orderCorrections
+      .filter((correction) => correction.status === "logged")
+      .map((correction) => [correction.orderId, correction]),
+  );
+
+  const getOrderEffectiveStatus = (order: Order): Order["status"] => {
+    if (loggedCorrectionByOrderId.has(order.id)) return "preparing";
+    return order.status;
+  };
 
   const filteredOrders = orderList.filter((order) => {
     const matchesSearch =
@@ -693,19 +810,21 @@ export default function ManagerOrderPage() {
     let matchesFilter = true;
 
     if (shouldApplyOrderFilter) {
+      const effectiveStatus = getOrderEffectiveStatus(order);
+
       if (orderFilter === "dine-in") {
         matchesFilter = order.orderType.toLowerCase().includes("dine");
       } else if (orderFilter === "takeaway") {
         matchesFilter = order.orderType.toLowerCase().includes("take");
       } else if (orderFilter === "new") {
-        matchesFilter = order.status === "new";
+        matchesFilter = effectiveStatus === "new";
       } else if (orderFilter === "preparing") {
-        matchesFilter = order.status === "preparing";
+        matchesFilter = effectiveStatus === "preparing";
       } else if (orderFilter === "partially-served") {
-        matchesFilter = order.status === "partially-served";
+        matchesFilter = effectiveStatus === "partially-served";
       } else if (orderFilter === "completed") {
         matchesFilter =
-          order.status === "served" || order.status === "completed";
+          effectiveStatus === "served" || effectiveStatus === "completed";
       } else if (orderFilter === "pos") {
         matchesFilter = order.orderSource === "pos";
       } else if (orderFilter === "qr") {
@@ -713,27 +832,9 @@ export default function ManagerOrderPage() {
       }
     }
 
-    let matchesDate = true;
-
-    if (dateFilter !== "all") {
-      const orderDate = new Date(order.createdAt);
-
-      if (dateFilter === "today") {
-        matchesDate = orderDate.toDateString() === today;
-      } else if (dateFilter === "week") {
-        matchesDate = orderDate >= weekAgo;
-      } else if (dateFilter === "month") {
-        matchesDate = orderDate >= monthAgo;
-      } else if (
-        dateFilter === "custom" &&
-        customDateRange.start &&
-        customDateRange.end
-      ) {
-        const startDate = new Date(customDateRange.start);
-        const endDate = new Date(customDateRange.end);
-        matchesDate = orderDate >= startDate && orderDate <= endDate;
-      }
-    }
+    const orderDateValue = order.createdAt.slice(0, 10);
+    const matchesDate =
+      orderDateValue >= dateRange.startDate && orderDateValue <= dateRange.endDate;
 
     return matchesSearch && matchesFilter && matchesDate;
   });
@@ -741,11 +842,14 @@ export default function ManagerOrderPage() {
   const getOrdersByKanbanColumn = (columnKey: KanbanColumnKey) => {
     if (columnKey === "completed") {
       return filteredOrders.filter(
-        (order) => order.status === "served" || order.status === "completed",
+        (order) => {
+          const effectiveStatus = getOrderEffectiveStatus(order);
+          return effectiveStatus === "served" || effectiveStatus === "completed";
+        },
       );
     }
 
-    return filteredOrders.filter((order) => order.status === columnKey);
+    return filteredOrders.filter((order) => getOrderEffectiveStatus(order) === columnKey);
   };
 
   const visibleKanbanColumns =
@@ -762,64 +866,154 @@ export default function ManagerOrderPage() {
           ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-2"
           : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2";
 
-  return (
-    <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
-      <div className="shrink-0">
-        <OrderHeader
-          description="Track and manage all customer orders in real-time"
-          searchBar={
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search orders..."
-            />
-          }
-        >
-          <div className="flex items-center gap-3">
-            <DateFilterDropdown
-              dateFilter={dateFilter}
-              onDateFilterChange={setDateFilter}
-              customDateRange={customDateRange}
-              onCustomDateRangeChange={setCustomDateRange}
-            />
-
-            <ViewModeToggle
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
-          </div>
-        </OrderHeader>
-      </div>
-
-      <div
-        className={`flex-1 bg-gray-100 ${
-          viewMode === "table" ? "overflow-hidden" : "overflow-y-auto"
-        }`}
+  const renderOrderControls = () => (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search orders..."
+        width="w-full lg:w-72"
+      />
+      <button
+        type="button"
+        onClick={() => setCorrectionModalOpen(true)}
+        className="h-10 rounded-lg border border-gray-900 bg-white px-4 text-sm font-bold text-gray-900 transition hover:bg-gray-50"
       >
-        {shouldShowOrderFilter && (
-          <div className="sticky top-0 z-20 bg-gray-100 px-6 pt-6 pb-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              {activeFilterOptions.map((filterOption) => (
-                <button
-                  key={filterOption.key}
-                  type="button"
-                  onClick={() => setOrderFilter(filterOption.key)}
-                  className={getFilterButtonClassName(
-                    orderFilter === filterOption.key,
-                  )}
-                >
-                  {filterOption.label}
-                </button>
+        Request Correction
+      </button>
+      <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+        <ViewModeToggle
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
+      </div>
+    </div>
+  );
+
+  const renderOrderLoadingSkeleton = () => {
+    if (viewMode === "table") {
+      return (
+        <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <div className="border-b border-gray-100 px-4 py-4">
+            <div className="h-5 w-36 animate-pulse rounded bg-gray-200" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-190 table-fixed text-left text-sm">
+              <thead className="bg-[#F8F8F8]">
+                <tr>
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <th key={index} className="border-b border-gray-200 px-4 py-4">
+                      <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {Array.from({ length: 8 }, (_, rowIndex) => (
+                  <tr key={rowIndex} className="odd:bg-white even:bg-[#F8F8F8]">
+                    {Array.from({ length: 6 }, (_, cellIndex) => (
+                      <td key={cellIndex} className="px-4 py-5">
+                        <div
+                          className={`h-4 animate-pulse rounded bg-gray-200 ${
+                            cellIndex === 0 ? "w-32" : cellIndex % 2 === 0 ? "w-24" : "w-16"
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    if (viewMode === "map") {
+      return (
+        <div className="mt-2 rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="mb-4 flex gap-2">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="h-10 w-28 animate-pulse rounded-lg bg-gray-200" />
+            ))}
+          </div>
+          <div className="h-130 animate-pulse rounded-xl bg-gray-200" />
+        </div>
+      );
+    }
+
+    return (
+      <div className={kanbanGridClassName}>
+        {visibleKanbanColumns.map((column) => (
+          <section key={column.key} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 px-4 py-3">
+              <div className="h-4 w-28 animate-pulse rounded bg-gray-200" />
+              <div className="mt-2 h-3 w-40 animate-pulse rounded bg-gray-100" />
+            </div>
+            <div className="space-y-3 p-3">
+              {Array.from({ length: visibleKanbanColumns.length === 1 ? 6 : 3 }, (_, index) => (
+                <div key={index} className="rounded-xl border border-gray-100 p-4">
+                  <div className="h-5 w-32 animate-pulse rounded bg-gray-200" />
+                  <div className="mt-4 h-3 w-full animate-pulse rounded bg-gray-100" />
+                  <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-gray-100" />
+                  <div className="mt-5 h-9 w-full animate-pulse rounded-lg bg-gray-200" />
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          </section>
+        ))}
+      </div>
+    );
+  };
 
-        <div className="px-6 pb-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+  return (
+    <div className="min-h-[calc(100vh-55px)] bg-gray-100">
+      <OrderCorrectionModal
+        isOpen={correctionModalOpen}
+        orders={correctableDateRangeOrders}
+        onClose={() => setCorrectionModalOpen(false)}
+        onSubmitted={(orderId) => {
+          setOrderList((currentOrders) =>
+            currentOrders.map((order) =>
+              order.id === orderId
+                ? { ...order, status: "preparing", date: order.date, time: order.time }
+                : order,
+            ),
+          );
+          void fetchOrders();
+          void fetchOrderCorrections();
+        }}
+      />
+      <div className="bg-gray-100">
+        <div className="bg-gray-100 px-4 pt-4">
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        </div>
+
+        <div className="bg-gray-100 px-4 pt-4 pb-2">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              {shouldShowOrderFilter
+                ? activeFilterOptions.map((filterOption) => (
+                    <button
+                      key={filterOption.key}
+                      type="button"
+                      onClick={() => setOrderFilter(filterOption.key)}
+                      className={getFilterButtonClassName(
+                        orderFilter === filterOption.key,
+                      )}
+                    >
+                      {filterOption.label}
+                    </button>
+                  ))
+                : null}
             </div>
+            {renderOrderControls()}
+          </div>
+        </div>
+
+        <div className="px-4 pb-4">
+          {loading ? (
+            renderOrderLoadingSkeleton()
           ) : viewMode === "card" ? (
             <div className={kanbanGridClassName}>
               {visibleKanbanColumns.map((column) => {
@@ -858,7 +1052,7 @@ export default function ManagerOrderPage() {
                           ? "flex-1 p-3 columns-1 md:columns-2 xl:columns-4 gap-3"
                           : visibleKanbanColumns.length === 1
                             ? "flex-1 p-3"
-                            : "p-3 space-y-3 min-h-130"
+                            : "p-3 space-y-3 min-h-180"
                       }
                     >
                       {columnOrders.length > 0 ? (
@@ -871,19 +1065,34 @@ export default function ManagerOrderPage() {
                                 : undefined
                             }
                           >
+                            {(() => {
+                              const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
+
+                              return (
                             <OrderCard
                               order={order}
-                              showDeleteButton={true}
+                              correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
+                              showDeleteButton={!pendingCorrection}
                               onDelete={handleDeleteOrder}
-                              enableFlipCard={canShowServeOrderButton(order)}
-                              showServeOrderAction={canShowServeOrderButton(
-                                order,
-                              )}
+                              enableFlipCard={!pendingCorrection && canShowServeOrderButton(order)}
+                              showServeOrderAction={!pendingCorrection && canShowServeOrderButton(order)}
                               serveOrderLabel="Serve Order"
                               disabledServeOrderLabel="Waiting for Kitchen"
                               onMarkServed={handleMarkServed}
                               customActions={
-                                order.status === "new" ? (
+                                pendingCorrection ? (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleReviewCorrection(pendingCorrection.id);
+                                    }}
+                                    disabled={reviewingCorrectionId === pendingCorrection.id}
+                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                                  >
+                                    {reviewingCorrectionId === pendingCorrection.id ? "Reviewing..." : "Mark Reviewed"}
+                                  </button>
+                                ) : order.status === "new" ? (
                                   <button
                                     type="button"
                                     onClick={(event) => {
@@ -897,13 +1106,15 @@ export default function ManagerOrderPage() {
                                 ) : null
                               }
                             />
+                              );
+                            })()}
                           </div>
                         ))
                       ) : (
                         <div
                           className={
                             visibleKanbanColumns.length === 1
-                              ? "flex h-full min-h-[520px] w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center text-sm text-gray-400"
+                              ? "flex h-full min-h-130 w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center text-sm text-gray-400"
                               : "h-32 w-full rounded-xl border border-dashed border-gray-300 bg-white flex items-center justify-center text-sm text-gray-400 text-center px-4"
                           }
                         >
@@ -917,7 +1128,19 @@ export default function ManagerOrderPage() {
             </div>
           ) : viewMode === "table" ? (
             <div className="mt-2">
-              <OrderTable orders={filteredOrders} onOrderClick={() => {}} />
+              <OrderTable
+                orders={filteredOrders}
+                onOrderClick={() => {}}
+                correctionOrderIds={correctionOrderIds}
+                pendingCorrectionByOrderId={new Map(
+                  Array.from(loggedCorrectionByOrderId.entries()).map(([orderId, correction]) => [
+                    orderId,
+                    correction.id,
+                  ]),
+                )}
+                reviewingCorrectionId={reviewingCorrectionId}
+                onReviewCorrection={handleReviewCorrection}
+              />
             </div>
           ) : (
             <TableOrderMapView orders={filteredOrders} />

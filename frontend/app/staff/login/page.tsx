@@ -124,11 +124,11 @@ const saveSession = (result: LoginResult) => {
 
 const redirectByRole = (role?: string) => {
   if (role === "manager") {
-    window.location.href = "/manager/dashboard";
+    window.location.href = "/manager/menu";
     return;
   }
 
-  window.location.href = "/staff/dashboard";
+  window.location.href = "/staff/attendance";
 };
 
 function PinBoxesInput({

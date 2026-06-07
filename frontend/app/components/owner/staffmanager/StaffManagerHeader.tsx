@@ -6,6 +6,7 @@ import {
   UserPlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useLanguage } from "../../shared/i18n";
 
 interface StaffManagerHeaderProps {
   onAddStaff?: () => void;
@@ -24,6 +25,7 @@ export default function StaffManagerHeader({
   onSearchChange,
   showSearch = true,
 }: StaffManagerHeaderProps) {
+  const { t } = useLanguage();
   const shouldShowSearch = activeTab === "staff" && showSearch && onSearchChange;
 
   return (
@@ -38,7 +40,7 @@ export default function StaffManagerHeader({
                 type="text"
                 value={searchQuery}
                 onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Search staff..."
+                placeholder={t("owner.staff.search")}
                 className="h-10.5 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
               />
 
@@ -47,8 +49,8 @@ export default function StaffManagerHeader({
                   type="button"
                   onClick={() => onSearchChange("")}
                   className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                  title="Clear search"
-                  aria-label="Clear search"
+                  title={t("owner.staff.clearSearch")}
+                  aria-label={t("owner.staff.clearSearch")}
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>
@@ -63,8 +65,8 @@ export default function StaffManagerHeader({
               type="button"
               onClick={onAddStaff}
               className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-gray-900 text-white transition hover:bg-gray-800 md:h-10.5 md:w-10.5"
-              title="Add Staff"
-              aria-label="Add Staff"
+              title={t("owner.staff.addStaff")}
+              aria-label={t("owner.staff.addStaff")}
             >
               <UserPlusIcon className="h-5 w-5" />
             </button>

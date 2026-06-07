@@ -1,7 +1,3 @@
-'use client'
-
-import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, CubeIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-
 interface InventoryStatsProps {
   totalItems: number
   inStock: number
@@ -10,55 +6,22 @@ interface InventoryStatsProps {
 }
 
 export default function InventoryStats({ totalItems, inStock, lowStock, outOfStock }: InventoryStatsProps) {
+  const cards = [
+    { label: 'Total Items', value: totalItems, helper: 'Tracked inventory items', className: 'border-gray-200 bg-white' },
+    { label: 'In Stock', value: inStock, helper: 'Above reorder level', className: 'border-[#BFEF75] bg-[#F6FFE8]' },
+    { label: 'Low Stock', value: lowStock, helper: 'At or below reorder level', className: 'border-[#FFE58A] bg-[#FFF9D7]' },
+    { label: 'Critical', value: outOfStock, helper: 'Out of stock items', className: 'border-[#FFC9C9] bg-[#FFF1F1]' },
+  ]
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mt-4 md:mt-6">
-      <div className="bg-white rounded-2xl p-3 md:p-4 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs md:text-sm text-gray-500 mb-1">Total Items</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{totalItems}</p>
-          </div>
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-            <CubeIcon className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl p-3 md:p-4 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs md:text-sm text-gray-500 mb-1">In Stock</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{inStock}</p>
-          </div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#B2FF5E' }}>
-            <ArrowTrendingUpIcon className="w-5 h-5 md:w-6 md:h-6 text-gray-900" />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl p-3 md:p-4 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs md:text-sm text-gray-500 mb-1">Low Stock</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{lowStock}</p>
-          </div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFE52A' }}>
-            <ArrowTrendingDownIcon className="w-5 h-5 md:w-6 md:h-6 text-gray-900" />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl p-3 md:p-4 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs md:text-sm text-gray-500 mb-1">Out of Stock</p>
-            <p className="text-xl md:text-2xl font-bold text-gray-900">{outOfStock}</p>
-          </div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FF6859' }}>
-            <ExclamationTriangleIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-          </div>
-        </div>
-      </div>
+    <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
+      {cards.map((card) => (
+        <section key={card.label} className={`rounded-2xl border p-4 shadow-sm ${card.className}`}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{card.label}</p>
+          <p className="mt-3 text-2xl font-bold text-gray-950">{card.value}</p>
+          <p className="mt-2 text-sm leading-5 text-gray-600">{card.helper}</p>
+        </section>
+      ))}
     </div>
   )
 }

@@ -14,12 +14,12 @@ function OwnerDashboardContent() {
     }
 
     if (currentUser.role === "staff") {
-      window.location.href = "/staff/dashboard";
+      window.location.href = "/staff/attendance";
       return;
     }
 
     if (currentUser.role === "manager") {
-      window.location.href = "/manager/dashboard";
+      window.location.href = "/manager/menu";
     }
   }, []);
 

@@ -43,6 +43,64 @@ const hasBasicMetricContradiction = (
   return false;
 };
 
+const unsupportedMenuExamples = [
+  "pastry",
+  "pastries",
+  "dessert",
+  "desserts",
+  "sandwich",
+  "sandwiches",
+  "snack",
+  "snacks",
+  "cake",
+  "cakes",
+  "cookie",
+  "cookies",
+];
+
+const replaceUnsupportedMenuExamples = (
+  text: string,
+  snapshotText: string,
+) => {
+  let result = text;
+
+  unsupportedMenuExamples.forEach((example) => {
+    if (snapshotText.includes(example)) return;
+
+    const replacement = example.endsWith("s")
+      ? "available add-ons"
+      : "an available add-on";
+
+    result = result.replace(
+      new RegExp(`\\b(?:a|an|the)?\\s*${example}\\b`, "gi"),
+      replacement,
+    );
+  });
+
+  return result;
+};
+
+const sanitizeUnsupportedMenuExamples = (
+  insight: AIInsight,
+  snapshot: Record<string, unknown>,
+): AIInsight => {
+  const snapshotText = JSON.stringify(snapshot).toLowerCase();
+
+  return {
+    ...insight,
+    title: replaceUnsupportedMenuExamples(insight.title, snapshotText),
+    problem: replaceUnsupportedMenuExamples(insight.problem, snapshotText),
+    recommendation: replaceUnsupportedMenuExamples(
+      insight.recommendation,
+      snapshotText,
+    ),
+    expectedImpact: replaceUnsupportedMenuExamples(
+      insight.expectedImpact,
+      snapshotText,
+    ),
+  };
+};
+
 const buildAnchoredProblem = (issue: RecommendationAllowedIssue) =>
   `${issue.problem} ${issue.evidence.join(" ")}`;
 
@@ -52,13 +110,9 @@ const anchorInsightToIssue = (
 ): AIInsight => ({
   ...insight,
   id: issue.id,
-  title: issue.title,
   priority: issue.priority,
   confidence: issue.confidence,
-  problem: buildAnchoredProblem(issue),
   evidence: issue.evidence,
-  recommendation: issue.recommendationHint,
-  expectedImpact: issue.expectedImpact,
 });
 
 export function validateAllowedIssueInsights(
@@ -78,6 +132,7 @@ export function validateAllowedIssueInsights(
       return issue ? anchorInsightToIssue(insight, issue) : null;
     })
     .filter((insight): insight is AIInsight => Boolean(insight))
+    .map((insight) => sanitizeUnsupportedMenuExamples(insight, snapshot))
     .filter((insight) => !hasBasicMetricContradiction(insight, metrics))
     .slice(0, 5);
 }
@@ -101,6 +156,7 @@ export function buildDeterministicIssueFallback(
     inventory: { label: "Review Inventory", href: "/owner/dashboard?tab=inventory" },
     staff: { label: "Review Staff", href: "/owner/dashboard?tab=staff" },
     operations: { label: "Review Operations", href: "/owner/dashboard?tab=operations" },
+    activity_log: { label: "Review Activity Log", href: "/owner/activitylog" },
   };
   const action = actionByCategory[category];
 

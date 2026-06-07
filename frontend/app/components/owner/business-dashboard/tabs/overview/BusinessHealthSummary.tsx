@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { StandardModal } from "@/app/components/shared";
+import { useLanguage, type TranslationKey } from "@/app/components/shared/i18n";
 import { OWNER_CHART_COLORS, OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { formatCurrency } from "../shared/dashboardUtils";
 import { buildBusinessHealth, clampScore } from "./overviewLogic";
@@ -15,6 +16,7 @@ type DriverDetail = {
   key: DriverKey;
   label: string;
   score: number | null;
+  rawStatus: string;
   status: string;
   summary: string;
   metrics: Array<{ label: string; value: string; read: string }>;
@@ -72,47 +74,89 @@ const getGaugeGradient = (status: string) => {
   return [HEALTH_COLORS.neutralSoft, HEALTH_COLORS.neutral] as const;
 };
 
-const formatScore = (score: number | null) => {
-  return score === null ? "No Data" : `${Math.round(score)}`;
+
+const translateStatus = (status: string, t: (key: TranslationKey, values?: Record<string, string | number>) => string) => {
+  const key = status.toLowerCase().replace(/\\s+/g, "");
+  const statusKeys: Record<string, TranslationKey> = {
+    healthy: "owner.health.status.healthy",
+    watch: "owner.health.status.watch",
+    lowdata: "owner.health.status.lowData",
+    needsattention: "owner.health.status.needsAttention",
+    good: "owner.health.status.good",
+    reliable: "owner.health.status.reliable",
+    stable: "owner.health.status.stable",
+    moderate: "owner.health.status.moderate",
+    risk: "owner.health.status.risk",
+    nosignal: "owner.health.status.noSignal",
+  };
+  return statusKeys[key] ? t(statusKeys[key]) : status;
 };
 
-const formatPercent = (value: number | null, signed = false) => {
-  if (value === null) return "No data";
+const formatPercent = (
+  value: number | null,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+  signed = false,
+) => {
+  if (value === null) return t("owner.health.noData");
   const prefix = signed && value >= 0 ? "+" : "";
   return `${prefix}${value.toFixed(1)}%`;
 };
 
-const formatOptionalCurrency = (value: number | null) => {
-  return value === null ? "No data" : formatCurrency(value);
+const formatOptionalCurrency = (
+  value: number | null,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) => {
+  return value === null ? t("owner.health.noData") : formatCurrency(value);
 };
 
-const describeGrowth = (value: number | null) => {
-  if (value === null) return "No comparison data";
-  if (value > 5) return "Improving";
-  if (value < -5) return "Declining";
-  return "Flat movement";
+const describeGrowth = (
+  value: number | null,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) => {
+  if (value === null) return t("owner.health.noComparisonData");
+  if (value > 5) return t("owner.health.improving");
+  if (value < -5) return t("owner.health.declining");
+  return t("owner.health.flatMovement");
 };
 
-const describePercentLevel = (value: number | null, healthy: number) => {
-  if (value === null) return "No financial data";
-  return value >= healthy ? "Healthy level" : "Needs review";
+const describePercentLevel = (
+  value: number | null,
+  healthy: number,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) => {
+  if (value === null) return t("owner.health.noFinancialData");
+  return value >= healthy ? t("owner.health.healthyLevel") : t("owner.health.needsReview");
 };
 
-const describeCompletionRate = (value: number | null) => {
-  if (value === null) return "No order data";
-  if (value >= 95) return "Clean completion flow";
-  if (value >= 80) return "Some order leakage";
-  return "Completion needs attention";
+const describeCompletionRate = (
+  value: number | null,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) => {
+  if (value === null) return t("owner.health.noOrderData");
+  if (value >= 95) return t("owner.health.cleanCompletionFlow");
+  if (value >= 80) return t("owner.health.someOrderLeakage");
+  return t("owner.health.completionNeedsAttention");
 };
 
-const describeCurrencySignal = (value: number | null) => {
-  if (value === null) return "No financial data";
-  if (value > 0) return "Positive estimate";
-  if (value < 0) return "Negative estimate";
-  return "Break-even";
+const describeCurrencySignal = (
+  value: number | null,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+) => {
+  if (value === null) return t("owner.health.noFinancialData");
+  if (value > 0) return t("owner.health.positiveEstimate");
+  if (value < 0) return t("owner.health.negativeEstimate");
+  return t("owner.health.breakEven");
 };
 
-function ScoreGauge({ health, compact = false }: { health: Health; compact?: boolean }) {
+function ScoreGauge({
+  health,
+  compact = false,
+  t,
+}: {
+  health: Health;
+  compact?: boolean;
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string;
+}) {
   const score = clampScore(health.score);
   const gaugeData = [
     { name: "Score", value: score },
@@ -152,96 +196,97 @@ function ScoreGauge({ health, compact = false }: { health: Health; compact?: boo
         </p>
         <p className="mt-1 text-sm font-bold text-gray-500">/ 100</p>
         <span className={`mt-3 rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(health.status)}`}>
-          {health.status}
+          {translateStatus(health.status, t)}
         </span>
       </div>
     </div>
   );
 }
 
-const buildDriverDetails = (health: Health): DriverDetail[] => [
+const buildDriverDetails = (
+  health: Health,
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+): DriverDetail[] => [
   {
     key: "demand",
-    label: "Demand",
+    label: t("owner.health.demand"),
     score: health.demandScore,
-    status: health.labels.demand,
-    summary:
-      "Checks whether today is gaining enough revenue and order volume versus the comparison period.",
+    rawStatus: health.labels.demand,
+    status: translateStatus(health.labels.demand, t),
+    summary: t("owner.health.demandSummary"),
     metrics: [
       {
-        label: "Revenue Growth",
-        value: formatPercent(health.revenueGrowth, true),
-        read: describeGrowth(health.revenueGrowth),
+        label: t("owner.health.revenueGrowth"),
+        value: formatPercent(health.revenueGrowth, t, true),
+        read: describeGrowth(health.revenueGrowth, t),
       },
       {
-        label: "Order Growth",
-        value: formatPercent(health.orderGrowth, true),
-        read: describeGrowth(health.orderGrowth),
+        label: t("owner.health.orderGrowth"),
+        value: formatPercent(health.orderGrowth, t, true),
+        read: describeGrowth(health.orderGrowth, t),
       },
     ],
   },
   {
     key: "transaction",
-    label: "Transaction Quality",
+    label: t("owner.health.transactionQuality"),
     score: health.transactionQualityScore,
-    status: health.labels.transactionQuality,
-    summary:
-      "Checks whether each valid order carries enough value through basket size and AOV movement.",
+    rawStatus: health.labels.transactionQuality,
+    status: translateStatus(health.labels.transactionQuality, t),
+    summary: t("owner.health.transactionSummary"),
     metrics: [
       {
         label: "AOV",
-        value: formatOptionalCurrency(health.averageOrderValue),
-        read: "Average value per valid order",
+        value: formatOptionalCurrency(health.averageOrderValue, t),
+        read: t("owner.health.averageValuePerOrder"),
       },
       {
-        label: "AOV Growth",
-        value: formatPercent(health.aovGrowth, true),
-        read: describeGrowth(health.aovGrowth),
+        label: t("owner.health.aovGrowth"),
+        value: formatPercent(health.aovGrowth, t, true),
+        read: describeGrowth(health.aovGrowth, t),
       },
     ],
   },
   {
     key: "profit",
-    label: "Profit Quality",
+    label: t("owner.health.profitQuality"),
     score: health.profitQualityScore,
-    status: health.labels.profitQuality,
-    summary:
-      "Checks whether sales still convert into estimated profit after food cost, discount, and operating cost.",
+    rawStatus: health.labels.profitQuality,
+    status: translateStatus(health.labels.profitQuality, t),
+    summary: t("owner.health.profitSummary"),
     metrics: [
       {
-        label: "Margin",
-        value: formatPercent(health.netProfitMargin),
-        read: describePercentLevel(health.netProfitMargin, 20),
+        label: t("owner.health.margin"),
+        value: formatPercent(health.netProfitMargin, t),
+        read: describePercentLevel(health.netProfitMargin, 20, t),
       },
       {
-        label: "Net Profit",
-        value: formatOptionalCurrency(health.netProfitEstimate),
-        read: describeCurrencySignal(health.netProfitEstimate),
+        label: t("owner.health.netProfit"),
+        value: formatOptionalCurrency(health.netProfitEstimate, t),
+        read: describeCurrencySignal(health.netProfitEstimate, t),
       },
     ],
   },
   {
     key: "operations",
-    label: "Operational Flow",
+    label: t("owner.health.operationalFlow"),
     score: health.operationalFlowScore,
-    status: health.labels.operationalFlow,
-    summary:
-      "Checks whether orders are completed cleanly and service timing has enough usable timestamps.",
+    rawStatus: health.labels.operationalFlow,
+    status: translateStatus(health.labels.operationalFlow, t),
+    summary: t("owner.health.operationsSummary"),
     metrics: [
       {
-        label: "Completion",
-        value: formatPercent(health.completionRate),
-        read: describeCompletionRate(health.completionRate),
+        label: t("owner.health.completion"),
+        value: formatPercent(health.completionRate, t),
+        read: describeCompletionRate(health.completionRate, t),
       },
       {
-        label: "Service Time",
-        value: health.serviceMinutes === null ? "No samples" : `${health.serviceMinutes.toFixed(1)} min`,
+        label: t("owner.health.serviceTime"),
+        value: health.serviceMinutes === null ? t("owner.health.noSamples") : t("owner.staff.minutesShort", { value: health.serviceMinutes.toFixed(1) }),
         read:
           health.serviceMinutes === null
-            ? "No timestamp samples"
-            : `${health.serviceSampleSize} timed order${
-                health.serviceSampleSize === 1 ? "" : "s"
-              }`,
+            ? t("owner.health.noTimestampSamples")
+            : t("owner.health.timedOrders", { count: health.serviceSampleSize }),
       },
     ],
   },
@@ -271,9 +316,17 @@ function DetailModal({
   health: Health;
   onClose: () => void;
 }) {
-  const drivers = buildDriverDetails(health);
+  const { t } = useLanguage();
+  const drivers = buildDriverDetails(health, t);
+  const weakestDriverKey = (() => {
+    if (health.weakestDriver === "Demand") return "demand";
+    if (health.weakestDriver === "Transaction Quality") return "transaction";
+    if (health.weakestDriver === "Profit Quality") return "profit";
+    if (health.weakestDriver === "Operational Flow") return "operations";
+    return "demand";
+  })();
   const initialDriver =
-    drivers.find((driver) => driver.label === health.weakestDriver) ?? drivers[0];
+    drivers.find((driver) => driver.key === weakestDriverKey) ?? drivers[0];
   const [activeDriverKey, setActiveDriverKey] = useState<DriverKey>(
     initialDriver.key,
   );
@@ -283,8 +336,8 @@ function DetailModal({
   return (
     <StandardModal
       isOpen
-      title="Business Health Details"
-      description="Diagnose which driver is moving the store health score."
+      title={t("owner.health.details")}
+      description={t("owner.health.detailsDescription")}
       maxWidthClassName="max-w-lg"
       onClose={onClose}
     >
@@ -312,11 +365,11 @@ function DetailModal({
           })}
         </nav>
 
-        <section className="min-h-[300px] rounded-lg border border-gray-200 bg-white p-5">
+        <section className="min-h-75 rounded-lg border border-gray-200 bg-white p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                Selected Driver
+                {t("owner.health.selectedDriver")}
               </p>
               <h4 className="mt-1 text-xl font-bold text-gray-950">
                 {activeDriver.label}
@@ -326,7 +379,7 @@ function DetailModal({
               </p>
             </div>
             <div className="shrink-0 sm:text-right">
-              <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(activeDriver.status)}`}>
+              <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(activeDriver.rawStatus)}`}>
                 {activeDriver.status}
               </span>
             </div>
@@ -338,9 +391,9 @@ function DetailModal({
 
           <div className="mt-5 overflow-hidden rounded-lg border border-gray-100">
             <div className="hidden gap-3 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 sm:grid sm:grid-cols-[1fr_110px_1fr]">
-              <span>Metric</span>
-              <span className="text-right">Value</span>
-              <span>Read</span>
+              <span>{t("owner.staff.metric")}</span>
+              <span className="text-right">{t("owner.staff.sheet.value")}</span>
+              <span>{t("owner.health.read")}</span>
             </div>
             {activeDriver.metrics.map((metric) => (
               <div
@@ -362,6 +415,7 @@ function DetailModal({
 }
 
 export default function BusinessHealthSummary({ health }: { health: Health }) {
+  const { t } = useLanguage();
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   return (
@@ -369,16 +423,16 @@ export default function BusinessHealthSummary({ health }: { health: Health }) {
       <button
         type="button"
         onClick={() => setDetailsOpen(true)}
-        className="flex min-h-[360px] w-full flex-col items-center justify-center overflow-hidden rounded-lg outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gray-900/10"
-        aria-label="Open business health details"
+        className="flex min-h-90 w-full flex-col items-center justify-center overflow-hidden rounded-lg outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gray-900/10"
+        aria-label={t("owner.health.openDetails")}
       >
         <div className="w-full max-w-sm">
           <div className="mb-2 flex items-center justify-between gap-3 px-2">
             <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              Health Gauge
+              {t("owner.health.gauge")}
             </p>
           </div>
-          <ScoreGauge health={health} />
+          <ScoreGauge health={health} t={t} />
         </div>
       </button>
 

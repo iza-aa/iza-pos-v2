@@ -28,10 +28,18 @@ STANDARISASI TABLE
 3. TR tidak menggunakan rounded
 4. Contoh Penerapan Table di Dashboard/owner
 5. bukan cuma “pakai table”, tapi pola visualnya harus sama: ada judul + deskripsi, header title-case, row zebra rapi, dan table tidak terasa seperti raw HTML. 
+6. Jika data > 10, footer table wajib muncul: kiri menampilkan field jumlah row per page default 10 dan total data, kanan menampilkan pagination.
+7. Jika data <= 10, footer dan pagination tidak perlu muncul.
 
 STANDARISASI DATE FILTER
 1. Menggunakan DateRangeFilter.tsx
 2. Di default ke Today
+
+STANDARISASI EXPORT BUTTON
+1. Menggunakan `ExportButton.tsx` dari `@/app/components/shared`.
+2. Export button selalu memakai tombol utama gelap `bg-gray-900`, icon download, label `Export`, dan dropdown `rounded-lg`.
+3. Item export memakai label jelas seperti `Export as Excel`, `Export as PDF`, `Download Excel`, atau `Download PDF`.
+4. Jangan membuat dropdown export custom per halaman.
 
 STANDARISASI TOAST
 1. Menggunakan `showSuccess`, `showError`, `showWarning`, `showInfo` dari `@/lib/services/errorHandling`.

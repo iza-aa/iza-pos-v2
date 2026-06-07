@@ -4,6 +4,10 @@ import {
   buildRecommendationPeriodContext,
   isDateInPeriod,
 } from "./periodService";
+import {
+  applyInsightOrderCorrections,
+  type InsightOrderCorrectionRow,
+} from "./orderCorrectionUtils";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
@@ -470,7 +474,7 @@ export async function buildOperationsRecommendationSnapshot(
   insightPeriod?: OwnerInsightPeriod,
 ): Promise<RecommendationSnapshot> {
   const period = buildRecommendationPeriodContext(insightPeriod);
-  const [ordersResult, orderItemsResult] = await Promise.all([
+  const [ordersResult, orderItemsResult, orderCorrectionsResult] = await Promise.all([
     supabase
       .from("orders")
       .select(
@@ -478,6 +482,7 @@ export async function buildOperationsRecommendationSnapshot(
       )
       .order("created_at", { ascending: true }),
     supabase.from("order_items").select("order_id,ready_at,served_at"),
+    supabase.from("order_corrections").select("id,order_id,status,physical_status,note"),
   ]);
 
   if (ordersResult.error) {
@@ -492,7 +497,16 @@ export async function buildOperationsRecommendationSnapshot(
     );
   }
 
-  const orders = (ordersResult.data ?? []) as OperationOrderRow[];
+  if (orderCorrectionsResult.error) {
+    throw new Error(
+      `Owner AI could not read operation order corrections: ${orderCorrectionsResult.error.message}`,
+    );
+  }
+
+  const orders = applyInsightOrderCorrections(
+    (ordersResult.data ?? []) as OperationOrderRow[],
+    (orderCorrectionsResult.data ?? []) as InsightOrderCorrectionRow[],
+  );
   const orderItems = (orderItemsResult.data ?? []) as OperationOrderItemRow[];
   const selectedOrders = orders.filter((order) =>
     getOrderDateCandidates(order).some((date) => isDateInPeriod(date, period.selected)),

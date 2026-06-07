@@ -1,6 +1,7 @@
 import type { DateRangeValue } from "@/app/components/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/config/supabaseClient";
+import { convertQuantity } from "@/lib/utils/unitConversion";
 import {
   formatJakartaBusinessDate,
   formatJakartaBusinessTime,
@@ -13,7 +14,6 @@ import type {
   BookkeepingEntry,
   BookkeepingException,
   BookkeepingExpense,
-  BookkeepingReport,
   MenuMarginRow,
   PaymentBreakdownRow,
   ShiftClosingRow,
@@ -40,6 +40,19 @@ type OrderRow = {
   tax?: number | string | null;
   total?: number | string | null;
   order_items?: OrderItemRow[] | null;
+  original_status?: string | null;
+  correction_id?: string | null;
+  correction_status?: string | null;
+  correction_physical_status?: string | null;
+  correction_note?: string | null;
+};
+
+type OrderCorrectionRow = {
+  id: string;
+  order_id?: string | null;
+  status?: string | null;
+  physical_status?: string | null;
+  note?: string | null;
 };
 
 type ShiftRow = {
@@ -73,8 +86,24 @@ type UsageDetailRow = {
 type InventoryItemRow = {
   id: string;
   name?: string | null;
+  unit?: string | null;
   cost_per_unit?: number | string | null;
   price_per_unit?: number | string | null;
+};
+
+type InventoryBatchRow = {
+  id: string;
+  inventory_item_id?: string | null;
+  batch_number?: string | null;
+  supplier?: string | null;
+  received_at?: string | null;
+  expiry_date?: string | null;
+  quantity_received?: number | string | null;
+  quantity_remaining?: number | string | null;
+  unit?: string | null;
+  unit_cost?: number | string | null;
+  source_transaction_id?: string | null;
+  receipt_url?: string | null;
 };
 
 type RecipeRow = {
@@ -90,17 +119,10 @@ type RecipeIngredientRow = {
   ingredient_name?: string | null;
   quantity_needed?: number | string | null;
   unit?: string | null;
+  costing_mode?: RecipeCostingMode | null;
 };
 
-type ArchiveRow = {
-  archive_id?: string | null;
-  generated_at?: string | null;
-  archive_type?: string | null;
-  period?: {
-    start?: string;
-    end?: string;
-  } | null;
-};
+type RecipeCostingMode = "deduct_from_pos" | "cost_estimate_only" | "kitchen_overhead";
 
 type ExpenseRow = {
   id: string;
@@ -113,9 +135,45 @@ type ExpenseRow = {
   note?: string | null;
 };
 
+type KitchenStationMovementRow = {
+  id: string;
+  inventory_item_id?: string | null;
+  movement_type?: string | null;
+  quantity?: number | string | null;
+  unit?: string | null;
+  total_cost?: number | string | null;
+  business_date?: string | null;
+  shift_name?: string | null;
+  notes?: string | null;
+  created_by_name?: string | null;
+  created_at?: string | null;
+};
+
 const toNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isMissingKitchenStationTableError = (error: { message?: string; code?: string } | null | undefined) => {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    message.includes("kitchen_station_movements") ||
+    message.includes("could not find the table")
+  );
+};
+
+const isMissingInventoryBatchTableError = (error: { message?: string; code?: string } | null | undefined) => {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    message.includes("inventory_batches") ||
+    message.includes("could not find the table")
+  );
 };
 
 const toDateTimeStart = toJakartaDateTimeStart;
@@ -127,11 +185,34 @@ const isValidOrder = (order: OrderRow) => {
   const status = String(order.status || "").toLowerCase();
   const paymentStatus = String(order.payment_status || "").toLowerCase();
 
-  return status !== "cancelled" && (paymentStatus === "paid" || toNumber(order.total) > 0);
+  return !["cancelled", "canceled", "void", "refunded"].includes(status) && (paymentStatus === "paid" || toNumber(order.total) > 0);
 };
 
 const isCancelledOrder = (order: OrderRow) => {
-  return String(order.status || "").toLowerCase() === "cancelled";
+  return ["cancelled", "canceled", "void", "refunded"].includes(String(order.status || "").toLowerCase());
+};
+
+const applyOrderCorrections = (orders: OrderRow[], corrections: OrderCorrectionRow[]) => {
+  const correctionByOrderId = new Map(
+    corrections
+      .filter((correction) => correction.order_id)
+      .map((correction) => [correction.order_id as string, correction]),
+  );
+
+  return orders.map((order) => {
+    const correction = correctionByOrderId.get(order.id);
+    if (!correction) return order;
+
+    return {
+      ...order,
+      original_status: order.status,
+      status: "cancelled",
+      correction_id: correction.id,
+      correction_status: correction.status ?? null,
+      correction_physical_status: correction.physical_status ?? null,
+      correction_note: correction.note ?? null,
+    };
+  });
 };
 
 const isOrderInShift = (order: OrderRow, shift: ShiftRow) => {
@@ -188,6 +269,10 @@ const getTransactionTimestamp = (transaction?: UsageTransactionRow) => {
 
 const getInventoryCost = (item?: InventoryItemRow) => {
   return toNumber(item?.cost_per_unit ?? item?.price_per_unit);
+};
+
+const getRecipeCostingMode = (ingredient: RecipeIngredientRow): RecipeCostingMode => {
+  return ingredient.costing_mode || "deduct_from_pos";
 };
 
 const normalizeName = (value: string | null | undefined) => {
@@ -298,17 +383,96 @@ const createExpenseEntries = (expenses: BookkeepingExpense[]): BookkeepingEntry[
   }));
 };
 
+const createKitchenBulkUsageEntries = (
+  movements: KitchenStationMovementRow[],
+  inventoryItems: InventoryItemRow[],
+): BookkeepingEntry[] => {
+  const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+
+  return movements
+    .filter((movement) => {
+      const type = String(movement.movement_type || "").toLowerCase();
+      return ["bulk_opened", "testing_usage", "waste", "adjustment", "closing_count"].includes(type);
+    })
+    .filter((movement) => toNumber(movement.total_cost) > 0)
+    .map((movement) => {
+      const rawMovementType = String(movement.movement_type || "").toLowerCase();
+      const movementType = rawMovementType.replaceAll("_", " ");
+      const quantityText = movement.quantity
+        ? `${toNumber(movement.quantity)} ${movement.unit || ""}`.trim()
+        : "";
+      const itemName = inventoryById.get(movement.inventory_item_id || "")?.name || "Kitchen item";
+      const sourceAction = `${itemName} ${movementType}${quantityText ? ` ${quantityText}` : ""}`;
+
+      return {
+        id: `${rawMovementType === "testing_usage" ? "quality-check" : "kitchen-bulk"}-${movement.id}`,
+        entryAt: movement.created_at || `${movement.business_date || ""}T12:00:00`,
+        businessDate: movement.business_date || formatBusinessDate(movement.created_at),
+        type: rawMovementType === "testing_usage" ? "quality_check_usage" : "kitchen_bulk_usage",
+        category: rawMovementType === "testing_usage" ? "Quality Check Usage" : "Kitchen Bulk Usage",
+        source: movement.shift_name ? `${sourceAction} - ${movement.shift_name}` : sourceAction,
+        sourceTable: "kitchen_station_movements",
+        sourceId: movement.id,
+        direction: "out",
+        amount: toNumber(movement.total_cost),
+        status: "posted",
+        note: [quantityText, movement.notes, movement.created_by_name ? `By ${movement.created_by_name}` : ""]
+          .filter(Boolean)
+          .join(" | "),
+      } satisfies BookkeepingEntry;
+    });
+};
+
 const createInventoryEntries = ({
   transactions,
   details,
   inventoryItems,
+  inventoryBatches,
 }: {
   transactions: UsageTransactionRow[];
   details: UsageDetailRow[];
   inventoryItems: InventoryItemRow[];
+  inventoryBatches: InventoryBatchRow[];
 }): BookkeepingEntry[] => {
   const transactionById = new Map(transactions.map((transaction) => [transaction.id, transaction]));
   const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+  const restockEntries = inventoryBatches
+    .filter((batch) => batch.source_transaction_id)
+    .map((batch) => {
+      const transaction = transactionById.get(batch.source_transaction_id || "");
+      const inventory = inventoryById.get(batch.inventory_item_id || "");
+      const quantityReceived = toNumber(batch.quantity_received);
+      const unitCost = toNumber(batch.unit_cost);
+      const amount = quantityReceived * unitCost;
+      const status = amount > 0 ? "posted" : "cost_data_needed";
+      const sourceTable = transaction ? "usage_transactions" : "inventory_batches";
+      const sourceId = transaction?.id || batch.id;
+      const sourceParts = [
+        transaction?.notes || `Restocked ${inventory?.name || "Inventory item"}`,
+        batch.supplier ? `Supplier: ${batch.supplier}` : "",
+        batch.batch_number ? `Batch: ${batch.batch_number}` : "",
+      ].filter(Boolean);
+
+      return {
+        id: `stock-purchase-${sourceTable}-${sourceId}`,
+        entryAt: transaction ? getTransactionTimestamp(transaction) : batch.received_at || "",
+        businessDate: formatBusinessDate(transaction ? getTransactionTimestamp(transaction) : batch.received_at),
+        type: "stock_purchase",
+        category: "Stock Purchase",
+        source: sourceParts.join(" | "),
+        sourceTable,
+        sourceId,
+        direction: "out",
+        amount,
+        status,
+        note: status === "cost_data_needed" ? "Batch unit cost is missing." : undefined,
+      } satisfies BookkeepingEntry;
+    });
+  const restockTransactionIdsWithBatch = new Set(
+    inventoryBatches
+      .map((batch) => batch.source_transaction_id)
+      .filter((id): id is string => Boolean(id)),
+  );
   const cogsByTransaction = new Map<string, {
     amount: number;
     hasMissingCost: boolean;
@@ -319,7 +483,8 @@ const createInventoryEntries = ({
     if (!transaction) return;
 
     const type = normalizeTransactionType(transaction);
-    if (type !== "sale" && type !== "restock") return;
+    if (type !== "sale" && type !== "restock" && type !== "testing_usage") return;
+    if (type === "restock" && restockTransactionIdsWithBatch.has(transaction.id)) return;
 
     const inventory = inventoryById.get(detail.inventory_item_id || "");
     const unitCost = getInventoryCost(inventory);
@@ -342,7 +507,7 @@ const createInventoryEntries = ({
     if (!transaction) return;
 
     const type = normalizeTransactionType(transaction);
-    if (type !== "sale" && type !== "restock") return;
+    if (type !== "sale" && type !== "restock" && type !== "testing_usage") return;
 
     const productKey = transaction.product_id || transaction.product_name || "unknown";
     const sourceKey = type === "sale" && transaction.order_id
@@ -350,8 +515,18 @@ const createInventoryEntries = ({
       : `${type}:${transactionId}`;
     const existing = entriesBySource.get(sourceKey);
     const direction = type === "restock" ? "out" : "out";
-    const entryType = type === "restock" ? "stock_purchase" : "cogs_estimate";
-    const category = type === "restock" ? "Stock Purchase" : "COGS Estimate";
+    const entryType =
+      type === "restock"
+        ? "stock_purchase"
+        : type === "testing_usage"
+          ? "quality_check_usage"
+          : "cogs_estimate";
+    const category =
+      type === "restock"
+        ? "Stock Purchase"
+        : type === "testing_usage"
+          ? "Quality Check Usage"
+          : "COGS Estimate";
     const status = transactionCogs.hasMissingCost || transactionCogs.amount <= 0
       ? "cost_data_needed"
       : "estimated";
@@ -367,9 +542,11 @@ const createInventoryEntries = ({
       category,
       source: transaction?.notes || (type === "restock"
         ? "Inventory Restock"
-        : transaction.order_id
-          ? `Auto-deduct from order #${transaction.order_id}`
-          : "Recipe Usage"),
+        : type === "testing_usage"
+          ? "Staff Testing Usage"
+          : transaction.order_id
+            ? `Auto-deduct from order #${transaction.order_id}`
+            : "Recipe Usage"),
       sourceTable: type === "sale" && transaction.order_id ? "orders" : "usage_transactions",
       sourceId: type === "sale" && transaction.order_id
         ? transaction.order_id
@@ -383,7 +560,7 @@ const createInventoryEntries = ({
     });
   });
 
-  return Array.from(entriesBySource.values());
+  return [...restockEntries, ...Array.from(entriesBySource.values())];
 };
 
 const buildActualUsageCogsByProduct = ({
@@ -612,6 +789,8 @@ const buildRecipeCostMaps = ({
 
       let hasMissingCost = false;
       const unitCogs = ingredients.reduce((sum, ingredient) => {
+        if (getRecipeCostingMode(ingredient) === "kitchen_overhead") return sum;
+
         const inventory = inventoryById.get(ingredient.inventory_item_id ?? "");
         const unitCost = getInventoryCost(inventory);
 
@@ -619,7 +798,13 @@ const buildRecipeCostMaps = ({
           hasMissingCost = true;
         }
 
-        return sum + toNumber(ingredient.quantity_needed) * unitCost;
+        const quantityInInventoryUnit = convertQuantity(
+          toNumber(ingredient.quantity_needed),
+          ingredient.unit,
+          inventory?.unit,
+        );
+
+        return sum + quantityInInventoryUnit * unitCost;
       }, 0);
 
       if (hasMissingCost || unitCogs <= 0) {
@@ -776,7 +961,6 @@ export const buildShiftClosingsFromOrders = (
           const key = `${businessDate}-${shift.id}`;
           const shiftValidOrders = validOrdersByShift.get(key) ?? [];
           const shiftCancelledOrders = cancelledOrdersByShift.get(key) ?? [];
-          if (shiftValidOrders.length === 0 && shiftCancelledOrders.length === 0) continue;
 
           const grossSales = shiftValidOrders.reduce((sum, order) => sum + toNumber(order.subtotal || order.total), 0);
           const discountTotal = shiftValidOrders.reduce((sum, order) => sum + toNumber(order.discount), 0);
@@ -798,7 +982,7 @@ export const buildShiftClosingsFromOrders = (
             ...drawer,
             nonCashSales: Math.max(netSales - cashExpected, 0),
             cancelledCount: shiftCancelledOrders.length,
-            status: "needs_review",
+            status: shiftValidOrders.length > 0 || shiftCancelledOrders.length > 0 ? "needs_review" : "draft",
           });
         }
 
@@ -835,19 +1019,6 @@ export const buildShiftClosingsFromOrders = (
   ];
 };
 
-const buildReports = (archives: ArchiveRow[]): BookkeepingReport[] => {
-  return archives.map((archive, index) => ({
-    id: archive.archive_id || `archive-${index}`,
-    name: "Generated Archive Report",
-    type: archive.archive_type || "Archive",
-    period: archive.period?.start && archive.period?.end
-      ? `${archive.period.start} to ${archive.period.end}`
-      : "Stored period",
-    generatedAt: archive.generated_at || "",
-    status: "generated",
-  }));
-};
-
 const buildExpenseRows = (expenses: ExpenseRow[]): BookkeepingExpense[] => {
   return expenses.map((expense) => ({
     id: expense.id,
@@ -876,11 +1047,13 @@ export async function loadBookkeepingDashboardDataFromClient(
     usageTransactionsResult,
     usageDetailsResult,
     inventoryResult,
+    inventoryBatchesResult,
     recipesResult,
     recipeIngredientsResult,
     expensesResult,
-    archivesResult,
     shiftsResult,
+    orderCorrectionsResult,
+    kitchenMovementsResult,
   ] =
     await Promise.all([
       db
@@ -921,12 +1094,18 @@ export async function loadBookkeepingDashboardDataFromClient(
         .from("inventory_items")
         .select("*"),
       db
+        .from("inventory_batches")
+        .select("id, inventory_item_id, batch_number, supplier, received_at, expiry_date, quantity_received, quantity_remaining, unit, unit_cost, source_transaction_id, receipt_url")
+        .gte("received_at", toDateTimeStart(dateRange.startDate))
+        .lte("received_at", toDateTimeEnd(dateRange.endDate))
+        .order("received_at", { ascending: false }),
+      db
         .from("recipes")
         .select("id, product_id, product_name, recipe_type")
         .eq("recipe_type", "base"),
       db
         .from("recipe_ingredients")
-        .select("recipe_id, inventory_item_id, ingredient_name, quantity_needed, unit"),
+        .select("recipe_id, inventory_item_id, ingredient_name, quantity_needed, unit, costing_mode"),
       db
         .from("bookkeeping_expenses")
         .select("id, expense_date, category, amount, payment_method, vendor, receipt_url, note")
@@ -934,43 +1113,64 @@ export async function loadBookkeepingDashboardDataFromClient(
         .lte("expense_date", dateRange.endDate)
         .order("expense_date", { ascending: false }),
       db
-        .from("archives")
-        .select("archive_id, generated_at, archive_type, period")
-        .order("generated_at", { ascending: false })
-        .limit(8),
-      db
         .from("shifts")
         .select("id, shift_name, start_time, end_time, is_active")
         .order("start_time", { ascending: true }),
+      db
+        .from("order_corrections")
+        .select("id, order_id, status, physical_status, note"),
+      db
+        .from("kitchen_station_movements")
+        .select("id, inventory_item_id, movement_type, quantity, unit, total_cost, business_date, shift_name, notes, created_by_name, created_at")
+        .gte("business_date", dateRange.startDate)
+        .lte("business_date", dateRange.endDate)
+        .order("created_at", { ascending: false }),
     ]);
 
   if (ordersResult.error) throw ordersResult.error;
   if (usageTransactionsResult.error) throw usageTransactionsResult.error;
   if (usageDetailsResult.error) throw usageDetailsResult.error;
   if (inventoryResult.error) throw inventoryResult.error;
+  if (inventoryBatchesResult.error && !isMissingInventoryBatchTableError(inventoryBatchesResult.error)) {
+    throw inventoryBatchesResult.error;
+  }
   if (recipesResult.error) throw recipesResult.error;
   if (recipeIngredientsResult.error) throw recipeIngredientsResult.error;
   if (expensesResult.error) throw expensesResult.error;
+  if (orderCorrectionsResult.error) throw orderCorrectionsResult.error;
+  if (kitchenMovementsResult.error && !isMissingKitchenStationTableError(kitchenMovementsResult.error)) {
+    throw kitchenMovementsResult.error;
+  }
 
-  const orders = (ordersResult.data || []) as OrderRow[];
+  const orders = applyOrderCorrections(
+    (ordersResult.data || []) as OrderRow[],
+    (orderCorrectionsResult.data || []) as OrderCorrectionRow[],
+  );
   const usageTransactions = (usageTransactionsResult.data || []) as UsageTransactionRow[];
   const usageDetails = (usageDetailsResult.data || []) as UsageDetailRow[];
   const inventoryItems = (inventoryResult.data || []) as InventoryItemRow[];
+  const inventoryBatches = inventoryBatchesResult.error
+    ? []
+    : ((inventoryBatchesResult.data || []) as InventoryBatchRow[]);
   const recipes = (recipesResult.data || []) as RecipeRow[];
   const recipeIngredients = (recipeIngredientsResult.data || []) as RecipeIngredientRow[];
   const expenses = buildExpenseRows((expensesResult.data || []) as ExpenseRow[]);
-  const archives = archivesResult.error ? [] : ((archivesResult.data || []) as ArchiveRow[]);
   const shifts = shiftsResult.error ? [] : ((shiftsResult.data || []) as ShiftRow[]);
+  const kitchenMovements = kitchenMovementsResult.error
+    ? []
+    : ((kitchenMovementsResult.data || []) as KitchenStationMovementRow[]);
 
   const salesEntries = createSalesEntries(orders);
   const taxEntries = createTaxEntries(orders);
   const discountEntries = createDiscountEntries(orders);
   const cancellationEntries = createCancellationEntries(orders);
   const expenseEntries = createExpenseEntries(expenses);
+  const kitchenBulkUsageEntries = createKitchenBulkUsageEntries(kitchenMovements, inventoryItems);
   const inventoryEntries = createInventoryEntries({
     transactions: usageTransactions,
     details: usageDetails,
     inventoryItems,
+    inventoryBatches,
   });
 
   const entries = [
@@ -979,11 +1179,18 @@ export async function loadBookkeepingDashboardDataFromClient(
     ...discountEntries,
     ...cancellationEntries,
     ...expenseEntries,
+    ...kitchenBulkUsageEntries,
     ...inventoryEntries,
   ].sort((left, right) => right.entryAt.localeCompare(left.entryAt));
 
   const usageCogsEstimate = inventoryEntries
     .filter((entry) => entry.type === "cogs_estimate" && entry.status !== "cost_data_needed")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const qualityCheckUsageCost = [...inventoryEntries, ...kitchenBulkUsageEntries]
+    .filter((entry) => entry.type === "quality_check_usage" && entry.status !== "cost_data_needed")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const kitchenBulkCogs = kitchenBulkUsageEntries
+    .filter((entry) => entry.type === "kitchen_bulk_usage")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const hasCogsGaps = inventoryEntries.some((entry) => entry.status === "cost_data_needed");
 
@@ -1032,7 +1239,7 @@ export async function loadBookkeepingDashboardDataFromClient(
     0,
   );
   const hasMenuCostGaps = menuMargins.some((row) => row.status !== "ready");
-  const cogsEstimate = recipeCogsEstimate > 0 ? recipeCogsEstimate : usageCogsEstimate;
+  const cogsEstimate = (recipeCogsEstimate > 0 ? recipeCogsEstimate : usageCogsEstimate) + kitchenBulkCogs + qualityCheckUsageCost;
   const estimatedCogs = hasCogsGaps || hasMenuCostGaps || cogsEstimate <= 0 ? null : cogsEstimate;
   const grossProfit = estimatedCogs === null ? null : netSales - estimatedCogs;
   const operatingExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -1062,7 +1269,7 @@ export async function loadBookkeepingDashboardDataFromClient(
     entries,
     expenses,
     exceptions,
-    reports: buildReports(archives),
+    reports: [],
     menuMargins,
     shiftClosings: buildShiftClosingsFromOrders(orders, dateRange, shifts),
     dailyClosing: null,

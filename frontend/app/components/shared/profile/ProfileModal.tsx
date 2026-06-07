@@ -8,6 +8,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { getCurrentUser } from "@/lib/utils";
+import { useLanguage } from "../i18n";
 
 type UserRole = "owner" | "manager" | "staff";
 
@@ -22,13 +23,6 @@ type CurrentUser = {
   staff_code?: string | null;
   staff_type?: string | null;
   profile_picture?: string | null;
-};
-
-const getRoleLabel = (role?: string | null) => {
-  if (role === "owner") return "Owner";
-  if (role === "manager") return "Manager";
-  if (role === "staff") return "Staff";
-  return "User";
 };
 
 const getProfilePath = (role?: string | null) => {
@@ -67,6 +61,7 @@ const readUserFromStorage = (): CurrentUser => {
 
 export default function ProfileModal({ onClose }: ProfileModalProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [user, setUser] = useState<CurrentUser>({});
 
   useEffect(() => {
@@ -75,7 +70,9 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
   const displayName = user.name || "User";
   const role = (user.role || "staff") as UserRole;
-  const roleLabel = getRoleLabel(role);
+  const roleLabel = role === "owner" || role === "manager" || role === "staff"
+    ? t(`role.${role}` as "role.owner" | "role.manager" | "role.staff")
+    : t("role.user");
   const profilePath = getProfilePath(role);
   const avatarSrc = user.profile_picture || getFallbackAvatar(displayName);
 
@@ -112,7 +109,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
       <button
         type="button"
         className="absolute inset-0 cursor-default bg-black/10"
-        aria-label="Tutup profile menu"
+        aria-label={t("profile.open")}
         onClick={onClose}
       />
 
@@ -137,7 +134,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-            aria-label="Tutup"
+            aria-label={t("common.close")}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -153,8 +150,8 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
               <UserCircleIcon className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-gray-900">Kelola Profil</span>
-              <span className="block text-xs text-gray-500">Edit data pribadi dan photo profil</span>
+              <span className="block text-sm font-semibold text-gray-900">{t("profile.manage")}</span>
+              <span className="block text-xs text-gray-500">{t("profile.manageDescription")}</span>
             </span>
           </button>
 
@@ -167,7 +164,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
           >
             <ArrowRightOnRectangleIcon className="h-5 w-5" />
-            Logout
+            {t("profile.logout")}
           </button>
         </div>
       </div>

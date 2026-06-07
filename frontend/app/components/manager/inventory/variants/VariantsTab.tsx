@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useSessionValidation } from '@/lib/hooks/useSessionValidation'
 import {
-  EyeIcon,
-  EyeSlashIcon,
   PencilIcon,
   PlusIcon,
   TrashIcon,
@@ -107,7 +105,6 @@ export default function VariantsTab() {
   const [showAddGroupModal, setShowAddGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState<VariantGroup | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<VariantGroup | null>(null)
-  const [showInfoCards, setShowInfoCards] = useState(true)
   const [loading, setLoading] = useState(true)
 
   const fetchVariantGroups = async () => {
@@ -140,13 +137,6 @@ export default function VariantsTab() {
       setLoading(false)
     }
   }
-
-  useEffect(() => {
-    const saved = localStorage.getItem('inventory_show_stats')
-    if (saved !== null) {
-      setShowInfoCards(JSON.parse(saved))
-    }
-  }, [])
 
   useEffect(() => {
     void fetchVariantGroups()
@@ -322,10 +312,9 @@ export default function VariantsTab() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      {/* Header + Stats (Fixed) */}
-      <section className="shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+    <div className="h-full overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
+      <section>
+        <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg md:text-xl font-bold text-gray-900">
               Menu Variants Management
@@ -344,32 +333,14 @@ export default function VariantsTab() {
                 placeholder="Search variant groups..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 md:pl-10 lg:w-64"
               />
             </div>
-
-            {/* Toggle Stats Button */}
-            <button
-              type="button"
-              onClick={() => {
-                const newVal = !showInfoCards
-                setShowInfoCards(newVal)
-                localStorage.setItem('inventory_show_stats', JSON.stringify(newVal))
-              }}
-              className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-              title={showInfoCards ? 'Hide Statistics' : 'Show Statistics'}
-            >
-              {showInfoCards ? (
-                <EyeSlashIcon className="w-5 h-5 text-gray-600" />
-              ) : (
-                <EyeIcon className="w-5 h-5 text-gray-600" />
-              )}
-            </button>
 
             <button
               type="button"
               onClick={handleAddVariantGroup}
-              className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition font-medium text-sm"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800"
             >
               <PlusIcon className="w-4 h-4 md:w-5 md:h-5" />
               Add New Group
@@ -377,50 +348,38 @@ export default function VariantsTab() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        {showInfoCards && (
-          <div className="mt-4 grid grid-cols-2 gap-3 md:mt-6 md:gap-4 lg:grid-cols-4">
-            <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-500 md:text-sm">
-                Total Groups
-              </div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">
-                {variantGroups.length}
-              </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:mt-6 md:gap-4 lg:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Total Groups</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">{variantGroups.length}</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Variant groups configured</p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-500 md:text-sm">
-                Required Groups
-              </div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Required Groups</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">
                 {variantGroups.filter((group) => getGroupRequired(group)).length}
-              </div>
+              </p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Must choose before checkout</p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-500 md:text-sm">
-                Optional Groups
-              </div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Optional Groups</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">
                 {variantGroups.filter((group) => !getGroupRequired(group)).length}
-              </div>
+              </p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Optional customizations</p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-4">
-              <div className="mb-1 text-xs text-gray-500 md:text-sm">
-                Total Options
-              </div>
-              <div className="text-xl font-bold text-gray-900 md:text-2xl">
-                {totalOptions}
-              </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Total Options</p>
+              <p className="mt-3 text-2xl font-bold text-gray-950">{totalOptions}</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">Choices across all groups</p>
             </div>
-          </div>
-        )}
+        </div>
       </section>
 
-      {/* Main List Content */}
-      <section className="flex-1 overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6">
+      <section className="mt-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <div className="text-center">
@@ -488,8 +447,12 @@ export default function VariantsTab() {
                     <div className="mb-2 flex items-center gap-2">
                       {required && (
                         <span
-                          className="rounded-full px-2 py-0.5 text-xs font-semibold text-white"
-                          style={{ backgroundColor: '#FF6859' }}
+                          className="rounded-full border px-2 py-0.5 text-xs font-semibold"
+                          style={{
+                            backgroundColor: '#FFE1E1',
+                            borderColor: '#FFC7C7',
+                            color: '#C00000',
+                          }}
                         >
                           Required
                         </span>
@@ -521,7 +484,7 @@ export default function VariantsTab() {
                               className="text-xs font-semibold"
                               style={{
                                 color:
-                                  priceModifier > 0 ? '#7FCC2B' : '#FF6859',
+                                  priceModifier > 0 ? '#008236' : '#C00000',
                               }}
                             >
                               {formatPriceModifier(priceModifier)}

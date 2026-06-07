@@ -1711,13 +1711,14 @@ export default function AttendanceSection({
         ] satisfies Array<StandardTableColumn<AttendanceRecord>>}
         data={filteredAttendanceList}
         getRowKey={(attendance) => attendance.id}
+        loading={loading}
         emptyLabel="No attendance data yet."
         minWidthClassName="min-w-[1040px]"
       />
     </div>
   );
 
-  if (loading) {
+  if (loading && section !== "monitor") {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">

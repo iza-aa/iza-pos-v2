@@ -24,7 +24,7 @@ export default function InventoryFilters({
         <button
           key={cat.id}
           onClick={() => onCategoryChange(cat.id)}
-          className={`px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition ${
+          className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition ${
             selectedCategory === cat.id
               ? 'bg-gray-900 text-white'
               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'

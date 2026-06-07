@@ -1,16 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  EyeIcon,
-  EyeSlashIcon,
   FunnelIcon,
-  ArrowDownTrayIcon,
-  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/config/supabaseClient";
-import { showError, showWarning } from "@/lib/services/errorHandling";
-import { shouldShowArchiveReminder } from "@/lib/services/archive/archiveService";
+import { showError, showSuccess, showWarning } from "@/lib/services/errorHandling";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -24,17 +19,18 @@ import {
 import {
   ActivityLogStats,
   ActivityLogFilters,
-  ActivityLogCard,
   ActivityLogTable,
   ActivityLogDetail,
-  ActivityLogHeader,
-  DateFilterDropdown,
   ActivityLogEmpty,
 } from "@/app/components/owner/activitylog";
-import { ArchiveBanner } from "@/app/components/owner/archives";
-import { SearchBar, ViewModeToggle } from "@/app/components/ui";
-import type { DateFilterType } from "@/app/components/owner/activitylog/DateFilterDropdown";
-import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
+import GenerateRecommendationPanel from "@/app/components/owner/business-dashboard/ai/GenerateRecommendationPanel";
+import { SearchBar } from "@/app/components/ui";
+import DateRangeFilter, {
+  getDefaultDateRange,
+  type DateRangeValue,
+} from "@/app/components/shared/DateRangeFilter";
+import { ExportButton } from "@/app/components/shared";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 type ActivityLogDbRow = {
   id: string;
@@ -70,6 +66,20 @@ type StaffUserRow = {
 };
 
 type ActivityLogQuery = ReturnType<ReturnType<typeof supabase.from>["select"]>;
+
+type UsageTransactionSummaryRow = {
+  id: string;
+  order_id: string | null;
+};
+
+type UsageDetailSummaryRow = {
+  usage_transaction_id: string;
+  ingredient_name: string | null;
+  quantity_used: number | string | null;
+  unit: string | null;
+  previous_stock: number | string | null;
+  new_stock: number | string | null;
+};
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) return error.message;
@@ -120,64 +130,80 @@ function transformLog(dbLog: ActivityLogDbRow): ActivityLog {
   };
 }
 
+const formatUsageChange = (detail: UsageDetailSummaryRow) => {
+  const quantity = Number(detail.quantity_used || 0);
+  const unit = detail.unit ? ` ${detail.unit}` : "";
+  const name = detail.ingredient_name || "Inventory item";
+  const previous = detail.previous_stock === null || detail.previous_stock === undefined ? null : Number(detail.previous_stock);
+  const next = detail.new_stock === null || detail.new_stock === undefined ? null : Number(detail.new_stock);
+  const stockText = previous === null || next === null ? "" : ` (${previous} -> ${next}${unit})`;
+
+  return `${name} reduced by ${quantity}${unit}${stockText}`;
+};
+
+async function enrichOrderInventoryChanges(logs: ActivityLog[]) {
+  const orderIds = Array.from(
+    new Set(
+      logs
+        .filter(
+          (log) =>
+            log.action === "CREATE" &&
+            log.actionCategory === "SALES" &&
+            log.resourceType.toLowerCase() === "order" &&
+            log.resourceId &&
+            !(log.changesSummary || []).length,
+        )
+        .map((log) => log.resourceId as string),
+    ),
+  );
+
+  if (!orderIds.length) return logs;
+
+  const { data: transactions, error: transactionError } = await supabase
+    .from("usage_transactions")
+    .select("id, order_id")
+    .in("order_id", orderIds);
+
+  if (transactionError) return logs;
+
+  const transactionRows = (transactions || []) as UsageTransactionSummaryRow[];
+  const transactionIds = transactionRows.map((transaction) => transaction.id);
+  if (!transactionIds.length) return logs;
+
+  const { data: details, error: detailError } = await supabase
+    .from("usage_transaction_details")
+    .select("usage_transaction_id, ingredient_name, quantity_used, unit, previous_stock, new_stock")
+    .in("usage_transaction_id", transactionIds);
+
+  if (detailError) return logs;
+
+  const orderIdByTransactionId = new Map(
+    transactionRows.map((transaction) => [transaction.id, transaction.order_id]),
+  );
+  const summariesByOrderId = new Map<string, string[]>();
+
+  ((details || []) as UsageDetailSummaryRow[]).forEach((detail) => {
+    const orderId = orderIdByTransactionId.get(detail.usage_transaction_id);
+    if (!orderId) return;
+    summariesByOrderId.set(orderId, [...(summariesByOrderId.get(orderId) || []), formatUsageChange(detail)]);
+  });
+
+  return logs.map((log) => {
+    if ((log.changesSummary || []).length || !log.resourceId) return log;
+    const changesSummary = summariesByOrderId.get(log.resourceId);
+    return changesSummary?.length ? { ...log, changesSummary } : log;
+  });
+}
+
 // Pagination constants
-const LOGS_PER_PAGE = 50;
+const LOGS_PER_PAGE = 500;
+const ACTIVITY_LOG_FETCH_BATCH_SIZE = 1000;
 
-const getMasonryColumnCount = () => {
-  if (typeof window === "undefined") return 1;
+const getDateRangeBounds = (dateRange: DateRangeValue) => {
+  const start = new Date(`${dateRange.startDate}T00:00:00`);
+  const end = new Date(`${dateRange.endDate}T23:59:59.999`);
 
-  const width = window.innerWidth;
-
-  if (width >= 1280) return 4;
-  if (width >= 1024) return 3;
-  if (width >= 640) return 2;
-
-  return 1;
-};
-
-type DateRange = {
-  start?: string;
-  end?: string;
-};
-
-const getDateRange = (
-  dateFilter: DateFilterType,
-  customDateRange: { start: string; end: string },
-): DateRange => {
-  const now = new Date();
-
-  if (dateFilter === "today") {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
-    return { start: start.toISOString(), end: end.toISOString() };
-  }
-
-  if (dateFilter === "week") {
-    const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return { start: start.toISOString() };
-  }
-
-  if (dateFilter === "month") {
-    const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return { start: start.toISOString() };
-  }
-
-  if (dateFilter === "custom" && customDateRange.start && customDateRange.end) {
-    const start = new Date(customDateRange.start);
-    const end = new Date(customDateRange.end);
-    end.setHours(23, 59, 59, 999);
-    return { start: start.toISOString(), end: end.toISOString() };
-  }
-
-  return {};
+  return { start: start.toISOString(), end: end.toISOString() };
 };
 
 const normalizeSearchValue = (value: string) => {
@@ -188,11 +214,10 @@ const applyActivityLogFilters = (
   query: ActivityLogQuery,
   searchQuery: string,
   filters: Filters,
-  dateFilter: DateFilterType,
-  customDateRange: { start: string; end: string },
+  dateRange: DateRangeValue,
 ): ActivityLogQuery => {
   let filteredQuery = query;
-  const range = getDateRange(dateFilter, customDateRange);
+  const range = getDateRangeBounds(dateRange);
 
   if (range.start) filteredQuery = filteredQuery.gte("timestamp", range.start);
   if (range.end) filteredQuery = filteredQuery.lte("timestamp", range.end);
@@ -219,32 +244,58 @@ const applyActivityLogFilters = (
   return filteredQuery;
 };
 
+const fetchAllFilteredActivityLogs = async (
+  searchQuery: string,
+  filters: Filters,
+  dateRange: DateRangeValue,
+  totalCount: number,
+) => {
+  const rows: ActivityLogDbRow[] = [];
+
+  for (let from = 0; from < totalCount; from += ACTIVITY_LOG_FETCH_BATCH_SIZE) {
+    const to = Math.min(
+      from + ACTIVITY_LOG_FETCH_BATCH_SIZE - 1,
+      totalCount - 1,
+    );
+
+    const query = applyActivityLogFilters(
+      supabase.from("activity_logs").select("*"),
+      searchQuery,
+      filters,
+      dateRange,
+    )
+      .order("timestamp", { ascending: false })
+      .range(from, to);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const batch = (data || []) as ActivityLogDbRow[];
+    rows.push(...batch);
+
+    if (batch.length < ACTIVITY_LOG_FETCH_BATCH_SIZE) break;
+  }
+
+  return rows;
+};
+
 export default function ActivityLogPage() {
+  const { t } = useLanguage();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [insightLogs, setInsightLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showStats, setShowStats] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("card");
-  const [dateFilter, setDateFilter] = useState<DateFilterType>("all");
-  const [customDateRange, setCustomDateRange] = useState({
-    start: "",
-    end: "",
-  });
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const exportDropdownRef = useRef<HTMLDivElement>(null);
+  const [dateRange, setDateRange] = useState<DateRangeValue>(() =>
+    getDefaultDateRange(),
+  );
   const [staffUsers, setStaffUsers] = useState<
     Array<{ id: string; name: string; role: UserRole }>
   >([]);
-  const [showArchiveBanner, setShowArchiveBanner] = useState(false);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
 
   // Filters
   const [filters, setFilters] = useState<Filters>({
@@ -254,11 +305,6 @@ export default function ActivityLogPage() {
     action: undefined,
     userId: undefined,
   });
-
-  // Check if archive reminder should be shown
-  useEffect(() => {
-    setShowArchiveBanner(shouldShowArchiveReminder());
-  }, []);
 
   // Fetch staff users from database
   const fetchStaffUsers = useCallback(async () => {
@@ -289,40 +335,30 @@ export default function ActivityLogPage() {
       try {
         if (reset) {
           setLoading(true);
-          setCurrentPage(0);
-        } else {
-          setLoadingMore(true);
         }
         setError(null);
 
-        const page = reset ? 0 : currentPage + 1;
-        const from = page * LOGS_PER_PAGE;
+        const from = 0;
         const to = from + LOGS_PER_PAGE - 1;
 
-        let filteredTotalCount = totalCount;
-
-        if (reset) {
-          const countQuery = applyActivityLogFilters(
-            supabase
-              .from("activity_logs")
-              .select("id", { count: "exact", head: true }),
-            searchQuery,
-            filters,
-            dateFilter,
-            customDateRange,
-          );
-          const { count, error: countError } = await countQuery;
-          if (countError) throw countError;
-          filteredTotalCount = count || 0;
-          setTotalCount(filteredTotalCount);
-        }
+        const countQuery = applyActivityLogFilters(
+          supabase
+            .from("activity_logs")
+            .select("id", { count: "exact", head: true }),
+          searchQuery,
+          filters,
+          dateRange,
+        );
+        const { count, error: countError } = await countQuery;
+        if (countError) throw countError;
+        const nextTotalCount = count || 0;
+        setTotalCount(nextTotalCount);
 
         const dataQuery = applyActivityLogFilters(
           supabase.from("activity_logs").select("*"),
           searchQuery,
           filters,
-          dateFilter,
-          customDateRange,
+          dateRange,
         )
           .order("timestamp", { ascending: false })
           .range(from, to);
@@ -334,19 +370,21 @@ export default function ActivityLogPage() {
         const transformedLogs = ((data || []) as ActivityLogDbRow[]).map(
           transformLog,
         );
+        const enrichedLogs = await enrichOrderInventoryChanges(transformedLogs);
 
-        if (reset) {
-          setLogs(transformedLogs);
-          setCurrentPage(0);
-        } else {
-          setLogs((prev) => [...prev, ...transformedLogs]);
-          setCurrentPage(page);
-        }
+        setLogs(enrichedLogs);
 
-        setHasMore(
-          transformedLogs.length === LOGS_PER_PAGE &&
-            from + transformedLogs.length < filteredTotalCount,
+        const insightRows = await fetchAllFilteredActivityLogs(
+          searchQuery,
+          filters,
+          dateRange,
+          nextTotalCount,
         );
+        const transformedInsightLogs = insightRows.map(transformLog);
+        const enrichedInsightLogs = await enrichOrderInventoryChanges(
+          transformedInsightLogs,
+        );
+        setInsightLogs(enrichedInsightLogs);
       } catch (err: unknown) {
         const errorMessage = getErrorMessage(
           err,
@@ -357,25 +395,14 @@ export default function ActivityLogPage() {
         console.error("Error fetching activity logs:", err);
       } finally {
         setLoading(false);
-        setLoadingMore(false);
       }
     },
     [
-      currentPage,
-      customDateRange,
-      dateFilter,
+      dateRange,
       filters,
       searchQuery,
-      totalCount,
     ],
   );
-
-  // Load more logs
-  const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore) {
-      void fetchActivityLogs(false);
-    }
-  }, [fetchActivityLogs, hasMore, loadingMore]);
 
   const escapeExcelValue = (value: unknown) => {
     return String(value ?? "")
@@ -462,6 +489,7 @@ export default function ActivityLogPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      showSuccess("Activity logs exported as Excel.");
     } catch (err) {
       showError("Failed to export Excel");
       console.error("Excel export error:", err);
@@ -525,6 +553,7 @@ export default function ActivityLogPage() {
       // Save PDF
       const filename = `activity-logs-${new Date().toISOString().split("T")[0]}.pdf`;
       doc.save(filename);
+      showSuccess("Activity logs exported as PDF.");
     } catch (err) {
       showError("Failed to export PDF");
       console.error("PDF export error:", err);
@@ -549,9 +578,7 @@ export default function ActivityLogPage() {
   }, [
     searchQuery,
     filters,
-    dateFilter,
-    customDateRange.start,
-    customDateRange.end,
+    dateRange,
     fetchActivityLogs,
   ]);
 
@@ -589,28 +616,9 @@ export default function ActivityLogPage() {
     };
   }, [fetchActivityLogs]);
 
-  // Close export dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        exportDropdownRef.current &&
-        !exportDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowExportDropdown(false);
-      }
-    };
-
-    if (showExportDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showExportDropdown]);
-
   // Calculate stats
   const stats = useMemo(() => {
+    const sourceLogs = insightLogs;
     const now = new Date();
     const todayStart = new Date(
       now.getFullYear(),
@@ -618,16 +626,16 @@ export default function ActivityLogPage() {
       now.getDate(),
     );
 
-    const todayLogs = logs.filter(
+    const todayLogs = sourceLogs.filter(
       (log) => new Date(log.timestamp) >= todayStart,
     );
-    const criticalLogs = logs.filter((log) => log.severity === "critical");
+    const criticalLogs = sourceLogs.filter((log) => log.severity === "critical");
 
     // Count unique users
-    const uniqueUsers = new Set(logs.map((log) => log.userId)).size;
+    const uniqueUsers = new Set(sourceLogs.map((log) => log.userId)).size;
 
     // Top user by activity count
-    const userCounts = logs.reduce(
+    const userCounts = sourceLogs.reduce(
       (acc, log) => {
         acc[log.userName] = (acc[log.userName] || 0) + 1;
         return acc;
@@ -638,7 +646,7 @@ export default function ActivityLogPage() {
     const topUser = Object.entries(userCounts).sort((a, b) => b[1] - a[1])[0];
 
     // Top action
-    const actionCounts = logs.reduce(
+    const actionCounts = sourceLogs.reduce(
       (acc, log) => {
         acc[log.action] = (acc[log.action] || 0) + 1;
         return acc;
@@ -651,7 +659,7 @@ export default function ActivityLogPage() {
     )[0];
 
     return {
-      totalLogs: logs.length,
+      totalLogs: totalCount,
       todayLogs: todayLogs.length,
       criticalActions: criticalLogs.length,
       uniqueUsers,
@@ -662,50 +670,20 @@ export default function ActivityLogPage() {
         ? { name: topAction[0], count: topAction[1] }
         : { name: "N/A", count: 0 },
     };
-  }, [logs]);
+  }, [insightLogs, totalCount]);
 
   // Logs are filtered on the database side, so the loaded rows are already the visible rows.
   const filteredLogs = useMemo(() => logs, [logs]);
-
-  const [masonryColumnCount, setMasonryColumnCount] = useState(1);
-
-  useEffect(() => {
-    const updateColumnCount = () => {
-      setMasonryColumnCount(getMasonryColumnCount());
-    };
-
-    updateColumnCount();
-    window.addEventListener("resize", updateColumnCount);
-
-    return () => {
-      window.removeEventListener("resize", updateColumnCount);
-    };
-  }, []);
-
-  const masonryColumns = useMemo(() => {
-    const columns = Array.from(
-      { length: masonryColumnCount },
-      () => [] as ActivityLog[],
-    );
-
-    filteredLogs.forEach((log, index) => {
-      columns[index % masonryColumnCount].push(log);
-    });
-
-    return columns;
-  }, [filteredLogs, masonryColumnCount]);
 
   // Clear all filters
   const clearFilters = () => {
     setFilters({});
     setSearchQuery("");
-    setDateFilter("all");
-    setCustomDateRange({ start: "", end: "" });
+    setDateRange(getDefaultDateRange());
   };
 
   const hasActiveFilters = Boolean(
     searchQuery ||
-    dateFilter !== "all" ||
     filters.severity ||
     filters.category ||
     filters.userRole ||
@@ -714,159 +692,25 @@ export default function ActivityLogPage() {
   );
 
   return (
-    <div className="h-[calc(100vh-55px)] flex flex-col overflow-hidden">
-      {/* Header + Stats */}
-      <section className="shrink-0 p-4 md:p-6 bg-white border-b border-gray-200">
-        {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <ActivityLogHeader
-              title="Activity Logs"
-              description="Track all system activities and user actions"
-            />
+    <div className="min-h-[calc(100vh-55px)] bg-gray-100">
+      <section className="space-y-4 p-4">
+        <GenerateRecommendationPanel
+          category="activity_log"
+          period={dateRange}
+        />
 
-            <div className="flex items-center gap-2 md:gap-3 justify-start lg:justify-end">
-              {/* Toggle Stats */}
-              <button
-                onClick={() => setShowStats(!showStats)}
-                className="flex items-center justify-center h-9.5 md:h-10.5 w-9 md:w-10 border border-gray-300 rounded-xl hover:bg-gray-50 transition shrink-0"
-                title={showStats ? "Hide Statistics" : "Show Statistics"}
-              >
-                {showStats ? (
-                  <EyeSlashIcon className="w-4 md:w-5 h-4 md:h-5 text-gray-600" />
-                ) : (
-                  <EyeIcon className="w-4 md:w-5 h-4 md:h-5 text-gray-600" />
-                )}
-              </button>
-
-              {/* Date Filter */}
-              <DateFilterDropdown
-                dateFilter={dateFilter}
-                onDateFilterChange={setDateFilter}
-                customDateRange={customDateRange}
-                onCustomDateRangeChange={setCustomDateRange}
-              />
-
-              {/* View Mode Toggle */}
-              <ViewModeToggle
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                showMapView={false}
-              />
-
-              {/* Toggle Filters */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 border rounded-xl transition shrink-0 ${
-                  showFilters
-                    ? "bg-gray-800 border-gray-800 text-white"
-                    : "border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                <FunnelIcon className="w-4 md:w-5 h-4 md:h-5" />
-                <span className="text-xs md:text-sm font-medium hidden sm:inline">
-                  Filters
-                </span>
-                {hasActiveFilters && (
-                  <span className="bg-white text-gray-800 text-[10px] md:text-xs rounded-full w-4 md:w-5 h-4 md:h-5 flex items-center justify-center font-semibold">
-                    {
-                      [
-                        filters.severity,
-                        filters.category,
-                        filters.userRole,
-                        filters.action,
-                        filters.userId,
-                        searchQuery,
-                        dateFilter !== "all" ? dateFilter : undefined,
-                      ].filter(Boolean).length
-                    }
-                  </span>
-                )}
-              </button>
-
-              {/* Export Button with Dropdown */}
-              <div className="relative" ref={exportDropdownRef}>
-                <button
-                  onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center gap-2 h-9.5 md:h-10.5 px-3 md:px-4 bg-black text-white rounded-xl hover:bg-gray-800 transition shrink-0"
-                >
-                  <ArrowDownTrayIcon className="w-4 md:w-5 h-4 md:h-5" />
-                  <span className="text-xs md:text-sm font-medium hidden sm:inline">
-                    Export
-                  </span>
-                  <ChevronDownIcon className="w-3 md:w-4 h-3 md:h-4" />
-                </button>
-
-                {/* Export Dropdown Menu */}
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                    <button
-                      onClick={() => {
-                        exportToExcel();
-                        setShowExportDropdown(false);
-                      }}
-                      className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 rounded-t-xl transition flex items-center gap-2"
-                    >
-                      <ArrowDownTrayIcon className="w-4 h-4" />
-                      Export as Excel
-                    </button>
-                    <button
-                      onClick={() => {
-                        exportToPDF();
-                        setShowExportDropdown(false);
-                      }}
-                      className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 rounded-b-xl transition flex items-center gap-2 border-t border-gray-100"
-                    >
-                      <ArrowDownTrayIcon className="w-4 h-4" />
-                      Export as PDF
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Search Bar - Left aligned on mobile, right aligned on tablet+ */}
-          <div className="flex justify-start lg:justify-end lg:hidden">
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search activities..."
-              width="w-full sm:w-auto"
-            />
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
           </div>
         </div>
 
-        {/* Archive Banner */}
-        {showArchiveBanner && (
-          <ArchiveBanner onDismiss={() => setShowArchiveBanner(false)} />
-        )}
-
         {/* Stats Cards */}
-        {showStats && <ActivityLogStats stats={stats} />}
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <ActivityLogFilters
-            filters={filters}
-            onFilterChange={setFilters}
-            onClearFilters={clearFilters}
-            hasActiveFilters={!!hasActiveFilters}
-            uniqueUsers={staffUsers}
-          />
-        )}
+        <ActivityLogStats stats={stats} />
       </section>
 
       {/* Activity Logs List (Scrollable) */}
-      <section className="flex-1 overflow-y-auto bg-gray-100 px-4 md:px-6 py-4 md:py-6">
-        {/* Loading State */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-            <p className="text-sm text-gray-600">Loading activity logs...</p>
-          </div>
-        )}
-
+      <section className="space-y-4 px-4 pb-4">
         {/* Error State */}
         {error && !loading && (
           <div className="flex flex-col items-center justify-center h-full gap-4 max-w-md mx-auto text-center">
@@ -875,97 +719,94 @@ export default function ActivityLogPage() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Failed to Load Activity Logs
+                {t("owner.activity.failedLoad")}
               </h3>
               <p className="text-sm text-gray-600 mb-4">{error}</p>
               <button
                 onClick={() => void fetchActivityLogs(true)}
                 className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
               >
-                Try Again
+                {t("owner.activity.tryAgain")}
               </button>
             </div>
           </div>
         )}
 
-        {/* Data Loaded - Card View */}
-        {!loading &&
-          !error &&
-          viewMode === "card" &&
-          filteredLogs.length > 0 && (
-            <div className="flex items-start gap-3 md:gap-4">
-              {masonryColumns.map((columnLogs, columnIndex) => (
-                <div
-                  key={`activity-log-column-${columnIndex}`}
-                  className="flex min-w-0 flex-1 flex-col gap-3 md:gap-4"
-                >
-                  {columnLogs.map((log) => (
-                    <ActivityLogCard
-                      key={log.id}
-                      log={log}
-                      onClick={setSelectedLog}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-
         {/* Data Loaded - Table View */}
-        {!loading && !error && viewMode === "table" && (
-          <div className="h-full">
-            <ActivityLogTable logs={filteredLogs} onLogClick={setSelectedLog} />
-          </div>
+        {!error && (loading || filteredLogs.length > 0) && (
+          <>
+            <ActivityLogTable
+              logs={filteredLogs}
+              onLogClick={setSelectedLog}
+              loading={loading}
+              actions={
+                <>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`flex h-10 shrink-0 items-center gap-2 rounded-lg border px-4 text-sm font-semibold transition ${
+                      showFilters
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    
+                    <FunnelIcon className="h-5 w-5" />
+                    
+                    <span>{t("owner.activity.filters")}</span>
+                    {hasActiveFilters ? (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs font-bold text-gray-900">
+                        {
+                          [
+                            filters.severity,
+                            filters.category,
+                            filters.userRole,
+                            filters.action,
+                            filters.userId,
+                            searchQuery,
+                          ].filter(Boolean).length
+                        }
+                      </span>
+                    ) : null}
+                  </button>
+                  <ExportButton
+                    items={[
+                      { id: "excel", label: t("owner.activity.exportExcel"), onClick: exportToExcel },
+                      { id: "pdf", label: t("owner.activity.exportPdf"), onClick: exportToPDF },
+                    ]}
+                  />
+                                    <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder={t("owner.activity.search")}
+                    width="w-full sm:w-72"
+                  />
+                </>
+              }
+              filterPanel={
+                showFilters ? (
+                  <ActivityLogFilters
+                    filters={filters}
+                    onFilterChange={setFilters}
+                    onClearFilters={clearFilters}
+                    hasActiveFilters={!!hasActiveFilters}
+                    uniqueUsers={staffUsers}
+                  />
+                ) : null
+              }
+            />
+          </>
         )}
 
         {/* Empty State */}
         {!loading && !error && filteredLogs.length === 0 && (
-          <ActivityLogEmpty
-            hasFilters={!!hasActiveFilters}
-            onClearFilters={clearFilters}
-          />
-        )}
-
-        {/* Pagination Info & Load More */}
-        {!loading && !error && logs.length > 0 && (
-          <div className="mt-6 flex flex-col items-center gap-4 pb-6">
-            {/* Pagination Info */}
-            <div className="text-sm text-gray-600">
-              Showing{" "}
-              <span className="font-semibold text-gray-900">{logs.length}</span>{" "}
-              of{" "}
-              <span className="font-semibold text-gray-900">{totalCount}</span>{" "}
-              logs
-            </div>
-
-            {/* Load More Button */}
-            {hasMore && logs.length < totalCount && (
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
-              >
-                {loadingMore ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    Load More
-                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
-                      +{LOGS_PER_PAGE}
-                    </span>
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* All Loaded Message */}
-            {!hasMore && logs.length > 0 && logs.length >= totalCount && (
-              <p className="text-sm text-gray-500 italic">All logs loaded</p>
-            )}
-          </div>
+          <>
+            <ActivityLogEmpty
+              hasFilters={!!hasActiveFilters}
+              onClearFilters={clearFilters}
+            />
+          </>
         )}
       </section>
 

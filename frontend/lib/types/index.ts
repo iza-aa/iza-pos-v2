@@ -5,4 +5,3 @@
 
 export * from './activity'
 export * from './common'
-export * from './archive'

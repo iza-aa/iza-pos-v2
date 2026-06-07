@@ -1,18 +1,16 @@
-/**
- * Table List Component
- * Table view for managing restaurant tables
- */
+"use client";
 
-'use client';
-
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  PencilIcon,
+  EllipsisVerticalIcon,
   QrCodeIcon,
   TrashIcon,
-} from '@heroicons/react/24/outline';
-import { showError } from '@/lib/services/errorHandling';
-import QRCodeModal from './QRCodeModal';
+} from "@heroicons/react/24/outline";
+import StandardTable, {
+  type StandardTableColumn,
+} from "@/app/components/shared/StandardTable";
+import { showError } from "@/lib/services/errorHandling";
+import QRCodeModal from "./QRCodeModal";
 
 interface Table {
   id: string;
@@ -50,28 +48,28 @@ export default function TableList({
   const [loading, setLoading] = useState(true);
   const [qrTable, setQrTable] = useState<Table | null>(null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
 
   const fetchTables = useCallback(async () => {
     try {
       setLoading(true);
 
       const response = await fetch(
-        `/api/manager/tables?floor_id=${encodeURIComponent(floorId)}`
+        `/api/manager/tables?floor_id=${encodeURIComponent(floorId)}`,
       );
-
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to fetch tables.');
+        throw new Error(result.message || "Failed to fetch tables.");
       }
 
       const activeTables = (result.data ?? []).filter(
-        (table: Table) => table.is_active !== false
+        (table: Table) => table.is_active !== false,
       );
 
       setTables(activeTables);
     } catch (error) {
-      console.error('Error fetching tables:', error);
+      console.error("Error fetching tables:", error);
       setTables([]);
     } finally {
       setLoading(false);
@@ -80,9 +78,21 @@ export default function TableList({
 
   useEffect(() => {
     if (!floorId) return;
-
-    fetchTables();
+    void fetchTables();
   }, [floorId, refreshKey, fetchTables]);
+
+  useEffect(() => {
+    if (!openActionMenuId) return;
+
+    const closeMenu = () => setOpenActionMenuId(null);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [openActionMenuId]);
 
   const handleShowQR = (table: Table) => {
     setQrTable(table);
@@ -94,166 +104,186 @@ export default function TableList({
     setIsQRModalOpen(false);
   };
 
-  const handleDelete = async (table: Table) => {
+  const handleDelete = useCallback(async (table: Table) => {
     if (table.current_order_id) {
       showError(
-        `Table ${table.table_number} cannot be deleted because it has an active order.`
+        `Table ${table.table_number} cannot be deleted because it has an active order.`,
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete Table ${table.table_number}?`
+      `Are you sure you want to delete Table ${table.table_number}?`,
     );
 
     if (!confirmed) return;
 
     try {
       const response = await fetch(`/api/manager/tables/${table.id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
-
       const result = await response.json().catch(() => null);
 
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.message || 'Failed to delete table.');
+        throw new Error(result?.message || "Failed to delete table.");
       }
 
       setTables((previousTables) =>
-        previousTables.filter((item) => item.id !== table.id)
+        previousTables.filter((item) => item.id !== table.id),
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to delete table.';
+        error instanceof Error ? error.message : "Failed to delete table.";
 
-      console.error('Error deleting table:', error);
+      console.error("Error deleting table:", error);
       showError(message);
     }
-  };
+  }, []);
 
+  const columns = useMemo<Array<StandardTableColumn<Table>>>(
+    () => [
+      {
+        key: "table",
+        header: "Table",
+        render: (table) => (
+          <div className="font-medium text-gray-900">{table.table_number}</div>
+        ),
+        sortValue: (table) => table.table_number,
+      },
+      {
+        key: "capacity",
+        header: "Capacity",
+        render: (table) => table.capacity,
+        sortValue: (table) => table.capacity,
+      },
+      {
+        key: "shape",
+        header: "Shape",
+        render: (table) => (
+          <span className="capitalize">{table.shape ?? "-"}</span>
+        ),
+        sortValue: (table) => table.shape ?? "",
+      },
+      {
+        key: "qr",
+        header: "QR Code",
+        render: (table) => {
+          const hasQR = Boolean(table.qr_code_url || table.qr_code_image);
 
-  if (loading) {
-    return (
-      <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-        <p className="mt-4 text-sm text-gray-500">Loading tables...</p>
-      </div>
-    );
-  }
+          return hasQR ? (
+            <button
+              type="button"
+              onClick={() => handleShowQR(table)}
+              className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              <QrCodeIcon className="h-4 w-4" />
+              View
+            </button>
+          ) : (
+            <span className="text-sm text-gray-400">Not generated</span>
+          );
+        },
+        sortValue: (table) => Boolean(table.qr_code_url || table.qr_code_image),
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        isAction: true,
+        headerClassName: "text-right",
+        className: "text-right",
+        render: (table) => {
+          const isBusy = Boolean(table.current_order_id);
+
+          return (
+            <div className="relative flex justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenActionMenuId((current) =>
+                    current === table.id ? null : table.id,
+                  )
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                aria-label={`Open actions for table ${table.table_number}`}
+              >
+                <EllipsisVerticalIcon className="h-5 w-5" />
+              </button>
+
+              {openActionMenuId === table.id ? (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-20 cursor-default"
+                    aria-label="Close table action menu"
+                    onClick={() => setOpenActionMenuId(null)}
+                  />
+                  <div className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenActionMenuId(null);
+                        onTableEdit(table);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenActionMenuId(null);
+                        handleShowQR(table);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <QrCodeIcon className="h-4 w-4" />
+                      QR Code
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenActionMenuId(null);
+                        void handleDelete(table);
+                      }}
+                      disabled={isBusy}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold transition ${
+                        isBusy
+                          ? "cursor-not-allowed text-gray-400"
+                          : "text-red-700 hover:bg-red-50"
+                      }`}
+                      title={
+                        isBusy
+                          ? "Cannot delete a table with an active order"
+                          : `Delete table ${table.table_number}`
+                      }
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      Delete
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [handleDelete, onTableEdit, openActionMenuId],
+  );
 
   return (
     <>
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-
-        {tables.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-sm font-medium text-gray-700">
-              No tables on this floor yet.
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              Click Add Table to start building your layout.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Table
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Capacity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Shape
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    QR Code
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {tables.map((table) => {
-                  const hasQR = Boolean(table.qr_code_url || table.qr_code_image);
-                  const isBusy = Boolean(table.current_order_id);
-
-                  return (
-                    <tr key={table.id} className="hover:bg-gray-50">
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className="font-medium text-gray-900">
-                          {table.table_number}
-                        </div>
-                      </td>
-
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                        {table.capacity}
-                      </td>
-
-                      <td className="whitespace-nowrap px-6 py-4 text-sm capitalize text-gray-700">
-                        {table.shape ?? '-'}
-                      </td>
-
-
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {hasQR ? (
-                          <button
-                            type="button"
-                            onClick={() => handleShowQR(table)}
-                            className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700"
-                          >
-                            <QrCodeIcon className="mr-1 h-4 w-4" />
-                            View
-                          </button>
-                        ) : (
-                          <span className="text-sm text-gray-400">
-                            Not generated
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onTableEdit(table)}
-                            className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <PencilIcon className="mr-1 h-4 w-4" />
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(table)}
-                            disabled={isBusy}
-                            className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm ${
-                              isBusy
-                                ? 'cursor-not-allowed border border-gray-300 bg-gray-100 text-gray-400'
-                                : 'border border-red-300 text-red-700 hover:bg-red-50'
-                            }`}
-                            title={
-                              isBusy
-                                ? 'Cannot delete a table with an active order'
-                                : `Delete table ${table.table_number}`
-                            }
-                          >
-                            <TrashIcon className="mr-1 h-4 w-4" />
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <StandardTable
+          columns={columns}
+          data={tables}
+          getRowKey={(table) => table.id}
+          emptyLabel={
+            loading ? "Loading tables..." : "No tables on this floor yet."
+          }
+          loading={loading}
+          minWidthClassName="min-w-180"
+        />
       </div>
 
       <QRCodeModal

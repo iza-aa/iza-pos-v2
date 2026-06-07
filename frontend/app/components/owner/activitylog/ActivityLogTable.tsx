@@ -1,173 +1,210 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import {
-  ClockIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon,
-  ShieldCheckIcon,
-  UserCircleIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline'
-import { ActivityLog, formatTimeAgo } from '@/lib/types'
-import { parseSupabaseTimestamp, formatJakartaTime } from '@/lib/utils'
-import { POLLING_INTERVALS } from '@/lib/constants'
+import { useMemo } from "react";
+import type { ReactNode } from "react";
+import { EyeIcon } from "@heroicons/react/24/outline";
+import StandardTable, {
+  type StandardTableColumn,
+} from "@/app/components/shared/StandardTable";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
+import { ActivityLog } from "@/lib/types";
+import { formatJakartaDateTimeParts } from "@/lib/constants/time";
 
 interface ActivityLogTableProps {
-  logs: ActivityLog[]
-  onLogClick: (log: ActivityLog) => void
+  logs: ActivityLog[];
+  onLogClick: (log: ActivityLog) => void;
+  actions?: ReactNode;
+  filterPanel?: ReactNode;
+  loading?: boolean;
 }
 
-const getSeverityConfig = (severity: string) => {
-  const normalized = severity.toLowerCase()
+const getSeverityBadgeClass = (severity: string) => {
+  const normalized = severity.toLowerCase();
 
-  if (normalized === 'critical' || normalized === 'error') {
-    return {
-      label: normalized === 'critical' ? 'Critical' : 'Error',
-      icon: XCircleIcon,
-      className: 'bg-red-50 text-red-700 border-red-200',
-    }
+  if (normalized === "critical" || normalized === "error") {
+    return OWNER_SEMANTIC_TONES.danger.badgeClass;
   }
 
-  if (normalized === 'warning') {
-    return {
-      label: 'Warning',
-      icon: ExclamationTriangleIcon,
-      className: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    }
+  if (normalized === "warning") {
+    return OWNER_SEMANTIC_TONES.danger.badgeClass;
   }
 
-  return {
-    label: 'Info',
-    icon: InformationCircleIcon,
-    className: 'bg-gray-100 text-gray-700 border-gray-200',
-  }
-}
+  return OWNER_SEMANTIC_TONES.info.badgeClass;
+};
+
+const getCategoryBadgeClass = (category: string) => {
+  if (category === "SALES") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  if (category === "INVENTORY") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (category === "FINANCIAL" || category === "REPORT") return OWNER_SEMANTIC_TONES.premium.badgeClass;
+  if (category === "SYSTEM") return OWNER_SEMANTIC_TONES.dark.badgeClass;
+  if (category === "AUTH") return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+  return OWNER_SEMANTIC_TONES.neutral.badgeClass;
+};
 
 const formatLabel = (value: string) => {
-  if (!value) return 'Unknown'
+  if (!value) return "Unknown";
 
   return value
-    .split('_')
+    .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
-}
+    .join(" ");
+};
 
 function TimeCell({ timestamp }: { timestamp: string }) {
-  const [timeAgo, setTimeAgo] = useState('')
-
-  useEffect(() => {
-    setTimeAgo(formatTimeAgo(timestamp))
-    const interval = setInterval(() => {
-      setTimeAgo(formatTimeAgo(timestamp))
-    }, POLLING_INTERVALS.SLOW)
-    return () => clearInterval(interval)
-  }, [timestamp])
+  const dateTime = formatJakartaDateTimeParts(timestamp);
 
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-        <ClockIcon className="h-4 w-4 text-gray-400" />
-        <span>{timeAgo || 'Loading...'}</span>
-      </div>
-      <p className="mt-1 text-xs text-gray-500">{formatJakartaTime(parseSupabaseTimestamp(timestamp))}</p>
+      <p className="text-sm font-semibold text-gray-900">{dateTime.time}</p>
+      <p className="mt-1 text-xs text-gray-500">{dateTime.date}</p>
     </div>
-  )
+  );
 }
 
-export default function ActivityLogTable({ logs, onLogClick }: ActivityLogTableProps) {
-  const rows = useMemo(() => logs, [logs])
+const renderBadge = (label: string, className: string) => (
+  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+    {label}
+  </span>
+);
+
+export default function ActivityLogTable({
+  logs,
+  onLogClick,
+  actions,
+  filterPanel,
+  loading = false,
+}: ActivityLogTableProps) {
+  const columns = useMemo<Array<StandardTableColumn<ActivityLog>>>(
+    () => [
+      {
+        key: "event",
+        header: "Event",
+        render: (log) => (
+          <div className="flex flex-wrap gap-2">
+            {renderBadge(formatLabel(log.severity), getSeverityBadgeClass(log.severity))}
+            {renderBadge(formatLabel(log.actionCategory), getCategoryBadgeClass(log.actionCategory))}
+          </div>
+        ),
+        sortValue: (log) => `${log.severity}-${log.actionCategory}`,
+        className: "align-top",
+      },
+      {
+        key: "description",
+        header: "Description",
+        render: (log) => (
+          <div className="min-w-0">
+            <p className="line-clamp-2 font-semibold text-gray-900">{log.actionDescription}</p>
+            <p className="mt-1 text-xs text-gray-500">{formatLabel(log.action)}</p>
+            {log.notes ? (
+              <p className="mt-2 line-clamp-1 text-xs text-gray-500">{log.notes}</p>
+            ) : null}
+          </div>
+        ),
+        sortValue: (log) => log.actionDescription,
+        className: "align-top",
+      },
+      {
+        key: "user",
+        header: "User",
+        render: (log) => (
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-gray-900">{log.userName}</p>
+            <p className="text-xs capitalize text-gray-500">{log.userRole}</p>
+          </div>
+        ),
+        sortValue: (log) => log.userName,
+        className: "align-top",
+      },
+      {
+        key: "resource",
+        header: "Resource",
+        render: (log) =>
+          log.resourceName ? (
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-gray-900">{log.resourceName}</p>
+              <p className="text-xs text-gray-500">{log.resourceType}</p>
+            </div>
+          ) : (
+            <span className="text-gray-400">-</span>
+          ),
+        sortValue: (log) => log.resourceName ?? log.resourceType,
+        className: "align-top",
+      },
+      {
+        key: "changes",
+        header: "Changes",
+        render: (log) => {
+          const changesSummary = log.changesSummary ?? [];
+
+          if (!changesSummary.length) {
+            return <span className="text-gray-400">-</span>;
+          }
+
+          return (
+            <div className="min-w-0">
+              <p className="line-clamp-1 text-gray-700">{changesSummary[0]}</p>
+              {changesSummary.length > 1 ? (
+                <p className="mt-1 text-xs font-semibold text-gray-500">
+                  +{changesSummary.length - 1} more
+                </p>
+              ) : null}
+            </div>
+          );
+        },
+        sortValue: (log) => log.changesSummary?.length ?? 0,
+        className: "align-top",
+      },
+      {
+        key: "time",
+        header: "Date",
+        render: (log) => <TimeCell timestamp={log.timestamp} />,
+        sortValue: (log) => log.timestamp,
+        className: "align-top",
+      },
+      {
+        key: "detail",
+        header: "Detail",
+        isAction: true,
+        render: (log) => (
+          <button
+            type="button"
+            onClick={() => onLogClick(log)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-950"
+            aria-label="Show activity details"
+          >
+            <EyeIcon className="h-5 w-5" />
+          </button>
+        ),
+        className: "align-top",
+      },
+    ],
+    [onLogClick],
+  );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full min-w-[1100px] table-fixed">
-          <thead className="sticky top-0 z-10 bg-gray-50">
-            <tr className="border-b border-gray-200">
-              <th className="w-[17%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Event</th>
-              <th className="w-[25%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Description</th>
-              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">User</th>
-              <th className="w-[18%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resource</th>
-              <th className="w-[14%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Changes</th>
-              <th className="w-[10%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Time</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {rows.map((log) => {
-              const severity = getSeverityConfig(log.severity)
-              const SeverityIcon = severity.icon
-              const changesSummary = log.changesSummary ?? []
-
-              return (
-                <tr
-                  key={log.id}
-                  onClick={() => onLogClick(log)}
-                  className="cursor-pointer transition hover:bg-gray-50"
-                >
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex min-w-0 flex-col gap-2">
-                      <span className={`inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold ${severity.className}`}>
-                        <SeverityIcon className="h-4 w-4" />
-                        {severity.label}
-                      </span>
-                      <span className="inline-flex w-fit rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">
-                        {formatLabel(log.actionCategory)}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    <p className="line-clamp-2 text-sm font-semibold text-gray-900">{log.actionDescription}</p>
-                    <p className="mt-1 text-xs text-gray-500">{formatLabel(log.action)}</p>
-                    {log.notes ? <p className="mt-2 line-clamp-1 text-xs text-gray-500">{log.notes}</p> : null}
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <UserCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-gray-900">{log.userName}</p>
-                        <p className="text-xs capitalize text-gray-500">{log.userRole}</p>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    {log.resourceName ? (
-                      <div className="flex min-w-0 items-start gap-2">
-                        <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-gray-900">{log.resourceName}</p>
-                          <p className="text-xs text-gray-500">{log.resourceType}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-400">—</span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    {changesSummary.length > 0 ? (
-                      <div className="min-w-0">
-                        <p className="line-clamp-1 text-sm text-gray-700">{changesSummary[0]}</p>
-                        {changesSummary.length > 1 ? (
-                          <p className="mt-1 text-xs font-medium text-gray-500">+{changesSummary.length - 1} more</p>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-400">—</span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    <TimeCell timestamp={log.timestamp} />
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+    <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-bold text-gray-950">Activity Log Table</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Chronological audit trail for system and user actions.
+          </p>
+        </div>
+        {actions ? (
+          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+            {actions}
+          </div>
+        ) : null}
       </div>
-    </div>
-  )
+      {filterPanel ? <div className="mb-4">{filterPanel}</div> : null}
+      <StandardTable
+        columns={columns}
+        data={logs}
+        getRowKey={(log) => log.id}
+        emptyLabel="No activity logs match the current filters."
+        loading={loading}
+        minWidthClassName="min-w-[1120px]"
+      />
+    </section>
+  );
 }

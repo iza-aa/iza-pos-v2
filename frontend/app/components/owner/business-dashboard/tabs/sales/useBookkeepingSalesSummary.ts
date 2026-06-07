@@ -14,7 +14,9 @@ type BookkeepingSalesSummary = {
     BookkeepingSummary,
     | "grossSales"
     | "discounts"
+    | "netSales"
     | "estimatedCogs"
+    | "grossProfit"
     | "operatingExpenses"
     | "netProfitEstimate"
     | "taxCollected"
@@ -29,7 +31,9 @@ type BookkeepingSalesSummary = {
 const emptySummary: BookkeepingSalesSummary["summary"] = {
   grossSales: 0,
   discounts: 0,
+  netSales: 0,
   estimatedCogs: null,
+  grossProfit: null,
   operatingExpenses: 0,
   netProfitEstimate: null,
   taxCollected: 0,
@@ -92,11 +96,17 @@ export default function useBookkeepingSalesSummary(dateRange: DateRangeValue) {
           summary: {
             grossSales: Number(result.data.summary.grossSales ?? 0),
             discounts: Number(result.data.summary.discounts ?? 0),
+            netSales: Number(result.data.summary.netSales ?? 0),
             estimatedCogs:
               result.data.summary.estimatedCogs === null ||
               result.data.summary.estimatedCogs === undefined
                 ? null
                 : Number(result.data.summary.estimatedCogs),
+            grossProfit:
+              result.data.summary.grossProfit === null ||
+              result.data.summary.grossProfit === undefined
+                ? null
+                : Number(result.data.summary.grossProfit),
             operatingExpenses: Number(result.data.summary.operatingExpenses ?? 0),
             netProfitEstimate:
               result.data.summary.netProfitEstimate === null ||

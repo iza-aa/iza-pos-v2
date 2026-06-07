@@ -36,13 +36,15 @@ export const formatLabel = (value: string) => {
 export function SemanticBadge({
   tone,
   children,
+  className = "",
 }: {
   tone: OwnerSemanticTone;
   children: ReactNode;
+  className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${OWNER_SEMANTIC_TONES[tone].badgeClass}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-bold leading-5 ${OWNER_SEMANTIC_TONES[tone].badgeClass} ${className}`}
     >
       {children}
     </span>

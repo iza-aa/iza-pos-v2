@@ -17,6 +17,7 @@ import {
   calculateOrderFinancialTotals,
   defaultFinancialSettings,
 } from "@/lib/services/bookkeeping/financialSettings";
+import { recordOrderInventoryUsageWithBatches } from "@/lib/services/inventory/inventoryBatchService";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import { showError } from "@/lib/services/errorHandling";
 
@@ -64,6 +65,19 @@ interface SessionStatsRow {
 
 type OrderMode = "dine_in" | "takeaway";
 type KitchenStatus = "pending" | "not_required";
+
+function normalizeVariantForInventoryUsage(variant: unknown) {
+  if (!variant || typeof variant !== "object") {
+    return {};
+  }
+
+  const record = variant as { option_id?: unknown; optionId?: unknown };
+
+  return {
+    option_id: typeof record.option_id === "string" ? record.option_id : undefined,
+    optionId: typeof record.optionId === "string" ? record.optionId : undefined,
+  };
+}
 
 function normalizeCartItem(item: StoredCartItem): CartItem | null {
   if (
@@ -521,6 +535,27 @@ export default function CustomerCheckoutPage() {
 
       if (error) {
         throw error;
+      }
+
+      try {
+        const inventoryUsageResult = await recordOrderInventoryUsageWithBatches({
+          orderId: pendingOrderId,
+          orderNumber: pendingOrderNumber,
+          items: cart.map((item) => ({
+            productId: item.productId,
+            productName: item.name,
+            quantity: item.quantity,
+            variants: (item.variants || []).map(normalizeVariantForInventoryUsage),
+          })),
+          performedBy: null,
+          performedByName: customerName.trim() || "Customer QR",
+        });
+
+        if (!inventoryUsageResult.batchEnabled) {
+          console.warn("Inventory batch tracking skipped because batch SQL is not enabled.");
+        }
+      } catch (inventoryError) {
+        console.warn("Failed to record inventory usage for QR order:", inventoryError);
       }
 
       if (customerName.trim()) {

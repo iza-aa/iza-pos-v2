@@ -5,6 +5,10 @@ import {
   getPeriodLengthDays,
   isDateInPeriod,
 } from "./periodService";
+import {
+  applyInsightOrderCorrections,
+  type InsightOrderCorrectionRow,
+} from "./orderCorrectionUtils";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
@@ -452,7 +456,13 @@ export async function buildStaffRecommendationSnapshot(
   insightPeriod?: OwnerInsightPeriod,
 ): Promise<RecommendationSnapshot> {
   const period = buildRecommendationPeriodContext(insightPeriod);
-  const [staffResult, attendanceResult, ordersResult, orderItemsResult] =
+  const [
+    staffResult,
+    attendanceResult,
+    ordersResult,
+    orderItemsResult,
+    orderCorrectionsResult,
+  ] =
     await Promise.all([
       supabase.from("staff").select("id,name,role,status").order("name", { ascending: true }),
       supabase
@@ -465,6 +475,7 @@ export async function buildStaffRecommendationSnapshot(
         .select("id,status,payment_status,order_date,created_at,created_by")
         .order("created_at", { ascending: true }),
       supabase.from("order_items").select("order_id,ready_at,served_at,served_by"),
+      supabase.from("order_corrections").select("id,order_id,status,physical_status,note"),
     ]);
 
   if (staffResult.error) {
@@ -489,9 +500,18 @@ export async function buildStaffRecommendationSnapshot(
     );
   }
 
+  if (orderCorrectionsResult.error) {
+    throw new Error(
+      `Owner AI could not read staff order corrections: ${orderCorrectionsResult.error.message}`,
+    );
+  }
+
   const staff = (staffResult.data ?? []) as StaffRow[];
   const attendance = (attendanceResult.data ?? []) as AttendanceRow[];
-  const orders = (ordersResult.data ?? []) as OrderRow[];
+  const orders = applyInsightOrderCorrections(
+    (ordersResult.data ?? []) as OrderRow[],
+    (orderCorrectionsResult.data ?? []) as InsightOrderCorrectionRow[],
+  );
   const orderItems = (orderItemsResult.data ?? []) as OrderItemRow[];
   const activeStaff = staff.filter(
     (row) =>

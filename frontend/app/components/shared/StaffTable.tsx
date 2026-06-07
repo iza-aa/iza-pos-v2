@@ -27,8 +27,11 @@ interface StaffTableProps {
   onEdit: (id: string) => void;
   onDelete?: (id: string) => void;
   showActions?: boolean;
+  onGenerateAccessCode?: (id: string) => void;
+  generatingAccessStaffId?: string;
   title?: string;
   description?: string;
+  loading?: boolean;
 }
 
 type CurrentStaffSession = Record<string, unknown> | null;
@@ -284,8 +287,11 @@ export default function StaffTable({
   onEdit,
   onDelete,
   showActions = true,
+  onGenerateAccessCode,
+  generatingAccessStaffId = "",
   title = "Staff Data List",
   description = "Structured staff profile, role, shift, and access status records.",
+  loading = false,
 }: StaffTableProps) {
   const [currentStaff, setCurrentStaff] = useState<CurrentStaffSession>(null);
 
@@ -417,7 +423,7 @@ export default function StaffTable({
       },
     ];
 
-    if (!showActions) return baseColumns;
+    if (!showActions && !onGenerateAccessCode) return baseColumns;
 
     return [
       ...baseColumns,
@@ -433,17 +439,30 @@ export default function StaffTable({
 
           return (
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onEdit(staff.id)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50"
-                title="Edit staff"
-                aria-label={`Edit ${staff.name || "staff"}`}
-              >
-                <PencilSquareIcon className="h-4.5 w-4.5" />
-              </button>
+              {onGenerateAccessCode ? (
+                <button
+                  type="button"
+                  onClick={() => onGenerateAccessCode(staff.id)}
+                  disabled={generatingAccessStaffId === staff.id}
+                  className="rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {generatingAccessStaffId === staff.id ? "Generating..." : "Generate Code"}
+                </button>
+              ) : null}
 
-              {canDelete && (
+              {showActions ? (
+                <button
+                  type="button"
+                  onClick={() => onEdit(staff.id)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50"
+                  title="Edit staff"
+                  aria-label={`Edit ${staff.name || "staff"}`}
+                >
+                  <PencilSquareIcon className="h-4.5 w-4.5" />
+                </button>
+              ) : null}
+
+              {showActions && canDelete && (
                 <button
                   type="button"
                   onClick={() => onDelete?.(staff.id)}
@@ -459,7 +478,7 @@ export default function StaffTable({
         },
       },
     ];
-  }, [currentStaff, onDelete, onEdit, showActions]);
+  }, [currentStaff, generatingAccessStaffId, onDelete, onEdit, onGenerateAccessCode, showActions]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-4 md:px-5">
@@ -471,6 +490,7 @@ export default function StaffTable({
         columns={columns}
         data={normalizedStaffList}
         getRowKey={(staff) => staff.id}
+        loading={loading}
         emptyLabel="No staff data yet."
       />
     </div>

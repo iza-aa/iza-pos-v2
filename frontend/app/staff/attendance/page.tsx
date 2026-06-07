@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
+import { canAccessEndShift } from "@/lib/utils/staffAccess";
 import { supabase } from "@/lib/config/supabaseClient";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { SidebarTabset } from "@/app/components/shared";
@@ -10,7 +11,6 @@ import {
   ArrowPathIcon,
   BanknotesIcon,
   ClockIcon,
-  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 
@@ -521,6 +521,14 @@ export default function AttendancePage() {
   const [cashCounted, setCashCounted] = useState("");
   const [closingNotes, setClosingNotes] = useState("");
 
+  const canUseEndShift = canAccessEndShift({
+    role: currentUser?.role,
+    staffType: currentUser?.staffType ?? staff?.staff_type,
+  });
+  const visibleAttendanceTabs = canUseEndShift
+    ? staffAttendanceTabs
+    : staffAttendanceTabs.filter((tab) => tab.id !== "end-shift");
+
   const html5QrCodeRef = useRef<Html5QrcodeInstance | null>(null);
   const scannerStartingRef = useRef(false);
   const scannerHasDecodedRef = useRef(false);
@@ -706,10 +714,16 @@ export default function AttendancePage() {
   );
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && canUseEndShift) {
       void loadShiftClosingData();
     }
-  }, [loadShiftClosingData, loading]);
+  }, [canUseEndShift, loadShiftClosingData, loading]);
+
+  useEffect(() => {
+    if (!canUseEndShift && activeAttendanceTab === "end-shift") {
+      setActiveAttendanceTab("absence");
+    }
+  }, [activeAttendanceTab, canUseEndShift]);
 
   const stopQrScanner = useCallback(async () => {
     scannerHasDecodedRef.current = false;
@@ -1006,8 +1020,8 @@ export default function AttendancePage() {
       : "Attendance Completed";
 
   const renderMobileTabset = () => (
-    <div className="grid grid-cols-2 gap-2 lg:hidden">
-      {staffAttendanceTabs.map((tab) => {
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
+      {visibleAttendanceTabs.map((tab) => {
         const isActive = activeAttendanceTab === tab.id;
 
         return (
@@ -1413,7 +1427,7 @@ export default function AttendancePage() {
           <SidebarTabset
             title="Staff Attendance"
             description="Daily absence and end-shift tasks."
-            items={staffAttendanceTabs}
+            items={visibleAttendanceTabs}
             activeId={activeAttendanceTab}
             onSelect={setActiveAttendanceTab}
           />

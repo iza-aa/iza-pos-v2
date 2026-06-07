@@ -65,7 +65,7 @@ export default function ManagerLoginPage() {
         severity: 'info'
       });
       
-      window.location.href = "/manager/dashboard";
+      window.location.href = "/manager/menu";
     } else {
       setError(result.error || "Email atau Password salah.");
       

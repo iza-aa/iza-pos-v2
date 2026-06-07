@@ -47,6 +47,71 @@ export async function POST(request: NextRequest) {
       resolved_at: body.status === "resolved" ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
+    const correctionId = body.id.startsWith("order-correction-")
+      ? body.id.replace("order-correction-", "")
+      : "";
+
+    if (correctionId) {
+      const reviewedAt = new Date().toISOString();
+      const { data: correction, error: correctionError } = await supabase
+        .from("order_corrections")
+        .update({
+          status: "reviewed",
+          reviewed_by: requester.id,
+          reviewed_by_name: requester.name,
+          reviewed_by_role: "owner",
+          reviewed_at: reviewedAt,
+          review_note: body.note || `Owner marked as ${body.status}.`,
+        })
+        .eq("id", correctionId)
+        .select("id")
+        .maybeSingle();
+
+      if (correctionError) throw correctionError;
+
+      const { data: storedException, error: storedExceptionError } = await supabase
+        .from("bookkeeping_exceptions")
+        .select("id")
+        .eq("source_id", correctionId)
+        .maybeSingle();
+
+      if (storedExceptionError) throw storedExceptionError;
+
+      if (storedException?.id) {
+        const { error } = await supabase
+          .from("bookkeeping_exceptions")
+          .update(payload)
+          .eq("id", storedException.id);
+
+        if (error) throw error;
+      }
+
+      if (correction?.id || storedException?.id) {
+        await supabase.from("activity_logs").insert({
+          user_id: requester.id,
+          user_name: requester.name,
+          user_role: "owner",
+          action: "UPDATE",
+          action_category: "FINANCIAL",
+          action_description: `Marked order correction review as ${body.status}`,
+          resource_type: "Order Correction",
+          resource_id: correctionId,
+          resource_name: correctionId,
+          previous_value: null,
+          new_value: { status: body.status, note: body.note || null },
+          changes_summary: [`Order correction review marked as ${body.status}`],
+          severity: "info",
+          tags: ["bookkeeping", "exception", "order-correction"],
+          notes: body.note || null,
+          is_reversible: false,
+          ip_address: "0.0.0.0",
+          device_info: "Server API",
+          session_id: `bookkeeping-${requester.id}`,
+        });
+
+        return NextResponse.json({ success: true });
+      }
+    }
 
     const { data: byId, error: byIdError } = await supabase
       .from("bookkeeping_exceptions")

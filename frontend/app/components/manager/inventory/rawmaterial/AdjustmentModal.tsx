@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AdjustmentsHorizontalIcon,
   ArrowPathIcon,
@@ -16,11 +16,21 @@ interface InventoryItem {
   currentStock: number
 }
 
+type AdjustmentBatchOption = {
+  id: string
+  batchNumber: string
+  supplier: string
+  quantityRemaining: number
+  unit: string
+  expiryDate: string
+}
+
 interface AdjustmentModalProps {
   isOpen: boolean
   onClose: () => void
   item: InventoryItem | null
-  onAdjust: (itemId: string, newStock: number, reason: string) => Promise<void>
+  activeBatches?: AdjustmentBatchOption[]
+  onAdjust: (itemId: string, newStock: number, reason: string, batchId?: string) => Promise<void>
 }
 
 const adjustmentReasons = [
@@ -38,18 +48,25 @@ const formatNumber = (value: number) => {
   }).format(value)
 }
 
-export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: AdjustmentModalProps) {
+export default function AdjustmentModal({ isOpen, onClose, item, activeBatches = [], onAdjust }: AdjustmentModalProps) {
   const [newStock, setNewStock] = useState('')
   const [reason, setReason] = useState('')
   const [notes, setNotes] = useState('')
+  const [batchId, setBatchId] = useState('')
   const [loading, setLoading] = useState(false)
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const newStockRef = useRef<HTMLInputElement>(null)
+  const reasonRef = useRef<HTMLSelectElement>(null)
+  const batchRef = useRef<HTMLSelectElement>(null)
 
   useEffect(() => {
     if (!isOpen) {
       setNewStock('')
       setReason('')
       setNotes('')
+      setBatchId('')
       setLoading(false)
+      setAttemptedSubmit(false)
     }
   }, [isOpen])
 
@@ -59,7 +76,15 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
     return Number.isFinite(value) ? value : null
   }, [newStock])
 
-  const stockDiff = item && parsedNewStock !== null ? parsedNewStock - item.currentStock : 0
+  const selectedBatch = activeBatches.find((batch) => batch.id === batchId)
+  const currentAdjustmentStock = selectedBatch?.quantityRemaining ?? item?.currentStock ?? 0
+  const stockDiff = parsedNewStock !== null ? parsedNewStock - currentAdjustmentStock : 0
+  const resultingTotalStock =
+    item && parsedNewStock !== null
+      ? selectedBatch
+        ? item.currentStock + stockDiff
+        : parsedNewStock
+      : null
   const hasChange = parsedNewStock !== null && item !== null && stockDiff !== 0
   const isReduction = stockDiff < 0
 
@@ -72,30 +97,58 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    setAttemptedSubmit(true)
 
     if (parsedNewStock === null || !reason) {
+      if (parsedNewStock === null) newStockRef.current?.focus()
+      else reasonRef.current?.focus()
       showError('Please complete all required fields.')
       return
     }
 
     if (parsedNewStock < 0) {
+      newStockRef.current?.focus()
       showError('Stock cannot be negative.')
       return
     }
 
+    if (resultingTotalStock !== null && resultingTotalStock < 0) {
+      newStockRef.current?.focus()
+      showError('Total stock cannot become negative.')
+      return
+    }
+
     if (stockDiff === 0) {
+      newStockRef.current?.focus()
       showError('New stock must be different from current stock.')
+      return
+    }
+
+    if (activeBatches.length > 0 && !batchId) {
+      batchRef.current?.focus()
+      showError('Select the active batch or supplier affected by this adjustment.')
+      return
+    }
+
+    if (isReduction && selectedBatch && Math.abs(stockDiff) > selectedBatch.quantityRemaining) {
+      batchRef.current?.focus()
+      showError('Adjustment reduction cannot exceed the selected batch remaining stock.')
       return
     }
 
     setLoading(true)
     try {
-      const fullReason = notes.trim() ? `${reason} - ${notes.trim()}` : reason
-      await onAdjust(item.id, parsedNewStock, fullReason)
+      const batchNote = selectedBatch
+        ? `Batch ${selectedBatch.batchNumber}, Supplier ${selectedBatch.supplier}`
+        : ''
+      const fullReason = [reason, batchNote, notes.trim()].filter(Boolean).join(' - ')
+      await onAdjust(item.id, resultingTotalStock ?? parsedNewStock, fullReason, batchId || undefined)
 
       setNewStock('')
       setReason('')
       setNotes('')
+      setBatchId('')
+      setAttemptedSubmit(false)
       onClose()
     } catch {
       showError('Failed to adjust stock.')
@@ -131,7 +184,7 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-6">
+        <form onSubmit={handleSubmit} noValidate className="min-h-0 overflow-y-auto p-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.25fr_0.85fr]">
             <div className="space-y-4">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -162,21 +215,50 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
                 </div>
               </div>
 
+              {activeBatches.length > 0 ? (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Affected Batch / Supplier <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    ref={batchRef}
+                    value={batchId}
+                    onChange={(event) => setBatchId(event.target.value)}
+                    className={`w-full rounded-lg border bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100 ${
+                      attemptedSubmit && !batchId ? 'border-red-400 bg-red-50' : 'border-gray-900'
+                    }`}
+                  >
+                    <option value="">Select active batch</option>
+                    {activeBatches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.batchNumber} - {batch.supplier} - {formatNumber(batch.quantityRemaining)} {batch.unit}
+                        {batch.expiryDate ? ` - Exp ${batch.expiryDate}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Select the batch that physically lost, gained, expired, or was counted incorrectly.
+                  </p>
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    New Stock Amount <span className="text-red-500">*</span>
+                    {selectedBatch ? 'Corrected Batch Stock' : 'New Stock Amount'} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
+                      ref={newStockRef}
                       type="number"
                       value={newStock}
                       onChange={(event) => setNewStock(event.target.value)}
                       placeholder="Enter corrected stock"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 pr-16 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100"
+                      className={`w-full rounded-lg border bg-white px-4 py-3 pr-16 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100 ${
+                        attemptedSubmit && (parsedNewStock === null || parsedNewStock < 0 || stockDiff === 0) ? 'border-red-400 bg-red-50' : 'border-gray-900'
+                      }`}
                       min="0"
                       step="0.01"
-                      required
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
                       {item.unit}
@@ -189,10 +271,12 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
                     Reason <span className="text-red-500">*</span>
                   </label>
                   <select
+                    ref={reasonRef}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100"
-                    required
+                    className={`w-full rounded-lg border bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-100 ${
+                      attemptedSubmit && !reason ? 'border-red-400 bg-red-50' : 'border-gray-900'
+                    }`}
                   >
                     <option value="">Select reason</option>
                     {adjustmentReasons.map((adjustmentReason) => (
@@ -225,9 +309,9 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
 
                 <div className="mt-4 space-y-3 text-sm">
                   <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-                    <span className="text-gray-500">Current</span>
+                    <span className="text-gray-500">{selectedBatch ? 'Current Batch' : 'Current'}</span>
                     <span className="font-semibold text-gray-900">
-                      {formatNumber(item.currentStock)} {item.unit}
+                      {formatNumber(currentAdjustmentStock)} {item.unit}
                     </span>
                   </div>
                   <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
@@ -244,12 +328,30 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
                       {hasChange ? `${stockDiff > 0 ? '+' : ''}${formatNumber(stockDiff)} ${item.unit}` : '-'}
                     </span>
                   </div>
+                  <div className="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                    <span className="text-gray-500">Batch</span>
+                    <span className="text-right font-semibold text-gray-900">
+                      {selectedBatch
+                        ? `${selectedBatch.batchNumber} / ${selectedBatch.supplier}`
+                        : activeBatches.length > 0
+                          ? 'Select batch'
+                          : '-'}
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between rounded-lg bg-gray-900 px-3 py-3 text-white">
-                    <span className="text-gray-300">New Stock</span>
+                    <span className="text-gray-300">{selectedBatch ? 'New Batch Stock' : 'New Stock'}</span>
                     <span className="font-bold">
                       {parsedNewStock !== null ? `${formatNumber(parsedNewStock)} ${item.unit}` : '-'}
                     </span>
                   </div>
+                  {selectedBatch ? (
+                    <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                      <span className="text-gray-500">New Total Stock</span>
+                      <span className="font-bold text-gray-900">
+                        {resultingTotalStock !== null ? `${formatNumber(resultingTotalStock)} ${item.unit}` : '-'}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -275,7 +377,7 @@ export default function AdjustmentModal({ isOpen, onClose, item, onAdjust }: Adj
             <button
               type="submit"
               className="rounded-lg bg-gray-900 px-5 py-3 font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={loading || parsedNewStock === null || !reason || stockDiff === 0}
+              disabled={loading}
             >
               {loading ? 'Processing...' : 'Confirm Adjustment'}
             </button>

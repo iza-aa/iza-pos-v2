@@ -41,19 +41,24 @@ export function MetricCard({
 export function ChartCard({
   title,
   subtitle,
+  actions,
   children,
 }: {
   title: string;
   subtitle?: string;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4">
-        <h2 className="text-base font-bold text-gray-950">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-sm leading-6 text-gray-500">{subtitle}</p>
-        ) : null}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-base font-bold text-gray-950">{title}</h2>
+          {subtitle ? (
+            <p className="mt-1 text-sm leading-6 text-gray-500">{subtitle}</p>
+          ) : null}
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
       {children}
     </section>

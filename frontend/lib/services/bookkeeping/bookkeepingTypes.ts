@@ -5,8 +5,7 @@ export type BookkeepingTab =
   | "ledger"
   | "cost-margin"
   | "expenses"
-  | "exceptions"
-  | "reports";
+  | "exceptions";
 
 export type ClosingSection = "shift" | "daily";
 
@@ -15,6 +14,8 @@ export type BookkeepingEntryType =
   | "discount_cost"
   | "tax_payable"
   | "cogs_estimate"
+  | "kitchen_bulk_usage"
+  | "quality_check_usage"
   | "stock_purchase"
   | "cancellation_adjustment"
   | "expense"
@@ -54,6 +55,10 @@ export type BookkeepingException = {
   source: string;
   suggestedFix: string;
   status: "open" | "acknowledged" | "resolved";
+  reviewStatus?: "waiting_manager_review" | "reviewed";
+  reviewedByName?: string | null;
+  reviewedByRole?: string | null;
+  reviewedAt?: string | null;
 };
 
 export type BookkeepingExpense = {

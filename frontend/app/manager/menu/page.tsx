@@ -80,6 +80,24 @@ type StockInfo = {
   status: "available" | "low" | "out";
 };
 
+const AVAILABLE_BADGE_STYLE = {
+  backgroundColor: "#D8F999",
+  color: "#111827",
+  borderColor: "#C3EE78",
+};
+
+const WARNING_BADGE_STYLE = {
+  backgroundColor: "#FFF4CC",
+  color: "#92400E",
+  borderColor: "#F5D56B",
+};
+
+const UNAVAILABLE_BADGE_STYLE = {
+  backgroundColor: "#FFE1E1",
+  color: "#C00000",
+  borderColor: "#FFC7C7",
+};
+
 const getRelationObject = <T,>(
   relation: T | T[] | null | undefined,
 ): T | null => {
@@ -190,7 +208,7 @@ export default function MenuPage() {
   const [estimatedStockByProductId, setEstimatedStockByProductId] = useState<
     Record<string, StockInfo>
   >({});
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [showCategorySidebar, setShowCategorySidebar] = useState(false);
 
   // Fetch categories from Supabase
@@ -340,10 +358,10 @@ export default function MenuPage() {
     return estimatedStockByProductId[menuId] ?? getDefaultStockInfo();
   };
 
-  const getStockColor = (status: StockInfo["status"]) => {
-    if (status === "available") return "#7FCC2B";
-    if (status === "low") return "#F59E0B";
-    return "#FF6859";
+  const getStockBadgeStyle = (status: StockInfo["status"]) => {
+    if (status === "available") return AVAILABLE_BADGE_STYLE;
+    if (status === "low") return WARNING_BADGE_STYLE;
+    return UNAVAILABLE_BADGE_STYLE;
   };
 
   const handleAddNewCategory = () => {
@@ -883,16 +901,10 @@ export default function MenuPage() {
                     {/* Availability Status */}
                     <div className="mb-2">
                       <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                          menu.available ? "text-black" : "text-white"
-                        }`}
-                        style={{
-                          backgroundColor: menu.available
-                            ? "#B2FF5E"
-                            : "#FF6859",
-                        }}
+                        className="inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold"
+                        style={menu.available ? AVAILABLE_BADGE_STYLE : UNAVAILABLE_BADGE_STYLE}
                       >
-                        {menu.available ? "Available" : "Not Available"}
+                        {menu.available ? "Available" : "Unavailable"}
                       </span>
                     </div>
 
@@ -902,8 +914,8 @@ export default function MenuPage() {
                         Est. Stock:
                       </span>{" "}
                       <span
-                        className="font-semibold"
-                        style={{ color: getStockColor(stockInfo.status) }}
+                        className="inline-flex rounded-full border px-2 py-0.5 font-semibold"
+                        style={getStockBadgeStyle(stockInfo.status)}
                       >
                         {stockInfo.canMake}
                       </span>

@@ -89,13 +89,13 @@ export default function DateRangeFilter({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="text-sm font-bold text-gray-950">Date Range</p>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm leading-6 text-gray-500 sm:leading-normal">
             Apply one period to every dated metric and chart in this tab.
           </p>
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {presets.map((preset) => {
               const presetValue = preset.getValue();
               const active =
@@ -107,7 +107,7 @@ export default function DateRangeFilter({
                   key={preset.id}
                   type="button"
                   onClick={() => onChange(presetValue)}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                  className={`h-12 rounded-xl border px-3 text-sm font-semibold transition sm:h-auto sm:py-2 ${
                     active
                       ? "border-gray-900 bg-gray-900 text-white"
                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
@@ -119,12 +119,12 @@ export default function DateRangeFilter({
             })}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="grid gap-2 sm:flex sm:flex-row sm:items-center">
             <input
               type="date"
               value={value.startDate}
               onChange={(event) => setDate("startDate", event.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none transition focus:border-gray-900"
+              className="h-12 min-w-0 rounded-xl border border-gray-200 bg-white px-4 text-base font-semibold text-gray-700 outline-none transition focus:border-gray-900 sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
               aria-label="Start date"
             />
             <span className="hidden text-sm font-semibold text-gray-400 sm:block">
@@ -134,7 +134,7 @@ export default function DateRangeFilter({
               type="date"
               value={value.endDate}
               onChange={(event) => setDate("endDate", event.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none transition focus:border-gray-900"
+              className="h-12 min-w-0 rounded-xl border border-gray-200 bg-white px-4 text-base font-semibold text-gray-700 outline-none transition focus:border-gray-900 sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
               aria-label="End date"
             />
           </div>

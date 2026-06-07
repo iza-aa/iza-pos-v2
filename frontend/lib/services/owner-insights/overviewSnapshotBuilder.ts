@@ -8,6 +8,10 @@ import {
   buildRecommendationPeriodContext,
   isDateInPeriod,
 } from "./periodService";
+import {
+  applyInsightOrderCorrections,
+  type InsightOrderCorrectionRow,
+} from "./orderCorrectionUtils";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
@@ -33,10 +37,17 @@ type OverviewOrderRow = {
   reward_redemption_id?: string | null;
 };
 
+type OverviewOrderItemServiceRow = {
+  order_id?: string | null;
+  ready_at?: string | null;
+  served_at?: string | null;
+};
+
 const OVERVIEW_BASE_ORDER_SELECT =
   "id,status,payment_status,payment_method,total,discount,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id";
 const OVERVIEW_COMPLETED_ORDER_SELECT = `${OVERVIEW_BASE_ORDER_SELECT},completed_at`;
-const OVERVIEW_SERVICE_ORDER_SELECT = `${OVERVIEW_COMPLETED_ORDER_SELECT},ready_at,served_at`;
+const OVERVIEW_SERVICE_ORDER_SELECT = OVERVIEW_COMPLETED_ORDER_SELECT;
+const OVERVIEW_ORDER_ITEM_SERVICE_SELECT = "order_id,ready_at,served_at";
 
 const cancelledStatuses = new Set(["cancelled", "canceled", "void", "refunded"]);
 const invalidPaymentStatuses = new Set([
@@ -147,6 +158,35 @@ const summarizeOrders = (orders: OverviewOrderRow[]) => {
       : null,
     serviceSampleSize: serviceDurations.length,
   };
+};
+
+const getLatestTimestamp = (current: string | null | undefined, next: string | null | undefined) => {
+  if (!next) return current ?? null;
+  if (!current) return next;
+
+  return new Date(next).getTime() > new Date(current).getTime() ? next : current;
+};
+
+const applyOrderItemServiceRollups = (
+  orders: OverviewOrderRow[],
+  orderItems: OverviewOrderItemServiceRow[],
+) => {
+  const rollupByOrderId = new Map<string, Pick<OverviewOrderRow, "ready_at" | "served_at">>();
+
+  orderItems.forEach((item) => {
+    if (!item.order_id) return;
+
+    const current = rollupByOrderId.get(item.order_id) ?? {};
+    rollupByOrderId.set(item.order_id, {
+      ready_at: getLatestTimestamp(current.ready_at, item.ready_at),
+      served_at: getLatestTimestamp(current.served_at, item.served_at),
+    });
+  });
+
+  return orders.map((order) => ({
+    ...order,
+    ...(rollupByOrderId.get(order.id) ?? {}),
+  }));
 };
 
 const buildRevenueTrend = (
@@ -513,11 +553,36 @@ export async function buildOverviewRecommendationSnapshot(
   const fallbackResult = completedResult.error
     ? await queryOrders(OVERVIEW_BASE_ORDER_SELECT)
     : completedResult;
-  const orders = (fallbackResult.data ?? []) as OverviewOrderRow[];
+  const orderCorrectionsResult = await supabase
+    .from("order_corrections")
+    .select("id,order_id,status,physical_status,note");
+  const orderItemsResult = await supabase
+    .from("order_items")
+    .select(OVERVIEW_ORDER_ITEM_SERVICE_SELECT);
 
   if (fallbackResult.error) {
     throw new Error(`Owner AI could not read orders: ${fallbackResult.error.message}`);
   }
+
+  if (orderCorrectionsResult.error) {
+    throw new Error(
+      `Owner AI could not read order corrections: ${orderCorrectionsResult.error.message}`,
+    );
+  }
+
+  if (orderItemsResult.error) {
+    throw new Error(
+      `Owner AI could not read order item service timestamps: ${orderItemsResult.error.message}`,
+    );
+  }
+
+  const orders = applyInsightOrderCorrections(
+    applyOrderItemServiceRollups(
+      (fallbackResult.data ?? []) as unknown as OverviewOrderRow[],
+      (orderItemsResult.data ?? []) as unknown as OverviewOrderItemServiceRow[],
+    ),
+    (orderCorrectionsResult.data ?? []) as InsightOrderCorrectionRow[],
+  );
 
   if (orders.length === 0) {
     throw new Error(
@@ -537,11 +602,6 @@ export async function buildOverviewRecommendationSnapshot(
   const businessHealthScore = getBusinessHealthScore(selectedSummary);
   const warnings: string[] = [];
 
-  if (serviceResult.error?.message) {
-    warnings.push(
-      "Some service-time columns are unavailable on orders, so service-time evidence may be limited.",
-    );
-  }
   if (!selectedOrders.length) warnings.push("No orders found in the selected period.");
   if (selectedSummary.serviceSampleSize === 0) {
     warnings.push("Service-time metrics are limited because timestamp samples are unavailable.");

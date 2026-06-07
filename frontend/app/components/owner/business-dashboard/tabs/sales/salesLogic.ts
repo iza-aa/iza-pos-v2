@@ -1,4 +1,5 @@
 import { OWNER_CHART_SERIES } from "@/lib/constants/theme";
+import { convertQuantity } from "@/lib/utils/unitConversion";
 import type {
   InventoryItemRow,
   ProductCategoryRelation,
@@ -36,6 +37,10 @@ function getProductCategory(
   );
 }
 
+function getRecipeCostingMode(ingredient: RecipeIngredientRow) {
+  return ingredient.costing_mode || "deduct_from_pos";
+}
+
 function getRecipeCost(
   product: ProductRow | undefined,
   recipes: RecipeRow[],
@@ -55,6 +60,8 @@ function getRecipeCost(
 
   let hasCostData = false;
   const cost = recipeIngredients.reduce((sum, ingredient) => {
+    if (getRecipeCostingMode(ingredient) === "kitchen_overhead") return sum;
+
     const inventory = inventoryItems.find(
       (item) => item.id === ingredient.inventory_item_id,
     );
@@ -64,7 +71,13 @@ function getRecipeCost(
       hasCostData = true;
     }
 
-    return sum + toNumber(ingredient.quantity_needed) * unitCost;
+    const quantityInInventoryUnit = convertQuantity(
+      toNumber(ingredient.quantity_needed),
+      ingredient.unit,
+      inventory?.unit,
+    );
+
+    return sum + quantityInInventoryUnit * unitCost;
   }, 0);
 
   return hasCostData ? cost : null;

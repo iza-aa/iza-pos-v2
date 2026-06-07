@@ -3,9 +3,8 @@
 import { Trash2, CheckCircle } from "lucide-react";
 import { ReactNode, useState, useRef, useEffect } from "react";
 import type { MouseEvent } from "react";
-import { getKitchenStatusBadge } from "@/lib/constants";
 import { formatCurrency } from "@/lib/constants";
-import { COLORS } from "@/lib/constants";
+import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import type { Order } from "@/lib/types";
 
 type VariantValue = string | number | boolean | null | undefined;
@@ -32,6 +31,7 @@ interface OrderCardProps {
   showServeOrderAction?: boolean;
   serveOrderLabel?: string;
   disabledServeOrderLabel?: string;
+  correctionLabel?: string;
 }
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
@@ -161,6 +161,11 @@ type FulfillmentInfo = {
   badgeClass: string;
 };
 
+type KitchenBadgeInfo = {
+  label: string;
+  badgeClass: string;
+};
+
 const getFulfillmentMethod = (order: OrderWithFulfillment): string | null => {
   return order.fulfillment_method ?? order.fulfillmentMethod ?? null;
 };
@@ -176,7 +181,7 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
     return {
       label: tableNumber ? `Table ${tableNumber}` : "Table Service",
       shortLabel: tableNumber ? `Table ${tableNumber}` : "Table Service",
-      badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+      badgeClass: OWNER_SEMANTIC_TONES.info.badgeClass,
     };
   }
 
@@ -184,7 +189,7 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
     return {
       label: pagerNumber ? `Pager ${pagerNumber}` : "Pager",
       shortLabel: pagerNumber ? `Pager ${pagerNumber}` : "Pager",
-      badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+      badgeClass: OWNER_SEMANTIC_TONES.premium.badgeClass,
     };
   }
 
@@ -192,7 +197,7 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
     return {
       label: pickupCode ? `Pickup ${pickupCode}` : "Pickup",
       shortLabel: pickupCode ? `Pickup ${pickupCode}` : "Pickup",
-      badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
+      badgeClass: OWNER_SEMANTIC_TONES.waiting.badgeClass,
     };
   }
 
@@ -200,14 +205,44 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
     return {
       label: `Table ${tableNumber}`,
       shortLabel: `Table ${tableNumber}`,
-      badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+      badgeClass: OWNER_SEMANTIC_TONES.info.badgeClass,
     };
   }
 
   return {
     label: order.orderType || "Order",
     shortLabel: order.orderType || "Order",
-    badgeClass: "bg-gray-100 text-gray-700 border-gray-200",
+    badgeClass: OWNER_SEMANTIC_TONES.neutral.badgeClass,
+  };
+};
+
+const getKitchenBadgeInfo = (kitchenStatus?: string): KitchenBadgeInfo | null => {
+  if (!kitchenStatus || kitchenStatus === "not_required") return null;
+
+  if (kitchenStatus === "pending") {
+    return {
+      label: "Pending",
+      badgeClass: OWNER_SEMANTIC_TONES.waiting.badgeClass,
+    };
+  }
+
+  if (kitchenStatus === "cooking") {
+    return {
+      label: "Cooking",
+      badgeClass: OWNER_SEMANTIC_TONES.progress.badgeClass,
+    };
+  }
+
+  if (kitchenStatus === "ready") {
+    return {
+      label: "Ready",
+      badgeClass: OWNER_SEMANTIC_TONES.success.badgeClass,
+    };
+  }
+
+  return {
+    label: kitchenStatus,
+    badgeClass: OWNER_SEMANTIC_TONES.neutral.badgeClass,
   };
 };
 
@@ -252,12 +287,18 @@ const getOrderTotal = (order: OrderWithPricing): number => {
 const FulfillmentBadge = ({ info }: { info: FulfillmentInfo }) => {
   return (
     <span
-      className={`text-xs font-semibold px-2 py-0.5 rounded border ${info.badgeClass}`}
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${info.badgeClass}`}
     >
       {info.label}
     </span>
   );
 };
+
+const CorrectionBadge = ({ label }: { label: string }) => (
+  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+    {label}
+  </span>
+);
 
 export default function OrderCard({
   order,
@@ -272,6 +313,7 @@ export default function OrderCard({
   showServeOrderAction = false,
   serveOrderLabel = "Serve Order",
   disabledServeOrderLabel = "Waiting for Kitchen",
+  correctionLabel,
 }: OrderCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -297,14 +339,14 @@ export default function OrderCard({
   }, [isFlipped, selectedItems]);
 
   const renderKitchenBadge = (kitchenStatus?: string) => {
-    const badge = getKitchenStatusBadge(kitchenStatus);
+    const badge = getKitchenBadgeInfo(kitchenStatus);
     if (!badge) return null;
 
     return (
       <span
-        className={`text-xs ${badge.bgColor} ${badge.textColor} px-2 py-0.5 rounded`}
+        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badge.badgeClass}`}
       >
-        {badge.icon} {badge.label}
+        {badge.label}
       </span>
     );
   };
@@ -505,6 +547,7 @@ export default function OrderCard({
                     </p>
 
                     <FulfillmentBadge info={fulfillmentInfo} />
+                    {correctionLabel ? <CorrectionBadge label={correctionLabel} /> : null}
                   </div>
                 </div>
               </div>
@@ -803,6 +846,7 @@ export default function OrderCard({
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-sm text-gray-600">{order.customerName}</p>
                 <FulfillmentBadge info={fulfillmentInfo} />
+                {correctionLabel ? <CorrectionBadge label={correctionLabel} /> : null}
               </div>
             </div>
 
@@ -811,8 +855,7 @@ export default function OrderCard({
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                  style={{ color: COLORS.DANGER }}
+                  className="rounded-lg p-2 text-rose-700 transition-colors hover:bg-rose-50"
                   title="Delete Order"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -823,7 +866,7 @@ export default function OrderCard({
                 <button
                   type="button"
                   onClick={handleServeAll}
-                  className="px-3 py-1.5 bg-[#B2FF5E] text-gray-900 text-xs font-semibold rounded-lg hover:bg-[#a0e855] transition-colors"
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${OWNER_SEMANTIC_TONES.success.badgeClass}`}
                   title="Serve All Items"
                 >
                   Serve All
@@ -893,8 +936,7 @@ export default function OrderCard({
                     <button
                       type="button"
                       onClick={(e) => handleServeItem(e, item.id)}
-                      className="p-1 hover:bg-green-50 rounded transition-colors"
-                      style={{ color: COLORS.PRIMARY_LIGHT }}
+                      className="rounded p-1 text-emerald-700 transition-colors hover:bg-emerald-50"
                       title="Mark as Served"
                     >
                       <CheckCircle className="w-4 h-4" />

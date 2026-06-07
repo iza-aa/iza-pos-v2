@@ -295,7 +295,7 @@ export default function VariantGroupModal({
                           </p>
                         </div>
                         {formData.type === 'single' ? (
-                          <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
+                          <CheckCircleIcon className="h-5 w-5 shrink-0" />
                         ) : null}
                       </div>
                     </button>
@@ -323,7 +323,7 @@ export default function VariantGroupModal({
                           </p>
                         </div>
                         {formData.type === 'multiple' ? (
-                          <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
+                          <CheckCircleIcon className="h-5 w-5 shrink-0" />
                         ) : null}
                       </div>
                     </button>
@@ -413,7 +413,7 @@ export default function VariantGroupModal({
             </div>
 
             <div className="min-h-0 overflow-hidden bg-gray-50 p-5">
-              <div className="flex h-full min-h-[420px] flex-col rounded-lg border border-gray-200 bg-white">
+              <div className="flex h-full min-h-105 flex-col rounded-lg border border-gray-200 bg-white">
                 <div className="border-b border-gray-200 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -438,7 +438,7 @@ export default function VariantGroupModal({
                             className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 transition hover:border-gray-300"
                           >
                             <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-700">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-700">
                                 {index + 1}
                               </div>
                               <div className="min-w-0">
@@ -472,7 +472,7 @@ export default function VariantGroupModal({
                       })}
                     </div>
                   ) : (
-                    <div className="flex h-full min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                    <div className="flex h-full min-h-65 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
                       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-white ring-1 ring-gray-200">
                         <PlusIcon className="h-6 w-6 text-gray-400" />
                       </div>

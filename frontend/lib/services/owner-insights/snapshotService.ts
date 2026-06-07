@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { OwnerInsightCategory } from "./insightSchema";
+import { buildActivityLogRecommendationSnapshot } from "./activityLogSnapshotBuilder";
 import { buildCustomerRecommendationSnapshot } from "./customerSnapshotBuilder";
 import { buildInventoryRecommendationSnapshot } from "./inventorySnapshotBuilder";
 import { buildOperationsRecommendationSnapshot } from "./operationsSnapshotBuilder";
@@ -57,6 +58,8 @@ export async function buildOwnerInsightSnapshot(
       return buildStaffRecommendationSnapshot(supabase, insightPeriod);
     case "operations":
       return buildOperationsRecommendationSnapshot(supabase, insightPeriod);
+    case "activity_log":
+      return buildActivityLogRecommendationSnapshot(supabase, insightPeriod);
     default: {
       const exhaustiveCategory: never = category;
       throw new Error(`Unsupported owner insight category: ${exhaustiveCategory}`);
