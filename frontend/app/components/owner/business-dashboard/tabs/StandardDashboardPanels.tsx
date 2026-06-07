@@ -2228,7 +2228,7 @@ function StaffDashboard() {
       .filter((value): value is number => value !== null),
   );
   const radarData = [
-    { metric: t("owner.staff.attendance"), value: average(staffRows.map((row) => row.attendanceRate)) },
+    { metric: t("owner.staff.attendanceMetric"), value: average(staffRows.map((row) => row.attendanceRate)) },
     {
       metric: t("owner.staff.ordersHandled"),
       value: maxOrdersHandled
@@ -2248,8 +2248,8 @@ function StaffDashboard() {
   ];
   const radarDetailRows = [
     {
-      metric: t("owner.staff.attendance"),
-      score: radarData.find((row) => row.metric === t("owner.staff.attendance"))?.value ?? 0,
+      metric: t("owner.staff.attendanceMetric"),
+      score: radarData.find((row) => row.metric === t("owner.staff.attendanceMetric"))?.value ?? 0,
       basis: t("owner.staff.attendanceBasis", {
         clockedIn: attendanceInRange.filter((row) => row.clock_in_at).length,
         days: rangeDays,
