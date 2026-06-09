@@ -14,6 +14,7 @@ import {
   Salad,
   IceCream
 } from 'lucide-react'
+import { useLanguage } from '@/app/components/shared/i18n'
 
 interface CategoryModalProps {
   isOpen: boolean
@@ -36,6 +37,7 @@ const categoryIcons = [
 ]
 
 export default function CategoryModal({ isOpen, onClose, onSave, category }: CategoryModalProps) {
+  const { t } = useLanguage()
   const [name, setName] = useState('')
   const [iconName, setIconName] = useState('Coffee')
   const [type, setType] = useState<'food' | 'beverage'>('food')
@@ -72,7 +74,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category }: Cat
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-800">
-            {category ? 'Edit Category' : 'Add New Category'}
+            {category ? t('manager.menu.categoryModal.editTitle') : t('manager.menu.categoryModal.addTitle')}
           </h2>
           <button
             onClick={onClose}
@@ -88,7 +90,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category }: Cat
             {/* Category Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category Name
+                {t('manager.menu.categoryModal.name')}
               </label>
               <input
                 type="text"
@@ -96,14 +98,14 @@ export default function CategoryModal({ isOpen, onClose, onSave, category }: Cat
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter category name"
+                placeholder={t('manager.menu.categoryModal.namePlaceholder')}
               />
             </div>
 
             {/* Category Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category Type
+                {t('manager.menu.categoryModal.type')}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -115,7 +117,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category }: Cat
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  🍽️ Food
+                  {t('manager.menu.categoryModal.food')}
                 </button>
                 <button
                   type="button"
@@ -126,18 +128,20 @@ export default function CategoryModal({ isOpen, onClose, onSave, category }: Cat
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  ☕ Beverage
+                  {t('manager.menu.categoryModal.beverage')}
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {type === 'food' ? '✓ Requires kitchen preparation' : '✓ No kitchen preparation needed'}
+                {type === 'food'
+                  ? t('manager.menu.categoryModal.requiresKitchen')
+                  : t('manager.menu.categoryModal.noKitchen')}
               </p>
             </div>
 
             {/* Icon Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category Icon
+                {t('manager.menu.categoryModal.icon')}
               </label>
               <div className="grid grid-cols-5 gap-3">
                 {categoryIcons.map((item) => {
@@ -173,13 +177,13 @@ export default function CategoryModal({ isOpen, onClose, onSave, category }: Cat
               onClick={onClose}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition font-medium"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition font-medium"
             >
-              {category ? 'Update Category' : 'Add Category'}
+              {category ? t('manager.menu.categoryModal.update') : t('manager.menu.categoryModal.add')}
             </button>
           </div>
         </form>

@@ -29,6 +29,7 @@ import { supabase } from "@/lib/config/supabaseClient";
 import MenuModal from "@/app/components/manager/menu/MenuModal";
 import CategoryModal from "@/app/components/manager/menu/CategoryModal";
 import { DeleteModal, ProductImagePlaceholder } from "@/app/components/ui";
+import { useLanguage } from "@/app/components/shared/i18n";
 import type { MenuItem } from "@/lib/types";
 
 type Category = {
@@ -191,6 +192,7 @@ const calculateEstimatedStockByProduct = (
 };
 
 export default function MenuPage() {
+  const { t } = useLanguage();
   useSessionValidation();
 
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -245,14 +247,14 @@ export default function MenuPage() {
           .select("*", { count: "exact", head: true });
 
         setCategories([
-          { id: "all", name: "All Menu", count: totalCount || 0 },
+          { id: "all", name: t("manager.menu.allMenu"), count: totalCount || 0 },
           ...categoriesWithCount,
         ]);
       }
     }
 
     fetchCategories();
-  }, []);
+  }, [t]);
 
   // Fetch products from Supabase
   useEffect(() => {
@@ -284,7 +286,7 @@ export default function MenuPage() {
           return {
             id: product.id,
             name: product.name,
-            category: categoryRelation?.name || "Unknown",
+            category: categoryRelation?.name || t("manager.menu.unknownCategory"),
             categoryId: product.category_id,
             price: product.price,
             image: product.image || undefined,
@@ -346,7 +348,7 @@ export default function MenuPage() {
     }
 
     fetchProducts();
-  }, [selectedCategory]);
+  }, [selectedCategory, t]);
 
   const filteredMenuItems = menuItems.filter((menu) =>
     menu.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -489,7 +491,7 @@ export default function MenuPage() {
       const menu: MenuItem = {
         id: data.id,
         name: data.name,
-        category: categoryData?.name || "Unknown",
+        category: categoryData?.name || t("manager.menu.unknownCategory"),
         categoryId: data.category_id,
         price: data.price,
         image: data.image || null,
@@ -761,7 +763,7 @@ export default function MenuPage() {
                           setShowAddCategoryModal(true);
                         }}
                         className="p-1 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                        title="Edit category"
+                        title={t("manager.menu.editCategory")}
                       >
                         <svg
                           className="w-4 h-4"
@@ -783,7 +785,7 @@ export default function MenuPage() {
                           handleDeleteCategory(category);
                         }}
                         className="p-1 hover:bg-red-50 rounded text-red-600 transition-colors"
-                        title="Delete category"
+                        title={t("manager.menu.deleteCategory")}
                       >
                         <svg
                           className="w-4 h-4"
@@ -812,7 +814,7 @@ export default function MenuPage() {
           className="w-full mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white px-3 py-2.5 rounded-lg hover:bg-gray-800 transition font-medium shrink-0 text-sm"
         >
           <PlusIcon className="w-4 h-4" />
-          Add New Category
+          {t("manager.menu.addNewCategory")}
         </button>
       </section>
 
@@ -824,11 +826,10 @@ export default function MenuPage() {
             <div className="flex items-center gap-4">
               <div className="flex flex-col gap-1">
                 <h1 className="text-xl md:text-2xl font-bold text-gray-800">
-                  Manage Menu
+                  {t("manager.menu.title")}
                 </h1>
                 <p className="text-xs md:text-sm text-gray-500">
-                  Lihat, tambahkan, edit, atau hapus menu dan detail produk yang
-                  tersedia.
+                  {t("manager.menu.subtitle")}
                 </p>
               </div>
             </div>
@@ -839,7 +840,7 @@ export default function MenuPage() {
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search menu"
+                  placeholder={t("manager.menu.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 w-full lg:w-64 text-sm"
@@ -862,7 +863,7 @@ export default function MenuPage() {
                 <PlusIcon className="w-6 h-6 md:w-8 md:h-8 text-white" />
               </div>
               <p className="text-sm font-semibold text-gray-700">
-                Add New Menu to
+                {t("manager.menu.addNewMenuTo")}
               </p>
               <p className="text-sm font-semibold text-gray-700">
                 {currentCategory?.name}
@@ -904,14 +905,16 @@ export default function MenuPage() {
                         className="inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold"
                         style={menu.available ? AVAILABLE_BADGE_STYLE : UNAVAILABLE_BADGE_STYLE}
                       >
-                        {menu.available ? "Available" : "Unavailable"}
+                        {menu.available
+                          ? t("manager.menu.available")
+                          : t("manager.menu.unavailable")}
                       </span>
                     </div>
 
                     {/* Stock Status (Real-time from inventory) */}
                     <div className="mb-2 text-[10px] md:text-xs">
                       <span className="font-medium text-gray-600">
-                        Est. Stock:
+                        {t("manager.menu.estimatedStock")}:
                       </span>{" "}
                       <span
                         className="inline-flex rounded-full border px-2 py-0.5 font-semibold"
@@ -927,7 +930,7 @@ export default function MenuPage() {
                         className="mb-3 text-[10px] md:text-xs font-medium"
                         style={{ color: "#FF6859" }}
                       >
-                        This menu has variants
+                        {t("manager.menu.hasVariants")}
                       </div>
                     )}
 
@@ -944,7 +947,7 @@ export default function MenuPage() {
                         onClick={() => handleEditMenu(menu)}
                         className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition"
                       >
-                        Edit
+                        {t("common.edit")}
                       </button>
                       <button
                         onClick={() => handleDeleteMenu(menu)}
@@ -956,7 +959,7 @@ export default function MenuPage() {
                           borderStyle: "solid",
                         }}
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     </div>
                   </div>
@@ -1008,9 +1011,9 @@ export default function MenuPage() {
         isOpen={deletingMenu !== null}
         onClose={() => setDeletingMenu(null)}
         onConfirm={confirmDeleteMenu}
-        title="Delete Menu"
+        title={t("manager.menu.deleteMenu")}
         itemName={deletingMenu?.name || ""}
-        description="This menu will be permanently removed from the menu."
+        description={t("manager.menu.deleteMenuDescription")}
       />
 
       {/* Delete Category Modal */}
@@ -1018,9 +1021,9 @@ export default function MenuPage() {
         isOpen={deletingCategory !== null}
         onClose={() => setDeletingCategory(null)}
         onConfirm={confirmDeleteCategory}
-        title="Delete Category"
+        title={t("manager.menu.deleteCategory")}
         itemName={deletingCategory?.name || ""}
-        description="This category and all its associated products will be affected. Are you sure?"
+        description={t("manager.menu.deleteCategoryDescription")}
       />
     </div>
   );

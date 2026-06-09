@@ -18,9 +18,9 @@ Seluruh teks UI manager harus memakai sistem i18n yang sama dengan owner. Data y
 | Manager staff shell | `frontend/app/manager/staff-manager/page.tsx` | Done | Page title, loading, errors, login code modal sudah memakai i18n. |
 | Manager table shell | `frontend/app/manager/table-management/page.tsx` | Done | Page title, floor actions, empty state, delete messages sudah memakai i18n. |
 | Manager table components | `frontend/app/components/manager/tablemanager/*` | Done | Floor/table modal, table card/list/map, QR modal sudah memakai manager i18n keys. |
-| Manager menu | `frontend/app/manager/menu/page.tsx`, `frontend/app/components/manager/menu/*` | Pending | Menu, category, variants, recipe, discount/bundle labels perlu audit. |
-| Manager inventory | `frontend/app/manager/inventory/page.tsx`, `frontend/app/components/manager/inventory/*` | Pending | Area terbesar: inventory tabs, restock, recipe, stock report, kitchen station labels. |
-| Manager order | `frontend/app/manager/order/page.tsx` | Pending | Order status, correction review, filter, table/card responsive labels. |
+| Manager menu | `frontend/app/manager/menu/page.tsx`, `frontend/app/components/manager/menu/*` | Done | Page shell, category modal, menu modal, upload messages, variant labels, delete dialogs, and menu cards use manager i18n keys. |
+| Manager inventory | `frontend/app/manager/inventory/page.tsx`, `frontend/app/components/manager/inventory/*` | Partial | InventoryTabs and VariantsTab use manager i18n keys. Remaining: VariantGroupModal, raw material, restock/adjustment, stock reports, usage history, recipes, kitchen station labels. |
+| Manager order | `frontend/app/manager/order/page.tsx` | Done | Order status, correction review, filters, kanban columns, action labels, and order operation toasts use manager i18n keys. |
 | Manager closing | `frontend/app/manager/closing/page.tsx` | Done | Operational closing, shift closing table, opening cash modal, and manager expense labels use manager i18n keys. |
 | Manager notifications | `frontend/app/components/shared/notifications/useManagerNotifications.ts` | Pending | Trigger sudah ada, text masih perlu masuk i18n. |
 

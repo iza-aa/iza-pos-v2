@@ -4,6 +4,8 @@ export const commonTranslations: Record<Language, Record<string, string>> = {
   en: {
     "common.close": "Close",
     "common.cancel": "Cancel",
+    "common.edit": "Edit",
+    "common.delete": "Delete",
     "common.actions": "Actions",
     "common.saving": "Saving...",
     "common.updating": "Updating...",
@@ -107,6 +109,8 @@ export const commonTranslations: Record<Language, Record<string, string>> = {
   id: {
     "common.close": "Tutup",
     "common.cancel": "Batal",
+    "common.edit": "Edit",
+    "common.delete": "Hapus",
     "common.actions": "Aksi",
     "common.saving": "Menyimpan...",
     "common.updating": "Memperbarui...",

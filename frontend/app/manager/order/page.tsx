@@ -10,6 +10,7 @@ import DateRangeFilter, {
   getDefaultDateRange,
   type DateRangeValue,
 } from "@/app/components/shared/DateRangeFilter";
+import { useLanguage } from "@/app/components/shared/i18n";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/config/supabaseClient";
@@ -75,28 +76,28 @@ type OrderFilter =
 
 const kanbanColumns: {
   key: KanbanColumnKey;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
 }[] = [
   {
     key: "new",
-    title: "New Order",
-    description: "Pesanan baru masuk",
+    titleKey: "manager.order.status.new",
+    descriptionKey: "manager.order.column.newDescription",
   },
   {
     key: "preparing",
-    title: "On Process",
-    description: "Pesanan sedang diproses",
+    titleKey: "manager.order.status.preparing",
+    descriptionKey: "manager.order.column.preparingDescription",
   },
   {
     key: "partially-served",
-    title: "Partially Served",
-    description: "Sebagian item sudah disajikan",
+    titleKey: "manager.order.status.partiallyServed",
+    descriptionKey: "manager.order.column.partiallyServedDescription",
   },
   {
     key: "completed",
-    title: "Completed",
-    description: "Pesanan selesai",
+    titleKey: "manager.order.status.completed",
+    descriptionKey: "manager.order.column.completedDescription",
   },
 ];
 
@@ -104,24 +105,24 @@ const isValidStaffId = (id: unknown): id is string => {
   return typeof id === "string" && id.length > 0;
 };
 
-const statusFilterOptions: { key: "all" | KanbanColumnKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "new", label: "New Order" },
-  { key: "preparing", label: "On Process" },
-  { key: "partially-served", label: "Partially Served" },
-  { key: "completed", label: "Completed" },
+const statusFilterOptions: { key: "all" | KanbanColumnKey; labelKey: string }[] = [
+  { key: "all", labelKey: "manager.order.filter.all" },
+  { key: "new", labelKey: "manager.order.status.new" },
+  { key: "preparing", labelKey: "manager.order.status.preparing" },
+  { key: "partially-served", labelKey: "manager.order.status.partiallyServed" },
+  { key: "completed", labelKey: "manager.order.status.completed" },
 ];
 
-const tableFilterOptions: { key: OrderFilter; label: string }[] = [
-  { key: "all", label: "All Items" },
-  { key: "dine-in", label: "Dine In" },
-  { key: "takeaway", label: "Takeaway" },
-  { key: "new", label: "New Order" },
-  { key: "preparing", label: "On Process" },
-  { key: "partially-served", label: "Partially Served" },
-  { key: "completed", label: "Completed" },
-  { key: "pos", label: "POS Only" },
-  { key: "qr", label: "QR Only" },
+const tableFilterOptions: { key: OrderFilter; labelKey: string }[] = [
+  { key: "all", labelKey: "manager.order.filter.allItems" },
+  { key: "dine-in", labelKey: "manager.order.filter.dineIn" },
+  { key: "takeaway", labelKey: "manager.order.filter.takeaway" },
+  { key: "new", labelKey: "manager.order.status.new" },
+  { key: "preparing", labelKey: "manager.order.status.preparing" },
+  { key: "partially-served", labelKey: "manager.order.status.partiallyServed" },
+  { key: "completed", labelKey: "manager.order.status.completed" },
+  { key: "pos", labelKey: "manager.order.filter.pos" },
+  { key: "qr", labelKey: "manager.order.filter.qr" },
 ];
 
 const isStatusFilter = (
@@ -145,6 +146,7 @@ const getFilterButtonClassName = (isActive: boolean) => {
 };
 
 export default function ManagerOrderPage() {
+  const { t } = useLanguage();
   useSessionValidation();
 
   const [orderList, setOrderList] = useState<Order[]>([]);
@@ -262,7 +264,7 @@ export default function ManagerOrderPage() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        showError("Gagal mengambil data order.");
+        showError(t("manager.order.fetchFailed"));
         return;
       }
 
@@ -456,7 +458,7 @@ export default function ManagerOrderPage() {
 
       setOrderList(transformedOrders);
     } catch {
-      showError("Gagal mengambil data order.");
+      showError(t("manager.order.fetchFailed"));
     } finally {
       setLoading(false);
     }
@@ -465,7 +467,7 @@ export default function ManagerOrderPage() {
   async function handleReviewCorrection(correctionId: string) {
     const currentUser = getCurrentUser();
     if (!currentUser || (currentUser.role !== "manager" && currentUser.role !== "owner")) {
-      showError("Manager access required to review correction requests.");
+      showError(t("manager.order.managerReviewRequired"));
       return;
     }
 
@@ -482,20 +484,20 @@ export default function ManagerOrderPage() {
         body: JSON.stringify({
           action: "review",
           correctionId,
-          reviewNote: "Reviewed from manager order page.",
+          reviewNote: t("manager.order.reviewNote"),
         }),
       });
 
       const result = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Correction request could not be reviewed.");
+        throw new Error(result.error || t("manager.order.reviewFailed"));
       }
 
-      showSuccess("Correction request marked as reviewed.");
+      showSuccess(t("manager.order.reviewed"));
       await fetchOrders();
       await fetchOrderCorrections();
     } catch (error) {
-      showError(error instanceof Error ? error.message : "Correction request could not be reviewed.");
+      showError(error instanceof Error ? error.message : t("manager.order.reviewFailed"));
     } finally {
       setReviewingCorrectionId("");
     }
@@ -512,7 +514,7 @@ export default function ManagerOrderPage() {
         .eq("id", orderId);
 
       if (error) {
-        showError(`Gagal memproses order: ${error.message}`);
+        showError(t("manager.order.processFailed", { message: error.message }));
         return;
       }
 
@@ -527,12 +529,16 @@ export default function ManagerOrderPage() {
         ),
       );
 
-      showSuccess("Order moved to On Process");
+      showSuccess(t("manager.order.processed"));
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Silakan coba lagi.";
+        error instanceof Error ? error.message : t("manager.order.tryAgain");
 
-      showError(`Gagal memproses order. ${errorMessage}`);
+      showError(
+        t("manager.order.processFailedWithMessage", {
+          message: errorMessage,
+        }),
+      );
     }
   }
 
@@ -552,14 +558,14 @@ export default function ManagerOrderPage() {
       );
 
       if (validItemIds.length === 0) {
-        showError("Pilih minimal satu item yang sudah disajikan.");
+        showError(t("manager.order.selectServedItem"));
         return;
       }
 
       const targetOrder = orderList.find((order) => order.id === orderId);
 
       if (!targetOrder) {
-        showError("Order tidak ditemukan.");
+        showError(t("manager.order.notFound"));
         return;
       }
 
@@ -576,7 +582,9 @@ export default function ManagerOrderPage() {
         .in("id", validItemIds);
 
       if (itemsError) {
-        showError(`Gagal menyajikan item: ${itemsError.message}`);
+        showError(
+          t("manager.order.serveItemFailed", { message: itemsError.message }),
+        );
         return;
       }
 
@@ -608,7 +616,11 @@ export default function ManagerOrderPage() {
         .eq("id", orderId);
 
       if (orderError) {
-        showError(`Gagal memperbarui status order: ${orderError.message}`);
+        showError(
+          t("manager.order.updateStatusFailed", {
+            message: orderError.message,
+          }),
+        );
         return;
       }
 
@@ -626,14 +638,16 @@ export default function ManagerOrderPage() {
 
       showSuccess(
         nextStatus === "served"
-          ? "Semua item berhasil disajikan."
-          : "Item berhasil disajikan sebagian.",
+          ? t("manager.order.allItemsServed")
+          : t("manager.order.partialItemsServed"),
       );
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Silakan coba lagi.";
+        error instanceof Error ? error.message : t("manager.order.tryAgain");
 
-      showError(`Gagal menyajikan item. ${errorMessage}`);
+      showError(
+        t("manager.order.serveFailedWithMessage", { message: errorMessage }),
+      );
     }
   }
 
@@ -665,7 +679,9 @@ export default function ManagerOrderPage() {
 
       if (usageFetchError) {
         showError(
-          `Gagal mengambil data penggunaan stok: ${usageFetchError.message}`,
+          t("manager.order.usageFetchFailed", {
+            message: usageFetchError.message,
+          }),
         );
         return;
       }
@@ -682,7 +698,9 @@ export default function ManagerOrderPage() {
 
         if (usageDetailsError) {
           showError(
-            `Gagal menghapus detail penggunaan stok: ${usageDetailsError.message}`,
+            t("manager.order.usageDetailsDeleteFailed", {
+              message: usageDetailsError.message,
+            }),
           );
           return;
         }
@@ -694,7 +712,9 @@ export default function ManagerOrderPage() {
 
         if (usageTransactionsError) {
           showError(
-            `Gagal menghapus transaksi penggunaan stok: ${usageTransactionsError.message}`,
+            t("manager.order.usageTransactionsDeleteFailed", {
+              message: usageTransactionsError.message,
+            }),
           );
           return;
         }
@@ -707,7 +727,9 @@ export default function ManagerOrderPage() {
 
       if (paymentError) {
         showError(
-          `Gagal menghapus payment transactions: ${paymentError.message}`,
+          t("manager.order.paymentDeleteFailed", {
+            message: paymentError.message,
+          }),
         );
         return;
       }
@@ -718,7 +740,9 @@ export default function ManagerOrderPage() {
         .eq("order_id", orderId);
 
       if (itemsError) {
-        showError(`Gagal menghapus order items: ${itemsError.message}`);
+        showError(
+          t("manager.order.itemsDeleteFailed", { message: itemsError.message }),
+        );
         return;
       }
 
@@ -728,7 +752,9 @@ export default function ManagerOrderPage() {
         .eq("current_order_id", orderId);
 
       if (tableError) {
-        showError(`Gagal memperbarui status meja: ${tableError.message}`);
+        showError(
+          t("manager.order.tableUpdateFailed", { message: tableError.message }),
+        );
         return;
       }
 
@@ -738,18 +764,22 @@ export default function ManagerOrderPage() {
         .eq("id", orderId);
 
       if (orderError) {
-        showError(`Gagal menghapus order: ${orderError.message}`);
+        showError(
+          t("manager.order.deleteFailed", { message: orderError.message }),
+        );
         return;
       }
 
       setOrderList((prev) => prev.filter((order) => order.id !== orderId));
-      showSuccess("Order berhasil dihapus");
+      showSuccess(t("manager.order.deleted"));
 
       if (deletedOrder) {
         await logActivity({
           action: "DELETE",
           category: "SALES",
-          description: `Deleted/voided order ${deletedOrder.orderNumber}`,
+          description: t("manager.order.deletedActivityDescription", {
+            orderNumber: deletedOrder.orderNumber,
+          }),
           resourceType: "Order",
           resourceId: orderId,
           resourceName: deletedOrder.orderNumber,
@@ -763,14 +793,18 @@ export default function ManagerOrderPage() {
           severity: "critical",
           tags: ["order", "delete", "void"],
           isReversible: false,
-          notes: "Order deleted by manager",
+          notes: t("manager.order.deleteNote"),
         });
       }
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Silakan coba lagi.";
+        error instanceof Error ? error.message : t("manager.order.tryAgain");
 
-      showError(`Gagal menghapus order. ${errorMessage}`);
+      showError(
+        t("manager.order.deleteFailedWithMessage", {
+          message: errorMessage,
+        }),
+      );
     }
   }
 
@@ -871,7 +905,7 @@ export default function ManagerOrderPage() {
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Search orders..."
+        placeholder={t("manager.order.searchPlaceholder")}
         width="w-full lg:w-72"
       />
       <button
@@ -879,7 +913,7 @@ export default function ManagerOrderPage() {
         onClick={() => setCorrectionModalOpen(true)}
         className="h-10 rounded-lg border border-gray-900 bg-white px-4 text-sm font-bold text-gray-900 transition hover:bg-gray-50"
       >
-        Request Correction
+        {t("manager.order.requestCorrection")}
       </button>
       <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
         <ViewModeToggle
@@ -1002,7 +1036,7 @@ export default function ManagerOrderPage() {
                         orderFilter === filterOption.key,
                       )}
                     >
-                      {filterOption.label}
+                      {t(filterOption.labelKey)}
                     </button>
                   ))
                 : null}
@@ -1032,11 +1066,11 @@ export default function ManagerOrderPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-semibold text-gray-900">
-                            {column.title}
+                            {t(column.titleKey)}
                           </h3>
 
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {column.description}
+                            {t(column.descriptionKey)}
                           </p>
                         </div>
 
@@ -1071,13 +1105,17 @@ export default function ManagerOrderPage() {
                               return (
                             <OrderCard
                               order={order}
-                              correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
+                              correctionLabel={
+                                correctionOrderIds.has(order.id)
+                                  ? t("manager.order.correctionCancelled")
+                                  : undefined
+                              }
                               showDeleteButton={!pendingCorrection}
                               onDelete={handleDeleteOrder}
                               enableFlipCard={!pendingCorrection && canShowServeOrderButton(order)}
                               showServeOrderAction={!pendingCorrection && canShowServeOrderButton(order)}
-                              serveOrderLabel="Serve Order"
-                              disabledServeOrderLabel="Waiting for Kitchen"
+                              serveOrderLabel={t("manager.order.serveOrder")}
+                              disabledServeOrderLabel={t("manager.order.waitingKitchen")}
                               onMarkServed={handleMarkServed}
                               customActions={
                                 pendingCorrection ? (
@@ -1090,7 +1128,9 @@ export default function ManagerOrderPage() {
                                     disabled={reviewingCorrectionId === pendingCorrection.id}
                                     className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
                                   >
-                                    {reviewingCorrectionId === pendingCorrection.id ? "Reviewing..." : "Mark Reviewed"}
+                                    {reviewingCorrectionId === pendingCorrection.id
+                                      ? t("manager.order.reviewing")
+                                      : t("manager.order.markReviewed")}
                                   </button>
                                 ) : order.status === "new" ? (
                                   <button

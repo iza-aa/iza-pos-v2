@@ -12,6 +12,7 @@ import { supabase } from '@/lib/config/supabaseClient'
 import { formatPriceModifier } from '@/lib/utils'
 import VariantGroupModal from './VariantGroupModal'
 import { DeleteModal } from '@/app/components/ui'
+import { useLanguage } from '@/app/components/shared/i18n'
 import type { VariantGroup, VariantOption } from '@/lib/types'
 
 type RawVariantOption = {
@@ -99,6 +100,7 @@ const normalizeVariantGroup = (group: RawVariantGroup): VariantGroup => {
 
 export default function VariantsTab() {
   useSessionValidation()
+  const { t } = useLanguage()
 
   const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -317,10 +319,10 @@ export default function VariantsTab() {
         <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg md:text-xl font-bold text-gray-900">
-              Menu Variants Management
+              {t('manager.inventory.variants.title')}
             </h2>
             <p className="text-xs md:text-sm text-gray-500">
-              Manage variant groups and option customizations for your menu items
+              {t('manager.inventory.variants.subtitle')}
             </p>
           </div>
 
@@ -330,7 +332,7 @@ export default function VariantsTab() {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search variant groups..."
+                placeholder={t('manager.inventory.variants.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 md:pl-10 lg:w-64"
@@ -343,32 +345,32 @@ export default function VariantsTab() {
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800"
             >
               <PlusIcon className="w-4 h-4 md:w-5 md:h-5" />
-              Add New Group
+              {t('manager.inventory.variants.addNewGroup')}
             </button>
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 md:mt-6 md:gap-4 lg:grid-cols-4">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Total Groups</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{t('manager.inventory.variants.totalGroups')}</p>
               <p className="mt-3 text-2xl font-bold text-gray-950">{variantGroups.length}</p>
-              <p className="mt-2 text-sm leading-5 text-gray-600">Variant groups configured</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">{t('manager.inventory.variants.groupsConfigured')}</p>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Required Groups</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{t('manager.inventory.variants.requiredGroups')}</p>
               <p className="mt-3 text-2xl font-bold text-gray-950">
                 {variantGroups.filter((group) => getGroupRequired(group)).length}
               </p>
-              <p className="mt-2 text-sm leading-5 text-gray-600">Must choose before checkout</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">{t('manager.inventory.variants.requiredHelp')}</p>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Optional Groups</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{t('manager.inventory.variants.optionalGroups')}</p>
               <p className="mt-3 text-2xl font-bold text-gray-950">
                 {variantGroups.filter((group) => !getGroupRequired(group)).length}
               </p>
-              <p className="mt-2 text-sm leading-5 text-gray-600">Optional customizations</p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">{t('manager.inventory.variants.optionalHelp')}</p>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -401,7 +403,7 @@ export default function VariantsTab() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-700 md:text-base">
-                  Add New Variant Group
+                  {t('manager.inventory.variants.addNewVariantGroup')}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
                   Create a new variant group
@@ -454,16 +456,18 @@ export default function VariantsTab() {
                             color: '#C00000',
                           }}
                         >
-                          Required
+                          {t('manager.inventory.variants.required')}
                         </span>
                       )}
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
-                        {group.type === 'single' ? 'Single' : 'Multiple'}
+                        {group.type === 'single'
+                          ? t('manager.inventory.variants.single')
+                          : t('manager.inventory.variants.multiple')}
                       </span>
                     </div>
 
                     <p className="text-xs text-gray-500 md:text-sm">
-                      {options.length} options
+                      {t('manager.inventory.variants.optionCount', { count: options.length })}
                     </p>
                   </div>
 
@@ -516,9 +520,9 @@ export default function VariantsTab() {
         isOpen={deletingGroup !== null}
         onClose={() => setDeletingGroup(null)}
         onConfirm={confirmDeleteGroup}
-        title="Delete Variant Group"
+        title={t('manager.inventory.variants.deleteTitle')}
         itemName={deletingGroup?.name || ''}
-        description="All options in this variant group will also be deleted."
+        description={t('manager.inventory.variants.deleteDescription')}
       />
     </div>
   )

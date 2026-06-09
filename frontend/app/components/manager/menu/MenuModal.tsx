@@ -10,6 +10,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/config/supabaseClient'
 import { showError } from '@/lib/services/errorHandling'
+import { useLanguage } from '@/app/components/shared/i18n'
 import type { MenuItem, VariantGroup } from '@/lib/types'
 
 interface MenuModalProps {
@@ -129,7 +130,7 @@ const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error('Failed to compress menu image.'))
+          reject(new Error('manager.menu.modal.imageCompressFailed'))
           return
         }
 
@@ -153,7 +154,7 @@ const loadImageElement = (file: File) => {
 
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl)
-      reject(new Error('Failed to read menu image.'))
+      reject(new Error('manager.menu.modal.imageReadFailed'))
     }
 
     image.src = objectUrl
@@ -185,7 +186,7 @@ const compressMenuImage = async (file: File) => {
   }
 
   if (blob.size > MENU_IMAGE_MAX_SIZE_BYTES) {
-    throw new Error('Image is still too large after compression. Please use another image.')
+    throw new Error('manager.menu.modal.imageTooLarge')
   }
 
   const compressedFileName = `${file.name.replace(/\.[^.]+$/, '') || 'menu-image'}.webp`
@@ -211,6 +212,7 @@ export default function MenuModal({
   categories,
   defaultCategoryId,
 }: MenuModalProps) {
+  const { t } = useLanguage()
   const [formData, setFormData] = useState<MenuFormData>(() =>
     getInitialFormData(categories, defaultCategoryId),
   )
@@ -313,7 +315,7 @@ export default function MenuModal({
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      showError('Please select a valid image file.')
+      showError(t('manager.menu.modal.invalidImage'))
       return
     }
 
@@ -334,13 +336,18 @@ export default function MenuModal({
       const result = (await response.json()) as MenuImageUploadResponse
 
       if (!response.ok || !result.success || !result.image_url) {
-        throw new Error(result.error || 'Failed to upload menu image.')
+        throw new Error(result.error || 'manager.menu.modal.imageUploadFailed')
       }
 
       setImagePreview(result.image_url)
       setFormData((prev) => ({ ...prev, image: result.image_url ?? '' }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to upload menu image.'
+      const message =
+        error instanceof Error
+          ? error.message.startsWith('manager.')
+            ? t(error.message)
+            : error.message
+          : t('manager.menu.modal.imageUploadFailed')
       showError(message)
     } finally {
       setUploadingImage(false)
@@ -412,10 +419,10 @@ export default function MenuModal({
         <div className="flex shrink-0 items-start justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {editMenu ? 'Edit Menu Item' : 'Add Menu Item'}
+              {editMenu ? t('manager.menu.modal.editTitle') : t('manager.menu.modal.addTitle')}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Manage menu details, availability, image, and variant groups.
+              {t('manager.menu.modal.subtitle')}
             </p>
           </div>
 
@@ -447,7 +454,7 @@ export default function MenuModal({
                   <div className="space-y-4">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Menu Name
+                        {t('manager.menu.modal.menuName')}
                       </label>
                       <input
                         type="text"
@@ -457,14 +464,14 @@ export default function MenuModal({
                           setFormData((prev) => ({ ...prev, name: event.target.value }))
                         }
                         className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
-                        placeholder="Enter menu name"
+                        placeholder={t('manager.menu.modal.menuNamePlaceholder')}
                       />
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Category
+                          {t('manager.menu.modal.category')}
                         </label>
                         <select
                           required
@@ -472,7 +479,7 @@ export default function MenuModal({
                           onChange={handleCategoryChange}
                           className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
                         >
-                          <option value="">Select category</option>
+                          <option value="">{t('manager.menu.modal.selectCategory')}</option>
                           {categories.map((category) => (
                             <option key={category.id} value={category.id}>
                               {category.name}
@@ -483,7 +490,7 @@ export default function MenuModal({
 
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Product Type
+                          {t('manager.menu.modal.productType')}
                         </label>
                         <select
                           required
@@ -496,15 +503,15 @@ export default function MenuModal({
                           }
                           className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
                         >
-                          <option value="food">Food</option>
-                          <option value="drink">Drink</option>
+                          <option value="food">{t('manager.menu.modal.food')}</option>
+                          <option value="drink">{t('manager.menu.modal.drink')}</option>
                         </select>
                       </div>
                     </div>
 
                     <div>
                       <label htmlFor="price" className="mb-2 block text-sm font-medium text-gray-700">
-                        Price
+                        {t('manager.menu.modal.price')}
                       </label>
                       <input
                         id="price"
@@ -530,8 +537,8 @@ export default function MenuModal({
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-800">Available for sale</p>
-                          <p className="text-xs text-gray-500">Show this item on order menu.</p>
+                          <p className="text-sm font-medium text-gray-800">{t('manager.menu.modal.availableForSale')}</p>
+                          <p className="text-xs text-gray-500">{t('manager.menu.modal.availableHelp')}</p>
                         </div>
                         <input
                           type="checkbox"
@@ -548,8 +555,8 @@ export default function MenuModal({
 
                       <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-800">Has variants</p>
-                          <p className="text-xs text-gray-500">Enable size, topping, or options.</p>
+                          <p className="text-sm font-medium text-gray-800">{t('manager.menu.modal.hasVariants')}</p>
+                          <p className="text-xs text-gray-500">{t('manager.menu.modal.hasVariantsHelp')}</p>
                         </div>
                         <input
                           type="checkbox"
@@ -572,20 +579,20 @@ export default function MenuModal({
                   <div className="rounded-lg border border-gray-200 bg-white p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900">Variant Groups</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">{t('manager.menu.modal.variantGroups')}</h3>
                         <p className="text-xs text-gray-500">
-                          Select which variant groups are available for this menu.
+                          {t('manager.menu.modal.variantGroupsHelp')}
                         </p>
                       </div>
                       <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                        {formData.variantGroups.length} selected
+                        {t('manager.menu.modal.selectedCount', { count: formData.variantGroups.length })}
                       </span>
                     </div>
 
                     {loadingVariants ? (
                       <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center">
                         <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900" />
-                        <p className="mt-2 text-sm text-gray-500">Loading variant groups...</p>
+                        <p className="mt-2 text-sm text-gray-500">{t('manager.menu.modal.loadingVariantGroups')}</p>
                       </div>
                     ) : (
                       <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
@@ -619,13 +626,15 @@ export default function MenuModal({
                                   </p>
                                   {group.is_required ? (
                                     <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                                      Required
+                                      {t('manager.menu.modal.required')}
                                     </span>
                                   ) : null}
                                 </div>
                                 <p className="mt-0.5 text-xs text-gray-500">
-                                  {optionCount} option{optionCount !== 1 ? 's' : ''} •{' '}
-                                  {group.type === 'single' ? 'Single select' : 'Multiple select'}
+                                  {t('manager.menu.modal.optionCount', { count: optionCount })} •{' '}
+                                  {group.type === 'single'
+                                    ? t('manager.menu.modal.singleSelect')
+                                    : t('manager.menu.modal.multipleSelect')}
                                 </p>
                               </div>
                             </button>
@@ -634,9 +643,9 @@ export default function MenuModal({
 
                         {variantGroups.length === 0 ? (
                           <div className="rounded-lg border border-dashed border-gray-200 py-6 text-center">
-                            <p className="text-sm font-medium text-gray-600">No variant groups available</p>
+                            <p className="text-sm font-medium text-gray-600">{t('manager.menu.modal.noVariantGroups')}</p>
                             <p className="mt-1 text-xs text-gray-400">
-                              Create variant groups first from the Variants page.
+                              {t('manager.menu.modal.noVariantGroupsHelp')}
                             </p>
                           </div>
                         ) : null}
@@ -648,7 +657,7 @@ export default function MenuModal({
 
               <div className="space-y-4">
                 <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <h3 className="mb-3 text-sm font-semibold text-gray-900">Menu Image</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900">{t('manager.menu.modal.menuImage')}</h3>
 
                   {imagePreview ? (
                     <div className="relative overflow-hidden rounded-lg border border-gray-200">
@@ -661,7 +670,7 @@ export default function MenuModal({
                       {uploadingImage ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 text-white">
                           <ArrowPathIcon className="h-7 w-7 animate-spin" />
-                          <p className="mt-2 text-sm font-medium">Uploading image...</p>
+                          <p className="mt-2 text-sm font-medium">{t('manager.menu.modal.uploadingImage')}</p>
                         </div>
                       ) : null}
 
@@ -670,7 +679,7 @@ export default function MenuModal({
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           className="rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition hover:bg-white"
-                          aria-label="Change image"
+                          aria-label={t('manager.menu.modal.changeImage')}
                           disabled={uploadingImage}
                         >
                           Change
@@ -679,7 +688,7 @@ export default function MenuModal({
                           type="button"
                           onClick={handleRemoveImage}
                           className="rounded-lg bg-white/90 p-2 text-gray-700 shadow-sm transition hover:bg-white"
-                          aria-label="Remove image"
+                          aria-label={t('manager.menu.modal.removeImage')}
                           disabled={uploadingImage}
                         >
                           <XMarkIcon className="h-5 w-5" />
@@ -696,14 +705,14 @@ export default function MenuModal({
                       {uploadingImage ? (
                         <>
                           <ArrowPathIcon className="mb-2 h-10 w-10 animate-spin text-gray-500" />
-                          <p className="text-sm font-medium text-gray-700">Uploading image...</p>
-                          <p className="mt-1 text-xs text-gray-500">Compressing and saving to menu bucket</p>
+                          <p className="text-sm font-medium text-gray-700">{t('manager.menu.modal.uploadingImage')}</p>
+                          <p className="mt-1 text-xs text-gray-500">{t('manager.menu.modal.compressingImage')}</p>
                         </>
                       ) : (
                         <>
                           <PhotoIcon className="mb-2 h-10 w-10 text-gray-400" />
-                          <p className="text-sm font-medium text-gray-700">Upload menu image</p>
-                          <p className="mt-1 text-xs text-gray-500">JPG, PNG, or WEBP. Auto-compressed before upload.</p>
+                          <p className="text-sm font-medium text-gray-700">{t('manager.menu.modal.uploadMenuImage')}</p>
+                          <p className="mt-1 text-xs text-gray-500">{t('manager.menu.modal.uploadImageHelp')}</p>
                         </>
                       )}
                     </button>
@@ -724,7 +733,9 @@ export default function MenuModal({
                     <div className="flex justify-between gap-3">
                       <span className="text-gray-500">Status</span>
                       <span className="font-medium text-gray-900">
-                        {formData.available ? 'Available' : 'Unavailable'}
+                        {formData.available
+                          ? t('manager.menu.available')
+                          : t('manager.menu.unavailable')}
                       </span>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -732,9 +743,11 @@ export default function MenuModal({
                       <span className="font-medium capitalize text-gray-900">{formData.type}</span>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <span className="text-gray-500">Variants</span>
+                      <span className="text-gray-500">{t('manager.menu.modal.variants')}</span>
                       <span className="font-medium text-gray-900">
-                        {formData.hasVariants ? `${formData.variantGroups.length} groups` : 'No variants'}
+                        {formData.hasVariants
+                          ? t('manager.menu.modal.groupCount', { count: formData.variantGroups.length })
+                          : t('manager.menu.modal.noVariants')}
                       </span>
                     </div>
                   </div>
@@ -749,14 +762,18 @@ export default function MenuModal({
               onClick={onClose}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={uploadingImage}
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {uploadingImage ? 'Uploading Image...' : editMenu ? 'Update Menu' : 'Add Menu'}
+              {uploadingImage
+                ? t('manager.menu.modal.uploadingImageButton')
+                : editMenu
+                  ? t('manager.menu.modal.updateMenu')
+                  : t('manager.menu.modal.addMenu')}
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ClipboardList, Package, TrendingUp, SlidersHorizontal, Layers, ChevronDown, ChevronRight, Menu, X, AlertTriangle } from 'lucide-react'
+import { useLanguage } from '@/app/components/shared/i18n'
 
 export type InventoryTabType =
   | 'raw-materials-list'
@@ -21,6 +22,7 @@ export default function InventoryTabs({
   activeTab,
   onTabChange,
 }: InventoryTabsProps) {
+  const { t } = useLanguage()
   const [isRecipeExpanded, setIsRecipeExpanded] = useState(false)
   const [isRawMaterialsExpanded, setIsRawMaterialsExpanded] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
@@ -28,45 +30,45 @@ export default function InventoryTabs({
   const tabItems = [
     {
       id: 'raw-materials' as const,
-      label: 'Inventory Master',
-      description: 'Main stock & batch records',
+      labelKey: 'manager.inventory.tabs.inventoryMaster',
+      descriptionKey: 'manager.inventory.tabs.inventoryMasterDescription',
       icon: Package,
       hasSubmenu: true,
     },
     {
       id: 'variants' as const,
-      label: 'Variants',
-      description: 'Menu custom options',
+      labelKey: 'manager.inventory.tabs.variants',
+      descriptionKey: 'manager.inventory.tabs.variantsDescription',
       icon: SlidersHorizontal,
     },
     {
       id: 'recipes' as const,
-      label: 'Recipes',
-      description: 'Manage menu recipes',
+      labelKey: 'manager.inventory.tabs.recipes',
+      descriptionKey: 'manager.inventory.tabs.recipesDescription',
       icon: ClipboardList,
       hasSubmenu: true,
     },
     {
       id: 'usage-history' as const,
-      label: 'Usage History',
-      description: 'Audits & stock movements',
+      labelKey: 'manager.inventory.tabs.usageHistory',
+      descriptionKey: 'manager.inventory.tabs.usageHistoryDescription',
       icon: TrendingUp,
     },
     {
       id: 'stock-reports' as const,
-      label: 'Stock Reports',
-      description: 'Barista & kitchen reports',
+      labelKey: 'manager.inventory.tabs.stockReports',
+      descriptionKey: 'manager.inventory.tabs.stockReportsDescription',
       icon: AlertTriangle,
     },
   ]
 
   const recipeSubTabs = [
-    { id: 'recipe-dishes' as const, label: 'Base Recipes', icon: ClipboardList },
-    { id: 'recipe-variants' as const, label: 'Product Variant Recipes', icon: Layers },
+    { id: 'recipe-dishes' as const, labelKey: 'manager.inventory.tabs.baseRecipes', icon: ClipboardList },
+    { id: 'recipe-variants' as const, labelKey: 'manager.inventory.tabs.productVariantRecipes', icon: Layers },
   ]
   const rawMaterialsSubTabs = [
-    { id: 'raw-materials-list' as const, label: 'Inventory Master', icon: ClipboardList },
-    { id: 'raw-materials-batches' as const, label: 'Batch Stock', icon: Layers },
+    { id: 'raw-materials-list' as const, labelKey: 'manager.inventory.tabs.inventoryMaster', icon: ClipboardList },
+    { id: 'raw-materials-batches' as const, labelKey: 'manager.inventory.tabs.batchStock', icon: Layers },
   ]
 
   const isRecipeTabActive = activeTab === 'recipe-dishes' || activeTab === 'recipe-variants'
@@ -150,7 +152,7 @@ export default function InventoryTabs({
           <X className="w-6 h-6 text-gray-600" />
         </button>
 
-        <h2 className="mb-4 text-lg font-bold text-gray-900">Inventory</h2>
+        <h2 className="mb-4 text-lg font-bold text-gray-900">{t('manager.inventory.title')}</h2>
 
         <div className="space-y-2 flex-1 min-h-0 overflow-y-auto">
           {tabItems.map((item) => {
@@ -184,13 +186,13 @@ export default function InventoryTabs({
                     <div className="flex items-center gap-3">
                       <Icon className={`h-5 w-5 ${isActiveParent ? 'text-white' : 'text-gray-600'}`} />
                       <div>
-                        <p className="text-sm font-semibold">{item.label}</p>
+                        <p className="text-sm font-semibold">{t(item.labelKey)}</p>
                         <p
                           className={`mt-0.5 text-xs ${
                             isActiveParent ? 'text-gray-200' : 'text-gray-400'
                           }`}
                         >
-                          {item.description}
+                          {t(item.descriptionKey)}
                         </p>
                       </div>
                     </div>
@@ -224,7 +226,7 @@ export default function InventoryTabs({
                           }`}
                         >
                           <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-gray-900' : 'text-gray-400'}`} />
-                          {subTab.label}
+                          {t(subTab.labelKey)}
                         </button>
                       )
                     })}
@@ -249,7 +251,7 @@ export default function InventoryTabs({
                           }`}
                         >
                           <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-gray-900' : 'text-gray-400'}`} />
-                          {subTab.label}
+                          {t(subTab.labelKey)}
                         </button>
                       )
                     })}
