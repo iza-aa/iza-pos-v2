@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/utils'
 import { 
@@ -382,7 +383,8 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
   const visibleRoleText = visibleRoleLabel === 'owner' || visibleRoleLabel === 'manager' || visibleRoleLabel === 'staff'
     ? t(roleConfig[visibleRoleLabel].labelKey as TranslationKey)
     : visibleRoleLabel
-  const languageButtonLabel = language === 'en' ? 'ID' : 'EN'
+  const languageFlagSrc = language === 'en' ? '/logo/IDFLAG.png' : '/logo/UKFLAG.png'
+  const languageFlagAlt = language === 'en' ? 'Switch to Indonesian' : 'Switch to English'
   const getItemLabel = (item: { label: string; labelKey?: string }) => (
     item.labelKey ? t(item.labelKey as TranslationKey) : item.label
   )
@@ -514,11 +516,17 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
             <button
               type="button"
               onClick={toggleLanguage}
-              className="hidden md:flex h-9 min-w-10 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 hover:text-gray-950"
+              className="hidden md:flex items-center justify-center rounded-full border border-gray-200 bg-white transition hover:bg-gray-100"
               title={t('common.language')}
               aria-label={t('common.language')}
             >
-              {languageButtonLabel}
+              <Image
+                src={languageFlagSrc}
+                alt={languageFlagAlt}
+                width={28}
+                height={28}
+                className="h-7 w-7 rounded-full object-cover"
+              />
             </button>
 
             {/* Notification Bell */}
@@ -607,10 +615,16 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700"
+                className="flex h-10 w-12 items-center justify-center rounded-lg border border-gray-200 bg-white"
                 aria-label={t('common.language')}
               >
-                {languageButtonLabel}
+                <Image
+                  src={languageFlagSrc}
+                  alt={languageFlagAlt}
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-full object-cover"
+                />
               </button>
             </div>
           </div>

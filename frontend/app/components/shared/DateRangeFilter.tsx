@@ -1,6 +1,7 @@
 "use client";
 
 import { getJakartaTodayDate, toUtcDateOnly } from "@/lib/services/bookkeeping/bookkeepingDate";
+import { useLanguage } from "./i18n";
 
 export type DateRangeValue = {
   startDate: string;
@@ -9,7 +10,7 @@ export type DateRangeValue = {
 
 type DateRangePreset = {
   id: string;
-  label: string;
+  labelKey: string;
   getValue: () => DateRangeValue;
 };
 
@@ -40,12 +41,12 @@ export const getDefaultDateRange = getTodayDateRange;
 const presets: DateRangePreset[] = [
   {
     id: "today",
-    label: "Today",
+    labelKey: "dateRange.today",
     getValue: getTodayDateRange,
   },
   {
     id: "yesterday",
-    label: "Yesterday",
+    labelKey: "dateRange.yesterday",
     getValue: () => {
       const yesterday = addDays(-1);
       return { startDate: yesterday, endDate: yesterday };
@@ -53,12 +54,12 @@ const presets: DateRangePreset[] = [
   },
   {
     id: "last7",
-    label: "Last 7 Days",
+    labelKey: "dateRange.last7",
     getValue: getLast7DateRange,
   },
   {
     id: "last30",
-    label: "Last 30 Days",
+    labelKey: "dateRange.last30",
     getValue: () => ({
       startDate: addDays(-29),
       endDate: getJakartaTodayDate(),
@@ -73,6 +74,8 @@ export default function DateRangeFilter({
   value: DateRangeValue;
   onChange: (value: DateRangeValue) => void;
 }) {
+  const { t } = useLanguage();
+
   const setDate = (key: keyof DateRangeValue, nextValue: string) => {
     const nextRange = { ...value, [key]: nextValue };
 
@@ -88,9 +91,9 @@ export default function DateRangeFilter({
     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-sm font-bold text-gray-950">Date Range</p>
+          <p className="text-sm font-bold text-gray-950">{t("dateRange.title")}</p>
           <p className="mt-1 text-sm leading-6 text-gray-500 sm:leading-normal">
-            Apply one period to every dated metric and chart in this tab.
+            {t("dateRange.description")}
           </p>
         </div>
 
@@ -113,7 +116,7 @@ export default function DateRangeFilter({
                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  {preset.label}
+                  {t(preset.labelKey)}
                 </button>
               );
             })}
@@ -125,17 +128,17 @@ export default function DateRangeFilter({
               value={value.startDate}
               onChange={(event) => setDate("startDate", event.target.value)}
               className="h-12 min-w-0 rounded-xl border border-gray-200 bg-white px-4 text-base font-semibold text-gray-700 outline-none transition focus:border-gray-900 sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
-              aria-label="Start date"
+              aria-label={t("dateRange.startDate")}
             />
             <span className="hidden text-sm font-semibold text-gray-400 sm:block">
-              to
+              {t("dateRange.to")}
             </span>
             <input
               type="date"
               value={value.endDate}
               onChange={(event) => setDate("endDate", event.target.value)}
               className="h-12 min-w-0 rounded-xl border border-gray-200 bg-white px-4 text-base font-semibold text-gray-700 outline-none transition focus:border-gray-900 sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
-              aria-label="End date"
+              aria-label={t("dateRange.endDate")}
             />
           </div>
         </div>

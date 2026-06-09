@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { UserPlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 type StaffRole = "manager" | "staff";
 type StaffType = "cashier" | "barista" | "kitchen" | "waiter";
@@ -63,6 +64,7 @@ export default function AddStaffModal({
   onSave,
   shifts = [],
 }: AddStaffModalProps) {
+  const { t } = useLanguage();
   const activeShifts = useMemo(
     () => shifts.filter((shift) => shift.is_active !== false),
     [shifts],
@@ -114,29 +116,29 @@ export default function AddStaffModal({
     const selectedShiftId = canUseShift ? formData.shift_id ?? defaultShiftId : null;
 
     if (!name) {
-      setError("Staff name is required.");
+      setError(t("owner.staff.nameRequired"));
       return;
     }
 
     if (isLoginRole) {
       if (!email) {
-        setError("Email wajib diisi untuk Manager.");
+        setError(t("owner.staff.emailRequiredManager"));
         return;
       }
 
       if (password.length < 6) {
-        setError("Password manager minimal 6 karakter.");
+        setError(t("owner.staff.passwordManagerMin"));
         return;
       }
     }
 
     if (isOperationalStaff && !formData.staff_type) {
-      setError("Tipe staff wajib dipilih.");
+      setError(t("owner.staff.staffTypeRequiredGeneric"));
       return;
     }
 
     if (canUseShift && activeShifts.length > 0 && !selectedShiftId) {
-      setError("Shift is required for staff or manager roles.");
+      setError(t("owner.staff.shiftRequired"));
       return;
     }
 
@@ -156,7 +158,7 @@ export default function AddStaffModal({
       await onSave(payload);
       onClose();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to add staff.";
+      const message = err instanceof Error ? err.message : t("owner.staff.addError", { message: t("owner.staff.unknownError") });
       setError(message);
     } finally {
       setLoading(false);
@@ -165,7 +167,7 @@ export default function AddStaffModal({
 
   const renderShiftOptions = () => {
     if (activeShifts.length === 0) {
-      return <option value="">No active shift yet</option>;
+      return <option value="">{t("owner.staff.noActiveShift")}</option>;
     }
 
     return activeShifts.map((shift) => (
@@ -185,9 +187,9 @@ export default function AddStaffModal({
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Add Staff</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t("owner.staff.addTitle")}</h2>
               <p className="text-xs text-gray-500">
-                Buat akun staff operasional atau manager.
+                {t("owner.staff.addDescription")}
               </p>
             </div>
           </div>
@@ -212,7 +214,7 @@ export default function AddStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Full Name <span className="text-red-500">*</span>
+              {t("owner.staff.fullName")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -232,7 +234,7 @@ export default function AddStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Role <span className="text-red-500">*</span>
+              {t("owner.staff.role")} <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.role}
@@ -252,7 +254,7 @@ export default function AddStaffModal({
           {isOperationalStaff && (
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Tipe Staff <span className="text-red-500">*</span>
+                {t("owner.staff.staffType")} <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.staff_type ?? "cashier"}
@@ -278,7 +280,7 @@ export default function AddStaffModal({
           {canUseShift && (
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Work Shift {activeShifts.length > 0 && <span className="text-red-500">*</span>}
+                {t("owner.staff.workShift")} {activeShifts.length > 0 && <span className="text-red-500">*</span>}
               </label>
               <select
                 value={formData.shift_id ?? defaultShiftId ?? ""}
@@ -302,7 +304,7 @@ export default function AddStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Email {isLoginRole && <span className="text-red-500">*</span>}
+              {t("owner.staff.email")} {isLoginRole && <span className="text-red-500">*</span>}
             </label>
             <input
               type="email"
@@ -347,7 +349,7 @@ export default function AddStaffModal({
           {isLoginRole && (
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Password <span className="text-red-500">*</span>
+                {t("owner.staff.password")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="password"
@@ -374,7 +376,7 @@ export default function AddStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel
+              {t("owner.staff.cancel")}
             </button>
 
             <button
@@ -382,7 +384,7 @@ export default function AddStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? t("owner.staff.saving") : t("owner.staff.save")}
             </button>
           </div>
         </form>

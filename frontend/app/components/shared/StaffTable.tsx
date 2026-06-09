@@ -5,6 +5,7 @@ import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import StandardTable, { type StandardTableColumn } from "./StandardTable";
 import type { Staff } from "@/lib/types";
+import { useLanguage } from "./i18n";
 
 type ShiftRecord = {
   id: string;
@@ -62,34 +63,36 @@ const titleCase = (value: unknown) => {
     .join(" ");
 };
 
-const getRoleLabel = (role: unknown) => {
+type Translator = ReturnType<typeof useLanguage>["t"];
+
+const getRoleLabel = (role: unknown, t: Translator) => {
   const normalizedRole = normalizeText(role);
 
-  if (normalizedRole === "owner") return "Owner";
-  if (normalizedRole === "manager") return "Manager";
-  if (normalizedRole === "staff") return "Staff";
+  if (normalizedRole === "owner") return t("owner.staff.owner");
+  if (normalizedRole === "manager") return t("owner.staff.manager");
+  if (normalizedRole === "staff") return t("owner.staff.staff");
 
   return titleCase(role);
 };
 
-const getStaffTypeLabel = (staff: StaffTableRecord) => {
+const getStaffTypeLabel = (staff: StaffTableRecord, t: Translator) => {
   const role = normalizeText(staff.role);
   const staffType = normalizeText(staff.staff_type);
 
-  if (role === "owner" || role === "manager") return "Management";
+  if (role === "owner" || role === "manager") return t("owner.staff.management");
 
-  if (staffType === "cashier") return "Cashier";
-  if (staffType === "barista") return "Barista";
-  if (staffType === "kitchen") return "Kitchen";
-  if (staffType === "waiter") return "Waiter";
+  if (staffType === "cashier") return t("owner.staff.cashier");
+  if (staffType === "barista") return t("owner.staff.barista");
+  if (staffType === "kitchen") return t("owner.staff.kitchen");
+  if (staffType === "waiter") return t("owner.staff.waiter");
 
   return "-";
 };
 
-const getShiftLabel = (staff: StaffTableRecord) => {
+const getShiftLabel = (staff: StaffTableRecord, t: Translator) => {
   if (staff.shift?.shift_name) return staff.shift.shift_name;
 
-  return "No Shift";
+  return t("owner.staff.noShift");
 };
 
 const formatTime = (value?: string | null) => {
@@ -104,13 +107,13 @@ const getShiftTimeLabel = (staff: StaffTableRecord) => {
   return `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`;
 };
 
-const getStatusLabel = (status: unknown) => {
+const getStatusLabel = (status: unknown, t: Translator) => {
   const normalizedStatus = normalizeText(status);
 
-  if (normalizedStatus === "active") return "Active";
-  if (normalizedStatus === "inactive") return "Inactive";
-  if (normalizedStatus === "on-leave") return "On Leave";
-  if (normalizedStatus === "terminated") return "Terminated";
+  if (normalizedStatus === "active") return t("owner.bookkeeping.enabled");
+  if (normalizedStatus === "inactive") return t("owner.staff.inactive");
+  if (normalizedStatus === "on-leave") return t("owner.staff.onLeave");
+  if (normalizedStatus === "terminated") return t("owner.staff.terminated");
 
   return titleCase(status);
 };
@@ -268,15 +271,15 @@ const isCurrentLoggedInStaff = (
   );
 };
 
-const getSortValue = (staff: StaffTableRecord, key: SortKey) => {
+const getSortValue = (staff: StaffTableRecord, key: SortKey, t: Translator) => {
   if (key === "staff_code") return normalizeText(staff.staff_code);
   if (key === "name") return normalizeText(staff.name);
-  if (key === "role") return normalizeText(getRoleLabel(staff.role));
-  if (key === "staff_type") return normalizeText(getStaffTypeLabel(staff));
-  if (key === "shift") return normalizeText(getShiftLabel(staff));
+  if (key === "role") return normalizeText(getRoleLabel(staff.role, t));
+  if (key === "staff_type") return normalizeText(getStaffTypeLabel(staff, t));
+  if (key === "shift") return normalizeText(getShiftLabel(staff, t));
   if (key === "phone") return normalizeText(staff.phone);
   if (key === "email") return normalizeText(staff.email);
-  if (key === "status") return normalizeText(getStatusLabel(staff.status));
+  if (key === "status") return normalizeText(getStatusLabel(staff.status, t));
   if (key === "hired_date") return normalizeText(staff.hired_date);
 
   return "";
@@ -289,10 +292,11 @@ export default function StaffTable({
   showActions = true,
   onGenerateAccessCode,
   generatingAccessStaffId = "",
-  title = "Staff Data List",
-  description = "Structured staff profile, role, shift, and access status records.",
+  title,
+  description,
   loading = false,
 }: StaffTableProps) {
+  const { t } = useLanguage();
   const [currentStaff, setCurrentStaff] = useState<CurrentStaffSession>(null);
 
   useEffect(() => {
@@ -308,8 +312,8 @@ export default function StaffTable({
     const baseColumns: Array<StandardTableColumn<StaffTableRecord>> = [
       {
         key: "staff_code",
-        header: "Staff ID",
-        sortValue: (staff) => getSortValue(staff, "staff_code"),
+        header: t("owner.staff.staffIdLabel"),
+        sortValue: (staff) => getSortValue(staff, "staff_code", t),
         className: "align-middle",
         render: (staff) => {
           const isSelf = isCurrentLoggedInStaff(staff, currentStaff);
@@ -321,7 +325,7 @@ export default function StaffTable({
               </p>
               {isSelf && (
                 <p className="mt-1 text-xs font-medium text-blue-700">
-                  Your Account
+                  {t("owner.staff.yourAccount")}
                 </p>
               )}
             </div>
@@ -330,8 +334,8 @@ export default function StaffTable({
       },
       {
         key: "name",
-        header: "Staff",
-        sortValue: (staff) => getSortValue(staff, "name"),
+        header: t("owner.staff.staff"),
+        sortValue: (staff) => getSortValue(staff, "name", t),
         className: "align-middle",
         render: (staff) => (
           <p className="truncate font-semibold text-gray-900">{staff.name || "-"}</p>
@@ -339,8 +343,8 @@ export default function StaffTable({
       },
       {
         key: "role",
-        header: "Role",
-        sortValue: (staff) => getSortValue(staff, "role"),
+        header: t("owner.staff.role"),
+        sortValue: (staff) => getSortValue(staff, "role", t),
         className: "align-middle",
         render: (staff) => (
           <span
@@ -348,14 +352,14 @@ export default function StaffTable({
               staff.role,
             )}`}
           >
-            {getRoleLabel(staff.role)}
+            {getRoleLabel(staff.role, t)}
           </span>
         ),
       },
       {
         key: "staff_type",
-        header: "Type",
-        sortValue: (staff) => getSortValue(staff, "staff_type"),
+        header: t("owner.staff.type"),
+        sortValue: (staff) => getSortValue(staff, "staff_type", t),
         className: "align-middle",
         render: (staff) => (
           <span
@@ -363,14 +367,14 @@ export default function StaffTable({
               staff,
             )}`}
           >
-            {getStaffTypeLabel(staff)}
+            {getStaffTypeLabel(staff, t)}
           </span>
         ),
       },
       {
         key: "shift",
-        header: "Shift",
-        sortValue: (staff) => getSortValue(staff, "shift"),
+        header: t("owner.staff.shift"),
+        sortValue: (staff) => getSortValue(staff, "shift", t),
         className: "align-middle",
         render: (staff) => (
           <div>
@@ -379,7 +383,7 @@ export default function StaffTable({
                 staff,
               )}`}
             >
-              {getShiftLabel(staff)}
+              {getShiftLabel(staff, t)}
             </span>
             <p className="mt-1 text-xs text-gray-500">{getShiftTimeLabel(staff)}</p>
           </div>
@@ -388,21 +392,21 @@ export default function StaffTable({
       {
         key: "phone",
         header: "WhatsApp",
-        sortValue: (staff) => getSortValue(staff, "phone"),
+        sortValue: (staff) => getSortValue(staff, "phone", t),
         className: "align-middle",
         render: (staff) => <p className="truncate">{staff.phone || "-"}</p>,
       },
       {
         key: "email",
         header: "Email",
-        sortValue: (staff) => getSortValue(staff, "email"),
+        sortValue: (staff) => getSortValue(staff, "email", t),
         className: "align-middle",
         render: (staff) => <p className="truncate">{staff.email || "-"}</p>,
       },
       {
         key: "status",
         header: "Status",
-        sortValue: (staff) => getSortValue(staff, "status"),
+        sortValue: (staff) => getSortValue(staff, "status", t),
         className: "align-middle",
         render: (staff) => (
           <span
@@ -410,14 +414,14 @@ export default function StaffTable({
               staff.status,
             )}`}
           >
-            {getStatusLabel(staff.status)}
+            {getStatusLabel(staff.status, t)}
           </span>
         ),
       },
       {
         key: "hired_date",
-        header: "Start Date",
-        sortValue: (staff) => getSortValue(staff, "hired_date"),
+        header: t("owner.staff.startDate"),
+        sortValue: (staff) => getSortValue(staff, "hired_date", t),
         className: "align-middle",
         render: (staff) => formatDate(staff.hired_date),
       },
@@ -429,7 +433,7 @@ export default function StaffTable({
       ...baseColumns,
       {
         key: "actions",
-        header: "Actions",
+        header: t("common.actions"),
         isAction: true,
         className: "align-middle",
         render: (staff) => {
@@ -446,7 +450,7 @@ export default function StaffTable({
                   disabled={generatingAccessStaffId === staff.id}
                   className="rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {generatingAccessStaffId === staff.id ? "Generating..." : "Generate Code"}
+                  {generatingAccessStaffId === staff.id ? t("owner.staff.generating") : t("owner.staff.generateCode")}
                 </button>
               ) : null}
 
@@ -455,8 +459,8 @@ export default function StaffTable({
                   type="button"
                   onClick={() => onEdit(staff.id)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50"
-                  title="Edit staff"
-                  aria-label={`Edit ${staff.name || "staff"}`}
+                  title={t("owner.staff.editStaff")}
+                  aria-label={t("owner.staff.editStaffName", { name: staff.name || t("owner.staff.staff") })}
                 >
                   <PencilSquareIcon className="h-4.5 w-4.5" />
                 </button>
@@ -467,8 +471,8 @@ export default function StaffTable({
                   type="button"
                   onClick={() => onDelete?.(staff.id)}
                   className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-white transition hover:bg-red-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
-                  title="Delete staff"
-                  aria-label={`Delete ${staff.name || "staff"}`}
+                  title={t("owner.staff.deleteStaff")}
+                  aria-label={t("owner.staff.deleteStaffName", { name: staff.name || t("owner.staff.staff") })}
                 >
                   <TrashIcon className="h-4.5 w-4.5" />
                 </button>
@@ -478,20 +482,20 @@ export default function StaffTable({
         },
       },
     ];
-  }, [currentStaff, generatingAccessStaffId, onDelete, onEdit, onGenerateAccessCode, showActions]);
+  }, [currentStaff, generatingAccessStaffId, onDelete, onEdit, onGenerateAccessCode, showActions, t]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-4 md:px-5">
       <div className="mb-4 ">
-        <h2 className="text-base font-bold text-gray-900">{title}</h2>
-        <p className="mt-1 text-sm text-gray-500">{description}</p>
+        <h2 className="text-base font-bold text-gray-900">{title ?? t("owner.staff.dataList")}</h2>
+        <p className="mt-1 text-sm text-gray-500">{description ?? t("owner.staff.dataListDescription")}</p>
       </div>
       <StandardTable
         columns={columns}
         data={normalizedStaffList}
         getRowKey={(staff) => staff.id}
         loading={loading}
-        emptyLabel="No staff data yet."
+        emptyLabel={t("owner.staff.noStaffData")}
       />
     </div>
   );

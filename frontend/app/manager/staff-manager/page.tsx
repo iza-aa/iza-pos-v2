@@ -16,6 +16,7 @@ import {
   type DateRangeValue,
 } from "@/app/components/shared";
 import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection";
+import { useLanguage } from "@/app/components/shared/i18n";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { Staff } from "@/lib/types";
 import {
@@ -120,6 +121,7 @@ const normalizeStaffRecord = (rawStaff: RawStaffRecord): ManagerStaffRecord => {
 
 export default function ManagerStaffPage() {
   useSessionValidation();
+  const { t } = useLanguage();
 
   const [staffList, setStaffList] = useState<ManagerStaffRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -189,7 +191,7 @@ export default function ManagerStaffPage() {
       setStaffList(normalizedStaffList);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to fetch staff data.";
+        error instanceof Error ? error.message : t("manager.staff.fetchError");
 
       setStaffFetchError(message);
     } finally {
@@ -241,24 +243,24 @@ export default function ManagerStaffPage() {
   const staffManagerTabs = [
     {
       id: "staff" as const,
-      label: "Staff Data",
-      description: "Profiles and access",
+      label: t("manager.staff.staffData"),
+      description: t("manager.staff.profilesAndAccess"),
       icon: UsersIcon,
     },
     {
       id: "attendance" as const,
-      label: "Staff Attendance",
-      description: "Attendance and shifts",
+      label: t("owner.staff.attendance"),
+      description: t("owner.staff.attendanceDescription"),
       icon: ClockIcon,
       children: [
         {
           id: "monitor" as const,
-          label: "Attendance Monitor",
+          label: t("owner.staff.attendanceMonitor"),
           icon: ClockIcon,
         },
         {
           id: "settings" as const,
-          label: "Attendance Settings",
+          label: t("owner.staff.attendanceSettings"),
           icon: MapPinIcon,
         },
       ],
@@ -299,7 +301,7 @@ export default function ManagerStaffPage() {
 
   const handleCopy = async (code: string) => {
     await navigator.clipboard.writeText(code);
-    setCopyMsg("Code copied.");
+    setCopyMsg(t("manager.staff.codeCopied"));
     window.setTimeout(() => setCopyMsg(""), 2000);
   };
 
@@ -332,22 +334,22 @@ export default function ManagerStaffPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to create login code.");
+        throw new Error(result.error || t("manager.staff.loginCodeCreateError"));
       }
 
       await fetchStaff();
       await handleCopy(result.login_code);
 
       setGeneratedLoginCode({
-        staffName: result.staff_name || "Staff",
+        staffName: result.staff_name || t("owner.staff.staff"),
         staffCode: result.staff_code || "-",
         loginCode: result.login_code,
         expiresAt: result.expires_at,
       });
 
-      showSuccess("Staff login code created.");
+      showSuccess(t("manager.staff.loginCodeCreated"));
     } catch (error) {
-      showError(error instanceof Error ? error.message : "Failed to create login code.");
+      showError(error instanceof Error ? error.message : t("manager.staff.loginCodeCreateError"));
     } finally {
       setGeneratingAccessStaffId("");
     }
@@ -356,8 +358,8 @@ export default function ManagerStaffPage() {
   return (
     <div className="flex h-[calc(100vh-55px)] overflow-hidden bg-gray-100">
       <SidebarTabset
-        title="Staff Manager"
-        description="Support staff access and attendance records."
+        title={t("owner.staff.managerTitle")}
+        description={t("manager.staff.managerDescription")}
         items={staffManagerTabs}
         activeId={activeTab}
         activeChildId={activeTab === "attendance" ? activeAttendanceTab : undefined}
@@ -366,8 +368,8 @@ export default function ManagerStaffPage() {
           setActiveTab(tab);
           setActiveAttendanceTab(child);
         }}
-        mobileOpenLabel="Open staff manager menu"
-        mobileCloseLabel="Close staff manager menu"
+        mobileOpenLabel={t("manager.staff.openMenu")}
+        mobileCloseLabel={t("manager.staff.closeMenu")}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -378,7 +380,7 @@ export default function ManagerStaffPage() {
                 <SearchBar
                   value={searchQuery}
                   onChange={setSearchQuery}
-                  placeholder="Search name, ID, role, type, email, phone, or shift..."
+                  placeholder={t("manager.staff.searchPlaceholder")}
                   width="w-full"
                 />
               </div>
@@ -407,7 +409,7 @@ export default function ManagerStaffPage() {
             {staffFetchError && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4">
                 <p className="text-sm font-semibold text-red-700">
-                  Failed to fetch staff data
+                  {t("manager.staff.fetchFailedTitle")}
                 </p>
                 <p className="mt-1 text-sm text-red-600">{staffFetchError}</p>
                 <button
@@ -415,7 +417,7 @@ export default function ManagerStaffPage() {
                   onClick={() => void fetchStaff()}
                   className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                 >
-                  Try Again
+                  {t("manager.staff.tryAgain")}
                 </button>
               </div>
             )}
@@ -425,7 +427,7 @@ export default function ManagerStaffPage() {
                 <div className="text-center">
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900" />
                   <p className="mt-3 text-sm text-gray-500">
-                    Loading staff data...
+                    {t("manager.staff.loading")}
                   </p>
                 </div>
               </div>
@@ -451,8 +453,8 @@ export default function ManagerStaffPage() {
                 showActions={false}
                 onGenerateAccessCode={(id) => void handleGenerateAccessCode(id)}
                 generatingAccessStaffId={generatingAccessStaffId}
-                title="Staff Access List"
-                description="Read-only staff data with operational login code generation."
+                title={t("manager.staff.accessList")}
+                description={t("manager.staff.accessListDescription")}
                 loading={isLoadingStaff}
               />
             )}
@@ -461,8 +463,8 @@ export default function ManagerStaffPage() {
               <div className="rounded-xl border border-gray-200 bg-white py-12 text-center">
                 <p className="text-gray-500">
                   {searchQuery
-                    ? "No staff found"
-                    : "No staff data yet"}
+                    ? t("manager.staff.noStaffFound")
+                    : t("owner.staff.noStaffData")}
                 </p>
               </div>
             )}
@@ -491,30 +493,30 @@ export default function ManagerStaffPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Staff Login Code
+                {t("manager.staff.loginCodeTitle")}
               </p>
               <h2 className="mt-1 text-xl font-bold text-gray-900">
                 {generatedLoginCode.staffName}
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                Staff ID: {generatedLoginCode.staffCode}
+                {t("owner.staff.staffId", { code: generatedLoginCode.staffCode })}
               </p>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Code
+                {t("manager.staff.code")}
               </p>
               <p className="mt-2 font-mono text-4xl font-bold tracking-[0.35em] text-gray-900">
                 {generatedLoginCode.loginCode}
               </p>
               <p className="mt-3 text-sm text-gray-500">
-                Valid until {formatLoginCodeExpiry(generatedLoginCode.expiresAt)}
+                {t("manager.staff.validUntil", { time: formatLoginCodeExpiry(generatedLoginCode.expiresAt) })}
               </p>
             </div>
 
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-              Share this code only with the assigned staff member. After the staff member creates a PIN, the code can no longer be used.
+              {t("manager.staff.loginCodeWarning")}
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
@@ -523,14 +525,14 @@ export default function ManagerStaffPage() {
                 onClick={() => void handleCopy(generatedLoginCode.loginCode)}
                 className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
               >
-                Copy Code
+                {t("manager.staff.copyCode")}
               </button>
               <button
                 type="button"
                 onClick={() => setGeneratedLoginCode(null)}
                 className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
           </div>

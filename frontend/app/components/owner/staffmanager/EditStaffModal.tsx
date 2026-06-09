@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardDocumentIcon, KeyIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { Staff } from "@/lib/types";
+import { useLanguage } from "@/app/components/shared/i18n";
 import { getStaffAccessState } from "./staffAccessUtils";
 
 type StaffRole = "owner" | "manager" | "staff";
@@ -150,6 +151,7 @@ export default function EditStaffModal({
   onCopyCode,
   isGeneratingCode = false,
 }: EditStaffModalProps) {
+  const { t } = useLanguage();
   const activeShifts = useMemo(
     () => shifts.filter((shift) => shift.is_active !== false),
     [shifts],
@@ -215,6 +217,16 @@ export default function EditStaffModal({
     password_hash: staffRecord.password_hash,
     must_change_pin: staffRecord.must_change_pin,
   });
+  const translatedAccessAction =
+    accessState.actionLabel === "Regenerate Code"
+      ? t("owner.staff.regenerateCode")
+      : accessState.actionLabel === "Create Login Code"
+        ? t("owner.staff.createLoginCode")
+        : accessState.actionLabel === "Create Reset Code"
+          ? t("owner.staff.createResetCode")
+          : accessState.actionLabel === "Reset PIN"
+            ? t("owner.staff.resetPin")
+            : accessState.actionLabel;
 
   const handleRoleChange = (role: StaffRole) => {
     setFormData((prev) => ({
@@ -240,17 +252,17 @@ export default function EditStaffModal({
     const selectedShiftId = canUseShift ? formData.shift_id ?? defaultShiftId : null;
 
     if (!formData.name.trim()) {
-      setError("Staff name is required.");
+      setError(t("owner.staff.nameRequired"));
       return;
     }
 
     if (formData.role === "staff" && !formData.staff_type) {
-      setError("Tipe staff wajib dipilih untuk role Staff.");
+      setError(t("owner.staff.staffTypeRequired"));
       return;
     }
 
     if (canUseShift && activeShifts.length > 0 && !selectedShiftId) {
-      setError("Shift is required for staff or manager roles.");
+      setError(t("owner.staff.shiftRequired"));
       return;
     }
 
@@ -286,7 +298,7 @@ export default function EditStaffModal({
       const message =
         saveError instanceof Error
           ? saveError.message
-          : "Failed to save staff changes.";
+          : t("owner.staff.saveFailed");
 
       setError(message);
     } finally {
@@ -315,7 +327,7 @@ export default function EditStaffModal({
       <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Edit Staff</h2>
+            <h2 className="text-lg font-bold text-gray-900">{t("owner.staff.editTitle")}</h2>
             <p className="text-sm text-gray-500">
               Perbarui data staff, role, tipe staff, shift, dan status.
             </p>
@@ -344,7 +356,7 @@ export default function EditStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Staff Name <span className="text-red-500">*</span>
+              {t("owner.staff.staffName")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -420,7 +432,7 @@ export default function EditStaffModal({
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Status
+                {t("owner.staff.status")}
               </label>
               <select
                 value={formData.status}
@@ -444,7 +456,7 @@ export default function EditStaffModal({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Tipe Staff
+              {t("owner.staff.staffType")}
             </label>
             <select
               value={formData.staff_type ?? ""}
@@ -464,14 +476,14 @@ export default function EditStaffModal({
 
             {formData.role !== "staff" && (
               <p className="mt-2 text-xs text-gray-500">
-                Tipe staff hanya digunakan untuk role Staff.
+                {t("owner.staff.staffTypeHelper")}
               </p>
             )}
           </div>
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Work Shift {canUseShift && activeShifts.length > 0 && <span className="text-red-500">*</span>}
+              {t("owner.staff.workShift")} {canUseShift && activeShifts.length > 0 && <span className="text-red-500">*</span>}
             </label>
             <select
               value={
@@ -501,9 +513,9 @@ export default function EditStaffModal({
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">Weekly Shift Override</p>
+                  <p className="text-sm font-bold text-gray-900">{t("owner.staff.weeklyOverride")}</p>
                   <p className="mt-1 text-xs leading-5 text-gray-500">
-                    Optional. Add only weekdays that differ from the default Work Shift.
+                    {t("owner.staff.weeklyOverrideHelper")}
                   </p>
                 </div>
                 <button
@@ -525,7 +537,7 @@ export default function EditStaffModal({
                   disabled={loading || activeShifts.length === 0 || Object.keys(weeklyShiftOverrides).length >= WEEKDAY_OPTIONS.length}
                   className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Add Weekly Override
+                  {t("owner.staff.addWeeklyOverride")}
                 </button>
               </div>
 
@@ -611,7 +623,7 @@ export default function EditStaffModal({
                   <div className="flex items-center gap-2">
                     <KeyIcon className="h-5 w-5 text-gray-500" />
                     <p className="text-sm font-bold text-gray-900">
-                    Staff Access
+                    {t("owner.staff.access")}
                     </p>
                   </div>
 
@@ -646,7 +658,7 @@ export default function EditStaffModal({
                   disabled={loading || isGeneratingCode || !onGeneratePass}
                   className="shrink-0 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isGeneratingCode ? "Generating..." : accessState.actionLabel}
+                  {isGeneratingCode ? t("owner.staff.generating") : translatedAccessAction}
                 </button>
               </div>
             </div>
@@ -659,7 +671,7 @@ export default function EditStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel
+              {t("owner.staff.cancel")}
             </button>
 
             <button
@@ -667,7 +679,7 @@ export default function EditStaffModal({
               disabled={loading}
               className="flex-1 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? t("owner.staff.saving") : t("owner.staff.save")}
             </button>
           </div>
         </form>

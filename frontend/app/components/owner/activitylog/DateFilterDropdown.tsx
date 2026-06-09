@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CalendarIcon } from '@heroicons/react/24/outline'
+import { useLanguage } from '../../shared/i18n'
 
 export type DateFilterType = 'today' | 'week' | 'month' | 'custom' | 'all'
 
@@ -18,15 +19,16 @@ export default function DateFilterDropdown({
   customDateRange,
   onCustomDateRangeChange
 }: DateFilterDropdownProps) {
+  const { t } = useLanguage()
   const [showDropdown, setShowDropdown] = useState(false)
 
   const getDateFilterLabel = () => {
     switch (dateFilter) {
-      case 'today': return 'Today'
-      case 'week': return 'This Week'
-      case 'month': return 'This Month'
-      case 'custom': return 'Custom Range'
-      default: return 'All Time'
+      case 'today': return t('owner.activity.today')
+      case 'week': return t('owner.activity.thisWeek')
+      case 'month': return t('owner.activity.thisMonth')
+      case 'custom': return t('owner.activity.customRange')
+      default: return t('owner.activity.allTime')
     }
   }
 
@@ -70,7 +72,7 @@ export default function DateFilterDropdown({
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
-              All Time
+              {t('owner.activity.allTime')}
             </button>
             <button
               onClick={() => handleDateFilterSelect('today')}
@@ -80,7 +82,7 @@ export default function DateFilterDropdown({
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
-              Today
+              {t('owner.activity.today')}
             </button>
             <button
               onClick={() => handleDateFilterSelect('week')}
@@ -90,7 +92,7 @@ export default function DateFilterDropdown({
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
-              This Week (Last 7 Days)
+              {t('owner.activity.thisWeekLast7')}
             </button>
             <button
               onClick={() => handleDateFilterSelect('month')}
@@ -100,13 +102,13 @@ export default function DateFilterDropdown({
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
-              This Month (Last 30 Days)
+              {t('owner.activity.thisMonthLast30')}
             </button>
             
             <div className="border-t border-gray-200 my-2"></div>
             
             <div className="px-4 py-2">
-              <label className="text-sm font-medium text-gray-700 block mb-2">Custom Range</label>
+              <label className="text-sm font-medium text-gray-700 block mb-2">{t('owner.activity.customRange')}</label>
               <div className="space-y-2">
                 <input
                   type="date"
@@ -125,7 +127,7 @@ export default function DateFilterDropdown({
                     onClick={() => setShowDropdown(false)}
                     className="w-full px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
                   >
-                    Apply
+                    {t('owner.activity.apply')}
                   </button>
                 )}
               </div>

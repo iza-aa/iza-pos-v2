@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/config/supabaseClient";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
+import { useLanguage } from "../i18n";
 
 type RoleScope = "owner" | "manager" | "staff";
 
@@ -69,30 +70,32 @@ const isSequentialPin = (pin: string) => {
   return ascending || descending;
 };
 
-const validateNewPin = (pin: string) => {
+type Translator = ReturnType<typeof useLanguage>["t"];
+
+const validateNewPin = (pin: string, t: Translator) => {
   if (!PIN_PATTERN.test(pin)) {
-    return `PIN harus ${PIN_LENGTH} digit angka.`;
+    return t("profile.pinLengthError", { length: PIN_LENGTH });
   }
 
   if (WEAK_PINS.has(pin) || isSequentialPin(pin)) {
-    return "PIN terlalu mudah ditebak. Gunakan kombinasi angka lain.";
+    return t("profile.pinWeakError");
   }
 
   return "";
 };
 
-const getRoleLabel = (role: string) => {
-  if (role === "owner") return "Owner";
-  if (role === "manager") return "Manager";
-  if (role === "staff") return "Staff";
-  return role || "User";
+const getRoleLabel = (role: string, t: Translator) => {
+  if (role === "owner") return t("owner.staff.owner");
+  if (role === "manager") return t("owner.staff.manager");
+  if (role === "staff") return t("owner.staff.staff");
+  return role || t("profile.user");
 };
 
-const getStatusLabel = (status: string) => {
-  if (status === "active") return "Active";
-  if (status === "inactive") return "Inactive";
-  if (status === "on-leave") return "On Leave";
-  if (status === "terminated") return "Terminated";
+const getStatusLabel = (status: string, t: Translator) => {
+  if (status === "active") return t("owner.bookkeeping.enabled");
+  if (status === "inactive") return t("owner.staff.inactive");
+  if (status === "on-leave") return t("owner.staff.onLeave");
+  if (status === "terminated") return t("owner.staff.terminated");
   return status || "-";
 };
 
@@ -113,28 +116,28 @@ const getCurrentUserId = () => {
   return localStorage.getItem("user_id") || "";
 };
 
-const readImageFile = (file: File) => {
+const readImageFile = (file: File, t: Translator) => {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onload = () => {
       const image = new Image();
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("File gambar tidak dapat dibaca."));
+      image.onerror = () => reject(new Error(t("profile.imageReadError")));
       image.src = String(reader.result);
     };
 
-    reader.onerror = () => reject(new Error("Gagal membaca file gambar."));
+    reader.onerror = () => reject(new Error(t("profile.fileReadError")));
     reader.readAsDataURL(file);
   });
 };
 
-const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
+const canvasToBlob = (canvas: HTMLCanvasElement, quality: number, t: Translator) => {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error("Gagal mengompres photo."));
+          reject(new Error(t("profile.photoCompressError")));
           return;
         }
 
@@ -146,7 +149,7 @@ const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
   });
 };
 
-const drawImageToCanvas = (image: HTMLImageElement, maxDimension: number) => {
+const drawImageToCanvas = (image: HTMLImageElement, maxDimension: number, t: Translator) => {
   const ratio = Math.min(1, maxDimension / Math.max(image.width, image.height));
   const width = Math.max(1, Math.round(image.width * ratio));
   const height = Math.max(1, Math.round(image.height * ratio));
@@ -154,7 +157,7 @@ const drawImageToCanvas = (image: HTMLImageElement, maxDimension: number) => {
   const context = canvas.getContext("2d");
 
   if (!context) {
-    throw new Error("Browser tidak mendukung kompresi photo.");
+    throw new Error(t("profile.photoCompressUnsupported"));
   }
 
   canvas.width = width;
@@ -164,20 +167,20 @@ const drawImageToCanvas = (image: HTMLImageElement, maxDimension: number) => {
   return canvas;
 };
 
-const compressProfilePhoto = async (file: File) => {
+const compressProfilePhoto = async (file: File, t: Translator) => {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-    throw new Error("Format photo harus JPG, PNG, atau WEBP.");
+    throw new Error(t("profile.photoFormatError"));
   }
 
-  const image = await readImageFile(file);
+  const image = await readImageFile(file, t);
   let maxDimension = PROFILE_IMAGE_MAX_DIMENSION;
   let bestBlob: Blob | null = null;
 
   for (let resizeAttempt = 0; resizeAttempt < 5; resizeAttempt += 1) {
-    const canvas = drawImageToCanvas(image, maxDimension);
+    const canvas = drawImageToCanvas(image, maxDimension, t);
 
     for (let quality = 0.82; quality >= 0.42; quality -= 0.08) {
-      const blob = await canvasToBlob(canvas, Number(quality.toFixed(2)));
+      const blob = await canvasToBlob(canvas, Number(quality.toFixed(2)), t);
       bestBlob = blob;
 
       if (blob.size <= PROFILE_IMAGE_TARGET_BYTES) {
@@ -189,7 +192,7 @@ const compressProfilePhoto = async (file: File) => {
   }
 
   if (!bestBlob) {
-    throw new Error("Gagal mengompres photo.");
+    throw new Error(t("profile.photoCompressError"));
   }
 
   return new File([bestBlob], "profile-photo.webp", { type: "image/webp" });
@@ -276,6 +279,7 @@ function PinBoxesInput({
 
 export default function ProfileSection({ roleScope }: ProfileSectionProps) {
   useSessionValidation();
+  const { t } = useLanguage();
 
   const searchParams = useSearchParams();
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -310,7 +314,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       const userId = getCurrentUserId();
 
       if (!userId) {
-        setError("Session tidak ditemukan. Silakan login ulang.");
+        setError(t("profile.sessionMissing"));
         return;
       }
 
@@ -323,7 +327,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       if (fetchError) throw fetchError;
 
       if (!data) {
-        setError("Data profil tidak ditemukan.");
+        setError(t("profile.notFound"));
         return;
       }
 
@@ -335,7 +339,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       setProfilePicture(normalizedProfile.profile_picture || "");
 
       if (typeof window !== "undefined") {
-        localStorage.setItem("user_name", normalizedProfile.name || "User");
+        localStorage.setItem("user_name", normalizedProfile.name || t("profile.user"));
         localStorage.setItem("user_role", normalizedProfile.role || roleScope);
         localStorage.setItem("staff_code", normalizedProfile.staff_code || "");
         localStorage.setItem("staff_type", normalizedProfile.staff_type || "");
@@ -343,7 +347,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
         dispatchProfileUpdatedEvent();
       }
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Gagal memuat profil.";
+      const message = loadError instanceof Error ? loadError.message : t("profile.loadError");
       setError(message);
     } finally {
       setLoading(false);
@@ -381,7 +385,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       const trimmedPhone = phone.trim();
 
       if (!trimmedName) {
-        setError("Nama wajib diisi.");
+        setError(t("profile.nameRequired"));
         return;
       }
 
@@ -412,9 +416,9 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
         dispatchProfileUpdatedEvent();
       }
 
-      setSuccess("Profil berhasil diperbarui.");
+      setSuccess(t("profile.updated"));
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : "Gagal menyimpan profil.";
+      const message = saveError instanceof Error ? saveError.message : t("profile.saveError");
       setError(message);
     } finally {
       setSavingProfile(false);
@@ -432,7 +436,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
     setSuccess("");
 
     try {
-      const compressedFile = await compressProfilePhoto(file);
+      const compressedFile = await compressProfilePhoto(file, t);
       const formData = new FormData();
       formData.append("staff_id", profile.id);
       formData.append("file", compressedFile, "profile-photo.webp");
@@ -445,7 +449,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       const result = (await response.json()) as ApiResult & { profile_picture?: string };
 
       if (!response.ok || !result.success || !result.profile_picture) {
-        throw new Error(result.error || "Gagal mengunggah photo profil.");
+        throw new Error(result.error || t("profile.photoUploadError"));
       }
 
       const publicUrl = result.profile_picture;
@@ -459,9 +463,9 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       }
 
       const sizeKb = Math.max(1, Math.round(compressedFile.size / 1024));
-      setSuccess(`Photo profil berhasil diperbarui dan dikompres menjadi sekitar ${sizeKb} KB.`);
+      setSuccess(t("profile.photoUpdated", { size: sizeKb }));
     } catch (uploadError) {
-      const message = uploadError instanceof Error ? uploadError.message : "Gagal mengunggah photo profil.";
+      const message = uploadError instanceof Error ? uploadError.message : t("profile.photoUploadError");
       setError(message);
     } finally {
       setUploadingPhoto(false);
@@ -479,11 +483,11 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
 
     try {
       if (!PIN_PATTERN.test(currentPin)) {
-        setError(`PIN lama harus ${PIN_LENGTH} digit angka.`);
+        setError(t("profile.oldPinLengthError", { length: PIN_LENGTH }));
         return;
       }
 
-      const newPinError = validateNewPin(newPin);
+      const newPinError = validateNewPin(newPin, t);
 
       if (newPinError) {
         setError(newPinError);
@@ -491,7 +495,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       }
 
       if (newPin !== confirmPin) {
-        setError("Konfirmasi PIN baru tidak sama.");
+        setError(t("profile.pinConfirmMismatch"));
         return;
       }
 
@@ -510,7 +514,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       const result = (await response.json()) as ApiResult;
 
       if (!response.ok || !result.success) {
-        setError(result.error || "Gagal memperbarui PIN.");
+        setError(result.error || t("profile.pinUpdateError"));
         return;
       }
 
@@ -518,9 +522,9 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       setNewPin("");
       setConfirmPin("");
       setShowPinForm(false);
-      setSuccess(result.message || "PIN berhasil diperbarui.");
+      setSuccess(result.message || t("profile.pinUpdated"));
     } catch (pinError) {
-      const message = pinError instanceof Error ? pinError.message : "Gagal memperbarui PIN.";
+      const message = pinError instanceof Error ? pinError.message : t("profile.pinUpdateError");
       setError(message);
     } finally {
       setSavingPin(false);
@@ -532,7 +536,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       <main className="min-h-[calc(100vh-72px)] bg-gray-50 px-4 py-8">
         <div className="mx-auto max-w-5xl">
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm text-gray-500">Memuat profil...</p>
+            <p className="text-sm text-gray-500">{t("profile.loading")}</p>
           </div>
         </div>
       </main>
@@ -547,10 +551,10 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
             <div className="relative h-20 w-20 shrink-0">
               <img
                 src={avatarSrc}
-                alt={name || "Profile"}
+                alt={name || t("profile.title")}
                 className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
                 onError={(event) => {
-                  (event.currentTarget as HTMLImageElement).src = getFallbackAvatar(name || "User");
+                  (event.currentTarget as HTMLImageElement).src = getFallbackAvatar(name || t("profile.user"));
                 }}
               />
               <input
@@ -565,8 +569,8 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                 onClick={() => photoInputRef.current?.click()}
                 disabled={uploadingPhoto}
                 className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Ganti photo profil"
-                title="Ganti photo profil"
+                aria-label={t("profile.changePhoto")}
+                title={t("profile.changePhoto")}
               >
                 {uploadingPhoto ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-800" />
@@ -577,16 +581,16 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
             </div>
 
             <div>
-              <p className="text-sm font-medium uppercase tracking-wide text-gray-400">Profile</p>
-              <h1 className="text-2xl font-bold text-gray-900">{profile?.name || "User"}</h1>
+              <p className="text-sm font-medium uppercase tracking-wide text-gray-400">{t("profile.title")}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{profile?.name || t("profile.user")}</h1>
               <p className="mt-1 text-sm text-gray-500">
-                {getRoleLabel(profile?.role || roleScope)} • {profile?.staff_code || "-"}
+                {getRoleLabel(profile?.role || roleScope, t)} • {profile?.staff_code || "-"}
               </p>
             </div>
           </div>
 
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            Status: <span className="font-semibold text-gray-900">{getStatusLabel(profile?.status || "")}</span>
+            {t("profile.status")}: <span className="font-semibold text-gray-900">{getStatusLabel(profile?.status || "", t)}</span>
           </div>
         </div>
 
@@ -610,19 +614,19 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                 <UserCircleIcon className="h-6 w-6" />
               </span>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Data Pribadi</h2>
-                <p className="text-sm text-gray-500">Ubah informasi dasar akun kamu.</p>
+                <h2 className="text-lg font-bold text-gray-900">{t("profile.personalData")}</h2>
+                <p className="text-sm text-gray-500">{t("profile.personalDescription")}</p>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Nama</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">{t("profile.name")}</label>
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Nama lengkap"
+                  placeholder={t("profile.namePlaceholder")}
                 />
               </div>
 
@@ -638,7 +642,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Nomor HP</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">{t("profile.phone")}</label>
                 <input
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
@@ -654,29 +658,29 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                 disabled={savingProfile || uploadingPhoto}
                 className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {savingProfile ? "Menyimpan..." : "Simpan Perubahan"}
+                {savingProfile ? t("common.saving") : t("profile.saveChanges")}
               </button>
             </div>
           </form>
 
           <aside className="rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="text-lg font-bold text-gray-900">Informasi Akun</h2>
+            <h2 className="text-lg font-bold text-gray-900">{t("profile.accountInfo")}</h2>
             <div className="mt-5 space-y-4 text-sm">
               <div>
-                <p className="text-gray-400">Staff ID</p>
+                <p className="text-gray-400">{t("owner.staff.staffIdLabel")}</p>
                 <p className="font-semibold text-gray-900">{profile?.staff_code || "-"}</p>
               </div>
               <div>
-                <p className="text-gray-400">Role</p>
-                <p className="font-semibold text-gray-900">{getRoleLabel(profile?.role || roleScope)}</p>
+                <p className="text-gray-400">{t("owner.staff.role")}</p>
+                <p className="font-semibold text-gray-900">{getRoleLabel(profile?.role || roleScope, t)}</p>
               </div>
               <div>
-                <p className="text-gray-400">Tipe Staff</p>
+                <p className="text-gray-400">{t("owner.staff.type")}</p>
                 <p className="font-semibold capitalize text-gray-900">{profile?.staff_type || "-"}</p>
               </div>
               <div>
-                <p className="text-gray-400">Status</p>
-                <p className="font-semibold text-gray-900">{getStatusLabel(profile?.status || "")}</p>
+                <p className="text-gray-400">{t("profile.status")}</p>
+                <p className="font-semibold text-gray-900">{getStatusLabel(profile?.status || "", t)}</p>
               </div>
             </div>
           </aside>
@@ -693,9 +697,9 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                   <KeyIcon className="h-6 w-6" />
                 </span>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Keamanan</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{t("profile.security")}</h2>
                   <p className="text-sm text-gray-500">
-                    Ganti PIN login staff hanya saat dibutuhkan.
+                    {t("profile.securityDescription")}
                   </p>
                 </div>
               </div>
@@ -712,32 +716,32 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                 }}
                 className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
               >
-                {showPinForm ? "Tutup Form PIN" : "Ganti PIN"}
+                {showPinForm ? t("profile.closePinForm") : t("profile.changePin")}
               </button>
             </div>
 
             {showPinForm ? (
               <form onSubmit={handleChangePin} className="mt-6 grid gap-4 lg:grid-cols-3">
                 <PinBoxesInput
-                  label="PIN Lama"
+                  label={t("profile.oldPin")}
                   value={currentPin}
                   onChange={setCurrentPin}
                   disabled={savingPin}
-                  helperText="Masukkan PIN yang sedang dipakai."
+                  helperText={t("profile.oldPinHelper")}
                 />
                 <PinBoxesInput
-                  label="PIN Baru"
+                  label={t("profile.newPin")}
                   value={newPin}
                   onChange={setNewPin}
                   disabled={savingPin}
-                  helperText="Hindari 123456, 111111, atau angka berurutan."
+                  helperText={t("profile.newPinHelper")}
                 />
                 <PinBoxesInput
-                  label="Konfirmasi PIN Baru"
+                  label={t("profile.confirmPin")}
                   value={confirmPin}
                   onChange={setConfirmPin}
                   disabled={savingPin}
-                  helperText="Ulangi PIN baru yang sama."
+                  helperText={t("profile.confirmPinHelper")}
                 />
 
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end lg:col-span-3">
@@ -753,14 +757,14 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
                     disabled={savingPin}
                     className="rounded-lg border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Batal
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="submit"
                     disabled={savingPin}
                     className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {savingPin ? "Memperbarui..." : "Simpan PIN Baru"}
+                    {savingPin ? t("common.updating") : t("profile.saveNewPin")}
                   </button>
                 </div>
               </form>

@@ -8,6 +8,7 @@ import StandardTable, {
 } from "@/app/components/shared/StandardTable";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
+import { useLanguage } from "@/app/components/shared/i18n";
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -873,6 +874,7 @@ export default function AttendanceSection({
   onShiftChanged,
   section = "monitor",
 }: AttendanceSectionProps) {
+  const { t } = useLanguage();
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
   const [shiftList, setShiftList] = useState<ShiftRecord[]>([]);
   const [staffList, setStaffList] = useState<ActiveStaffRecord[]>([]);
@@ -967,7 +969,7 @@ export default function AttendanceSection({
       } catch (error) {
         const message = getErrorMessage(
           error,
-          "Failed to fetch attendance data.",
+          t("owner.staff.fetchAttendanceError"),
         );
 
         console.error("Error fetching attendance:", error);
@@ -976,7 +978,7 @@ export default function AttendanceSection({
         setLoading(false);
       }
     },
-    [dateRangeMode, customStartDate, customEndDate],
+    [dateRangeMode, customStartDate, customEndDate, t],
   );
 
   useEffect(() => {
@@ -1010,7 +1012,7 @@ export default function AttendanceSection({
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      showError("Browser tidak mendukung fitur lokasi.");
+      showError(t("owner.staff.locationUnsupported"));
       return;
     }
 
@@ -1028,8 +1030,8 @@ export default function AttendanceSection({
       (error) => {
         const errorMessage =
           error.code === error.PERMISSION_DENIED
-            ? "Location permission was denied. Enable browser location permission first."
-            : "Failed to get location. Make sure GPS is active and try again.";
+            ? t("owner.staff.locationPermissionDenied")
+            : t("owner.staff.locationFailed");
 
         showError(errorMessage);
         setLocationLoading(false);
@@ -1045,7 +1047,7 @@ export default function AttendanceSection({
   const handleSaveStoreSettings = async () => {
     if (!isValidStoreSettingsForm(storeFormData)) {
       showError(
-        "Pengaturan lokasi belum valid. Pastikan nama cafe, latitude, longitude, dan radius sudah benar.",
+        t("owner.staff.locationSettingsInvalid"),
       );
       return;
     }
@@ -1080,9 +1082,9 @@ export default function AttendanceSection({
       }
 
       await fetchAttendanceData(true);
-      showSuccess("Cafe location saved.");
+      showSuccess(t("owner.staff.locationSaved"));
     } catch (error) {
-      const message = getErrorMessage(error, "Failed to save cafe location.");
+      const message = getErrorMessage(error, t("owner.staff.locationSaveError"));
 
       showError(message);
     } finally {
@@ -1093,7 +1095,7 @@ export default function AttendanceSection({
   const handleSaveShift = async () => {
     if (!isValidShiftForm(shiftFormData)) {
       showError(
-        "Shift data is not valid. Make sure the shift name is filled, the clock-in grace time is not earlier than the start time, and the clock-out grace time is not earlier than the end time.",
+        t("owner.staff.shiftDataInvalid"),
       );
       return;
     }
@@ -1132,7 +1134,7 @@ export default function AttendanceSection({
       await onShiftChanged?.();
       closeShiftForm();
     } catch (error) {
-      const message = getErrorMessage(error, "Failed to save shift.");
+      const message = getErrorMessage(error, t("owner.staff.shiftSaveError"));
 
       showError(message);
     } finally {
@@ -1142,9 +1144,9 @@ export default function AttendanceSection({
 
   const handleToggleShiftStatus = async (shift: ShiftRecord) => {
     const nextStatus = shift.is_active === false;
-    const actionLabel = nextStatus ? "mengaktifkan" : "menonaktifkan";
+    const actionLabel = nextStatus ? t("owner.staff.activate") : t("owner.staff.deactivate");
 
-    if (!window.confirm(`Are you sure you want to ${actionLabel} ${shift.shift_name}?`)) {
+    if (!window.confirm(t("owner.staff.confirmShiftStatus", { action: actionLabel, name: shift.shift_name }))) {
       return;
     }
 
@@ -1166,7 +1168,7 @@ export default function AttendanceSection({
       await fetchAttendanceData(true);
       await onShiftChanged?.();
     } catch (error) {
-      const message = getErrorMessage(error, "Failed to update shift status.");
+      const message = getErrorMessage(error, t("owner.staff.shiftStatusError"));
 
       showError(message);
     } finally {
@@ -1177,7 +1179,7 @@ export default function AttendanceSection({
   const handleDeleteShift = async (shift: ShiftRecord) => {
     if (
       !window.confirm(
-        `Are you sure you want to delete ${shift.shift_name}? Deleted shifts will no longer appear in staff options. Existing attendance history remains stored, but the shift name in that history can become "No Shift".`,
+        t("owner.staff.confirmShiftDelete", { name: shift.shift_name }),
       )
     ) {
       return;
@@ -1198,7 +1200,7 @@ export default function AttendanceSection({
       await fetchAttendanceData(true);
       await onShiftChanged?.();
     } catch (error) {
-      const message = getErrorMessage(error, "Failed to delete shift.");
+      const message = getErrorMessage(error, t("owner.staff.shiftDeleteError"));
 
       showError(message);
     } finally {
@@ -1240,7 +1242,7 @@ export default function AttendanceSection({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">
-              Cafe Attendance Location
+              {t("owner.staff.attendanceLocation")}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
               Set the cafe location point and validation radius so staff can only
@@ -1317,7 +1319,7 @@ export default function AttendanceSection({
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Attendance Radius (meters)
+              {t("owner.staff.attendanceRadius")}
             </label>
             <input
               type="number"
@@ -1358,7 +1360,7 @@ export default function AttendanceSection({
               disabled={storeLoading || locationLoading}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {storeLoading ? "Saving..." : "Save Location"}
+              {storeLoading ? t("owner.staff.saving") : t("owner.staff.saveLocation")}
             </button>
           </div>
         </div>
@@ -1371,7 +1373,7 @@ export default function AttendanceSection({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-bold text-gray-900">
-            Shift Management
+            {t("owner.staff.shiftManagement")}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
             Configure start time, lateness tolerance, end time, and normal
@@ -1385,7 +1387,7 @@ export default function AttendanceSection({
           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800"
         >
           <PlusIcon className="h-4 w-4" />
-          Add Shift
+          {t("owner.staff.addShift")}
         </button>
       </div>
 
@@ -1441,7 +1443,7 @@ export default function AttendanceSection({
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
               >
                 <PencilSquareIcon className="h-4 w-4" />
-                Edit
+                {t("owner.staff.edit")}
               </button>
 
               <button
@@ -1461,7 +1463,7 @@ export default function AttendanceSection({
                 className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl border bg-white text-xs font-semibold transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
               >
                 <TrashIcon className="h-4 w-4" />
-                Delete
+                {t("owner.staff.deleteShift")}
               </button>
             </div>
           </div>
@@ -1475,7 +1477,7 @@ export default function AttendanceSection({
             No shifts yet
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            Add shifts to define staff clock-in and clock-out rules.
+            {t("owner.staff.shiftFormDescription")}
           </p>
         </div>
       )}
@@ -1483,10 +1485,10 @@ export default function AttendanceSection({
   );
 
   const renderAttendanceCard = (attendance: AttendanceRecord) => {
-    const staffName = attendance.staff?.name ?? "Staff not found";
+    const staffName = attendance.staff?.name ?? t("owner.staff.staffNotFound");
     const staffCode = attendance.staff?.staff_code ?? "-";
     const staffType = toTitleCase(attendance.staff?.staff_type);
-    const shiftName = attendance.shift?.shift_name ?? "No Shift";
+    const shiftName = attendance.shift?.shift_name ?? t("owner.staff.noShift");
     const shiftTime = attendance.shift
       ? `${formatTime(attendance.shift.start_time)} - ${formatTime(
           attendance.shift.end_time,
@@ -1596,7 +1598,7 @@ export default function AttendanceSection({
 
   const renderAttendanceTable = () => (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-5 ">
-        <h2 className="text-base font-bold text-gray-900">Attendance Monitor Table</h2>
+        <h2 className="text-base font-bold text-gray-900">{t("owner.staff.attendanceTable")}</h2>
         <p className="mt-1 text-sm text-gray-500 mb-4 ">
           Concrete attendance records for clock-in, clock-out, status, and location distance.
         </p>
@@ -1605,12 +1607,12 @@ export default function AttendanceSection({
         columns={[
           {
             key: "staff",
-            header: "Staff",
+            header: t("owner.staff.staff"),
             sortValue: (attendance) => attendance.staff?.name ?? "",
             render: (attendance) => (
               <div>
                 <p className="font-semibold text-gray-900">
-                  {attendance.staff?.name ?? "Staff not found"}
+                  {attendance.staff?.name ?? t("owner.staff.staffNotFound")}
                 </p>
                 <p className="text-xs text-gray-500">
                   {attendance.staff?.staff_code ?? "-"} - {toTitleCase(attendance.staff?.staff_type)}
@@ -1620,12 +1622,12 @@ export default function AttendanceSection({
           },
           {
             key: "shift",
-            header: "Shift",
+            header: t("owner.bookkeeping.shift"),
             sortValue: (attendance) => attendance.shift?.shift_name ?? "",
             render: (attendance) => (
               <div>
                 <p className="font-semibold text-gray-900">
-                  {attendance.shift?.shift_name ?? "No Shift"}
+                  {attendance.shift?.shift_name ?? t("owner.staff.noShift")}
                 </p>
                 <p className="text-xs text-gray-500">
                   {formatTime(attendance.shift?.start_time)} - {formatTime(attendance.shift?.end_time)}
@@ -1635,13 +1637,13 @@ export default function AttendanceSection({
           },
           {
             key: "date",
-            header: "Date",
+            header: t("owner.bookkeeping.date"),
             sortValue: (attendance) => attendance.attendance_date,
             render: (attendance) => formatDate(attendance.attendance_date),
           },
           {
             key: "clock_in",
-            header: "Clock In",
+            header: t("owner.staff.clockIn"),
             sortValue: (attendance) => attendance.clock_in_at ?? "",
             render: (attendance) => (
               <div>
@@ -1659,7 +1661,7 @@ export default function AttendanceSection({
           },
           {
             key: "clock_out",
-            header: "Clock Out",
+            header: t("owner.staff.clockOut"),
             sortValue: (attendance) => attendance.clock_out_at ?? "",
             render: (attendance) => (
               <div>
@@ -1677,7 +1679,7 @@ export default function AttendanceSection({
           },
           {
             key: "status",
-            header: "Status",
+            header: t("owner.staff.status"),
             sortValue: (attendance) =>
               `${attendance.check_in_status ?? ""} ${attendance.check_out_status ?? ""}`,
             render: (attendance) => (
@@ -1699,7 +1701,7 @@ export default function AttendanceSection({
           },
           {
             key: "distance",
-            header: "Distance",
+            header: t("owner.staff.distance"),
             sortValue: (attendance) => Number(attendance.clock_in_distance_meters ?? 0),
             render: (attendance) => (
               <div className="space-y-1">
@@ -1723,7 +1725,7 @@ export default function AttendanceSection({
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900" />
-          <p className="mt-3 text-sm text-gray-500">Loading attendance data...</p>
+          <p className="mt-3 text-sm text-gray-500">{t("owner.staff.attendanceLoading")}</p>
         </div>
       </div>
     );
@@ -1757,7 +1759,7 @@ export default function AttendanceSection({
         <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-7">
         {renderSummaryCard(
-          "Total Staff",
+          t("owner.staff.totalStaff"),
           summary.total,
           <CalendarDaysIcon className="h-5 w-5" />,
           "Active users with shifts"
@@ -1767,7 +1769,7 @@ export default function AttendanceSection({
           "Not Clocked In",
           summary.notClockedIn,
           <ExclamationTriangleIcon className="h-5 w-5" />,
-          "Users not clocked in.",
+          t("owner.staff.notClockedIn"),
           "waiting",
         )}
 
@@ -1775,7 +1777,7 @@ export default function AttendanceSection({
           "Clock In",
           summary.clockedIn,
           <ClockIcon className="h-5 w-5" />,
-          "Staff have clocked in.",
+          t("owner.staff.clockedInSentence"),
           "info",
         )}
 
@@ -1783,7 +1785,7 @@ export default function AttendanceSection({
           "Clock Out",
           summary.clockedOut,
           <CheckCircleIcon className="h-5 w-5" />,
-          "Staff have clocked out.",
+          t("owner.staff.clockedOutSentence"),
           "success",
         )}
 
@@ -1816,7 +1818,7 @@ export default function AttendanceSection({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">
-              Staff Attendance Monitor
+              {t("owner.staff.attendanceMonitorTitle")}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
               Monitor clock in and clock out for active users with assigned shifts.
@@ -1829,7 +1831,7 @@ export default function AttendanceSection({
               onChange={(event) => setSelectedStaffId(event.target.value)}
               className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
             >
-              <option value="all">All Staff</option>
+              <option value="all">{t("owner.staff.allStaff")}</option>
 
               {staffList.map((staff) => (
                 <option key={staff.id} value={staff.id}>
@@ -1843,7 +1845,7 @@ export default function AttendanceSection({
               onChange={(event) => setSelectedShiftId(event.target.value)}
               className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
             >
-              <option value="all">All Shifts</option>
+              <option value="all">{t("owner.staff.allShifts")}</option>
 
               {shiftList.map((shift) => (
                 <option key={shift.id} value={shift.id}>
@@ -1893,7 +1895,7 @@ export default function AttendanceSection({
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  {editingShift ? "Edit Shift" : "Add Shift"}
+                  {editingShift ? t("owner.staff.editShift") : t("owner.staff.addShift")}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
                   Shift defines start time, lateness tolerance, end time, and
@@ -1914,7 +1916,7 @@ export default function AttendanceSection({
             <div className="space-y-4 px-6 py-5">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Shift Name
+                  {t("owner.staff.shiftName")}
                 </label>
                 <input
                   type="text"
@@ -1926,7 +1928,7 @@ export default function AttendanceSection({
                     }))
                   }
                   className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  placeholder="Example: Morning Shift"
+                  placeholder={t("owner.staff.shiftNamePlaceholder")}
                 />
               </div>
 
@@ -2015,7 +2017,7 @@ export default function AttendanceSection({
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  Shift is available for staff data selection
+                  {t("owner.staff.shiftAvailable")}
                 </span>
               </label>
             </div>
@@ -2027,7 +2029,7 @@ export default function AttendanceSection({
                 disabled={shiftLoading}
                 className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {t("owner.staff.cancel")}
               </button>
 
               <button
@@ -2036,7 +2038,7 @@ export default function AttendanceSection({
                 disabled={shiftLoading}
                 className="flex-1 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {shiftLoading ? "Saving..." : "Save Shift"}
+                {shiftLoading ? t("owner.staff.saving") : t("owner.staff.saveShift")}
               </button>
             </div>
           </div>

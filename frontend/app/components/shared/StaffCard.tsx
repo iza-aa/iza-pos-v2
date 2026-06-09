@@ -9,6 +9,7 @@ import {
 import { getInitials } from "@/lib/utils";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import type { Staff } from "@/lib/types";
+import { useLanguage } from "./i18n";
 
 type ShiftRecord = {
   id: string;
@@ -52,35 +53,35 @@ const formatLabel = (value: unknown) => {
     .join(" ");
 };
 
-const formatStaffType = (value: unknown) => {
+const formatStaffType = (value: unknown, t: ReturnType<typeof useLanguage>["t"]) => {
   const staffType = String(value ?? "").trim().toLowerCase();
 
-  if (!staffType) return "Not Assigned";
-  if (staffType === "cashier") return "Cashier";
-  if (staffType === "barista") return "Barista";
-  if (staffType === "kitchen") return "Kitchen";
-  if (staffType === "waiter") return "Waiter";
+  if (!staffType) return t("owner.staff.notAssigned");
+  if (staffType === "cashier") return t("owner.staff.cashier");
+  if (staffType === "barista") return t("owner.staff.barista");
+  if (staffType === "kitchen") return t("owner.staff.kitchen");
+  if (staffType === "waiter") return t("owner.staff.waiter");
 
   return formatLabel(staffType);
 };
 
-const formatRole = (value: unknown) => {
+const formatRole = (value: unknown, t: ReturnType<typeof useLanguage>["t"]) => {
   const role = String(value ?? "").trim().toLowerCase();
 
-  if (role === "owner") return "Owner";
-  if (role === "manager") return "Manager";
-  if (role === "staff") return "Staff";
+  if (role === "owner") return t("owner.staff.owner");
+  if (role === "manager") return t("owner.staff.manager");
+  if (role === "staff") return t("owner.staff.staff");
 
   return formatLabel(role);
 };
 
-const formatStatus = (value: unknown) => {
+const formatStatus = (value: unknown, t: ReturnType<typeof useLanguage>["t"]) => {
   const status = String(value ?? "").trim().toLowerCase();
 
-  if (status === "active") return "Active";
-  if (status === "inactive") return "Inactive";
-  if (status === "on-leave") return "On Leave";
-  if (status === "terminated") return "Terminated";
+  if (status === "active") return t("owner.bookkeeping.enabled");
+  if (status === "inactive") return t("owner.staff.inactive");
+  if (status === "on-leave") return t("owner.staff.onLeave");
+  if (status === "terminated") return t("owner.staff.terminated");
 
   return formatLabel(status);
 };
@@ -108,7 +109,7 @@ const formatTime = (value?: string | null) => {
 const getShiftLabel = (staff: StaffCardRecord) => {
   if (staff.shift?.shift_name) return staff.shift.shift_name;
 
-  return "No Shift";
+  return "";
 };
 
 const getShiftTimeLabel = (staff: StaffCardRecord) => {
@@ -156,16 +157,17 @@ export default function StaffCard({
   onGenerateAccessCode,
   isGeneratingAccessCode = false,
 }: StaffCardProps) {
+  const { t } = useLanguage();
   const staffRole = String(staff.role ?? "").toLowerCase();
   const shouldShowStaffType = staffRole === "staff";
 
   const phoneText = staff.phone?.trim() || "-";
   const emailText = staff.email?.trim() || "-";
-  const statusText = formatStatus(staff.status);
-  const roleText = formatRole(staff.role);
-  const staffTypeText = formatStaffType(staff.staff_type);
+  const statusText = formatStatus(staff.status, t);
+  const roleText = formatRole(staff.role, t);
+  const staffTypeText = formatStaffType(staff.staff_type, t);
   const hiredDateText = formatHiredDate(staff.hired_date);
-  const shiftText = getShiftLabel(staff);
+  const shiftText = getShiftLabel(staff) || t("owner.staff.noShift");
   const shiftTimeText = getShiftTimeLabel(staff);
 
   return (
@@ -173,7 +175,7 @@ export default function StaffCard({
       <div className="relative border-b border-gray-100 bg-[#F7F7F5] p-5 pb-14">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Staff ID</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t("owner.staff.staffIdLabel")}</p>
             <p className="mt-1 truncate text-sm font-semibold text-gray-700">
               {staff.staff_code || "-"}
             </p>
@@ -220,7 +222,7 @@ export default function StaffCard({
 
             {!shouldShowStaffType && (
               <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-                Management
+                {t("owner.staff.management")}
               </span>
             )}
           </div>
@@ -231,7 +233,7 @@ export default function StaffCard({
             <div className="mb-2 flex items-center gap-2">
               <ClockIcon className="h-4 w-4 text-gray-400" />
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Work Shift
+                {t("owner.staff.workShift")}
               </p>
             </div>
             <p className="text-sm font-semibold text-gray-900">{shiftText}</p>
@@ -251,7 +253,7 @@ export default function StaffCard({
 
             <div className="flex items-center gap-3">
               <CalendarDaysIcon className="h-4 w-4 shrink-0 text-gray-400" />
-              <span className="min-w-0 truncate text-gray-700">Start Work: {hiredDateText}</span>
+              <span className="min-w-0 truncate text-gray-700">{t("owner.staff.startWork", { date: hiredDateText })}</span>
             </div>
           </div>
         </div>
@@ -270,7 +272,7 @@ export default function StaffCard({
               disabled={isGeneratingAccessCode}
               className="w-full rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isGeneratingAccessCode ? "Generating..." : "Generate Code"}
+              {isGeneratingAccessCode ? t("owner.staff.generating") : t("owner.staff.generateCode")}
             </button>
           ) : null}
 
@@ -280,7 +282,7 @@ export default function StaffCard({
               onClick={onEdit}
               className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
             >
-              Edit
+              {t("owner.staff.edit")}
             </button>
           ) : null}
 
@@ -290,7 +292,7 @@ export default function StaffCard({
               onClick={onDelete}
               className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-red-50 ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}
             >
-              Delete
+              {t("owner.staff.delete")}
             </button>
           )}
         </div>

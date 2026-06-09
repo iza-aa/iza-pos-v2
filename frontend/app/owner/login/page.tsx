@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { logActivity } from "@/lib/services/activity/activityLogger";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 const slides = [
 	{
@@ -24,6 +25,7 @@ const slides = [
 ];
 
 export default function OwnerLoginPage() {
+	const { t } = useLanguage();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [current, setCurrent] = useState(0);
@@ -68,7 +70,7 @@ export default function OwnerLoginPage() {
 			
 			window.location.href = "/owner/dashboard";
 		} else {
-			setError(result.error || "Email atau Password salah.");
+			setError(result.error || t("owner.login.invalid"));
 			
 			// Log failed login attempt
 			await logActivity({
@@ -129,13 +131,13 @@ export default function OwnerLoginPage() {
 					</div>
 					<div className="mb-6">
 						<p className="text-gray-700 text-2xl font-semibold">
-							Selamat datang, Owner — silakan login untuk masuk ke dashboard.
+							{t("owner.login.welcome")}
 						</p>
 					</div>
 					<form className="space-y-6" onSubmit={handleSubmit}>
 						<div>
 							<label className="block text-sm font-medium text-gray-400 mb-2">
-								Email
+								{t("owner.login.email")}
 							</label>
 							<input
 								type="email"
@@ -148,7 +150,7 @@ export default function OwnerLoginPage() {
 						</div>
 						<div>
 							<label className="block text-sm font-medium text-gray-400 mb-2">
-								Password
+								{t("owner.login.password")}
 							</label>
 							<input
 								type="password"
@@ -181,7 +183,7 @@ export default function OwnerLoginPage() {
 							className="w-full font-semibold bg-linear-to-r from-black to-gray-600 text-white py-3 rounded-lg hover:opacity-95 transition-opacity"
 							disabled={loading}
 						>
-							{loading ? "Loading..." : "Sign In"}
+							{loading ? t("owner.login.loading") : t("owner.login.signIn")}
 						</button>
 					</form>
 					{error && (

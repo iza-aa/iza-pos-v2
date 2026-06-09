@@ -430,7 +430,7 @@ export default function StaffManagerPage() {
       .order("created_at", { ascending: true });
 
     if (error) {
-      showError("Failed to fetch staff data: " + error.message);
+      showError(t("owner.staff.fetchError", { message: error.message }));
       return;
     }
 
@@ -443,7 +443,7 @@ export default function StaffManagerPage() {
     }));
 
     setStaffList(normalizedStaffList);
-  }, []);
+  }, [t]);
 
   const fetchShifts = useCallback(async () => {
     const { data, error } = await supabase
@@ -454,12 +454,12 @@ export default function StaffManagerPage() {
       .order("start_time", { ascending: true });
 
     if (error) {
-      showError("Failed to fetch shift data: " + error.message);
+      showError(t("owner.staff.fetchShiftError", { message: error.message }));
       return;
     }
 
     setShiftList((data ?? []) as ShiftRecord[]);
-  }, []);
+  }, [t]);
 
   const refreshStaffAndShifts = useCallback(async () => {
     await Promise.all([fetchStaff(), fetchShifts()]);
@@ -696,7 +696,7 @@ export default function StaffManagerPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to create login code.");
+        throw new Error(result.error || t("owner.staff.loginCodeCreateError"));
       }
 
       await fetchStaff();
@@ -709,10 +709,10 @@ export default function StaffManagerPage() {
         expiresAt: result.expires_at,
       });
 
-      showSuccess("Staff login code created.");
+      showSuccess(t("owner.staff.loginCodeCreated"));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to create login code.";
+        error instanceof Error ? error.message : t("owner.staff.loginCodeCreateError");
 
       showError(message);
     } finally {
@@ -726,9 +726,7 @@ export default function StaffManagerPage() {
     if (!staff) return;
 
     if (!canDeleteStaff(staff)) {
-      showError(
-        "Owner accounts and the currently used account cannot be deleted.",
-      );
+      showError(t("owner.staff.deleteNotAllowed"));
       return;
     }
 
@@ -740,9 +738,7 @@ export default function StaffManagerPage() {
     if (!selectedStaff) return;
 
     if (!canDeleteStaff(selectedStaff)) {
-      showError(
-        "Owner accounts and the currently used account cannot be deleted.",
-      );
+      showError(t("owner.staff.deleteNotAllowed"));
       setShowDeleteModal(false);
       setSelectedStaff(null);
       return;
@@ -763,7 +759,7 @@ export default function StaffManagerPage() {
       .eq("user_id", selectedStaff.id);
 
     if (activityLogError) {
-      showError("Failed to delete staff logs: " + activityLogError.message);
+      showError(t("owner.staff.deleteLogsError", { message: activityLogError.message }));
       return;
     }
 
@@ -773,13 +769,13 @@ export default function StaffManagerPage() {
       .eq("id", selectedStaff.id);
 
     if (error) {
-      showError("Failed to delete staff: " + error.message);
+      showError(t("owner.staff.deleteError", { message: error.message }));
       return;
     }
 
     await fetchStaff();
     setShowDeleteModal(false);
-    showSuccess("Staff deleted.");
+    showSuccess(t("owner.staff.deleted"));
 
     await logActivity({
       action: "DELETE",
@@ -815,7 +811,7 @@ export default function StaffManagerPage() {
       };
 
       if (!response.ok) {
-        showError("Failed to load weekly shift schedule: " + (result.error || "Unknown error"));
+        showError(t("owner.staff.weeklyScheduleLoadError", { message: result.error || t("owner.staff.unknown") }));
         return;
       }
 
@@ -855,7 +851,7 @@ export default function StaffManagerPage() {
       .eq("id", staffToUpdate.id);
 
     if (error) {
-      showError("Failed to update staff: " + error.message);
+      showError(t("owner.staff.updateError", { message: error.message }));
       return;
     }
 
@@ -887,14 +883,14 @@ export default function StaffManagerPage() {
     };
 
     if (!scheduleResponse.ok) {
-      showError("Failed to update weekly shift schedule: " + (scheduleResult.error || "Unknown error"));
+      showError(t("owner.staff.weeklyScheduleUpdateError", { message: scheduleResult.error || t("owner.staff.unknown") }));
       return;
     }
 
     await fetchStaff();
     setShowEditModal(false);
     setSelectedStaff(null);
-    showSuccess("Staff data updated.");
+    showSuccess(t("owner.staff.updated"));
 
     if (oldStaff) {
       await logActivity({
@@ -943,7 +939,7 @@ export default function StaffManagerPage() {
       .ilike("staff_code", `${prefix}%`);
 
     if (error) {
-      throw new Error(`Failed to fetch staff codes: ${error.message}`);
+      throw new Error(t("owner.staff.codesFetchError", { message: error.message }));
     }
 
     const usedNumbers = new Set(
@@ -1006,17 +1002,17 @@ export default function StaffManagerPage() {
 
       if (error) {
         if (error.code === "23505") {
-          showError("Staff code is already used. Please try saving again.");
+          showError(t("owner.staff.codeUsed"));
           return;
         }
 
-        showError("Failed to add staff: " + error.message);
+        showError(t("owner.staff.addError", { message: error.message }));
         return;
       }
 
       await fetchStaff();
       setShowAddModal(false);
-      showSuccess("Staff added.");
+      showSuccess(t("owner.staff.added"));
 
       if (insertedStaff?.id && selectedRole === "staff") {
         await handleGeneratePass(insertedStaff.id);
@@ -1043,9 +1039,9 @@ export default function StaffManagerPage() {
       const message =
         error instanceof Error
           ? error.message
-          : "An unknown error occurred";
+          : t("owner.staff.unknownError");
 
-      showError("Failed to add staff: " + message);
+      showError(t("owner.staff.addError", { message }));
     }
   };
 
@@ -1128,7 +1124,7 @@ export default function StaffManagerPage() {
                 <p className="text-gray-500">
                   {staffSearchQuery
                     ? "No staff found"
-                    : "No staff data yet"}
+                    : t("owner.staff.noStaffData")}
                 </p>
               </div>
             )}
@@ -1165,7 +1161,7 @@ export default function StaffManagerPage() {
                 {generatedLoginCode.staffName}
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                Staff ID: {generatedLoginCode.staffCode}
+                {t("owner.staff.staffId", { code: generatedLoginCode.staffCode })}
               </p>
             </div>
 

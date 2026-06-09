@@ -388,7 +388,7 @@ export default function ActivityLogPage() {
       } catch (err: unknown) {
         const errorMessage = getErrorMessage(
           err,
-          "Failed to load activity logs",
+          t("owner.activity.failedLoad"),
         );
         setError(errorMessage);
         showError(errorMessage);
@@ -401,6 +401,7 @@ export default function ActivityLogPage() {
       dateRange,
       filters,
       searchQuery,
+      t,
     ],
   );
 
@@ -433,14 +434,14 @@ export default function ActivityLogPage() {
       const rows: Array<Array<string | number>> = [
         [
           "Timestamp",
-          "User",
+          t("owner.activity.user"),
           "Role",
-          "Action",
-          "Category",
-          "Description",
-          "Resource",
-          "Severity",
-          "Notes",
+          t("owner.activity.actionType"),
+          t("owner.activity.category"),
+          t("owner.activity.description"),
+          t("owner.activity.resource"),
+          t("owner.activity.severity"),
+          t("owner.activity.notes"),
         ],
         ...filteredLogs.map((log) => [
           new Date(log.timestamp).toLocaleString("id-ID"),
@@ -468,7 +469,7 @@ export default function ActivityLogPage() {
       <Interior ss:Color="#E5E7EB" ss:Pattern="Solid" />
     </Style>
   </Styles>
-  <Worksheet ss:Name="Activity Logs">
+  <Worksheet ss:Name="${t('owner.activity.table')}">
     <Table>
       ${buildExcelWorksheet(rows)}
     </Table>
@@ -489,9 +490,9 @@ export default function ActivityLogPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showSuccess("Activity logs exported as Excel.");
+      showSuccess(t("owner.activity.exportExcelSuccess"));
     } catch (err) {
-      showError("Failed to export Excel");
+      showError(t("owner.activity.exportExcelError"));
       console.error("Excel export error:", err);
     }
   };
@@ -503,11 +504,11 @@ export default function ActivityLogPage() {
 
       // Add title
       doc.setFontSize(16);
-      doc.text("Activity Logs Report", 14, 15);
+      doc.text(t("owner.activity.reportTitle"), 14, 15);
 
       // Add generation date
       doc.setFontSize(10);
-      doc.text(`Generated: ${new Date().toLocaleString("id-ID")}`, 14, 22);
+      doc.text(t("owner.activity.generated", { value: new Date().toLocaleString("id-ID") }), 14, 22);
       doc.text(`Total Records: ${filteredLogs.length}`, 14, 28);
 
       // Prepare table data
@@ -534,12 +535,12 @@ export default function ActivityLogPage() {
         head: [
           [
             "Timestamp",
-            "User",
+            t("owner.activity.user"),
             "Role",
-            "Action",
-            "Category",
-            "Description",
-            "Severity",
+            t("owner.activity.actionType"),
+            t("owner.activity.category"),
+            t("owner.activity.description"),
+            t("owner.activity.severity"),
           ],
         ],
         body: tableData,
@@ -553,9 +554,9 @@ export default function ActivityLogPage() {
       // Save PDF
       const filename = `activity-logs-${new Date().toISOString().split("T")[0]}.pdf`;
       doc.save(filename);
-      showSuccess("Activity logs exported as PDF.");
+      showSuccess(t("owner.activity.exportPdfSuccess"));
     } catch (err) {
-      showError("Failed to export PDF");
+      showError(t("owner.activity.exportPdfError"));
       console.error("PDF export error:", err);
     }
   };
@@ -602,7 +603,7 @@ export default function ActivityLogPage() {
           // Show toast notification for critical events
           if (newLog.severity === "critical") {
             showWarning(
-              `Critical Activity: ${newLog.userName} - ${newLog.actionDescription}`,
+              t("owner.activity.criticalWarning", { user: newLog.userName, action: newLog.actionDescription }),
               5000,
             );
           }
@@ -614,7 +615,7 @@ export default function ActivityLogPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [fetchActivityLogs]);
+  }, [fetchActivityLogs, t]);
 
   // Calculate stats
   const stats = useMemo(() => {

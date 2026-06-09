@@ -8,6 +8,7 @@ import {
   toJakartaDateTimeEnd,
   toJakartaDateTimeStart,
 } from "@/lib/services/bookkeeping/bookkeepingDate";
+import { useLanguage } from "../i18n";
 import type { AppNotification, NotificationSeverity } from "./types";
 
 type InventoryRow = {
@@ -122,12 +123,14 @@ const getJakartaHour = () => {
   return Number(parts.find((part) => part.type === "hour")?.value ?? 0);
 };
 
-const reportTypeLabel = (type?: string | null) => {
-  if (type === "out_of_stock") return "out of stock";
-  if (type === "waste_damaged") return "waste/damaged";
-  if (type === "restock_request") return "restock request";
-  if (type === "testing_usage") return "testing usage";
-  return "low stock";
+type Translator = ReturnType<typeof useLanguage>["t"];
+
+const reportTypeLabel = (type: string | null | undefined, t: Translator) => {
+  if (type === "out_of_stock") return t("stockReport.outOfStock");
+  if (type === "waste_damaged") return t("stockReport.wasteDamaged");
+  if (type === "restock_request") return t("stockReport.restockRequest");
+  if (type === "testing_usage") return t("stockReport.testingUsage");
+  return t("stockReport.lowStock");
 };
 
 const normalizeOrderStatus = (status?: string | null) => String(status || "").toLowerCase().replace(/\s+/g, "_");
@@ -158,6 +161,7 @@ const sortNotifications = (items: AppNotification[]) => {
 };
 
 export default function useOwnerNotifications(enabled: boolean) {
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const today = useMemo(() => getJakartaTodayDate(), []);
@@ -267,7 +271,7 @@ export default function useOwnerNotifications(enabled: boolean) {
       const next: AppNotification[] = [];
       const now = new Date().toISOString();
       const inventoryRows = (inventoryResult.data ?? []) as InventoryRow[];
-      const inventoryNameById = new Map(inventoryRows.map((item) => [item.id, item.name || "Inventory item"]));
+      const inventoryNameById = new Map(inventoryRows.map((item) => [item.id, item.name || t("owner.notifications.inventoryItem")]));
       const stockReports = (stockReportsResult.data ?? []) as StockReportRow[];
       const kitchenMovements = (kitchenMovementsResult.data ?? []) as KitchenMovementRow[];
       const orders = (ordersResult.data ?? []) as OrderRow[];
@@ -287,25 +291,34 @@ export default function useOwnerNotifications(enabled: boolean) {
 
         next.push({
           id: `owner-daily-summary-${today}`,
-          title: "Daily business summary is ready",
-          message: `${toNumber(summary.totalOrders)} orders recorded today. Gross sales ${formatCurrency(grossSales)}${marginPct !== null ? `, gross margin ${Math.round(marginPct)}%` : ""}.`,
+          title: t("owner.notifications.dailySummaryTitle"),
+          message: marginPct !== null
+            ? t("owner.notifications.dailySummaryMessageWithMargin", {
+                orders: toNumber(summary.totalOrders),
+                grossSales: formatCurrency(grossSales),
+                margin: Math.round(marginPct),
+              })
+            : t("owner.notifications.dailySummaryMessage", {
+                orders: toNumber(summary.totalOrders),
+                grossSales: formatCurrency(grossSales),
+              }),
           severity: "info",
-          source: "Bookkeeping",
+          source: t("owner.notifications.sourceBookkeeping"),
           createdAt: now,
           actionHref: "/owner/bookkeeping?tab=closings",
-          actionLabel: "Review closing",
+          actionLabel: t("owner.notifications.reviewClosing"),
         });
 
         if (marginPct !== null && marginPct < 35) {
           next.push({
             id: `owner-margin-low-${today}`,
-            title: "Gross margin is below target",
-            message: `Today's gross margin is ${Math.round(marginPct)}%. Review menu cost, waste, and stock usage before closing the day.`,
+            title: t("owner.notifications.marginLowTitle"),
+            message: t("owner.notifications.marginLowMessage", { margin: Math.round(marginPct) }),
             severity: marginPct < 20 ? "critical" : "warning",
-            source: "Profit",
+            source: t("owner.notifications.sourceProfit"),
             createdAt: now,
             actionHref: "/owner/bookkeeping?tab=cost-margin",
-            actionLabel: "Review margins",
+            actionLabel: t("owner.notifications.reviewMargins"),
           });
         }
       }
@@ -315,13 +328,15 @@ export default function useOwnerNotifications(enabled: boolean) {
       if (openExceptions.length > 0) {
         next.push({
           id: `owner-bookkeeping-exceptions-${today}-${openExceptions.length}-${highExceptions.length}`,
-          title: highExceptions.length ? "High bookkeeping exceptions need review" : "Bookkeeping exceptions need review",
-          message: `${openExceptions.length} unresolved exception(s) found today${highExceptions.length ? `, including ${highExceptions.length} high severity issue(s)` : ""}.`,
+          title: highExceptions.length ? t("owner.notifications.highBookkeepingExceptionsTitle") : t("owner.notifications.bookkeepingExceptionsTitle"),
+          message: highExceptions.length
+            ? t("owner.notifications.bookkeepingExceptionsHighMessage", { count: openExceptions.length, high: highExceptions.length })
+            : t("owner.notifications.bookkeepingExceptionsMessage", { count: openExceptions.length }),
           severity: highExceptions.length ? "critical" : "warning",
-          source: "Bookkeeping",
+          source: t("owner.notifications.sourceBookkeeping"),
           createdAt: now,
           actionHref: "/owner/bookkeeping?tab=exceptions",
-          actionLabel: "Open exceptions",
+          actionLabel: t("owner.notifications.openExceptions"),
         });
       }
 
@@ -330,15 +345,15 @@ export default function useOwnerNotifications(enabled: boolean) {
       if (shouldPromptClosing && getJakartaHour() >= 20) {
         next.push({
           id: `owner-daily-closing-${today}-${closingStatus || "missing"}`,
-          title: "Daily closing is not clean yet",
+          title: t("owner.notifications.dailyClosingTitle"),
           message: closingStatus
-            ? `Today's closing status is ${closingStatus}. Review it before ending the business day.`
-            : "Sales exist today, but daily closing has not been completed yet.",
+            ? t("owner.notifications.dailyClosingStatusMessage", { status: closingStatus })
+            : t("owner.notifications.dailyClosingMissingMessage"),
           severity: closingStatus === "needs_review" ? "critical" : "warning",
-          source: "Closing",
+          source: t("owner.notifications.sourceClosing"),
           createdAt: now,
           actionHref: "/owner/bookkeeping?tab=closings",
-          actionLabel: "Open closing",
+          actionLabel: t("owner.notifications.openClosing"),
         });
       }
 
@@ -356,24 +371,26 @@ export default function useOwnerNotifications(enabled: boolean) {
       if (criticalStock.length > 0) {
         next.push({
           id: `owner-critical-stock-${criticalStock.map((item) => item.id).join("-")}`,
-          title: "Critical inventory is out of stock",
-          message: `${criticalStock.map((item) => item.name || "Inventory item").join(", ")} need immediate restock or menu review.`,
+          title: t("owner.notifications.criticalStockTitle"),
+          message: t("owner.notifications.criticalStockMessage", {
+            items: criticalStock.map((item) => item.name || t("owner.notifications.inventoryItem")).join(", "),
+          }),
           severity: "critical",
-          source: "Inventory",
+          source: t("owner.notifications.sourceInventory"),
           createdAt: now,
           actionHref: "/owner/dashboard?tab=inventory",
-          actionLabel: "Review inventory",
+          actionLabel: t("owner.notifications.reviewInventory"),
         });
       } else if (lowStock.length > 0) {
         next.push({
           id: `owner-low-stock-${lowStock.map((item) => item.id).join("-")}`,
-          title: "Inventory is below reorder level",
-          message: `${lowStock.map((item) => `${item.name || "Item"} (${formatQuantity(toNumber(item.current_stock), item.unit)})`).join(", ")}.`,
+          title: t("owner.notifications.lowStockTitle"),
+          message: lowStock.map((item) => `${item.name || t("owner.notifications.item")} (${formatQuantity(toNumber(item.current_stock), item.unit)})`).join(", "),
           severity: "warning",
-          source: "Inventory",
+          source: t("owner.notifications.sourceInventory"),
           createdAt: now,
           actionHref: "/owner/dashboard?tab=inventory",
-          actionLabel: "Review inventory",
+          actionLabel: t("owner.notifications.reviewInventory"),
         });
       }
 
@@ -384,13 +401,17 @@ export default function useOwnerNotifications(enabled: boolean) {
         const first = importantReports[0];
         next.push({
           id: `owner-pending-stock-reports-${importantReports.length}-${first.id}`,
-          title: "Staff reports need manager follow-up",
-          message: `${importantReports.length} important pending report(s). Latest: ${first.material_name || "Inventory item"} ${reportTypeLabel(first.report_type)}.`,
+          title: t("owner.notifications.stockReportsTitle"),
+          message: t("owner.notifications.stockReportsMessage", {
+            count: importantReports.length,
+            item: first.material_name || t("owner.notifications.inventoryItem"),
+            type: reportTypeLabel(first.report_type, t),
+          }),
           severity: first.report_type === "out_of_stock" || first.report_type === "waste_damaged" ? "warning" : "info",
-          source: "Stock Reports",
+          source: t("owner.notifications.sourceStockReports"),
           createdAt: first.created_at || now,
           actionHref: "/manager/inventory?tab=stock-reports",
-          actionLabel: "Open reports",
+          actionLabel: t("owner.notifications.openReports"),
         });
       }
 
@@ -399,26 +420,37 @@ export default function useOwnerNotifications(enabled: boolean) {
         const first = kitchenMovements[0];
         next.push({
           id: `owner-kitchen-waste-${today}-${kitchenMovements.length}-${Math.round(totalWasteValue)}`,
-          title: "Kitchen waste was recorded today",
-          message: `${kitchenMovements.length} waste movement(s) recorded${totalWasteValue > 0 ? `, estimated value ${formatCurrency(totalWasteValue)}` : ""}. Latest: ${inventoryNameById.get(first.inventory_item_id || "") || "Kitchen item"} ${formatQuantity(toNumber(first.quantity), first.unit)}.`,
+          title: t("owner.notifications.kitchenWasteTitle"),
+          message: totalWasteValue > 0
+            ? t("owner.notifications.kitchenWasteMessageWithValue", {
+                count: kitchenMovements.length,
+                value: formatCurrency(totalWasteValue),
+                item: inventoryNameById.get(first.inventory_item_id || "") || t("owner.notifications.kitchenItem"),
+                quantity: formatQuantity(toNumber(first.quantity), first.unit),
+              })
+            : t("owner.notifications.kitchenWasteMessage", {
+                count: kitchenMovements.length,
+                item: inventoryNameById.get(first.inventory_item_id || "") || t("owner.notifications.kitchenItem"),
+                quantity: formatQuantity(toNumber(first.quantity), first.unit),
+              }),
           severity: totalWasteValue >= 50000 || kitchenMovements.length >= 3 ? "warning" : "info",
-          source: "Kitchen",
+          source: t("owner.notifications.sourceKitchen"),
           createdAt: first.created_at || now,
           actionHref: "/owner/bookkeeping?tab=auto-ledger",
-          actionLabel: "Review ledger",
+          actionLabel: t("owner.notifications.reviewLedger"),
         });
       }
 
       if (products.length > 0) {
         next.push({
           id: `owner-menu-unavailable-${products.map((product) => product.id).join("-")}`,
-          title: "Menu availability risk",
-          message: `${products.length} menu item(s) are unavailable. Check whether critical ingredients or kitchen ready stock caused it.`,
+          title: t("owner.notifications.menuRiskTitle"),
+          message: t("owner.notifications.menuRiskMessage", { count: products.length }),
           severity: "warning",
-          source: "Menu",
+          source: t("owner.notifications.sourceMenu"),
           createdAt: now,
           actionHref: "/manager/menu",
-          actionLabel: "Open menu",
+          actionLabel: t("owner.notifications.openMenu"),
         });
       }
 
@@ -433,39 +465,39 @@ export default function useOwnerNotifications(enabled: boolean) {
       if (unpaidOrders.length > 0) {
         next.push({
           id: `owner-unpaid-orders-${today}-${unpaidOrders.length}`,
-          title: "Unpaid orders need reconciliation",
-          message: `${unpaidOrders.length} order(s) still have unpaid payment status today.`,
+          title: t("owner.notifications.unpaidOrdersTitle"),
+          message: t("owner.notifications.unpaidOrdersMessage", { count: unpaidOrders.length }),
           severity: "warning",
-          source: "Operations",
+          source: t("owner.notifications.sourceOperations"),
           createdAt: now,
           actionHref: "/owner/dashboard?tab=operations",
-          actionLabel: "Review operations",
+          actionLabel: t("owner.notifications.reviewOperations"),
         });
       }
 
       if (activeOrders.length >= 5) {
         next.push({
           id: `owner-active-order-backlog-${today}-${activeOrders.length}`,
-          title: "Active order backlog is building",
-          message: `${activeOrders.length} order(s) are still active in the service flow.`,
+          title: t("owner.notifications.orderBacklogTitle"),
+          message: t("owner.notifications.orderBacklogMessage", { count: activeOrders.length }),
           severity: activeOrders.length >= 10 ? "critical" : "warning",
-          source: "Operations",
+          source: t("owner.notifications.sourceOperations"),
           createdAt: now,
           actionHref: "/owner/dashboard?tab=operations",
-          actionLabel: "Open operations",
+          actionLabel: t("owner.notifications.openOperations"),
         });
       }
 
       if (cancelledOrders.length > 0) {
         next.push({
           id: `owner-cancelled-orders-${today}-${cancelledOrders.length}`,
-          title: "Cancelled or refunded orders recorded",
-          message: `${cancelledOrders.length} cancelled, void, or refunded order(s) were detected today.`,
+          title: t("owner.notifications.cancelledOrdersTitle"),
+          message: t("owner.notifications.cancelledOrdersMessage", { count: cancelledOrders.length }),
           severity: cancelledOrders.length >= 3 ? "warning" : "info",
-          source: "Operations",
+          source: t("owner.notifications.sourceOperations"),
           createdAt: now,
           actionHref: "/owner/dashboard?tab=operations",
-          actionLabel: "Review operations",
+          actionLabel: t("owner.notifications.reviewOperations"),
         });
       }
 
@@ -474,13 +506,16 @@ export default function useOwnerNotifications(enabled: boolean) {
       if (lateAttendance.length > 0 || missingClockOut.length > 0) {
         next.push({
           id: `owner-attendance-risk-${today}-${lateAttendance.length}-${missingClockOut.length}`,
-          title: "Staff attendance needs review",
-          message: `${lateAttendance.length} late check-in(s), ${missingClockOut.length} active shift(s) without clock-out.`,
+          title: t("owner.notifications.attendanceRiskTitle"),
+          message: t("owner.notifications.attendanceRiskMessage", {
+            late: lateAttendance.length,
+            missing: missingClockOut.length,
+          }),
           severity: lateAttendance.length >= 3 || missingClockOut.length >= 3 ? "warning" : "info",
-          source: "Staff",
+          source: t("owner.notifications.sourceStaff"),
           createdAt: now,
           actionHref: "/owner/dashboard?tab=staff",
-          actionLabel: "Review staff",
+          actionLabel: t("owner.notifications.reviewStaff"),
         });
       }
 
@@ -493,16 +528,19 @@ export default function useOwnerNotifications(enabled: boolean) {
           [firstLog?.action, firstLog?.resource_type || firstLog?.entity_type]
             .filter(Boolean)
             .join(" ") ||
-          `${criticalLogs.length} critical and ${warningLogs.length} warning activity log event(s) detected today.`;
+          t("owner.notifications.activityRiskFallback", {
+            critical: criticalLogs.length,
+            warning: warningLogs.length,
+          });
         next.push({
           id: `owner-activity-risk-${today}-${criticalLogs.length}-${warningLogs.length}-${firstLog?.id || "logs"}`,
-          title: criticalLogs.length ? "Critical activity log event" : "Multiple warning activity events",
+          title: criticalLogs.length ? t("owner.notifications.criticalActivityTitle") : t("owner.notifications.warningActivityTitle"),
           message: activityDescription,
           severity: criticalLogs.length ? "critical" : "warning",
-          source: "Activity Log",
+          source: t("owner.notifications.sourceActivityLog"),
           createdAt: firstLog?.created_at || now,
           actionHref: "/owner/activitylog",
-          actionLabel: "Open activity log",
+          actionLabel: t("owner.notifications.openActivityLog"),
         });
       }
 
@@ -515,7 +553,7 @@ export default function useOwnerNotifications(enabled: boolean) {
     return () => {
       mounted = false;
     };
-  }, [enabled, today]);
+  }, [enabled, today, t]);
 
   return { notifications, loading };
 }

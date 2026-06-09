@@ -9,6 +9,7 @@ import StandardTable, {
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { ActivityLog } from "@/lib/types";
 import { formatJakartaDateTimeParts } from "@/lib/constants/time";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 interface ActivityLogTableProps {
   logs: ActivityLog[];
@@ -41,8 +42,8 @@ const getCategoryBadgeClass = (category: string) => {
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
-const formatLabel = (value: string) => {
-  if (!value) return "Unknown";
+const formatLabel = (value: string, unknownLabel: string) => {
+  if (!value) return unknownLabel;
 
   return value
     .split("_")
@@ -74,15 +75,17 @@ export default function ActivityLogTable({
   filterPanel,
   loading = false,
 }: ActivityLogTableProps) {
+  const { t } = useLanguage();
+
   const columns = useMemo<Array<StandardTableColumn<ActivityLog>>>(
     () => [
       {
         key: "event",
-        header: "Event",
+        header: t("owner.activity.event"),
         render: (log) => (
           <div className="flex flex-wrap gap-2">
-            {renderBadge(formatLabel(log.severity), getSeverityBadgeClass(log.severity))}
-            {renderBadge(formatLabel(log.actionCategory), getCategoryBadgeClass(log.actionCategory))}
+            {renderBadge(formatLabel(log.severity, t("owner.activity.unknown")), getSeverityBadgeClass(log.severity))}
+            {renderBadge(formatLabel(log.actionCategory, t("owner.activity.unknown")), getCategoryBadgeClass(log.actionCategory))}
           </div>
         ),
         sortValue: (log) => `${log.severity}-${log.actionCategory}`,
@@ -90,11 +93,11 @@ export default function ActivityLogTable({
       },
       {
         key: "description",
-        header: "Description",
+        header: t("owner.activity.description"),
         render: (log) => (
           <div className="min-w-0">
             <p className="line-clamp-2 font-semibold text-gray-900">{log.actionDescription}</p>
-            <p className="mt-1 text-xs text-gray-500">{formatLabel(log.action)}</p>
+            <p className="mt-1 text-xs text-gray-500">{formatLabel(log.action, t("owner.activity.unknown"))}</p>
             {log.notes ? (
               <p className="mt-2 line-clamp-1 text-xs text-gray-500">{log.notes}</p>
             ) : null}
@@ -105,7 +108,7 @@ export default function ActivityLogTable({
       },
       {
         key: "user",
-        header: "User",
+        header: t("owner.activity.user"),
         render: (log) => (
           <div className="min-w-0">
             <p className="truncate font-semibold text-gray-900">{log.userName}</p>
@@ -117,7 +120,7 @@ export default function ActivityLogTable({
       },
       {
         key: "resource",
-        header: "Resource",
+        header: t("owner.activity.resource"),
         render: (log) =>
           log.resourceName ? (
             <div className="min-w-0">
@@ -132,7 +135,7 @@ export default function ActivityLogTable({
       },
       {
         key: "changes",
-        header: "Changes",
+        header: t("owner.activity.changes"),
         render: (log) => {
           const changesSummary = log.changesSummary ?? [];
 
@@ -145,7 +148,7 @@ export default function ActivityLogTable({
               <p className="line-clamp-1 text-gray-700">{changesSummary[0]}</p>
               {changesSummary.length > 1 ? (
                 <p className="mt-1 text-xs font-semibold text-gray-500">
-                  +{changesSummary.length - 1} more
+                  {t("owner.activity.more", { count: changesSummary.length - 1 })}
                 </p>
               ) : null}
             </div>
@@ -156,21 +159,21 @@ export default function ActivityLogTable({
       },
       {
         key: "time",
-        header: "Date",
+        header: t("owner.activity.date"),
         render: (log) => <TimeCell timestamp={log.timestamp} />,
         sortValue: (log) => log.timestamp,
         className: "align-top",
       },
       {
         key: "detail",
-        header: "Detail",
+        header: t("owner.activity.detail"),
         isAction: true,
         render: (log) => (
           <button
             type="button"
             onClick={() => onLogClick(log)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-950"
-            aria-label="Show activity details"
+            aria-label={t("owner.activity.showDetails")}
           >
             <EyeIcon className="h-5 w-5" />
           </button>
@@ -178,16 +181,16 @@ export default function ActivityLogTable({
         className: "align-top",
       },
     ],
-    [onLogClick],
+    [onLogClick, t],
   );
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-950">Activity Log Table</h2>
+          <h2 className="text-base font-bold text-gray-950">{t("owner.activity.table")}</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Chronological audit trail for system and user actions.
+            {t("owner.activity.tableSubtitle")}
           </p>
         </div>
         {actions ? (
@@ -201,7 +204,7 @@ export default function ActivityLogTable({
         columns={columns}
         data={logs}
         getRowKey={(log) => log.id}
-        emptyLabel="No activity logs match the current filters."
+        emptyLabel={t("owner.activity.emptyFiltered")}
         loading={loading}
         minWidthClassName="min-w-[1120px]"
       />

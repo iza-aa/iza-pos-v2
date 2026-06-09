@@ -9,6 +9,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { AIInsight } from "@/lib/services/owner-insights/insightSchema";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 const thinkingTextClassName =
   "inline-block bg-[linear-gradient(90deg,#374151_0%,#374151_35%,#9CA3AF_50%,#374151_65%,#374151_100%)] bg-[length:220%_100%] bg-clip-text text-transparent animate-[ai-thinking-breath_1.8s_ease-in-out_infinite]";
@@ -34,6 +35,7 @@ export default function AIInsightCarousel({
   showDetail,
   onGenerate,
 }: AIInsightCarouselProps) {
+  const { t } = useLanguage();
   const [index, setIndex] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -41,8 +43,8 @@ export default function AIInsightCarousel({
   const hasAiRecommendation = showDetail && Boolean(insight);
   const canNavigate = hasAiRecommendation && insights.length > 1;
   const recommendationLabel = hasAiRecommendation
-    ? "Refresh Owner Advice"
-    : "Generate Owner Advice";
+    ? t("owner.ai.refreshAdvice")
+    : t("owner.ai.generateAdvice");
   const showPrevious = () => {
     setIndex((current) => (current === 0 ? insights.length - 1 : current - 1));
   };
@@ -85,7 +87,7 @@ export default function AIInsightCarousel({
             {loading
               ? "Preparing the store snapshot so the advice can use the latest available signals."
               : insight?.problem ??
-                "No owner advice has been generated yet. Generate one from the active tab context and selected date range."}
+                t("owner.ai.emptyAdvice")}
           </p>
 
           {generating ? (
@@ -174,7 +176,7 @@ export default function AIInsightCarousel({
                 className={`h-0.5 w-10 rounded-full transition ${
                   canNavigate && dotIndex === index ? "bg-indigo-500" : "bg-gray-400/60"
                 } disabled:cursor-not-allowed disabled:bg-gray-300`}
-                aria-label={`Show AI insight ${dotIndex + 1}`}
+                aria-label={t("owner.ai.showInsight", { index: dotIndex + 1 })}
               />
             ))}
             <button
@@ -197,7 +199,7 @@ export default function AIInsightCarousel({
             <div className="flex items-start justify-between border-b border-gray-100 p-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  Owner Advice Detail
+                  {t("owner.ai.adviceDetail")}
                 </p>
                 <h3 className="mt-1 text-xl font-bold text-gray-900">
                   {insight.title}
@@ -207,7 +209,7 @@ export default function AIInsightCarousel({
                 type="button"
                 onClick={() => setDetailOpen(false)}
                 className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                aria-label="Close recommendation detail"
+                aria-label={t("owner.ai.closeDetail")}
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
@@ -257,16 +259,16 @@ export default function AIInsightCarousel({
 
               <div className="grid gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                 <div>
-                  <p className="font-semibold text-gray-900">Generated</p>
+                  <p className="font-semibold text-gray-900">{t("owner.ai.generated")}</p>
                   <p className="mt-1">
                     {generatedAt
                       ? new Date(generatedAt).toLocaleString("en-US")
-                      : "Today"}
+                      : t("notifications.today")}
                   </p>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">Daily attempts</p>
-                  <p className="mt-1">{generationCount ?? 1} of 3</p>
+                  <p className="font-semibold text-gray-900">{t("owner.ai.dailyAttempts")}</p>
+                  <p className="mt-1">{t("owner.ai.attemptsCount", { count: generationCount ?? 1, max: 3 })}</p>
                 </div>
               </div>
             </div>
@@ -277,7 +279,7 @@ export default function AIInsightCarousel({
                 onClick={() => setDetailOpen(false)}
                 className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                Close
+                {t("common.close")}
               </button>
               {insight.actionHref && insight.actionLabel ? (
                 <a

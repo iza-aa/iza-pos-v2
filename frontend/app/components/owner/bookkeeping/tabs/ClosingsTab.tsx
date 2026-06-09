@@ -226,10 +226,10 @@ export default function ClosingsTab({
         },
       ]);
 
-      showSuccess("Daily closing workbook exported.");
+      showSuccess(t("owner.bookkeeping.dailyWorkbookExported"));
     } catch (error) {
       console.error("Failed to export daily closing workbook:", error);
-      showError("Failed to export daily closing workbook.");
+      showError(t("owner.bookkeeping.dailyWorkbookExportError"));
     }
   };
   const columns: Array<StandardTableColumn<ShiftClosingRow>> = [

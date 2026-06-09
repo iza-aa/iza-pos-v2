@@ -1,6 +1,7 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ActivityLog } from "@/lib/types";
 import { formatJakartaDateTimeParts } from "@/lib/constants/time";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 interface ActivityLogDetailProps {
   log: ActivityLog | null;
@@ -38,6 +39,8 @@ const Field = ({ label, value }: { label: string; value?: string | null }) => (
 );
 
 export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailProps) {
+  const { t } = useLanguage();
+
   if (!log) return null;
 
   const changesSummary = log.changesSummary ?? [];
@@ -48,7 +51,7 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Activity Detail</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{t("owner.activity.detail")}</p>
             <h2 className="mt-1 text-lg font-bold text-gray-950">{log.actionDescription}</h2>
             <p className="mt-1 text-sm text-gray-500">
               {dateTime.date} / {dateTime.time} / {log.userName}
@@ -66,7 +69,7 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-6">
           <div className="space-y-4">
-            <DetailSection title="Event">
+            <DetailSection title={t("owner.activity.event")}>
               <div className="flex flex-wrap gap-2">
                 <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${getSeverityClass(log.severity)}`}>
                   {formatLabel(log.severity)}
@@ -80,14 +83,14 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
               </div>
             </DetailSection>
 
-            <DetailSection title="User">
+            <DetailSection title={t("owner.activity.user")}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Name" value={log.userName} />
                 <Field label="Role" value={formatLabel(log.userRole)} />
               </div>
             </DetailSection>
 
-            <DetailSection title="Resource">
+            <DetailSection title={t("owner.activity.resource")}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Type" value={formatLabel(log.resourceType)} />
                 <Field label="Name" value={log.resourceName} />
@@ -95,7 +98,7 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
             </DetailSection>
 
             {changesSummary.length > 0 ? (
-              <DetailSection title="Changes Made">
+              <DetailSection title={t("owner.activity.changesMade")}>
                 <div className="space-y-2">
                   {changesSummary.map((change, index) => (
                     <div key={`${log.id}-detail-change-${index}`} className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
@@ -107,12 +110,12 @@ export default function ActivityLogDetail({ log, onClose }: ActivityLogDetailPro
             ) : null}
 
             {log.notes ? (
-              <DetailSection title="Notes">
+              <DetailSection title={t("owner.activity.notes")}>
                 <p className="text-sm text-gray-700">{log.notes}</p>
               </DetailSection>
             ) : null}
 
-            <DetailSection title="Audit Metadata">
+            <DetailSection title={t("owner.activity.auditMetadata")}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="IP Address" value={log.ipAddress} />
               </div>
