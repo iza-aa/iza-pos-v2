@@ -8,6 +8,7 @@ import {
   StandardModal,
   type DateRangeValue,
 } from "@/app/components/shared";
+import { useLanguage } from "@/app/components/shared/i18n";
 import StandardTable, {
   type StandardTableColumn,
 } from "@/app/components/shared/StandardTable";
@@ -72,13 +73,13 @@ type ShiftStatusRow = {
 };
 
 const expenseCategories = [
-  "Bahan baku tambahan",
-  "Packaging",
-  "Transport / delivery",
-  "Peralatan kecil",
-  "Kebersihan",
-  "Maintenance",
-  "Lainnya",
+  { value: "Bahan baku tambahan", labelKey: "manager.closing.expenseCategory.extraRawMaterial" },
+  { value: "Packaging", labelKey: "manager.closing.expenseCategory.packaging" },
+  { value: "Transport / delivery", labelKey: "manager.closing.expenseCategory.transport" },
+  { value: "Peralatan kecil", labelKey: "manager.closing.expenseCategory.smallEquipment" },
+  { value: "Kebersihan", labelKey: "manager.closing.expenseCategory.cleaning" },
+  { value: "Maintenance", labelKey: "manager.closing.expenseCategory.maintenance" },
+  { value: "Lainnya", labelKey: "manager.closing.expenseCategory.other" },
 ];
 
 type ManagerBookkeepingData = {
@@ -118,11 +119,14 @@ const getIsoWeekday = (businessDate: string) => {
   return weekday === 0 ? 7 : weekday;
 };
 
-const formatClosingStatus = (value?: string | null) => {
-  if (!value || value === "draft") return "Waiting Staff Count";
-  if (value === "submitted") return "Needs Manager Approval";
-  if (value === "needs_review" || value === "reopened") return "Needs Manager Review";
-  if (value === "closed") return "Approved by Manager";
+const formatClosingStatus = (
+  value: string | null | undefined,
+  t: (key: string) => string,
+) => {
+  if (!value || value === "draft") return t("manager.closing.statusWaitingStaff");
+  if (value === "submitted") return t("manager.closing.statusNeedsApproval");
+  if (value === "needs_review" || value === "reopened") return t("manager.closing.statusNeedsReview");
+  if (value === "closed") return t("manager.closing.statusApproved");
 
   return value
     .replaceAll("_", " ")
@@ -156,6 +160,7 @@ const renderStatusBadge = (label: string, className: string) => (
 );
 
 export default function ManagerClosingPage() {
+  const { t } = useLanguage();
   const [dateRange, setDateRange] =
     useState<DateRangeValue>(getDefaultDateRange);
   const businessDate = dateRange.endDate || getToday();
@@ -165,7 +170,7 @@ export default function ManagerClosingPage() {
   const [error, setError] = useState("");
   const [openingCashModalOpen, setOpeningCashModalOpen] = useState(false);
   const [cashForm, setCashForm] = useState({ shiftId: "", openingCash: "", closingFloat: "", note: "" });
-  const [expenseForm, setExpenseForm] = useState({ category: expenseCategories[0], amount: "", paymentMethod: "Cash", vendor: "", note: "" });
+  const [expenseForm, setExpenseForm] = useState({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", note: "" });
 
   const currentUser = useMemo(() => getCurrentUser(), []);
 
@@ -175,7 +180,7 @@ export default function ManagerClosingPage() {
 
     try {
       const user = getCurrentUser();
-      if (!user || (user.role !== "manager" && user.role !== "owner")) throw new Error("Manager access required.");
+      if (!user || (user.role !== "manager" && user.role !== "owner")) throw new Error(t("manager.closing.managerAccessRequired"));
 
       const response = await fetch(`/api/manager/closing/operations?businessDate=${businessDate}`, {
         headers: {
@@ -189,7 +194,7 @@ export default function ManagerClosingPage() {
         error?: string;
       };
 
-      if (!response.ok || !result.data) throw new Error(result.error || "Operational closing data could not be loaded.");
+      if (!response.ok || !result.data) throw new Error(result.error || t("manager.closing.loadFailed"));
 
       setData(result.data);
       setCashForm((current) => ({
@@ -199,20 +204,20 @@ export default function ManagerClosingPage() {
     } catch (loadError) {
       console.error("Failed to load manager bookkeeping:", loadError);
       setData(null);
-      setError(loadError instanceof Error ? loadError.message : "Operational closing data could not be loaded.");
+      setError(loadError instanceof Error ? loadError.message : t("manager.closing.loadFailed"));
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [businessDate]);
+  }, [businessDate, t]);
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+  }, [loadData, t]);
 
   const postAction = useCallback(async (body: Record<string, unknown>, successMessage: string) => {
     const user = getCurrentUser();
     if (!user || (user.role !== "manager" && user.role !== "owner")) {
-      setError("Manager access required.");
+      setError(t("manager.closing.managerAccessRequired"));
       return false;
     }
 
@@ -232,7 +237,7 @@ export default function ManagerClosingPage() {
       });
       const result = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (!response.ok || !result.success) {
-        showError(result.error || "Action could not be saved.");
+        showError(result.error || t("manager.closing.actionSaveFailed"));
         return false;
       }
       showSuccess(successMessage);
@@ -240,12 +245,12 @@ export default function ManagerClosingPage() {
       return true;
     } catch (saveError) {
       console.error("Failed to save manager bookkeeping action:", saveError);
-      showError(saveError instanceof Error ? saveError.message : "Action could not be saved.");
+      showError(saveError instanceof Error ? saveError.message : t("manager.closing.actionSaveFailed"));
       return false;
     } finally {
       setSaving(false);
     }
-  }, [loadData]);
+  }, [loadData, t]);
 
   const assignmentsByStaff = new Map(
     (data?.assignments || [])
@@ -284,46 +289,46 @@ export default function ManagerClosingPage() {
     () => [
       {
         key: "shift",
-        header: "Shift",
+        header: t("manager.closing.shift"),
         render: (row) => (
           <div>
             <p className="font-bold text-gray-950">
-              {row.shift.shift_name || "Shift"}
+              {row.shift.shift_name || t("manager.closing.shift")}
             </p>
             <p className="mt-1 text-xs font-semibold text-gray-500">
               {formatTime(row.shift.start_time)} - {formatTime(row.shift.end_time)}
             </p>
           </div>
         ),
-        sortValue: (row) => row.shift.shift_name || "Shift",
+        sortValue: (row) => row.shift.shift_name || t("manager.closing.shift"),
       },
       {
         key: "closingPic",
-        header: "Closing Pic",
+        header: t("manager.closing.closingPic"),
         render: (row) =>
           row.scheduledStaff.length > 0
             ? row.scheduledStaff.map((staff) => staff.name).join(", ")
-            : "No staff scheduled",
+            : t("manager.closing.noStaffScheduled"),
         sortValue: (row) =>
           row.scheduledStaff.map((staff) => staff.name).join(", "),
       },
       {
         key: "opening",
-        header: "Opening",
+        header: t("manager.closing.opening"),
         render: (row) =>
           row.closing ? formatCurrency(row.closing.opening_cash) : "-",
         sortValue: (row) => Number(row.closing?.opening_cash ?? 0),
       },
       {
         key: "cashSales",
-        header: "Cash Sales",
+        header: t("manager.closing.cashSales"),
         render: (row) =>
           row.closing ? formatCurrency(row.closing.cash_expected) : "-",
         sortValue: (row) => Number(row.closing?.cash_expected ?? 0),
       },
       {
         key: "expected",
-        header: "Expected",
+        header: t("manager.closing.expected"),
         render: (row) => (
           <span className="font-bold text-gray-950">
             {row.closing ? formatCurrency(row.closing.expected_drawer_cash) : "-"}
@@ -333,17 +338,17 @@ export default function ManagerClosingPage() {
       },
       {
         key: "counted",
-        header: "Counted",
+        header: t("manager.closing.counted"),
         render: (row) =>
           row.closing?.cash_counted === null ||
           row.closing?.cash_counted === undefined
-            ? "Waiting staff"
+            ? t("manager.closing.waitingStaff")
             : formatCurrency(row.closing.cash_counted),
         sortValue: (row) => Number(row.closing?.cash_counted ?? 0),
       },
       {
         key: "difference",
-        header: "Difference",
+        header: t("manager.closing.difference"),
         render: (row) => (
           <span className="font-bold text-gray-950">
             {row.closing?.cash_difference === null ||
@@ -356,25 +361,25 @@ export default function ManagerClosingPage() {
       },
       {
         key: "status",
-        header: "Status",
+        header: t("manager.closing.status"),
         render: (row) =>
           renderStatusBadge(
-            formatClosingStatus(row.closing?.status),
+            formatClosingStatus(row.closing?.status, t),
             getClosingStatusClassName(row.closing?.status),
         ),
         sortValue: (row) => row.closing?.status || "draft",
       },
       {
         key: "actions",
-        header: "Actions",
+        header: t("manager.closing.actions"),
         isAction: true,
         render: (row) => {
           if (!row.closing || !hasCashCount(row.closing)) {
-            return <span className="text-xs font-semibold text-gray-400">Waiting staff</span>;
+            return <span className="text-xs font-semibold text-gray-400">{t("manager.closing.waitingStaff")}</span>;
           }
 
           if (row.closing.status === "closed") {
-            return <span className="text-xs font-semibold text-[#008A3D]">Approved</span>;
+            return <span className="text-xs font-semibold text-[#008A3D]">{t("manager.closing.approved")}</span>;
           }
 
           const canApprove = getCashDifference(row.closing) === 0;
@@ -393,12 +398,12 @@ export default function ManagerClosingPage() {
                         shiftId: row.shift.id,
                         reviewAction: "approve",
                       },
-                      "Shift closing approved.",
+                    t("manager.closing.shiftApproved"),
                     )
                   }
                   className="rounded-lg bg-gray-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Approve
+                  {t("manager.closing.approve")}
                 </button>
               ) : null}
               <button
@@ -411,21 +416,21 @@ export default function ManagerClosingPage() {
                       businessDate,
                       shiftId: row.shift.id,
                       reviewAction: "recheck",
-                      note: "Manager requested staff recheck for this shift cash count.",
+                    note: t("manager.closing.recheckNote"),
                     },
-                    "Shift marked for recheck.",
+                    t("manager.closing.recheckSaved"),
                   )
                 }
                 className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Recheck
+                {t("manager.closing.recheck")}
               </button>
             </div>
           );
         },
       },
     ],
-    [businessDate, postAction, saving],
+    [businessDate, postAction, saving, t],
   );
   const openOpeningCashModal = () => {
     setCashForm((current) => ({
@@ -471,21 +476,21 @@ export default function ManagerClosingPage() {
         {error ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div> : null}
         {currentUser && currentUser.role !== "manager" && currentUser.role !== "owner" ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-            Please login as manager to use this page.
+            {t("manager.closing.managerAccessRequired")}
           </div>
         ) : null}
 
         {loading ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-sm font-semibold text-gray-500 shadow-sm">Loading operational closing...</div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-sm font-semibold text-gray-500 shadow-sm">{t("manager.closing.loading")}</div>
         ) : data ? (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(280px,1fr)_3fr]">
             <div className="grid gap-4">
               <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-bold text-gray-950">Opening Cash</h2>
+                    <h2 className="text-base font-bold text-gray-950">{t("manager.closing.openingCash")}</h2>
                     <p className="mt-1 text-sm leading-6 text-gray-500">
-                      Daily drawer setting. Edit when todays float is different.
+                      {t("manager.closing.openingCashDescription")}
                     </p>
                   </div>
                   <button
@@ -493,7 +498,7 @@ export default function ManagerClosingPage() {
                     onClick={openOpeningCashModal}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition hover:border-gray-900"
                   >
-                    Edit
+                    {t("manager.closing.edit")}
                   </button>
                 </div>
 
@@ -504,25 +509,25 @@ export default function ManagerClosingPage() {
                     className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
                   >
                     {data.shifts.map((shift) => (
-                      <option key={shift.id} value={shift.id}>{shift.shift_name || "Shift"}</option>
+                      <option key={shift.id} value={shift.id}>{shift.shift_name || t("manager.closing.shift")}</option>
                     ))}
                   </select>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.neutral.cardClass}`}>
-                      <p className="text-xs font-bold text-gray-500">Opening Cash</p>
+                      <p className="text-xs font-bold text-gray-500">{t("manager.closing.openingCash")}</p>
                       <p className="mt-1 truncate text-sm font-bold text-gray-950">
                         {selectedOpeningClosing
                           ? formatCurrency(selectedOpeningClosing.opening_cash)
-                          : "Not Set"}
+                          : t("manager.closing.notSet")}
                       </p>
                     </div>
                     <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.neutral.cardClass}`}>
-                      <p className="text-xs font-bold text-gray-500">Closing Float</p>
+                      <p className="text-xs font-bold text-gray-500">{t("manager.closing.closingFloat")}</p>
                       <p className="mt-1 truncate text-sm font-bold text-gray-950">
                         {selectedOpeningClosing
                           ? formatCurrency(selectedOpeningClosing.closing_float)
-                          : "Not Set"}
+                          : t("manager.closing.notSet")}
                       </p>
                     </div>
                   </div>
@@ -531,9 +536,9 @@ export default function ManagerClosingPage() {
 
               <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div>
-                  <h2 className="text-base font-bold text-gray-950">Store Expense</h2>
+                  <h2 className="text-base font-bold text-gray-950">{t("manager.closing.managerExpense")}</h2>
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    Record same-day operational spending, not tax or recipe food cost.
+                    {t("manager.closing.managerExpenseDescription")}
                   </p>
                 </div>
                 <div className="mt-4 space-y-3">
@@ -543,7 +548,7 @@ export default function ManagerClosingPage() {
                     className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
                   >
                     {expenseCategories.map((category) => (
-                      <option key={category} value={category}>{category}</option>
+                      <option key={category.value} value={category.value}>{t(category.labelKey)}</option>
                     ))}
                   </select>
                   <input
@@ -551,25 +556,25 @@ export default function ManagerClosingPage() {
                     min="0"
                     value={expenseForm.amount}
                     onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))}
-                    placeholder="Amount paid"
+                    placeholder={t("manager.closing.amountPaid")}
                     className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
                   />
                   <input
                     value={expenseForm.vendor}
                     onChange={(event) => setExpenseForm((current) => ({ ...current, vendor: event.target.value }))}
-                    placeholder="Vendor / receiver"
+                    placeholder={t("manager.closing.vendorPlaceholder")}
                     className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
                   />
                   <button
                     type="button"
                     disabled={saving || !expenseForm.category || !expenseForm.amount}
-                    onClick={() => postAction({ action: "create_expense", expenseDate: businessDate, ...expenseForm }, "Expense saved.")}
+                    onClick={() => postAction({ action: "create_expense", expenseDate: businessDate, ...expenseForm }, t("manager.closing.expenseSaved"))}
                     className="h-11 w-full rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
                   >
-                    Save Expense
+                    {t("manager.closing.saveExpense")}
                   </button>
                   <p className="text-xs leading-5 text-gray-500">
-                    Examples: emergency milk purchase, packaging, delivery fee, cleaning supplies, small repairs.
+                    {t("manager.closing.expenseExamples")}
                   </p>
                 </div>
               </section>
@@ -577,20 +582,20 @@ export default function ManagerClosingPage() {
 
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div>
-                <h2 className="text-base font-bold text-gray-950">Shift Closing Status</h2>
+                <h2 className="text-base font-bold text-gray-950">{t("manager.closing.shiftStatusTitle")}</h2>
                 <p className="mt-1 text-sm leading-6 text-gray-500">
-                  One row per shift. Staff schedule comes from Staff Manager: daily override first, default shift second.
+                  {t("manager.closing.shiftStatusDescription")}
                 </p>
               </div>
               <div className={`mt-4 rounded-lg border p-3 text-sm leading-6 ${OWNER_SEMANTIC_TONES.info.badgeClass}`}>
-                Change staff shift from Staff Manager. Closing only reads the schedule, then tracks opening cash and cash count submission.
+                {t("manager.closing.shiftStatusNote")}
               </div>
               <div className="mt-4">
                 <StandardTable
                   columns={shiftStatusColumns}
                   data={shiftStatusRows}
                   getRowKey={(row) => row.shift.id}
-                  emptyLabel="No shift data for this date."
+                  emptyLabel={t("manager.closing.noShiftRows")}
                   loading={loading}
                   minWidthClassName="min-w-[980px]"
                 />
@@ -602,8 +607,8 @@ export default function ManagerClosingPage() {
 
       <StandardModal
         isOpen={openingCashModalOpen}
-        title="Edit Opening Cash"
-        description="Save the drawer float for this operational date and shift."
+        title={t("manager.closing.editOpeningCash")}
+        description={t("manager.closing.editOpeningCashDescription")}
         maxWidthClassName="max-w-xl"
         onClose={() => setOpeningCashModalOpen(false)}
         footer={
@@ -613,7 +618,7 @@ export default function ManagerClosingPage() {
               onClick={() => setOpeningCashModalOpen(false)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -628,21 +633,21 @@ export default function ManagerClosingPage() {
                     closingFloat: cashForm.closingFloat || "0",
                     note: cashForm.note,
                   },
-                  "Opening cash saved.",
+                  t("manager.closing.openingCashSaved"),
                 );
 
                 if (saved) setOpeningCashModalOpen(false);
               }}
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Opening Cash"}
+              {saving ? t("common.saving") : t("manager.closing.saveOpeningCash")}
             </button>
           </>
         }
       >
         <div className="space-y-4">
           <label className="block text-sm font-semibold text-gray-700">
-            Shift
+            {t("manager.closing.shift")}
             <select
               value={cashForm.shiftId}
               onChange={(event) => setOpeningCashModalShift(event.target.value)}
@@ -650,7 +655,7 @@ export default function ManagerClosingPage() {
             >
               {data?.shifts.map((shift) => (
                 <option key={shift.id} value={shift.id}>
-                  {shift.shift_name || "Shift"}
+                  {shift.shift_name || t("manager.closing.shift")}
                 </option>
               ))}
             </select>
@@ -658,7 +663,7 @@ export default function ManagerClosingPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block text-sm font-semibold text-gray-700">
-              Opening Cash
+              {t("manager.closing.openingCash")}
               <input
                 type="number"
                 min="0"
@@ -669,13 +674,13 @@ export default function ManagerClosingPage() {
                     openingCash: event.target.value,
                   }))
                 }
-                placeholder="Opening cash"
+                placeholder={t("manager.closing.openingCashPlaceholder")}
                 className="mt-2 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
               />
             </label>
 
             <label className="block text-sm font-semibold text-gray-700">
-              Closing Float To Keep
+              {t("manager.closing.closingFloatToKeep")}
               <input
                 type="number"
                 min="0"
@@ -686,14 +691,14 @@ export default function ManagerClosingPage() {
                     closingFloat: event.target.value,
                   }))
                 }
-                placeholder="Closing float"
+                placeholder={t("manager.closing.closingFloatPlaceholder")}
                 className="mt-2 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
               />
             </label>
           </div>
 
           <label className="block text-sm font-semibold text-gray-700">
-            Note
+            {t("manager.closing.note")}
             <textarea
               value={cashForm.note}
               onChange={(event) =>
@@ -703,7 +708,7 @@ export default function ManagerClosingPage() {
                 }))
               }
               rows={3}
-              placeholder="Optional note for today's opening cash difference"
+              placeholder={t("manager.closing.openingCashNotePlaceholder")}
               className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
             />
           </label>

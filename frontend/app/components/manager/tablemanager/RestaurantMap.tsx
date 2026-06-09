@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
+import { useLanguage } from '@/app/components/shared/i18n';
 import { showError } from '@/lib/services/errorHandling';
 import TableCard from './TableCard';
 import QRCodeModal from './QRCodeModal';
@@ -51,6 +52,7 @@ export default function RestaurantMap({
   onTableEdit,
   refreshKey = 0,
 }: RestaurantMapProps) {
+  const { t } = useLanguage();
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -75,7 +77,7 @@ export default function RestaurantMap({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to fetch tables.');
+        throw new Error(result.message || t('manager.table.fetchFailed'));
       }
 
       const activeTables = (result.data ?? []).filter(
@@ -89,7 +91,7 @@ export default function RestaurantMap({
     } finally {
       setLoading(false);
     }
-  }, [floorId]);
+  }, [floorId, t]);
 
   useEffect(() => {
     if (!floorId) return;
@@ -209,7 +211,7 @@ export default function RestaurantMap({
       const result = await response.json().catch(() => null);
 
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.message || 'Failed to update table position.');
+        throw new Error(result?.message || t('manager.table.updatePositionFailed'));
       }
     } catch (error) {
       console.error('Error updating position:', error);
@@ -236,13 +238,13 @@ export default function RestaurantMap({
 
     if (status === 'occupied' || table.current_order_id) {
       showError(
-        `Table ${table.table_number} cannot be deleted because it is currently occupied or has an active order.`
+        t('manager.table.deleteOccupied', { table: table.table_number })
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete Table ${table.table_number}?`
+      t('manager.table.deleteConfirm', { table: table.table_number })
     );
 
     if (!confirmed) {
@@ -257,7 +259,7 @@ export default function RestaurantMap({
       const result = await response.json().catch(() => null);
 
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.message || 'Failed to delete table.');
+        throw new Error(result?.message || t('manager.table.deleteFailed'));
       }
 
       setTables((previousTables) =>
@@ -265,7 +267,7 @@ export default function RestaurantMap({
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to delete table.';
+        error instanceof Error ? error.message : t('manager.table.deleteFailed');
 
       console.error('Error deleting table:', error);
       showError(message);
@@ -276,7 +278,7 @@ export default function RestaurantMap({
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
         <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-        <p className="mt-4 text-sm text-gray-500">Loading tables...</p>
+        <p className="mt-4 text-sm text-gray-500">{t('manager.table.loadingTables')}</p>
       </div>
     );
   }
@@ -287,16 +289,18 @@ export default function RestaurantMap({
         <div className="flex items-center justify-between border-b border-gray-200 p-4">
           <div>
             <p className="text-sm font-medium text-gray-700">
-              {tables.length} table{tables.length !== 1 ? 's' : ''} on this
-              floor
+              {t('manager.table.tableCount', {
+                count: tables.length,
+                plural: tables.length !== 1 ? 's' : '',
+              })}
             </p>
             <p className="text-xs text-gray-500">
-              Layout management only. Order activity is handled from the order page.
+              {t('manager.table.layoutOnly')}
             </p>
           </div>
 
           <div className="text-xs text-gray-500">
-            Drag tables to reposition
+            {t('manager.table.dragHint')}
           </div>
         </div>
 
@@ -312,10 +316,10 @@ export default function RestaurantMap({
               <div className="text-center">
                 <PlusIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
                 <p className="mb-2 text-sm font-medium text-gray-600">
-                  No tables on this floor yet.
+                  {t('manager.table.noTablesOnFloor')}
                 </p>
                 <p className="text-xs text-gray-400">
-                  Click Add Table to start building your layout.
+                  {t('manager.table.emptyMapHint')}
                 </p>
               </div>
             </div>

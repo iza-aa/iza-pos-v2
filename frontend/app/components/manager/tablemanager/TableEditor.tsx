@@ -7,6 +7,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { QrCodeIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useLanguage } from '@/app/components/shared/i18n';
 import { showSuccess } from '@/lib/services/errorHandling';
 
 interface EditableTable {
@@ -69,6 +70,7 @@ export default function TableEditor({
   table,
   floorId,
 }: TableEditorProps) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState<TableFormData>(DEFAULT_FORM_DATA);
   const [loading, setLoading] = useState(false);
   const [generatingQR, setGeneratingQR] = useState(false);
@@ -107,8 +109,8 @@ export default function TableEditor({
 
   const getApiErrorMessage = async (response: Response) => {
     const fallbackMessage = isEditMode
-      ? 'Failed to update table.'
-      : 'Failed to create table.';
+      ? t('manager.table.updateFailed')
+      : t('manager.table.createFailed');
 
     try {
       const errorBody = (await response.json()) as ApiErrorResponse;
@@ -122,7 +124,7 @@ export default function TableEditor({
         rawMessage.includes('duplicate key') ||
         rawMessage.includes('already exists')
       ) {
-        return 'Table number already exists on this floor.';
+        return t('manager.table.tableDuplicate');
       }
 
       return errorBody.error || errorBody.message || fallbackMessage;
@@ -135,23 +137,23 @@ export default function TableEditor({
     const trimmedTableNumber = formData.table_number.trim();
 
     if (!trimmedTableNumber) {
-      return 'Table number is required.';
+      return t('manager.table.tableNumberRequired');
     }
 
     if (!Number.isInteger(formData.capacity) || formData.capacity < 1) {
-      return 'Capacity must be at least 1.';
+      return t('manager.table.capacityMin');
     }
 
     if (formData.capacity > 20) {
-      return 'Capacity cannot be more than 20.';
+      return t('manager.table.capacityMax');
     }
 
     if (!['round', 'square', 'rectangular'].includes(formData.shape)) {
-      return 'Invalid table shape.';
+      return t('manager.table.invalidShape');
     }
 
     if (!isEditMode && !floorId) {
-      return 'Please select a floor before creating a table.';
+      return t('manager.table.selectFloorFirst');
     }
 
     return null;
@@ -204,8 +206,8 @@ export default function TableEditor({
         error instanceof Error
           ? error.message
           : isEditMode
-          ? 'Failed to update table.'
-          : 'Failed to create table.';
+          ? t('manager.table.updateFailed')
+          : t('manager.table.createFailed');
 
       setErrorMessage(message);
     } finally {
@@ -234,14 +236,14 @@ export default function TableEditor({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate QR code.');
+        throw new Error(t('manager.table.qrGenerateFailed'));
       }
 
-      showSuccess('QR code generated successfully.');
+      showSuccess(t('manager.table.qrGenerated'));
       onSave();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to generate QR code.';
+        error instanceof Error ? error.message : t('manager.table.qrGenerateFailed');
 
       setErrorMessage(message);
     } finally {
@@ -265,19 +267,19 @@ export default function TableEditor({
           type="button"
           className="fixed inset-0 bg-gray-500/75"
           onClick={onClose}
-          aria-label="Close table editor overlay"
+          aria-label={t('manager.table.closeTableEditorOverlay')}
         />
 
         <div className="relative w-full max-w-lg overflow-hidden rounded-lg bg-white text-left shadow-xl">
           <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-4">
             <div>
               <h3 className="text-lg font-medium text-gray-900">
-                {isEditMode ? 'Edit Table' : 'Create New Table'}
+                {isEditMode ? t('manager.table.editTable') : t('manager.table.createTable')}
               </h3>
               <p className="text-sm text-gray-500">
                 {isEditMode
-                  ? 'Update table configuration. Operational status is managed elsewhere.'
-                  : 'Create a new table on the selected floor.'}
+                  ? t('manager.table.editTableDescription')
+                  : t('manager.table.createTableDescription')}
               </p>
             </div>
 
@@ -286,7 +288,7 @@ export default function TableEditor({
               onClick={onClose}
               disabled={loading || generatingQR}
               className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Close table editor"
+              aria-label={t('manager.table.closeTableEditor')}
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
@@ -301,9 +303,8 @@ export default function TableEditor({
 
             {isEditMode && table?.status ? (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                Current status: <strong className="capitalize">{table.status}</strong>.
-                Status changes are handled in table operations, not layout
-                management.
+                {t('manager.table.currentStatus')} <strong className="capitalize">{table.status}</strong>.
+                {' '}{t('manager.table.statusManagedElsewhere')}
               </div>
             ) : null}
 
@@ -312,7 +313,7 @@ export default function TableEditor({
                 htmlFor="table-number"
                 className="mb-1 block text-sm font-medium text-gray-700"
               >
-                Table Number *
+                {t('manager.table.tableNumber')} *
               </label>
               <input
                 id="table-number"
@@ -327,7 +328,7 @@ export default function TableEditor({
                 }
                 disabled={loading}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
-                placeholder="Example: T1, A1, Table 1"
+                placeholder={t('manager.table.tableNumberPlaceholder')}
               />
             </div>
 
@@ -336,7 +337,7 @@ export default function TableEditor({
                 htmlFor="capacity"
                 className="mb-1 block text-sm font-medium text-gray-700"
               >
-                Capacity *
+                {t('manager.table.capacity')} *
               </label>
               <input
                 id="capacity"
@@ -356,7 +357,7 @@ export default function TableEditor({
                 htmlFor="shape"
                 className="mb-1 block text-sm font-medium text-gray-700"
               >
-                Shape
+                {t('manager.table.shape')}
               </label>
               <select
                 id="shape"
@@ -370,9 +371,9 @@ export default function TableEditor({
                 disabled={loading}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
               >
-                <option value="round">Round</option>
-                <option value="square">Square</option>
-                <option value="rectangular">Rectangular</option>
+                <option value="round">{t('manager.table.shapeRound')}</option>
+                <option value="square">{t('manager.table.shapeSquare')}</option>
+                <option value="rectangular">{t('manager.table.shapeRectangular')}</option>
               </select>
             </div>
 
@@ -382,7 +383,7 @@ export default function TableEditor({
                   htmlFor="position-x"
                   className="mb-1 block text-sm font-medium text-gray-700"
                 >
-                  Position X
+                  {t('manager.table.positionX')}
                 </label>
                 <input
                   id="position-x"
@@ -405,7 +406,7 @@ export default function TableEditor({
                   htmlFor="position-y"
                   className="mb-1 block text-sm font-medium text-gray-700"
                 >
-                  Position Y
+                  {t('manager.table.positionY')}
                 </label>
                 <input
                   id="position-y"
@@ -429,7 +430,7 @@ export default function TableEditor({
                 htmlFor="notes"
                 className="mb-1 block text-sm font-medium text-gray-700"
               >
-                Notes
+                {t('manager.table.notes')}
               </label>
               <textarea
                 id="notes"
@@ -443,17 +444,16 @@ export default function TableEditor({
                 rows={3}
                 disabled={loading}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
-                placeholder="Optional notes about this table"
+                placeholder={t('manager.table.notesPlaceholder')}
               />
             </div>
 
               {isEditMode ? (
                 <div className="border-t border-gray-200 pt-4">
                   <div className="mb-2">
-                    <span className="text-sm font-medium text-gray-700">QR Code</span>
+                    <span className="text-sm font-medium text-gray-700">{t('manager.table.qrCode')}</span>
                     <p className="mt-1 text-xs text-gray-500">
-                      Generate or regenerate the QR code. To preview the QR code, use the QR
-                      button on the table card.
+                      {t('manager.table.qrHelper')}
                     </p>
                   </div>
 
@@ -465,10 +465,10 @@ export default function TableEditor({
                   >
                     <QrCodeIcon className="mr-2 h-5 w-5" />
                     {generatingQR
-                      ? 'Generating...'
+                      ? t('manager.table.generating')
                       : table?.qr_code_url
-                      ? 'Regenerate QR Code'
-                      : 'Generate QR Code'}
+                      ? t('manager.table.regenerateQr')
+                      : t('manager.table.generateQr')}
                   </button>
                 </div>
               ) : null}
@@ -480,7 +480,7 @@ export default function TableEditor({
                 disabled={loading || generatingQR}
                 className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
 
               <button
@@ -489,10 +489,10 @@ export default function TableEditor({
                 className="flex-1 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
                 {loading
-                  ? 'Saving...'
+                  ? t('common.saving')
                   : isEditMode
-                  ? 'Save Changes'
-                  : 'Create Table'}
+                  ? t('manager.table.saveChanges')
+                  : t('manager.table.createTable')}
               </button>
             </div>
           </form>

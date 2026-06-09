@@ -6,6 +6,7 @@ import {
   QrCodeIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import { useLanguage } from "@/app/components/shared/i18n";
 import StandardTable, {
   type StandardTableColumn,
 } from "@/app/components/shared/StandardTable";
@@ -44,6 +45,7 @@ export default function TableList({
   onTableEdit,
   refreshKey = 0,
 }: TableListProps) {
+  const { t } = useLanguage();
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrTable, setQrTable] = useState<Table | null>(null);
@@ -60,7 +62,7 @@ export default function TableList({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to fetch tables.");
+        throw new Error(result.message || t("manager.table.fetchFailed"));
       }
 
       const activeTables = (result.data ?? []).filter(
@@ -74,7 +76,7 @@ export default function TableList({
     } finally {
       setLoading(false);
     }
-  }, [floorId]);
+  }, [floorId, t]);
 
   useEffect(() => {
     if (!floorId) return;
@@ -107,13 +109,13 @@ export default function TableList({
   const handleDelete = useCallback(async (table: Table) => {
     if (table.current_order_id) {
       showError(
-        `Table ${table.table_number} cannot be deleted because it has an active order.`,
+        t("manager.table.deleteActiveOrder", { table: table.table_number }),
       );
       return;
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete Table ${table.table_number}?`,
+      t("manager.table.deleteConfirm", { table: table.table_number }),
     );
 
     if (!confirmed) return;
@@ -125,7 +127,7 @@ export default function TableList({
       const result = await response.json().catch(() => null);
 
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.message || "Failed to delete table.");
+        throw new Error(result?.message || t("manager.table.deleteFailed"));
       }
 
       setTables((previousTables) =>
@@ -133,18 +135,18 @@ export default function TableList({
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to delete table.";
+        error instanceof Error ? error.message : t("manager.table.deleteFailed");
 
       console.error("Error deleting table:", error);
       showError(message);
     }
-  }, []);
+  }, [t]);
 
   const columns = useMemo<Array<StandardTableColumn<Table>>>(
     () => [
       {
         key: "table",
-        header: "Table",
+        header: t("manager.table.tableColumn"),
         render: (table) => (
           <div className="font-medium text-gray-900">{table.table_number}</div>
         ),
@@ -152,13 +154,13 @@ export default function TableList({
       },
       {
         key: "capacity",
-        header: "Capacity",
+        header: t("manager.table.capacity"),
         render: (table) => table.capacity,
         sortValue: (table) => table.capacity,
       },
       {
         key: "shape",
-        header: "Shape",
+        header: t("manager.table.shape"),
         render: (table) => (
           <span className="capitalize">{table.shape ?? "-"}</span>
         ),
@@ -166,7 +168,7 @@ export default function TableList({
       },
       {
         key: "qr",
-        header: "QR Code",
+        header: t("manager.table.qrCode"),
         render: (table) => {
           const hasQR = Boolean(table.qr_code_url || table.qr_code_image);
 
@@ -177,17 +179,17 @@ export default function TableList({
               className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
             >
               <QrCodeIcon className="h-4 w-4" />
-              View
+              {t("manager.table.view")}
             </button>
           ) : (
-            <span className="text-sm text-gray-400">Not generated</span>
+            <span className="text-sm text-gray-400">{t("manager.table.notGenerated")}</span>
           );
         },
         sortValue: (table) => Boolean(table.qr_code_url || table.qr_code_image),
       },
       {
         key: "actions",
-        header: "Actions",
+        header: t("common.actions"),
         isAction: true,
         headerClassName: "text-right",
         className: "text-right",
@@ -204,7 +206,7 @@ export default function TableList({
                   )
                 }
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
-                aria-label={`Open actions for table ${table.table_number}`}
+                aria-label={t("manager.table.openActions", { table: table.table_number })}
               >
                 <EllipsisVerticalIcon className="h-5 w-5" />
               </button>
@@ -214,7 +216,7 @@ export default function TableList({
                   <button
                     type="button"
                     className="fixed inset-0 z-20 cursor-default"
-                    aria-label="Close table action menu"
+                    aria-label={t("manager.table.closeActionMenu")}
                     onClick={() => setOpenActionMenuId(null)}
                   />
                   <div className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-lg">
@@ -226,7 +228,7 @@ export default function TableList({
                       }}
                       className="block w-full px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                     >
-                      Edit
+                      {t("manager.table.edit")}
                     </button>
                     <button
                       type="button"
@@ -237,7 +239,7 @@ export default function TableList({
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                     >
                       <QrCodeIcon className="h-4 w-4" />
-                      QR Code
+                      {t("manager.table.qrCode")}
                     </button>
                     <button
                       type="button"
@@ -253,12 +255,12 @@ export default function TableList({
                       }`}
                       title={
                         isBusy
-                          ? "Cannot delete a table with an active order"
-                          : `Delete table ${table.table_number}`
+                          ? t("manager.table.deleteBusyTitle")
+                          : t("manager.table.deleteTitle", { table: table.table_number })
                       }
                     >
                       <TrashIcon className="h-4 w-4" />
-                      Delete
+                      {t("manager.table.delete")}
                     </button>
                   </div>
                 </>
@@ -268,7 +270,7 @@ export default function TableList({
         },
       },
     ],
-    [handleDelete, onTableEdit, openActionMenuId],
+    [handleDelete, onTableEdit, openActionMenuId, t],
   );
 
   return (
@@ -279,7 +281,7 @@ export default function TableList({
           data={tables}
           getRowKey={(table) => table.id}
           emptyLabel={
-            loading ? "Loading tables..." : "No tables on this floor yet."
+            loading ? t("manager.table.loadingTables") : t("manager.table.noTablesOnFloor")
           }
           loading={loading}
           minWidthClassName="min-w-180"

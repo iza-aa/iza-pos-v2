@@ -15,6 +15,11 @@ import {
   validateStoredCustomerTableSession,
 } from "@/lib/customer/customerSession";
 import { getProductKitchenAvailability } from "@/lib/services/inventory/inventoryBatchService";
+import {
+  calculateOrderFinancialTotals,
+  defaultFinancialSettings,
+} from "@/lib/services/bookkeeping/financialSettings";
+import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 
 interface Category {
   id: string;
@@ -257,8 +262,11 @@ export default function CustomerMenuPage() {
   const [showCart, setShowCart] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [financialSettings, setFinancialSettings] =
+    useState<BookkeepingFinancialSettings>(defaultFinancialSettings);
 
   const isDineInFromQr = Boolean(tableSession);
+  const fulfillmentMethod = isDineInFromQr ? "table_service" : "counter_pickup";
 
   useEffect(() => {
     let isMounted = true;
@@ -311,6 +319,33 @@ export default function CustomerMenuPage() {
       setShowCart(false);
     }
   }, [cart.length, showCart]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFinancialSettings = async () => {
+      try {
+        const response = await fetch("/api/bookkeeping/financial-settings", {
+          cache: "no-store",
+        });
+        const result = (await response.json().catch(() => ({}))) as {
+          settings?: BookkeepingFinancialSettings;
+        };
+
+        if (isMounted && result.settings) {
+          setFinancialSettings(result.settings);
+        }
+      } catch (error) {
+        console.warn("Failed to load financial settings, using defaults:", error);
+      }
+    };
+
+    void loadFinancialSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function fetchProducts() {
     setLoadingProducts(true);
@@ -550,6 +585,18 @@ export default function CustomerMenuPage() {
     router.push("/customer/menu/checkout");
   };
 
+  const cartFinancialTotals = useMemo(
+    () => calculateOrderFinancialTotals(
+      cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      financialSettings,
+      {
+        orderType: isDineInFromQr ? "Dine in" : "Take Away",
+        fulfillmentMethod,
+      },
+    ),
+    [cart, financialSettings, fulfillmentMethod, isDineInFromQr],
+  );
+
   if (initializing) {
     return (
       <LoadingScreen
@@ -687,6 +734,11 @@ export default function CustomerMenuPage() {
         onClose={() => setShowCart(false)}
         onUpdateQuantity={updateQuantity}
         onCheckout={goToCheckout}
+        subtotal={cartFinancialTotals.subtotal}
+        serviceCharge={cartFinancialTotals.serviceCharge}
+        tax={cartFinancialTotals.tax}
+        taxLabel={financialSettings.taxLabel}
+        total={cartFinancialTotals.total}
       />
 
       {showVariantModal && selectedProduct && (

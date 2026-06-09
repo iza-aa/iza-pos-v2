@@ -230,6 +230,7 @@ export default function CustomerCheckoutPage() {
   const orderMode: OrderMode = tableSession ? "dine_in" : "takeaway";
   const isTakeaway = orderMode === "takeaway";
   const isDineIn = orderMode === "dine_in";
+  const fulfillmentMethod = isDineIn ? "table_service" : "counter_pickup";
 
   useEffect(() => {
     let isMounted = true;
@@ -271,7 +272,9 @@ export default function CustomerCheckoutPage() {
 
     const loadFinancialSettings = async () => {
       try {
-        const response = await fetch("/api/bookkeeping/financial-settings");
+        const response = await fetch("/api/bookkeeping/financial-settings", {
+          cache: "no-store",
+        });
         const result = (await response.json().catch(() => ({}))) as {
           settings?: BookkeepingFinancialSettings;
         };
@@ -319,9 +322,12 @@ export default function CustomerCheckoutPage() {
     () => calculateOrderFinancialTotals(
       cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
       financialSettings,
-      { orderType: isDineIn ? "Dine in" : "Take Away" },
+      {
+        orderType: isDineIn ? "Dine in" : "Take Away",
+        fulfillmentMethod,
+      },
     ),
-    [cart, financialSettings, isDineIn],
+    [cart, financialSettings, fulfillmentMethod, isDineIn],
   );
 
   const canSubmit = useMemo(() => {
@@ -419,7 +425,7 @@ export default function CustomerCheckoutPage() {
 
       order_source: "qr",
       order_type: isDineIn ? "Dine in" : "Take Away",
-      fulfillment_method: isDineIn ? "table_service" : "counter_pickup",
+      fulfillment_method: fulfillmentMethod,
       pickup_code: pickupCode,
       status: "new",
       subtotal: totals.subtotal,
@@ -587,7 +593,7 @@ export default function CustomerCheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-4 py-4 flex items-center gap-3">
           <button
@@ -670,7 +676,7 @@ export default function CustomerCheckoutPage() {
         />
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-200">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={placeOrder}

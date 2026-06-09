@@ -10,6 +10,7 @@ import {
   PrinterIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useLanguage } from '@/app/components/shared/i18n';
 import { showError, showSuccess } from '@/lib/services/errorHandling';
 
 interface QRCodeTable {
@@ -30,6 +31,8 @@ export default function QRCodeModal({
   onClose,
   table,
 }: QRCodeModalProps) {
+  const { t } = useLanguage();
+
   if (!isOpen || !table) {
     return null;
   }
@@ -39,7 +42,7 @@ export default function QRCodeModal({
 
   const handleDownload = () => {
     if (!qrImageUrl) {
-      showError('QR image is not available.');
+      showError(t('manager.table.qrImageUnavailable'));
       return;
     }
 
@@ -57,15 +60,15 @@ export default function QRCodeModal({
 
   const handleCopyUrl = async () => {
     if (!customerUrl) {
-      showError('Customer URL is not available.');
+      showError(t('manager.table.customerUrlUnavailable'));
       return;
     }
 
     try {
       await navigator.clipboard.writeText(customerUrl);
-      showSuccess('URL copied to clipboard.');
+      showSuccess(t('manager.table.urlCopied'));
     } catch {
-      showError('Failed to copy URL.');
+      showError(t('manager.table.urlCopyFailed'));
     }
   };
 
@@ -76,19 +79,20 @@ export default function QRCodeModal({
           type="button"
           className="fixed inset-0 bg-gray-500/75"
           onClick={onClose}
-          aria-label="Close QR modal overlay"
+          aria-label={t('manager.table.closeQrOverlay')}
         />
 
         <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-white text-left shadow-xl">
           <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-4">
             <div>
               <h3 className="text-lg font-medium text-gray-900">
-                QR Code - Table {table.table_number}
+                {t('manager.table.qrTitle', { table: table.table_number })}
               </h3>
               {table.qr_generated_at ? (
                 <p className="text-xs text-gray-500">
-                  Generated at{' '}
-                  {new Date(table.qr_generated_at).toLocaleString()}
+                  {t('manager.table.generatedAt', {
+                    time: new Date(table.qr_generated_at).toLocaleString(),
+                  })}
                 </p>
               ) : null}
             </div>
@@ -97,7 +101,7 @@ export default function QRCodeModal({
               type="button"
               onClick={onClose}
               className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              aria-label="Close QR modal"
+              aria-label={t('manager.table.closeQr')}
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
@@ -108,12 +112,12 @@ export default function QRCodeModal({
               {qrImageUrl ? (
                 <img
                   src={qrImageUrl}
-                  alt={`QR Code for Table ${table.table_number}`}
+                  alt={t('manager.table.qrAlt', { table: table.table_number })}
                   className="h-auto w-full"
                 />
               ) : (
                 <div className="flex h-64 items-center justify-center rounded-lg bg-gray-50 text-center text-sm text-gray-500">
-                  QR image is not available for this table.
+                  {t('manager.table.qrUnavailable')}
                 </div>
               )}
             </div>
@@ -121,7 +125,7 @@ export default function QRCodeModal({
             {customerUrl ? (
               <div className="mb-6">
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Customer URL
+                  {t('manager.table.customerUrl')}
                 </label>
 
                 <div className="flex items-center">
@@ -137,7 +141,7 @@ export default function QRCodeModal({
                     onClick={handleCopyUrl}
                     className="rounded-r-lg bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800"
                   >
-                    Copy
+                    {t('manager.table.copy')}
                   </button>
                 </div>
               </div>
@@ -145,9 +149,8 @@ export default function QRCodeModal({
 
             <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm text-blue-900">
-                <strong>Instructions:</strong> Print this QR code and place it
-                on Table {table.table_number}. Customers can scan it to open
-                the menu and place orders.
+                <strong>{t('manager.table.instructions')}</strong>{' '}
+                {t('manager.table.qrInstructions', { table: table.table_number })}
               </p>
             </div>
 
@@ -159,7 +162,7 @@ export default function QRCodeModal({
                 className="inline-flex flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ArrowDownTrayIcon className="mr-2 h-5 w-5" />
-                Download
+                {t('manager.table.download')}
               </button>
 
               <button
@@ -169,7 +172,7 @@ export default function QRCodeModal({
                 className="inline-flex flex-1 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
                 <PrinterIcon className="mr-2 h-5 w-5" />
-                Print
+                {t('manager.table.print')}
               </button>
             </div>
           </div>

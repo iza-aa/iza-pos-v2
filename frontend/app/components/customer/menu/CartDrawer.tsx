@@ -16,6 +16,12 @@ interface CartDrawerProps {
   onClose: () => void;
   onUpdateQuantity: (itemId: string, change: number) => void;
   onCheckout: () => void;
+  subtotal?: number;
+  serviceCharge?: number;
+  serviceChargeLabel?: string;
+  tax?: number;
+  taxLabel?: string;
+  total?: number;
 }
 
 function getVariantLabel(variant: unknown): string | null {
@@ -33,12 +39,27 @@ function getVariantLabel(variant: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export default function CartDrawer({ cart, isOpen, onClose, onUpdateQuantity, onCheckout }: CartDrawerProps) {
+export default function CartDrawer({
+  cart,
+  isOpen,
+  onClose,
+  onUpdateQuantity,
+  onCheckout,
+  subtotal,
+  serviceCharge = 0,
+  serviceChargeLabel = "Service Charge",
+  tax = 0,
+  taxLabel = "Tax",
+  total,
+}: CartDrawerProps) {
   if (!isOpen) return null;
 
   const calculateTotal = () => {
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
+
+  const cartSubtotal = subtotal ?? calculateTotal();
+  const totalPayable = total ?? cartSubtotal + serviceCharge + tax;
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm z-50" onClick={onClose}>
@@ -108,11 +129,33 @@ export default function CartDrawer({ cart, isOpen, onClose, onUpdateQuantity, on
 
         {/* Cart Footer */}
         <div className="p-4 border-t border-gray-200 bg-white pb-24">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600 font-medium">Total</span>
-            <span className="text-xl font-bold text-gray-900">
-              Rp {calculateTotal().toLocaleString('id-ID')}
-            </span>
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 font-medium">Subtotal</span>
+              <span className="font-semibold text-gray-900">
+                Rp {cartSubtotal.toLocaleString('id-ID')}
+              </span>
+            </div>
+            {serviceCharge > 0 ? (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 font-medium">{serviceChargeLabel}</span>
+                <span className="font-semibold text-gray-900">
+                  Rp {serviceCharge.toLocaleString('id-ID')}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 font-medium">{taxLabel}</span>
+              <span className="font-semibold text-gray-900">
+                Rp {tax.toLocaleString('id-ID')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+              <span className="text-gray-900 font-semibold">Total</span>
+              <span className="text-xl font-bold text-gray-900">
+                Rp {totalPayable.toLocaleString('id-ID')}
+              </span>
+            </div>
           </div>
           <button
             onClick={onCheckout}

@@ -14,6 +14,7 @@ import {
   TrashIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
+import { useLanguage } from '@/app/components/shared/i18n';
 
 interface TableCardTable {
   id: string;
@@ -42,6 +43,7 @@ export default function TableCard({
   onShowQR,
   isDragging = false,
 }: TableCardProps) {
+  const { t } = useLanguage();
   const normalizedStatus = table.status?.toLowerCase() ?? 'free';
   const normalizedShape = table.shape?.toLowerCase() ?? 'round';
 
@@ -72,6 +74,13 @@ export default function TableCard({
   };
 
   const shouldShowStatusBadge = normalizedStatus !== 'free';
+  const statusLabel: Record<string, string> = {
+    free: t('manager.table.statusFree'),
+    occupied: t('manager.table.statusOccupied'),
+    reserved: t('manager.table.statusReserved'),
+    cleaning: t('manager.table.statusCleaning'),
+    maintenance: t('manager.table.statusMaintenance'),
+  };
 
   const stopButtonMouseDown = (
     event: React.MouseEvent<HTMLButtonElement>
@@ -117,8 +126,8 @@ export default function TableCard({
             onEdit();
           }}
           className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 text-white shadow-lg hover:bg-gray-800"
-          title="Edit table"
-          aria-label={`Edit table ${table.table_number}`}
+          title={t('manager.table.editTableTitle')}
+          aria-label={t('manager.table.editTableAria', { table: table.table_number })}
         >
           <PencilIcon className="h-4 w-4" />
         </button>
@@ -133,8 +142,8 @@ export default function TableCard({
               onShowQR();
             }}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
-            title="View QR code"
-            aria-label={`View QR code for table ${table.table_number}`}
+            title={t('manager.table.viewQrTitle')}
+            aria-label={t('manager.table.viewQrAria', { table: table.table_number })}
           >
             <QrCodeIcon className="h-4 w-4" />
           </button>
@@ -155,10 +164,10 @@ export default function TableCard({
           }`}
           title={
             isBusy
-              ? 'Cannot delete an occupied table'
-              : `Delete table ${table.table_number}`
+              ? t('manager.table.deleteOccupiedTitle')
+              : t('manager.table.deleteTitle', { table: table.table_number })
           }
-          aria-label={`Delete table ${table.table_number}`}
+          aria-label={t('manager.table.deleteTitle', { table: table.table_number })}
         >
           <TrashIcon className="h-4 w-4" />
         </button>
@@ -172,7 +181,7 @@ export default function TableCard({
               ${badgeStatusClass[normalizedStatus] || badgeStatusClass.maintenance}
             `}
           >
-            {normalizedStatus}
+            {statusLabel[normalizedStatus] ?? normalizedStatus}
           </span>
         </div>
       ) : null}

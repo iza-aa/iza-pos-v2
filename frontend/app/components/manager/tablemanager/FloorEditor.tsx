@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useLanguage } from '@/app/components/shared/i18n';
 import { supabase } from '@/lib/config/supabaseClient';
 
 interface FloorEditorProps {
@@ -21,6 +22,7 @@ export default function FloorEditor({
   onClose,
   onSave,
 }: FloorEditorProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [floorNumber, setFloorNumber] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -50,10 +52,10 @@ export default function FloorEditor({
       rawMessage.includes('unique_active_floor_number') ||
       rawMessage.includes('duplicate key')
     ) {
-      return 'Floor name or floor number already exists.';
+      return t('manager.table.floorDuplicate');
     }
 
-    return error.message ?? 'Failed to save floor.';
+    return error.message ?? t('manager.table.floorSaveFailed');
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -63,12 +65,12 @@ export default function FloorEditor({
     const parsedFloorNumber = Number(floorNumber);
 
     if (!trimmedName) {
-      setErrorMessage('Floor name is required.');
+      setErrorMessage(t('manager.table.floorNameRequired'));
       return;
     }
 
     if (!Number.isInteger(parsedFloorNumber) || parsedFloorNumber <= 0) {
-      setErrorMessage('Floor number must be a positive number.');
+      setErrorMessage(t('manager.table.floorNumberInvalid'));
       return;
     }
 
@@ -92,7 +94,7 @@ export default function FloorEditor({
       const message =
         typeof error === 'object' && error !== null
           ? getFriendlyErrorMessage(error as SupabaseErrorLike)
-          : 'Failed to save floor.';
+          : t('manager.table.floorSaveFailed');
 
       setErrorMessage(message);
     } finally {
@@ -105,9 +107,9 @@ export default function FloorEditor({
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Add Floor</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('manager.table.addFloor')}</h2>
             <p className="text-sm text-gray-500">
-              Create a new active floor for table layout management.
+              {t('manager.table.floorCreateDescription')}
             </p>
           </div>
 
@@ -116,7 +118,7 @@ export default function FloorEditor({
             onClick={onClose}
             disabled={isSaving}
             className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Close floor editor"
+            aria-label={t('manager.table.closeTableEditor')}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -134,14 +136,14 @@ export default function FloorEditor({
               htmlFor="floor-name"
               className="mb-1 block text-sm font-medium text-gray-700"
             >
-              Floor Name
+              {t('manager.table.floorName')}
             </label>
             <input
               id="floor-name"
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Example: Third Floor"
+              placeholder={t('manager.table.floorNamePlaceholder')}
               disabled={isSaving}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
             />
@@ -152,7 +154,7 @@ export default function FloorEditor({
               htmlFor="floor-number"
               className="mb-1 block text-sm font-medium text-gray-700"
             >
-              Floor Number
+              {t('manager.table.floorNumber')}
             </label>
             <input
               id="floor-number"
@@ -160,12 +162,12 @@ export default function FloorEditor({
               min={1}
               value={floorNumber}
               onChange={(event) => setFloorNumber(event.target.value)}
-              placeholder="Example: 3"
+              placeholder={t('manager.table.floorNumberPlaceholder')}
               disabled={isSaving}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Floor number must be unique for active floors.
+              {t('manager.table.floorNumberHelper')}
             </p>
           </div>
 
@@ -176,7 +178,7 @@ export default function FloorEditor({
               disabled={isSaving}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
 
             <button
@@ -184,7 +186,7 @@ export default function FloorEditor({
               disabled={isSaving}
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              {isSaving ? 'Saving...' : 'Save Floor'}
+              {isSaving ? t('common.saving') : t('manager.table.saveFloor')}
             </button>
           </div>
         </form>

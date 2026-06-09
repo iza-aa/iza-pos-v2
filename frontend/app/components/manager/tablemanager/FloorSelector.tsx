@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useLanguage } from '@/app/components/shared/i18n';
 import { supabase } from '@/lib/config/supabaseClient';
 
 interface Floor {
@@ -22,6 +23,7 @@ export default function FloorSelector({
   onFloorChange,
   refreshKey = 0,
 }: FloorSelectorProps) {
+  const { t } = useLanguage();
   const [floors, setFloors] = useState<Floor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,7 +75,7 @@ export default function FloorSelector({
   if (floors.length === 0) {
     return (
       <div className="text-sm text-gray-500">
-        No active floors available. Create a floor to start managing tables.
+        {t('manager.table.noActiveFloors')}
       </div>
     );
   }
