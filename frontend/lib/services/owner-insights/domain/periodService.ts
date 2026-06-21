@@ -2,7 +2,7 @@ import {
   addDaysToDateString,
   getJakartaLocalDate,
   JAKARTA_TIME_ZONE,
-} from "./date";
+} from "../shared/date";
 import type {
   OwnerInsightPeriod,
   RecommendationGranularity,

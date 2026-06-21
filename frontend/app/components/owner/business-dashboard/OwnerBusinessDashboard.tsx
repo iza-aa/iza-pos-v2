@@ -13,7 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { SidebarTabset } from "@/app/components/shared";
 import { useLanguage, type TranslationKey } from "@/app/components/shared/i18n";
-import type { OwnerInsightCategory } from "@/lib/services/owner-insights/insightSchema";
+import type { OwnerInsightCategory } from "@/lib/services/owner-insights";
 import OverviewTab from "./tabs/OverviewTab";
 import SalesTab from "./tabs/SalesTab";
 import CustomerTab from "./tabs/CustomerTab";

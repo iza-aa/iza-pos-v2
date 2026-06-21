@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildRecommendationPeriodContext } from "./periodService";
+import { buildRecommendationPeriodContext } from "../domain/periodService";
 import type {
   MetricUnit,
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
   RecommendationMetric,
   RecommendationSnapshot,
-} from "./recommendationSnapshotTypes";
+} from "../domain/recommendationSnapshotTypes";
 
 type ActivityLogRow = {
   id: string;

@@ -90,6 +90,7 @@ export function buildNewReturningTrend(orders: OrderRow[], range: DateRangeValue
     .filter(isValidSalesOrder)
     .filter((order) => Boolean(order.customer_id));
   const firstOrderBucketByCustomer = new Map<string, string>();
+  const customerIdsByBucket = new Map<string, Set<string>>();
 
   validMemberOrders.forEach((order) => {
     const customerId = order.customer_id;
@@ -100,18 +101,20 @@ export function buildNewReturningTrend(orders: OrderRow[], range: DateRangeValue
     if (!currentFirstBucket || orderBucket < currentFirstBucket) {
       firstOrderBucketByCustomer.set(customerId, orderBucket);
     }
+
+    const customerIds = customerIdsByBucket.get(orderBucket);
+    if (customerIds) {
+      customerIds.add(customerId);
+    } else {
+      customerIdsByBucket.set(orderBucket, new Set([customerId]));
+    }
   });
 
   if (useHourlyBucket) {
     return Array.from({ length: 24 }, (_, hour) => {
       const hourKey = String(hour).padStart(2, "0");
       const bucket = `${range.startDate} ${hourKey}:00`;
-      const hourOrders = validMemberOrders.filter(
-        (order) => getOrderBucket(order, true) === bucket,
-      );
-      const customerIds = Array.from(
-        new Set(hourOrders.map((order) => order.customer_id).filter(Boolean)),
-      ) as string[];
+      const customerIds = Array.from(customerIdsByBucket.get(bucket) ?? []);
 
       return {
         date: `${hourKey}:00`,
@@ -126,10 +129,7 @@ export function buildNewReturningTrend(orders: OrderRow[], range: DateRangeValue
   }
 
   return getDatesBetween(range.startDate, range.endDate).map((date) => {
-    const dayOrders = validMemberOrders.filter((order) => getOrderBusinessDate(order) === date);
-    const customerIds = Array.from(
-      new Set(dayOrders.map((order) => order.customer_id).filter(Boolean)),
-    ) as string[];
+    const customerIds = Array.from(customerIdsByBucket.get(date) ?? []);
 
     return {
       date: date.slice(5),

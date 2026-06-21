@@ -2,6 +2,7 @@ import { OWNER_CHART_SERIES } from "@/lib/constants/theme";
 import { convertQuantity } from "@/lib/utils/unitConversion";
 import type {
   InventoryItemRow,
+  OrderRow,
   ProductCategoryRelation,
   ProductRow,
   RecipeIngredientRow,
@@ -9,12 +10,159 @@ import type {
 } from "../shared/dashboardTypes";
 import type { DateRangeValue } from "../DateRangeFilter";
 import {
+  addDaysToDateValue,
+  getDatesBetween,
   getOrderBusinessDate,
+  getOrderBusinessHour,
+  getPreviousDateRange,
   groupBy,
   isValidSalesOrder,
   toNumber,
 } from "../shared/dashboardUtils";
 import type { SalesDashboardData } from "./useSalesDashboardData";
+
+const getOrderNetSales = (order: OrderRow) =>
+  Math.max(toNumber(order.total) - toNumber(order.tax), 0);
+
+const getTrendDateBuckets = (range: DateRangeValue) => {
+  const dates = getDatesBetween(range.startDate, range.endDate);
+  const step = Math.max(1, Math.ceil(dates.length / 14));
+
+  return Array.from({ length: Math.ceil(dates.length / step) }, (_, index) => {
+    const bucketDates = dates.slice(index * step, (index + 1) * step);
+    const startDate = bucketDates[0];
+    const endDate = bucketDates[bucketDates.length - 1];
+
+    return {
+      startDate,
+      endDate,
+      label:
+        startDate === endDate
+          ? startDate.slice(5)
+          : `${startDate.slice(5)} - ${endDate.slice(5)}`,
+    };
+  });
+};
+
+const sumBucketOrders = (
+  orders: OrderRow[],
+  startDate: string,
+  endDate: string,
+) => {
+  const validOrders = orders.filter((order) => {
+    const date = getOrderBusinessDate(order);
+    return isValidSalesOrder(order) && date >= startDate && date <= endDate;
+  });
+
+  return {
+    netSales: validOrders.reduce((sum, order) => sum + getOrderNetSales(order), 0),
+    orders: validOrders.length,
+  };
+};
+
+export function buildSalesRevenueTrend(
+  orders: OrderRow[],
+  range: DateRangeValue,
+) {
+  if (range.startDate === range.endDate) {
+    return Array.from({ length: 24 }, (_, hour) => {
+      const hourKey = String(hour).padStart(2, "0");
+      const netSales = orders
+        .filter(
+          (order) =>
+            isValidSalesOrder(order) &&
+            getOrderBusinessDate(order) === range.startDate &&
+            getOrderBusinessHour(order) === hourKey,
+        )
+        .reduce((sum, order) => sum + getOrderNetSales(order), 0);
+
+      return {
+        date: `${hourKey}:00`,
+        revenue: netSales,
+      };
+    });
+  }
+
+  return getTrendDateBuckets(range).map((bucket) => ({
+    date: bucket.label,
+    revenue: sumBucketOrders(orders, bucket.startDate, bucket.endDate).netSales,
+  }));
+}
+
+export function buildSalesAovTrend(
+  orders: OrderRow[],
+  range: DateRangeValue,
+) {
+  const useHourlyBucket = range.startDate === range.endDate;
+
+  if (useHourlyBucket) {
+    const previousDate = getPreviousDateRange(range).startDate;
+    return Array.from({ length: 24 }, (_, hour) => {
+      const hourKey = String(hour).padStart(2, "0");
+      const getHourlyTotals = (date: string) => {
+        const validOrders = orders.filter(
+          (order) =>
+            isValidSalesOrder(order) &&
+            getOrderBusinessDate(order) === date &&
+            getOrderBusinessHour(order) === hourKey,
+        );
+        const netSales = validOrders.reduce(
+          (sum, order) => sum + getOrderNetSales(order),
+          0,
+        );
+
+        return {
+          netSales,
+          orders: validOrders.length,
+        };
+      };
+      const current = getHourlyTotals(range.startDate);
+      const previous = getHourlyTotals(previousDate);
+
+      return {
+        date: `${hourKey}:00`,
+        current: current.orders ? Math.round(current.netSales / current.orders) : 0,
+        previous: previous.orders ? Math.round(previous.netSales / previous.orders) : 0,
+      };
+    });
+  }
+
+  const previousRange = getPreviousDateRange(range);
+  const currentBuckets = getTrendDateBuckets(range);
+
+  return currentBuckets.map((bucket) => {
+    const startOffset = Math.round(
+      (new Date(`${bucket.startDate}T00:00:00`).getTime() -
+        new Date(`${range.startDate}T00:00:00`).getTime()) /
+        86_400_000,
+    );
+    const endOffset = Math.round(
+      (new Date(`${bucket.endDate}T00:00:00`).getTime() -
+        new Date(`${range.startDate}T00:00:00`).getTime()) /
+        86_400_000,
+    );
+    const previousBucketStart = addDaysToDateValue(
+      previousRange.startDate,
+      startOffset,
+    );
+    const previousBucketEnd = addDaysToDateValue(
+      previousRange.startDate,
+      endOffset,
+    );
+    const current = sumBucketOrders(orders, bucket.startDate, bucket.endDate);
+    const previous = sumBucketOrders(
+      orders,
+      previousBucketStart,
+      previousBucketEnd,
+    );
+
+    return {
+      date: bucket.label,
+      current: current.orders ? Math.round(current.netSales / current.orders) : 0,
+      previous: previous.orders ? Math.round(previous.netSales / previous.orders) : 0,
+    };
+  });
+}
 
 const getRelationObject = <T,>(relation: T | T[] | null | undefined): T | null => {
   if (!relation) return null;
@@ -120,18 +268,27 @@ export function buildSalesPerformance(data: SalesDashboardData, range: DateRange
   const categoriesById = new Map(
     data.categories.map((category) => [category.id, category.name || "Uncategorized"]),
   );
+  const getItemProduct = (item: SalesDashboardData["orderItems"][number]) =>
+    productById.get(item.product_id ?? "") ??
+    productByName.get(normalizeName(item.product_name));
+  const getItemProductKey = (item: SalesDashboardData["orderItems"][number]) => {
+    const product = getItemProduct(item);
+    return (
+      product?.id ||
+      item.product_id ||
+      `name:${normalizeName(item.product_name) || "unknown"}`
+    );
+  };
 
   return Array.from(
     groupBy(
       data.orderItems.filter((item) => item.order_id && validOrderIds.has(item.order_id)),
-      (item) => item.product_id || normalizeName(item.product_name) || "unknown",
+      getItemProductKey,
     ).entries(),
   )
-    .map(([, rows]) => {
+    .map(([groupKey, rows]) => {
       const firstRow = rows[0];
-      const product =
-        productById.get(firstRow.product_id ?? "") ??
-        productByName.get(normalizeName(firstRow.product_name));
+      const product = getItemProduct(firstRow);
       const name = product?.name || firstRow.product_name || "Unknown Menu";
       const sold = rows.reduce((sum, row) => sum + toNumber(row.quantity), 0);
       const revenue = rows.reduce((sum, row) => sum + toNumber(row.total_price), 0);
@@ -147,7 +304,7 @@ export function buildSalesPerformance(data: SalesDashboardData, range: DateRange
         grossProfit === null || revenue <= 0 ? null : (grossProfit / revenue) * 100;
 
       return {
-        id: product?.id ?? name,
+        id: product?.id ?? firstRow.product_id ?? groupKey,
         name,
         category: getProductCategory(product, categoriesById),
         sold,
@@ -179,14 +336,5 @@ export function buildTopSellingMenus(items: ReturnType<typeof buildSalesPerforma
     .map((item, index) => ({
       ...item,
       fill: OWNER_CHART_SERIES[index % OWNER_CHART_SERIES.length],
-    }));
-}
-
-export function getQuadrantData(items: ReturnType<typeof buildSalesPerformance>) {
-  return items
-    .filter((item) => item.sold > 0 || item.revenue > 0)
-    .map((item) => ({
-      ...item,
-      quadrantValue: item.revenue,
     }));
 }

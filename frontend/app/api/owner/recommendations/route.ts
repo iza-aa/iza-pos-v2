@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  buildDataSummaryInsight,
+  buildDeterministicIssueFallback,
   buildOwnerInsightPeriodKey,
-  createOwnerInsightSupabaseClient,
   buildOwnerInsightSnapshot,
-  type OwnerInsightPeriod,
-} from "@/lib/services/owner-insights/snapshotService";
-import {
+  createOwnerInsightSupabaseClient,
+  describeUnknownError,
   getTodayInsightRecord,
   getTodayInsightRecords,
-} from "@/lib/services/owner-insights/storageService";
-import {
-  buildDataSummaryInsight,
   isOwnerInsightCategory,
-} from "@/lib/services/owner-insights/insightSchema";
-import { buildDeterministicIssueFallback } from "@/lib/services/owner-insights/allowedIssueInsightGuards";
-import { describeUnknownError } from "@/lib/services/owner-insights/errorUtils";
+  type OwnerInsightPeriod,
+} from "@/lib/services/owner-insights";
 
 const getRequester = (request: NextRequest) => ({
   id: request.headers.get("x-user-id") ?? "",

@@ -120,22 +120,8 @@ function saveTableSession(data: TableSessionData) {
   };
 
   localStorage.setItem("customer_table_session", JSON.stringify(sessionPayload));
-
-  localStorage.setItem(
-    "customer_table",
-    JSON.stringify({
-      id: data.table_id,
-      table_id: data.table_id,
-      table_number: data.table_number,
-      floor_id: data.floor_id,
-      floor_name: data.floor_name,
-      capacity: data.capacity,
-      status: data.status,
-      is_active: true,
-    }),
-  );
-
-  localStorage.setItem("table_session_start", data.started_at);
+  localStorage.removeItem("customer_table");
+  localStorage.removeItem("table_session_start");
 }
 
 export default function CustomerTableSessionPage() {

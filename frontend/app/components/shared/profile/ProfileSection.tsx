@@ -10,6 +10,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/config/supabaseClient";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
+import { showError, showSuccess } from "@/lib/services/errorHandling";
+import { sanitizePhoneNumber } from "@/lib/utils";
 import { useLanguage } from "../i18n";
 
 type RoleScope = "owner" | "manager" | "staff";
@@ -305,6 +307,16 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
   const canChangePin = profile?.role === "staff";
 
   const avatarSrc = profilePicture || getFallbackAvatar(name || profile?.name || "User");
+  const hasProfileChanges = useMemo(() => {
+    if (!profile) return false;
+
+    return (
+      name.trim() !== profile.name.trim() ||
+      email.trim() !== (profile.email ?? "") ||
+      sanitizePhoneNumber(phone) !== sanitizePhoneNumber(profile.phone ?? "") ||
+      profilePicture !== (profile.profile_picture ?? "")
+    );
+  }, [email, name, phone, profile, profilePicture]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -373,7 +385,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
   const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!profile) return;
+    if (!profile || !hasProfileChanges) return;
 
     setSavingProfile(true);
     setError("");
@@ -382,10 +394,11 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
     try {
       const trimmedName = name.trim();
       const trimmedEmail = email.trim();
-      const trimmedPhone = phone.trim();
+      const trimmedPhone = sanitizePhoneNumber(phone);
 
       if (!trimmedName) {
-        setError(t("profile.nameRequired"));
+        const message = t("profile.nameRequired");
+        showError(message);
         return;
       }
 
@@ -416,10 +429,11 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
         dispatchProfileUpdatedEvent();
       }
 
-      setSuccess(t("profile.updated"));
+      const message = t("profile.updated");
+      showSuccess(message);
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : t("profile.saveError");
-      setError(message);
+      showError(message);
     } finally {
       setSavingProfile(false);
     }
@@ -463,10 +477,10 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       }
 
       const sizeKb = Math.max(1, Math.round(compressedFile.size / 1024));
-      setSuccess(t("profile.photoUpdated", { size: sizeKb }));
+      showSuccess(t("profile.photoUpdated", { size: sizeKb }));
     } catch (uploadError) {
       const message = uploadError instanceof Error ? uploadError.message : t("profile.photoUploadError");
-      setError(message);
+      showError(message);
     } finally {
       setUploadingPhoto(false);
     }
@@ -644,8 +658,14 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">{t("profile.phone")}</label>
                 <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={15}
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
+                  onChange={(event) =>
+                    setPhone(sanitizePhoneNumber(event.target.value))
+                  }
                   className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   placeholder="08xxxxxxxxxx"
                 />
@@ -655,7 +675,11 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
             <div className="mt-6 flex justify-end">
               <button
                 type="submit"
-                disabled={savingProfile || uploadingPhoto}
+                disabled={
+                  savingProfile ||
+                  uploadingPhoto ||
+                  !hasProfileChanges
+                }
                 className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingProfile ? t("common.saving") : t("profile.saveChanges")}

@@ -1,16 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildMetric, toNumber } from "./metricSnapshotBuilder";
+import { buildMetric, toNumber } from "../domain/metricSnapshotBuilder";
 import {
   buildRecommendationPeriodContext,
   isDateInPeriod,
-} from "./periodService";
+} from "../domain/periodService";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
   RecommendationChartPoint,
   RecommendationMetric,
   RecommendationSnapshot,
-} from "./recommendationSnapshotTypes";
+} from "../domain/recommendationSnapshotTypes";
 
 type InventoryItemRow = {
   id: string;

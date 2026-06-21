@@ -31,6 +31,47 @@ export interface StaffInfo extends CurrentUser {
   roleAbbr: 'OWN' | 'MAN' | 'STA';
 }
 
+const INTERNAL_AUTH_STORAGE_KEYS = [
+  'user_id',
+  'user_name',
+  'user_role',
+  'staff_type',
+  'staff_code',
+  'profile_picture',
+  'session_id',
+] as const;
+
+const DEPRECATED_STORAGE_KEYS = [
+  'last_archive_check',
+  'last_month_archived',
+  'inventory_show_stats',
+  'theme',
+] as const;
+
+export function storeInternalIdentity(user: {
+  id: string;
+  name: string;
+  role: UserRole;
+  staffCode?: string | null;
+  staffType?: StaffType | string;
+  profilePicture?: string | null;
+}): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('user_id', user.id);
+  localStorage.setItem('user_name', user.name);
+  localStorage.setItem('user_role', user.role);
+  localStorage.setItem('staff_code', user.staffCode ?? '');
+  localStorage.setItem('staff_type', user.staffType ?? '');
+  if (user.profilePicture !== undefined) {
+    localStorage.setItem('profile_picture', user.profilePicture ?? '');
+  }
+}
+
+export function cleanupDeprecatedStorage(): void {
+  if (typeof window === 'undefined') return;
+  DEPRECATED_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+}
+
 /**
  * Get current user information from localStorage
  * @returns Current user data or null if not logged in
@@ -84,7 +125,7 @@ export function isAuthenticated(): boolean {
  */
 export function clearAuth(): void {
   if (typeof window === 'undefined') return;
-  localStorage.clear();
+  INTERNAL_AUTH_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
 }
 
 /**

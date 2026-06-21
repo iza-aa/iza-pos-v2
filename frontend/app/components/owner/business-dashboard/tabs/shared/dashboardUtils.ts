@@ -1,5 +1,6 @@
 import type { DateRangeValue } from "../DateRangeFilter";
 import type { OrderRow } from "./dashboardTypes";
+import { isValidPaidOrder } from "@/lib/utils/orderValidation";
 
 export const toNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
@@ -65,35 +66,55 @@ export const getPreviousDateRange = (range: DateRangeValue): DateRangeValue => {
   };
 };
 
+const jakartaDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  hour12: false,
+});
+
+const jakartaDatePartsCache = new Map<string, { date: string; hour: string } | null>();
+const MAX_DATE_CACHE_SIZE = 10_000;
+
 const getJakartaDateParts = (value: string | null | undefined) => {
   if (!value) return null;
+  if (jakartaDatePartsCache.has(value)) {
+    return jakartaDatePartsCache.get(value) ?? null;
+  }
 
   const normalizedValue = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value)
     ? value
     : `${value.replace(" ", "T")}Z`;
   const date = new Date(normalizedValue);
-  if (Number.isNaN(date.getTime())) return null;
+  if (Number.isNaN(date.getTime())) {
+    jakartaDatePartsCache.set(value, null);
+    return null;
+  }
 
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
+  const parts = jakartaDateFormatter.formatToParts(date);
   const getPart = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   const year = getPart("year");
   const month = getPart("month");
   const day = getPart("day");
   const hour = getPart("hour");
 
-  if (!year || !month || !day) return null;
+  if (!year || !month || !day) {
+    jakartaDatePartsCache.set(value, null);
+    return null;
+  }
 
-  return {
+  const result = {
     date: `${year}-${month}-${day}`,
     hour: hour === "24" ? "00" : hour.padStart(2, "0"),
   };
+
+  if (jakartaDatePartsCache.size >= MAX_DATE_CACHE_SIZE) {
+    jakartaDatePartsCache.clear();
+  }
+  jakartaDatePartsCache.set(value, result);
+  return result;
 };
 
 export const getBusinessDateFromTimestamp = (value: string | null | undefined) => {
@@ -116,19 +137,7 @@ export const getOrderBusinessHour = (order: OrderRow) => {
 };
 
 export const isValidSalesOrder = (order: OrderRow) => {
-  const status = String(order.status ?? "").toLowerCase();
-  const payment = String(order.payment_status ?? "").toLowerCase();
-
-  if (["cancelled", "canceled", "void", "refunded"].includes(status)) return false;
-  if (
-    ["cancelled", "canceled", "failed", "refunded", "void", "unpaid", "pending"].includes(
-      payment,
-    )
-  ) {
-    return false;
-  }
-
-  return true;
+  return isValidPaidOrder(order);
 };
 
 export const groupBy = <T,>(items: T[], getKey: (item: T) => string) => {
@@ -136,7 +145,12 @@ export const groupBy = <T,>(items: T[], getKey: (item: T) => string) => {
 
   items.forEach((item) => {
     const key = getKey(item) || "Unknown";
-    map.set(key, [...(map.get(key) ?? []), item]);
+    const group = map.get(key);
+    if (group) {
+      group.push(item);
+    } else {
+      map.set(key, [item]);
+    }
   });
 
   return map;

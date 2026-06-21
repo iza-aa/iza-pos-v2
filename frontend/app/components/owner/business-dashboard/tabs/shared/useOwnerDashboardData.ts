@@ -6,6 +6,7 @@ import {
   loadDashboardOrderCorrections,
   type DashboardOrderCorrectionRow,
 } from "./orderCorrectionClient";
+import { loadAllDashboardRows } from "./dashboardQueryUtils";
 import type {
   AttendanceRow,
   DashboardData,
@@ -62,7 +63,7 @@ const applyOrderCorrections = (
 };
 
 const ORDER_BASE_SELECT =
-  "id,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id";
+  "id,order_number,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id";
 const ORDER_EXTENDED_SELECT = `${ORDER_BASE_SELECT},completed_at,created_by`;
 const ORDER_ITEM_BASE_SELECT = "order_id,product_name,quantity,total_price";
 const ORDER_ITEM_EXTENDED_SELECT = `${ORDER_ITEM_BASE_SELECT},ready_at,served_at,served_by`;
@@ -102,8 +103,22 @@ export default function useOwnerDashboardData() {
     const load = async () => {
       setData((current) => ({ ...current, loading: true, error: "" }));
 
-      const queryOrders = (select: string) => supabase.from("orders").select(select);
-      const queryOrderItems = (select: string) => supabase.from("order_items").select(select);
+      const queryOrders = (select: string) =>
+        loadAllDashboardRows<OrderRow>((from, to) =>
+          supabase
+            .from("orders")
+            .select(select)
+            .order("created_at", { ascending: true })
+            .range(from, to),
+        );
+      const queryOrderItems = (select: string) =>
+        loadAllDashboardRows<OrderItemRow>((from, to) =>
+          supabase
+            .from("order_items")
+            .select(select)
+            .order("id", { ascending: true })
+            .range(from, to),
+        );
       const [orders, orderItems, products, inventoryItems, inventoryBatches, staff, attendance, usageTransactions, usageTransactionDetails, stockReports, orderCorrections] =
         await Promise.all([
           queryOrders(ORDER_EXTENDED_SELECT).then((result) =>
@@ -125,16 +140,28 @@ export default function useOwnerDashboardData() {
                 : result;
             }),
           supabase.from("staff").select("id,name,role,status"),
-          supabase
-            .from("attendance")
-            .select("id,staff_id,attendance_date,clock_in_at,clock_out_at,check_in_status,check_out_status"),
-          supabase
-            .from("usage_transactions")
-            .select("id,transaction_type,type,created_at,timestamp,order_id,product_name,quantity_sold,notes,performed_by_name")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("usage_transaction_details")
-            .select("usage_transaction_id,inventory_item_id,ingredient_name,quantity_used,unit,previous_stock,new_stock"),
+          loadAllDashboardRows<AttendanceRow>((from, to) =>
+            supabase
+              .from("attendance")
+              .select("id,staff_id,attendance_date,clock_in_at,clock_out_at,check_in_status,check_out_status")
+              .order("attendance_date", { ascending: true })
+              .order("id", { ascending: true })
+              .range(from, to),
+          ),
+          loadAllDashboardRows<UsageTransactionRow>((from, to) =>
+            supabase
+              .from("usage_transactions")
+              .select("id,transaction_type,type,created_at,timestamp,order_id,product_name,quantity_sold,notes,performed_by_name")
+              .order("created_at", { ascending: true })
+              .range(from, to),
+          ),
+          loadAllDashboardRows<UsageTransactionDetailRow>((from, to) =>
+            supabase
+              .from("usage_transaction_details")
+              .select("usage_transaction_id,inventory_item_id,ingredient_name,quantity_used,unit,previous_stock,new_stock")
+              .order("id", { ascending: true })
+              .range(from, to),
+          ),
           supabase
             .from("stock_reports")
             .select("id,material_name,report_type,status,reported_by_role,created_at")

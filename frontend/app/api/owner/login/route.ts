@@ -1,19 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import { setInternalSessionCookie } from "@/lib/auth/internalSession";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export async function POST(req: Request) {
-  const { email, password } = await req.json();
+export async function POST(req: NextRequest) {
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const password = String(body.password ?? "");
+  const rememberMe = body.remember_me === true;
+
+  if (!email || !password) {
+    return NextResponse.json(
+      { success: false, error: "Email dan password wajib diisi." },
+      { status: 400 },
+    );
+  }
 
   // Cari staff dengan role owner
   const { data: staff, error } = await supabase
     .from("staff")
-    .select("id, name, email, password_hash, role, status")
+    .select("id, name, email, password_hash, role, status, staff_code, staff_type")
     .eq("email", email)
     .eq("role", "owner")
     .eq("status", "active")
@@ -21,25 +32,36 @@ export async function POST(req: Request) {
 
   if (error || !staff) {
     return NextResponse.json(
-      { success: false, error: "Email tidak ditemukan atau bukan Owner." },
+      { success: false, error: "Email atau password tidak valid." },
       { status: 401 }
     );
   }
 
   // Cek password dengan bcrypt
-  const isPasswordValid = await bcrypt.compare(password, staff.password_hash);
+  const isPasswordValid = Boolean(staff.password_hash) &&
+    await bcrypt.compare(password, staff.password_hash);
   if (!isPasswordValid) {
     return NextResponse.json(
-      { success: false, error: "Password salah." },
+      { success: false, error: "Email atau password tidak valid." },
       { status: 401 }
     );
   }
 
   // Login sukses
-  return NextResponse.json({
+  const response = NextResponse.json({
     success: true,
     user_id: staff.id,
     user_name: staff.name,
     user_role: staff.role,
+    staff_code: staff.staff_code ?? "",
+    staff_type: staff.staff_type ?? "",
   });
+  await setInternalSessionCookie(response, {
+    id: staff.id,
+    name: staff.name,
+    role: "owner",
+    staffCode: staff.staff_code ?? "",
+    staffType: staff.staff_type ?? null,
+  }, rememberMe);
+  return response;
 }

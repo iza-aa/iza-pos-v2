@@ -49,13 +49,7 @@ export default function SettingsTab() {
       setError("");
 
       try {
-        const response = await fetch("/api/owner/bookkeeping/settings", {
-          headers: {
-            "x-user-id": currentUser.id,
-            "x-user-name": currentUser.name,
-            "x-user-role": currentUser.role,
-          },
-        });
+        const response = await fetch("/api/owner/bookkeeping/settings");
         const result = (await response.json().catch(() => ({}))) as {
           settings?: BookkeepingFinancialSettings;
           error?: string;
@@ -103,9 +97,6 @@ export default function SettingsTab() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
         },
         body: JSON.stringify({
           ...draftSettings,

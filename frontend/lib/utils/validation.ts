@@ -30,6 +30,13 @@ export interface ValidationError {
 // ==================== Phone Number Validation ====================
 
 /**
+ * Keeps only phone-number digits for numeric-only form fields.
+ */
+export function sanitizePhoneNumber(phone: string, maxLength = 15): string {
+  return phone.replace(/\D/g, '').slice(0, maxLength)
+}
+
+/**
  * Validates Indonesian phone number format
  * Accepts formats: 08xx, +628xx, 628xx
  */

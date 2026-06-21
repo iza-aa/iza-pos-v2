@@ -1,21 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { average, buildMetric } from "./metricSnapshotBuilder";
+import { average, buildMetric } from "../domain/metricSnapshotBuilder";
 import {
   buildRecommendationPeriodContext,
   getPeriodLengthDays,
   isDateInPeriod,
-} from "./periodService";
+} from "../domain/periodService";
 import {
   applyInsightOrderCorrections,
   type InsightOrderCorrectionRow,
-} from "./orderCorrectionUtils";
+} from "../domain/orderCorrectionUtils";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
   RecommendationChartPoint,
   RecommendationMetric,
   RecommendationSnapshot,
-} from "./recommendationSnapshotTypes";
+} from "../domain/recommendationSnapshotTypes";
 
 type StaffRow = {
   id: string;

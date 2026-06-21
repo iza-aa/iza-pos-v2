@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { CustomerDiscountDashboard } from "./StandardDashboardPanels";
+import CustomerDiscountDashboard from "./customer/CustomerDiscountDashboard";
 import CustomerPerformanceDashboard from "./customer/CustomerPerformanceDashboard";
 
 type CustomerSection = "performance" | "create-discount";

@@ -150,7 +150,7 @@ export function buildDeterministicIssueFallback(
     OwnerInsightCategory,
     { label: string; href: string }
   > = {
-    overview: { label: "Review Overview", href: "/owner/dashboard?tab=sales" },
+    overview: { label: "Review Overview", href: "/owner/dashboard?tab=overview" },
     sales: { label: "Review Sales", href: "/owner/dashboard?tab=sales" },
     rewards: { label: "Review Customer", href: "/owner/dashboard?tab=customer" },
     inventory: { label: "Review Inventory", href: "/owner/dashboard?tab=inventory" },

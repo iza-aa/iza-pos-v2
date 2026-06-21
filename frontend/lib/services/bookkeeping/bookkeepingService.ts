@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/config/supabaseClient";
 import { convertQuantity } from "@/lib/utils/unitConversion";
 import {
+  isCancelledOrderStatus,
+  isValidPaidOrder,
+} from "@/lib/utils/orderValidation";
+import {
   formatJakartaBusinessDate,
   formatJakartaBusinessTime,
   toJakartaDateTimeEnd,
@@ -182,14 +186,11 @@ const formatBusinessDate = formatJakartaBusinessDate;
 const formatBusinessTime = formatJakartaBusinessTime;
 
 const isValidOrder = (order: OrderRow) => {
-  const status = String(order.status || "").toLowerCase();
-  const paymentStatus = String(order.payment_status || "").toLowerCase();
-
-  return !["cancelled", "canceled", "void", "refunded"].includes(status) && (paymentStatus === "paid" || toNumber(order.total) > 0);
+  return isValidPaidOrder(order);
 };
 
 const isCancelledOrder = (order: OrderRow) => {
-  return ["cancelled", "canceled", "void", "refunded"].includes(String(order.status || "").toLowerCase());
+  return isCancelledOrderStatus(order.status);
 };
 
 const applyOrderCorrections = (orders: OrderRow[], corrections: OrderCorrectionRow[]) => {
@@ -1038,6 +1039,34 @@ export async function loadBookkeepingDashboardData(
   return loadBookkeepingDashboardDataFromClient(supabase, dateRange);
 }
 
+const USAGE_DETAIL_QUERY_BATCH_SIZE = 200;
+
+async function loadUsageDetailsForTransactions(
+  db: SupabaseClient,
+  transactionIds: string[],
+): Promise<UsageDetailRow[]> {
+  if (transactionIds.length === 0) return [];
+
+  const batches: string[][] = [];
+  for (let index = 0; index < transactionIds.length; index += USAGE_DETAIL_QUERY_BATCH_SIZE) {
+    batches.push(transactionIds.slice(index, index + USAGE_DETAIL_QUERY_BATCH_SIZE));
+  }
+
+  const results = await Promise.all(
+    batches.map((ids) =>
+      db
+        .from("usage_transaction_details")
+        .select("usage_transaction_id, inventory_item_id, ingredient_name, quantity_used, unit")
+        .in("usage_transaction_id", ids),
+    ),
+  );
+
+  const error = results.find((result) => result.error)?.error;
+  if (error) throw error;
+
+  return results.flatMap((result) => (result.data || []) as UsageDetailRow[]);
+}
+
 export async function loadBookkeepingDashboardDataFromClient(
   db: SupabaseClient,
   dateRange: DateRangeValue,
@@ -1045,7 +1074,6 @@ export async function loadBookkeepingDashboardDataFromClient(
   const [
     ordersResult,
     usageTransactionsResult,
-    usageDetailsResult,
     inventoryResult,
     inventoryBatchesResult,
     recipesResult,
@@ -1088,9 +1116,6 @@ export async function loadBookkeepingDashboardDataFromClient(
         .lte("created_at", toDateTimeEnd(dateRange.endDate))
         .order("created_at", { ascending: false }),
       db
-        .from("usage_transaction_details")
-        .select("usage_transaction_id, inventory_item_id, ingredient_name, quantity_used, unit"),
-      db
         .from("inventory_items")
         .select("*"),
       db
@@ -1129,7 +1154,6 @@ export async function loadBookkeepingDashboardDataFromClient(
 
   if (ordersResult.error) throw ordersResult.error;
   if (usageTransactionsResult.error) throw usageTransactionsResult.error;
-  if (usageDetailsResult.error) throw usageDetailsResult.error;
   if (inventoryResult.error) throw inventoryResult.error;
   if (inventoryBatchesResult.error && !isMissingInventoryBatchTableError(inventoryBatchesResult.error)) {
     throw inventoryBatchesResult.error;
@@ -1147,7 +1171,10 @@ export async function loadBookkeepingDashboardDataFromClient(
     (orderCorrectionsResult.data || []) as OrderCorrectionRow[],
   );
   const usageTransactions = (usageTransactionsResult.data || []) as UsageTransactionRow[];
-  const usageDetails = (usageDetailsResult.data || []) as UsageDetailRow[];
+  const usageDetails = await loadUsageDetailsForTransactions(
+    db,
+    usageTransactions.map((transaction) => transaction.id),
+  );
   const inventoryItems = (inventoryResult.data || []) as InventoryItemRow[];
   const inventoryBatches = inventoryBatchesResult.error
     ? []
@@ -1194,6 +1221,10 @@ export async function loadBookkeepingDashboardDataFromClient(
     .reduce((sum, entry) => sum + entry.amount, 0);
   const hasCogsGaps = inventoryEntries.some((entry) => entry.status === "cost_data_needed");
 
+  // Gross Sales = Σ subtotal atau total pesanan valid
+  // Discounts = Σ diskon pesanan valid
+  // Tax Collected = Σ pajak pesanan valid
+
   const grossSales = orders.filter(isValidOrder).reduce((sum, order) => sum + toNumber(order.subtotal || order.total), 0);
   const discounts = orders.filter(isValidOrder).reduce((sum, order) => sum + toNumber(order.discount), 0);
   const taxCollected = orders.filter(isValidOrder).reduce((sum, order) => sum + toNumber(order.tax), 0);
@@ -1235,12 +1266,17 @@ export async function loadBookkeepingDashboardDataFromClient(
   });
   const exceptions = buildExceptions({ orders, entries, menuMargins, dateRange, shifts });
   const recipeCogsEstimate = menuMargins.reduce(
+    // COGS =
+    // Recipe COGS atau Usage COGS
+    // + Kitchen Bulk COGS
+    // + Quality Check Usage Cost
     (sum, row) => sum + (row.estimatedCogs ?? 0),
     0,
   );
   const hasMenuCostGaps = menuMargins.some((row) => row.status !== "ready");
   const cogsEstimate = (recipeCogsEstimate > 0 ? recipeCogsEstimate : usageCogsEstimate) + kitchenBulkCogs + qualityCheckUsageCost;
   const estimatedCogs = hasCogsGaps || hasMenuCostGaps || cogsEstimate <= 0 ? null : cogsEstimate;
+  // grossProfit = netSales - estimatedCogs
   const grossProfit = estimatedCogs === null ? null : netSales - estimatedCogs;
   const operatingExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -1254,6 +1290,8 @@ export async function loadBookkeepingDashboardDataFromClient(
       estimatedCogs,
       grossProfit,
       operatingExpenses,
+      // netProfitEstimate =
+      // grossProfit - operatingExpenses
       netProfitEstimate: grossProfit === null ? null : grossProfit - operatingExpenses,
       openingCashTotal,
       cashExpected,

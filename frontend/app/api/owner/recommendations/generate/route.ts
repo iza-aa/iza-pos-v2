@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  buildDataSummaryInsight,
+  buildDeterministicIssueFallback,
   buildOwnerInsightPeriodKey,
   buildOwnerInsightSnapshot,
   createOwnerInsightSupabaseClient,
-  type OwnerInsightPeriod,
-} from "@/lib/services/owner-insights/snapshotService";
-import { generateGeminiInsights } from "@/lib/services/owner-insights/geminiInsightService";
-import {
-  buildDataSummaryInsight,
+  describeUnknownError,
+  generateGeminiInsights,
   isOwnerInsightCategory,
   sanitizeInsights,
+  saveTodayInsightRecord,
   type AIInsight,
   type OwnerInsightCategory,
-} from "@/lib/services/owner-insights/insightSchema";
-import { buildDeterministicIssueFallback } from "@/lib/services/owner-insights/allowedIssueInsightGuards";
-import { saveTodayInsightRecord } from "@/lib/services/owner-insights/storageService";
-import { describeUnknownError } from "@/lib/services/owner-insights/errorUtils";
+  type OwnerInsightPeriod,
+} from "@/lib/services/owner-insights";
 
 type GenerateRequest = {
   category?: string;

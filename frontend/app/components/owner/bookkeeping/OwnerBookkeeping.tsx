@@ -211,13 +211,7 @@ export default function OwnerBookkeeping() {
         endDate: dateRange.endDate,
       });
 
-      const response = await fetch(`/api/owner/bookkeeping/overview?${params.toString()}`, {
-        headers: {
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
-        },
-      });
+      const response = await fetch(`/api/owner/bookkeeping/overview?${params.toString()}`);
 
       const result = (await response.json().catch(() => ({}))) as {
         data?: BookkeepingDashboardData;
@@ -292,9 +286,6 @@ export default function OwnerBookkeeping() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
         },
         body: JSON.stringify(form),
       });
@@ -351,9 +342,6 @@ export default function OwnerBookkeeping() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-user-id": currentUser.id,
-            "x-user-name": currentUser.name,
-            "x-user-role": currentUser.role,
           },
           body: JSON.stringify(form),
         },
@@ -398,9 +386,6 @@ export default function OwnerBookkeeping() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
         },
         body: JSON.stringify({ id: expense.id }),
       });
@@ -444,9 +429,6 @@ export default function OwnerBookkeeping() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
         },
         body: JSON.stringify({ dateRange, notes }),
       });
@@ -492,9 +474,6 @@ export default function OwnerBookkeeping() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": currentUser.id,
-          "x-user-name": currentUser.name,
-          "x-user-role": currentUser.role,
         },
         body: JSON.stringify({ businessDate, reason }),
       });

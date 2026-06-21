@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { logActivity } from "@/lib/services/activity/activityLogger";
+import { clearAuth, cleanupDeprecatedStorage, storeInternalIdentity } from "@/lib/utils";
 
 const slides = [
   {
@@ -26,9 +27,12 @@ export default function ManagerLoginPage() {
   const [current, setCurrent] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Auto slide
   useEffect(() => {
+    clearAuth();
+    cleanupDeprecatedStorage();
     const interval = setInterval(() => {
       setCurrent((prev) => (prev + 1) % slides.length);
     }, 4000);
@@ -43,18 +47,22 @@ export default function ManagerLoginPage() {
     const res = await fetch("/api/manager/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, remember_me: rememberMe }),
     });
 
     const result = await res.json();
     setLoading(false);
 
     if (res.ok && result.success) {
-      localStorage.setItem("user_id", result.user_id);
-      localStorage.setItem("user_name", result.user_name);
-      localStorage.setItem("user_role", "manager");
-      localStorage.setItem("staff_type", result.staff_type || "");
-      localStorage.setItem("staff_code", result.staff_code);
+      clearAuth();
+      cleanupDeprecatedStorage();
+      storeInternalIdentity({
+        id: result.user_id,
+        name: result.user_name,
+        role: "manager",
+        staffCode: result.staff_code,
+        staffType: result.staff_type,
+      });
       
       // Log successful login
       await logActivity({
@@ -162,7 +170,12 @@ export default function ManagerLoginPage() {
             </div>
             <div className="flex items-center justify-between">
               <label className="flex items-center">
-                <input type="checkbox" className="rounded border-gray-300" />
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                  className="rounded border-gray-300"
+                />
                 <span className="ml-2 text-sm text-gray-400">Remember me</span>
               </label>
             </div>

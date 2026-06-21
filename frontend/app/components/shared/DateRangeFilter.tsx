@@ -2,6 +2,7 @@
 
 import { getJakartaTodayDate, toUtcDateOnly } from "@/lib/services/bookkeeping/bookkeepingDate";
 import { useLanguage } from "./i18n";
+import DateRangeCalendar, { formatDateRangeLabel } from "./DateRangeCalendar";
 
 export type DateRangeValue = {
   startDate: string;
@@ -74,18 +75,14 @@ export default function DateRangeFilter({
   value: DateRangeValue;
   onChange: (value: DateRangeValue) => void;
 }) {
-  const { t } = useLanguage();
-
-  const setDate = (key: keyof DateRangeValue, nextValue: string) => {
-    const nextRange = { ...value, [key]: nextValue };
-
-    if (nextRange.startDate > nextRange.endDate) {
-      onChange({ startDate: nextValue, endDate: nextValue });
-      return;
-    }
-
-    onChange(nextRange);
-  };
+  const { language, t } = useLanguage();
+  const activePreset = presets.find((preset) => {
+    const presetValue = preset.getValue();
+    return (
+      presetValue.startDate === value.startDate &&
+      presetValue.endDate === value.endDate
+    );
+  });
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -93,7 +90,9 @@ export default function DateRangeFilter({
         <div>
           <p className="text-sm font-bold text-gray-950">{t("dateRange.title")}</p>
           <p className="mt-1 text-sm leading-6 text-gray-500 sm:leading-normal">
-            {t("dateRange.description")}
+            <span className="font-semibold text-gray-700">
+              {formatDateRangeLabel(value, language)}
+            </span>
           </p>
         </div>
 
@@ -110,37 +109,23 @@ export default function DateRangeFilter({
                   key={preset.id}
                   type="button"
                   onClick={() => onChange(presetValue)}
-                  className={`h-12 rounded-xl border px-3 text-sm font-semibold transition sm:h-auto sm:py-2 ${
+                  className={`flex min-h-12 flex-col items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
                     active
                       ? "border-gray-900 bg-gray-900 text-white"
                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  {t(preset.labelKey)}
+                  <span>{t(preset.labelKey)}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="grid gap-2 sm:flex sm:flex-row sm:items-center">
-            <input
-              type="date"
-              value={value.startDate}
-              onChange={(event) => setDate("startDate", event.target.value)}
-              className="h-12 min-w-0 rounded-xl border border-gray-200 bg-white px-4 text-base font-semibold text-gray-700 outline-none transition focus:border-gray-900 sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
-              aria-label={t("dateRange.startDate")}
-            />
-            <span className="hidden text-sm font-semibold text-gray-400 sm:block">
-              {t("dateRange.to")}
-            </span>
-            <input
-              type="date"
-              value={value.endDate}
-              onChange={(event) => setDate("endDate", event.target.value)}
-              className="h-12 min-w-0 rounded-xl border border-gray-200 bg-white px-4 text-base font-semibold text-gray-700 outline-none transition focus:border-gray-900 sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
-              aria-label={t("dateRange.endDate")}
-            />
-          </div>
+          <DateRangeCalendar
+            value={value}
+            onChange={onChange}
+            active={!activePreset}
+          />
         </div>
       </div>
     </section>

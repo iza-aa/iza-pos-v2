@@ -26,6 +26,42 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `
+              (() => {
+                const attribute = "bis_skin_checked";
+                const clean = (root = document) => {
+                  root.querySelectorAll?.("[" + attribute + "]").forEach((element) => {
+                    element.removeAttribute(attribute);
+                  });
+                };
+
+                clean();
+                const observer = new MutationObserver((mutations) => {
+                  for (const mutation of mutations) {
+                    if (mutation.type === "attributes" && mutation.target instanceof Element) {
+                      mutation.target.removeAttribute(attribute);
+                    }
+                  }
+                });
+                observer.observe(document.documentElement, {
+                  attributes: true,
+                  subtree: true,
+                  attributeFilter: [attribute],
+                });
+                document.addEventListener("DOMContentLoaded", () => clean(), { once: true });
+                window.addEventListener("load", () => {
+                  clean();
+                  window.setTimeout(() => observer.disconnect(), 1000);
+                }, { once: true });
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning

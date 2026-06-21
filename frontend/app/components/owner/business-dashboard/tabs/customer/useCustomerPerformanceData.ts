@@ -6,6 +6,7 @@ import {
   loadDashboardOrderCorrections,
   type DashboardOrderCorrectionRow,
 } from "../shared/orderCorrectionClient";
+import { loadAllDashboardRows } from "../shared/dashboardQueryUtils";
 import type { OrderRow } from "../shared/dashboardTypes";
 
 export type CustomerPerformanceData = {
@@ -56,10 +57,13 @@ export default function useCustomerPerformanceData() {
       setData((current) => ({ ...current, loading: true, error: "" }));
 
       const [orders, orderCorrections] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("id,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id")
-          .order("created_at", { ascending: true }),
+        loadAllDashboardRows<OrderRow>((from, to) =>
+          supabase
+            .from("orders")
+            .select("id,order_number,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id")
+            .order("created_at", { ascending: true })
+            .range(from, to),
+        ),
         loadDashboardOrderCorrections(),
       ]);
 

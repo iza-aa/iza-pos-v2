@@ -33,7 +33,9 @@ export function MetricCard({
         {label}
       </p>
       <p className="mt-3 text-2xl font-bold text-gray-950">{value}</p>
-      <p className="mt-2 text-sm leading-5 text-gray-600">{helper}</p>
+      <p className="mt-2 truncate text-sm leading-5 text-gray-600" title={helper}>
+        {helper}
+      </p>
     </section>
   );
 }

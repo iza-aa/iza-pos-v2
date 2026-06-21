@@ -1,4 +1,4 @@
-import type { OwnerInsightCategory } from "./insightSchema";
+import type { OwnerInsightCategory } from "../domain/insightSchema";
 
 export type CategoryPromptRule = {
   label: string;
@@ -10,18 +10,19 @@ export const CATEGORY_PROMPT_RULES: Record<OwnerInsightCategory, CategoryPromptR
   overview: {
     label: "overview business health",
     focus:
-      "executive metrics, revenue, order quality, completion, cancellation, payment mix, and business health signals",
+      "executive signals across Sales, Customer, Inventory, Staff, and Operations, highlighting the most important cross-area action for the owner",
     forbiddenClaims: [
-      "Do not say there is no revenue unless metrics.totalRevenue.value is exactly 0.",
-      "Use metrics.totalRevenue.value as the only source of truth for revenue.",
+      "Treat Overview as a five-area executive summary, not as another Sales analysis.",
+      "Use metrics.salesNetSales as the source of truth for sales value.",
+      "Use only the Customer, Inventory, Staff, and Operations metrics included in the snapshot.",
       "Do not use the word today unless the selected period contains exactly one date.",
-      "Do not mention products, categories, or staff because Overview does not include those dimensions.",
+      "Do not invent product names, staff names, stock items, or operational causes that are not included in the supporting area issue.",
     ],
   },
   sales: {
     label: "sales performance",
     focus:
-      "net profit estimate, revenue, discounts, food cost, operating expenses, tax collected, payment mix, menu margins, top menus, and weak menus",
+      "Net Sales, valid paid orders, Average Order Value, estimated profit, payment mix, menu sales, category contribution, and menu profitability",
     forbiddenClaims: [
       "Do not claim a product sold yesterday or today. Use selected period and comparison period wording only.",
       "Do not mention product quantities unless they appear in charts.topMenus, tables.weakMenus, or tables.menuMargins.",

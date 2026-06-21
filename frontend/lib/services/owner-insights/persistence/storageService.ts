@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getJakartaLocalDate } from "./date";
+import { getJakartaLocalDate } from "../shared/date";
 import type {
   AIInsight,
   OwnerInsightCategory,
   OwnerInsightRecord,
-} from "./insightSchema";
+} from "../domain/insightSchema";
 
 const TABLE_NAME = "owner_ai_recommendations";
 export const DAILY_GENERATION_LIMIT = 3;

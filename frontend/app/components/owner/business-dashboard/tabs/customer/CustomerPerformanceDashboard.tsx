@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -36,14 +36,24 @@ import {
   getLoyaltyInsightSummary,
 } from "./customerLogic";
 import useCustomerPerformanceData from "./useCustomerPerformanceData";
-import { exportWorkbook } from "../shared/exportUtils";
+import {
+  exportReport,
+  getReportExportItems,
+  type ReportExportFormat,
+} from "@/lib/utils/reportExport";
 
 export default function CustomerPerformanceDashboard() {
   const { t } = useLanguage();
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const data = useCustomerPerformanceData();
-  const metrics = buildCustomerPerformance(data.orders, dateRange);
-  const trend = buildNewReturningTrend(data.orders, dateRange);
+  const metrics = useMemo(
+    () => buildCustomerPerformance(data.orders, dateRange),
+    [data.orders, dateRange.endDate, dateRange.startDate],
+  );
+  const trend = useMemo(
+    () => buildNewReturningTrend(data.orders, dateRange),
+    [data.orders, dateRange.endDate, dateRange.startDate],
+  );
   const loyaltyInsight = getLoyaltyInsightSummary(metrics);
   const customerMix = [
     { name: t("owner.customer.member"), value: metrics.memberOrders.length },
@@ -75,11 +85,15 @@ export default function CustomerPerformanceDashboard() {
         : loyaltyInsight.status === "Needs Data"
           ? t("owner.customer.insight.needsData")
           : t("owner.customer.insight.needsAttention");
-  const exportCustomerWorkbook = async () => {
+  const exportCustomerReport = async (format: ReportExportFormat) => {
     try {
-      await exportWorkbook(`owner-customer-${dateRange.startDate}-to-${dateRange.endDate}.xlsx`, [
-        {
+      await exportReport(format, {
+        filename: `owner-customer-${dateRange.startDate}-to-${dateRange.endDate}`,
+        title: `${t("owner.dashboard.customer")} Report`,
+        subtitle: `${dateRange.startDate} - ${dateRange.endDate}`,
+        sheets: [{
           name: t("owner.customer.sheet.summary"),
+          description: "Customer mix, loyalty, reward usage, and discount impact for the selected date range.",
           rows: [
             [t("owner.staff.metric"), t("owner.staff.sheet.value")],
             [t("owner.staff.sheet.startDate"), dateRange.startDate],
@@ -96,10 +110,12 @@ export default function CustomerPerformanceDashboard() {
         },
         {
           name: t("owner.customer.sheet.newReturningTrend"),
+          description: "Unique identified customers classified by their first recorded transaction.",
           rows: [[t("owner.staff.sheet.period"), t("owner.customer.newCustomers"), t("owner.customer.returningCustomers")], ...trend.map((row) => [row.date, row.newCustomers, row.returningCustomers])],
         },
         {
           name: t("owner.customer.sheet.customerOrders"),
+          description: "Member and guest orders included in the selected date range.",
           rows: [
             [t("owner.overview.sheet.order"), t("owner.customer.sheet.customer"), t("owner.inventory.sheet.status"), t("owner.overview.sheet.total"), t("owner.inventory.sheet.createdAt")],
             ...[...metrics.memberOrders, ...metrics.guestOrders].map((order) => [
@@ -110,8 +126,8 @@ export default function CustomerPerformanceDashboard() {
               order.created_at ?? "",
             ]),
           ],
-        },
-      ]);
+        }],
+      });
       showSuccess(t("owner.customer.exportSuccess"));
     } catch (error) {
       console.error("Failed to export customer report:", error);
@@ -127,14 +143,10 @@ export default function CustomerPerformanceDashboard() {
         <ExportButton
           label={t("owner.customer.export")}
           disabled={data.loading}
-          items={[
-            {
-              id: "excel",
-              label: t("owner.customer.downloadExcel"),
-              onClick: () => void exportCustomerWorkbook(),
-              disabled: data.loading,
-            },
-          ]}
+          items={getReportExportItems({
+            onExport: (format) => void exportCustomerReport(format),
+            disabled: data.loading,
+          })}
         />
       </div>
 

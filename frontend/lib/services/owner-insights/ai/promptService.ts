@@ -1,4 +1,4 @@
-import type { OwnerInsightCategory } from "./insightSchema";
+import type { OwnerInsightCategory } from "../domain/insightSchema";
 import { CATEGORY_PROMPT_RULES } from "./categoryPromptRules";
 
 export function buildOwnerInsightPrompt(

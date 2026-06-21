@@ -1,24 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadBookkeepingDashboardDataFromClient } from "@/lib/services/bookkeeping/bookkeepingService";
-import { buildMetric, toNumber } from "./metricSnapshotBuilder";
+import { buildMetric, toNumber } from "../domain/metricSnapshotBuilder";
 import {
   buildRecommendationPeriodContext,
   isDateInPeriod,
-} from "./periodService";
+} from "../domain/periodService";
 import {
   applyInsightOrderCorrections,
   type InsightOrderCorrectionRow,
-} from "./orderCorrectionUtils";
+} from "../domain/orderCorrectionUtils";
 import type {
   OwnerInsightPeriod,
   RecommendationAllowedIssue,
   RecommendationMetric,
   RecommendationSnapshot,
-} from "./recommendationSnapshotTypes";
+} from "../domain/recommendationSnapshotTypes";
 
 type SalesOrderRow = {
   id: string;
+  subtotal?: number | string | null;
   total?: number | string | null;
+  discount?: number | string | null;
+  tax?: number | string | null;
   status?: string | null;
   payment_status?: string | null;
   payment_method?: string | null;
@@ -133,12 +136,16 @@ const groupBy = <T,>(items: T[], getKey: (item: T) => string) => {
 
 const summarizeOrders = (orders: SalesOrderRow[]) => {
   const validOrders = orders.filter(isValidSalesOrder);
-  const revenue = validOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
+  const netSales = validOrders.reduce(
+    (sum, order) =>
+      sum + Math.max(toNumber(order.total) - toNumber(order.tax), 0),
+    0,
+  );
 
   return {
-    revenue,
+    netSales,
     orderCount: validOrders.length,
-    averageOrderValue: validOrders.length ? revenue / validOrders.length : 0,
+    averageOrderValue: validOrders.length ? netSales / validOrders.length : 0,
   };
 };
 
@@ -227,7 +234,7 @@ const buildSalesAllowedIssues = ({
       confidence: "high",
       problem: "No valid sales activity was recorded in the selected period.",
       evidence: [
-        `Total Revenue is ${formatEvidenceNumber(revenue, "IDR")}.`,
+        `Net Sales is ${formatEvidenceNumber(revenue, "IDR")}.`,
         `Total Orders is ${formatEvidenceNumber(orders, "count")}.`,
       ],
       recommendationHint:
@@ -241,14 +248,14 @@ const buildSalesAllowedIssues = ({
   if (revenue > 0 && revenuePrevious > 0 && revenueChange <= -15) {
     issues.push({
       id: "sales-revenue-decline",
-      title: "Sales Revenue Declined",
+      title: "Net Sales Declined",
       priority: revenueChange <= -30 ? "high" : "medium",
       confidence: "high",
-      problem: "Sales revenue is lower than the comparison period.",
+      problem: "Net Sales is lower than the comparison period.",
       evidence: [
-        `Total Revenue is ${formatEvidenceNumber(revenue, "IDR")}.`,
-        `Comparison revenue was ${formatEvidenceNumber(revenuePrevious, "IDR")}.`,
-        `Revenue change is ${revenueChange.toFixed(1)}%.`,
+        `Net Sales is ${formatEvidenceNumber(revenue, "IDR")}.`,
+        `Comparison Net Sales was ${formatEvidenceNumber(revenuePrevious, "IDR")}.`,
+        `Net Sales change is ${revenueChange.toFixed(1)}%.`,
       ],
       recommendationHint:
         aovChange <= ordersChange
@@ -385,7 +392,7 @@ const buildSalesAllowedIssues = ({
       confidence: "medium",
       problem: "No critical sales issue was detected from selected-period metrics.",
       evidence: [
-        `Total Revenue is ${formatEvidenceNumber(revenue, "IDR")}.`,
+        `Net Sales is ${formatEvidenceNumber(revenue, "IDR")}.`,
         `Total Orders is ${formatEvidenceNumber(orders, "count")}.`,
         `Average Order Value is ${formatEvidenceNumber(aov, "IDR")}.`,
       ],
@@ -414,7 +421,7 @@ export async function buildSalesRecommendationSnapshot(
   ] = await Promise.all([
     supabase
       .from("orders")
-      .select("id,total,status,payment_status,payment_method,order_date,order_time,created_at")
+      .select("id,subtotal,total,discount,tax,status,payment_status,payment_method,order_date,order_time,created_at")
       .order("created_at", { ascending: true }),
     supabase
       .from("order_items")
@@ -507,8 +514,10 @@ export async function buildSalesRecommendationSnapshot(
       return {
         name,
         revenue,
-        revenueShare: selectedSummary.revenue
-          ? (revenue / selectedSummary.revenue) * 100
+        // Kontribusi kategori =
+        // Revenue kategori / Total revenue × 100%
+        revenueShare: selectedSummary.netSales
+          ? (revenue / selectedSummary.netSales) * 100
           : 0,
       };
     })
@@ -517,15 +526,15 @@ export async function buildSalesRecommendationSnapshot(
     netProfitEstimate: buildMetric({
       value: nullableNumber(bookkeepingData.summary.netProfitEstimate),
       unit: "IDR",
-      source: "bookkeeping summary: revenue minus discounts, food cost, and operating expenses",
-      displayLabel: "Net Profit Estimate",
+      source: "bookkeeping summary: Net Sales minus estimated COGS and operating expenses",
+      displayLabel: "Estimated Profit",
     }),
     totalRevenue: buildMetric({
-      value: bookkeepingData.summary.grossSales,
-      previousValue: comparisonSummary.revenue,
+      value: bookkeepingData.summary.netSales,
+      previousValue: comparisonSummary.netSales,
       unit: "IDR",
-      source: "bookkeeping summary grossSales, matching Sales dashboard Revenue card",
-      displayLabel: "Revenue",
+      source: "bookkeeping summary netSales, matching the Sales dashboard Net Sales card",
+      displayLabel: "Net Sales",
     }),
     discounts: buildMetric({
       value: bookkeepingData.summary.discounts,
@@ -559,10 +568,12 @@ export async function buildSalesRecommendationSnapshot(
       displayLabel: "Total Orders",
     }),
     averageOrderValue: buildMetric({
-      value: selectedSummary.averageOrderValue,
+      value: bookkeepingData.summary.totalOrders
+        ? bookkeepingData.summary.netSales / bookkeepingData.summary.totalOrders
+        : 0,
       previousValue: comparisonSummary.averageOrderValue,
       unit: "IDR",
-      source: "totalRevenue divided by totalOrders",
+      source: "Net Sales divided by valid paid orders",
       displayLabel: "Average Order Value",
     }),
     activeMenusSold: buildMetric({

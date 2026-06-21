@@ -1,6 +1,6 @@
 "use client";
 
-import { InventoryDashboard } from "./StandardDashboardPanels";
+import InventoryDashboard from "./inventory/InventoryDashboard";
 
 export default function InventoryTab() {
   return <InventoryDashboard />;

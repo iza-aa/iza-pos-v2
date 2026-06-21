@@ -7,7 +7,7 @@ import {
   UserCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { getCurrentUser } from "@/lib/utils";
+import { clearAuth, cleanupDeprecatedStorage, getCurrentUser } from "@/lib/utils";
 import { useLanguage } from "../i18n";
 
 type UserRole = "owner" | "manager" | "staff";
@@ -90,15 +90,12 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     router.push(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     const logoutPath = getLogoutPath(role);
 
-    localStorage.removeItem("user_id");
-    localStorage.removeItem("user_name");
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("staff_type");
-    localStorage.removeItem("staff_code");
-    localStorage.removeItem("profile_picture");
+    await fetch("/api/internal-session", { method: "DELETE" }).catch(() => null);
+    clearAuth();
+    cleanupDeprecatedStorage();
 
     onClose();
     router.push(logoutPath);
@@ -160,7 +157,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
         <div className="mt-4 border-t border-gray-100 pt-3">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
           >
             <ArrowRightOnRectangleIcon className="h-5 w-5" />

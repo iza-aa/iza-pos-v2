@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getCurrentUser } from "@/lib/utils";
 import type {
   AIInsight,
   OwnerInsightCategory,
   OwnerInsightRecord,
-} from "@/lib/services/owner-insights/insightSchema";
+} from "@/lib/services/owner-insights";
 import AIInsightCarousel from "./AIInsightCarousel";
 
 type RecommendationResponse = {
@@ -21,10 +20,12 @@ export default function GenerateRecommendationPanel({
   category,
   compact = false,
   period,
+  summaryLabel,
 }: {
   category: OwnerInsightCategory;
   compact?: boolean;
   period?: { startDate: string; endDate: string };
+  summaryLabel?: string;
 }) {
   const [record, setRecord] = useState<OwnerInsightRecord | null>(null);
   const [fallbackInsight, setFallbackInsight] = useState<AIInsight | null>(null);
@@ -32,21 +33,11 @@ export default function GenerateRecommendationPanel({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
-  const currentUser = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return getCurrentUser();
-  }, []);
-
   const requestHeaders = useCallback(() => {
-    const user = currentUser ?? getCurrentUser();
-
     return {
       "Content-Type": "application/json",
-      "x-user-id": user?.id ?? "",
-      "x-user-name": user?.name ?? "Owner",
-      "x-user-role": user?.role ?? "",
     };
-  }, [currentUser]);
+  }, []);
 
   const requestPeriod = useMemo(() => {
     if (!period?.startDate || !period?.endDate) return null;
@@ -147,6 +138,7 @@ export default function GenerateRecommendationPanel({
         generationCount={record?.generation_count}
         showDetail={hasDisplayableInsight}
         onGenerate={handleGenerate}
+        summaryLabel={summaryLabel}
       />
     </div>
   );

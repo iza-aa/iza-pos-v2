@@ -6,8 +6,10 @@ export type OrderRow = {
   correction_status?: string | null;
   correction_physical_status?: string | null;
   correction_note?: string | null;
+  subtotal?: number | string | null;
   total: number | string | null;
   discount?: number | string | null;
+  tax?: number | string | null;
   status: string | null;
   payment_status: string | null;
   payment_method: string | null;

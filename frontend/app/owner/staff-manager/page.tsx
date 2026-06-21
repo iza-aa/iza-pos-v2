@@ -25,7 +25,6 @@ import { POLLING_INTERVALS, TIMEOUT_DURATIONS } from "@/lib/constants";
 import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import type { Staff } from "@/lib/types";
-import { getCurrentUser } from "@/lib/utils";
 import {
   ClockIcon,
   MapPinIcon,
@@ -797,14 +796,7 @@ export default function StaffManagerPage() {
     const staff = staffList.find((item) => item.id === id);
 
     if (staff) {
-      const currentUser = getCurrentUser();
-      const response = await fetch(`/api/owner/staff-manager/weekly-shifts?staffId=${id}`, {
-        headers: {
-          "x-user-id": currentUser?.id || currentStaffIdentity.id || "",
-          "x-user-name": currentUser?.name || currentStaffIdentity.name || "Owner",
-          "x-user-role": currentUser?.role || "owner",
-        },
-      });
+      const response = await fetch(`/api/owner/staff-manager/weekly-shifts?staffId=${id}`);
       const result = (await response.json().catch(() => ({}))) as {
         data?: WeeklyShiftOverride[];
         error?: string;
@@ -859,14 +851,10 @@ export default function StaffManagerPage() {
       ? staffToUpdate.weekly_shift_overrides
       : [];
 
-    const currentUser = getCurrentUser();
     const scheduleResponse = await fetch("/api/owner/staff-manager/weekly-shifts", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-user-id": currentUser?.id || currentStaffIdentity.id || "",
-        "x-user-name": currentUser?.name || currentStaffIdentity.name || "Owner",
-        "x-user-role": currentUser?.role || "owner",
       },
       body: JSON.stringify({
         staffId: staffToUpdate.id,

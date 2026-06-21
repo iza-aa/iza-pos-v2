@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { logActivity } from "@/lib/services/activity/activityLogger";
+import { clearAuth, cleanupDeprecatedStorage, storeInternalIdentity } from "@/lib/utils";
 
 const slides = [
   {
@@ -115,11 +116,15 @@ const saveSession = (result: LoginResult) => {
     return;
   }
 
-  localStorage.setItem("user_id", result.user_id);
-  localStorage.setItem("user_name", result.user_name);
-  localStorage.setItem("user_role", result.user_role);
-  localStorage.setItem("staff_type", result.staff_type ?? "");
-  localStorage.setItem("staff_code", result.staff_code);
+  clearAuth();
+  cleanupDeprecatedStorage();
+  storeInternalIdentity({
+    id: result.user_id,
+    name: result.user_name,
+    role: result.user_role as "staff" | "manager" | "owner",
+    staffType: result.staff_type,
+    staffCode: result.staff_code,
+  });
 };
 
 const redirectByRole = (role?: string) => {

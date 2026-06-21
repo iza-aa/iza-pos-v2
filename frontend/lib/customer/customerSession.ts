@@ -79,22 +79,8 @@ export function getStoredCustomerTableSession(): CustomerTableSession | null {
 
 export function saveCustomerTableSession(session: CustomerTableSession): void {
   localStorage.setItem(TABLE_SESSION_STORAGE_KEY, JSON.stringify(session));
-
-  localStorage.setItem(
-    LEGACY_TABLE_STORAGE_KEY,
-    JSON.stringify({
-      id: session.table_id,
-      table_id: session.table_id,
-      table_number: session.table_number,
-      floor_id: session.floor_id,
-      floor_name: session.floor_name,
-      capacity: session.capacity,
-      status: session.status,
-      is_active: true,
-    }),
-  );
-
-  localStorage.setItem(LEGACY_TABLE_START_KEY, session.started_at);
+  localStorage.removeItem(LEGACY_TABLE_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_TABLE_START_KEY);
 }
 
 export async function validateStoredCustomerTableSession(): Promise<CustomerTableSession | null> {
@@ -126,7 +112,8 @@ export async function validateStoredCustomerTableSession(): Promise<CustomerTabl
     return result.data;
   } catch (error) {
     console.error("Failed to validate customer table session:", error);
-    return storedSession;
+    clearCustomerTableSession();
+    return null;
   }
 }
 

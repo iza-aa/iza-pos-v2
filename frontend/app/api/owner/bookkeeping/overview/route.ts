@@ -457,8 +457,24 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createBookkeepingSupabaseClient();
-    const data = await loadBookkeepingDashboardDataFromClient(supabase, dateRange);
-    const storedRows = await loadStoredBookkeepingRows({ supabase, dateRange });
+    const summaryOnly = request.nextUrl.searchParams.get("mode") === "summary";
+
+    if (summaryOnly) {
+      const data = await loadBookkeepingDashboardDataFromClient(supabase, dateRange);
+
+      return NextResponse.json({
+        data: {
+          summary: data.summary,
+          paymentBreakdown: data.paymentBreakdown,
+          menuMargins: data.menuMargins,
+        },
+      });
+    }
+
+    const [data, storedRows] = await Promise.all([
+      loadBookkeepingDashboardDataFromClient(supabase, dateRange),
+      loadStoredBookkeepingRows({ supabase, dateRange }),
+    ]);
 
     data.entries = mergeEntries(data.entries, storedRows.entries);
 

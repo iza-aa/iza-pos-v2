@@ -5,12 +5,12 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { StandardModal } from "@/app/components/shared";
 import { useLanguage, type TranslationKey } from "@/app/components/shared/i18n";
 import { OWNER_CHART_COLORS, OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
-import { formatCurrency } from "../shared/dashboardUtils";
+import { formatCurrency, formatNumber } from "../shared/dashboardUtils";
 import { buildBusinessHealth, clampScore } from "./overviewLogic";
 
 type Health = ReturnType<typeof buildBusinessHealth>;
 type DriverTone = "good" | "watch" | "risk" | "neutral";
-type DriverKey = "demand" | "transaction" | "profit" | "operations";
+type DriverKey = "sales" | "customer" | "inventory" | "staff" | "operations";
 
 type DriverDetail = {
   key: DriverKey;
@@ -76,7 +76,7 @@ const getGaugeGradient = (status: string) => {
 
 
 const translateStatus = (status: string, t: (key: TranslationKey, values?: Record<string, string | number>) => string) => {
-  const key = status.toLowerCase().replace(/\\s+/g, "");
+  const key = status.toLowerCase().replace(/\s+/g, "");
   const statusKeys: Record<string, TranslationKey> = {
     healthy: "owner.health.status.healthy",
     watch: "owner.health.status.watch",
@@ -119,13 +119,16 @@ const describeGrowth = (
   return t("owner.health.flatMovement");
 };
 
-const describePercentLevel = (
+const describeLowerPercentLevel = (
   value: number | null,
   healthy: number,
+  risk: number,
   t: (key: TranslationKey, values?: Record<string, string | number>) => string,
 ) => {
   if (value === null) return t("owner.health.noFinancialData");
-  return value >= healthy ? t("owner.health.healthyLevel") : t("owner.health.needsReview");
+  if (value <= healthy) return t("owner.health.withinTarget");
+  if (value < risk) return t("owner.health.monitorLevel");
+  return t("owner.health.highLevel");
 };
 
 const describeCompletionRate = (
@@ -136,16 +139,6 @@ const describeCompletionRate = (
   if (value >= 95) return t("owner.health.cleanCompletionFlow");
   if (value >= 80) return t("owner.health.someOrderLeakage");
   return t("owner.health.completionNeedsAttention");
-};
-
-const describeCurrencySignal = (
-  value: number | null,
-  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
-) => {
-  if (value === null) return t("owner.health.noFinancialData");
-  if (value > 0) return t("owner.health.positiveEstimate");
-  if (value < 0) return t("owner.health.negativeEstimate");
-  return t("owner.health.breakEven");
 };
 
 function ScoreGauge({
@@ -208,16 +201,21 @@ const buildDriverDetails = (
   t: (key: TranslationKey, values?: Record<string, string | number>) => string,
 ): DriverDetail[] => [
   {
-    key: "demand",
-    label: t("owner.health.demand"),
-    score: health.demandScore,
-    rawStatus: health.labels.demand,
-    status: translateStatus(health.labels.demand, t),
-    summary: t("owner.health.demandSummary"),
+    key: "sales",
+    label: t("owner.health.sales"),
+    score: health.salesAreaScore,
+    rawStatus: health.labels.sales,
+    status: translateStatus(health.labels.sales, t),
+    summary: t("owner.health.salesSummary"),
     metrics: [
       {
-        label: t("owner.health.revenueGrowth"),
+        label: t("owner.bookkeeping.netSales"),
+        value: formatOptionalCurrency(health.areas?.sales.netSales ?? null, t),
+        read: t("owner.health.salesNetRead"),
+      },
+      {
         value: formatPercent(health.revenueGrowth, t, true),
+        label: t("owner.health.revenueGrowth"),
         read: describeGrowth(health.revenueGrowth, t),
       },
       {
@@ -228,65 +226,111 @@ const buildDriverDetails = (
     ],
   },
   {
-    key: "transaction",
-    label: t("owner.health.transactionQuality"),
-    score: health.transactionQualityScore,
-    rawStatus: health.labels.transactionQuality,
-    status: translateStatus(health.labels.transactionQuality, t),
-    summary: t("owner.health.transactionSummary"),
+    key: "customer",
+    label: t("owner.health.customer"),
+    score: health.customerAreaScore,
+    rawStatus: health.labels.customer,
+    status: translateStatus(health.labels.customer, t),
+    summary: t("owner.health.customerSummary"),
     metrics: [
       {
-        label: "AOV",
-        value: formatOptionalCurrency(health.averageOrderValue, t),
-        read: t("owner.health.averageValuePerOrder"),
+        label: t("owner.customer.repeatRate"),
+        value: formatPercent(health.areas?.customer.repeatCustomerRate ?? null, t),
+        read: t("owner.health.customerRepeatRead"),
       },
       {
-        label: t("owner.health.aovGrowth"),
-        value: formatPercent(health.aovGrowth, t, true),
-        read: describeGrowth(health.aovGrowth, t),
+        label: t("owner.customer.memberShare"),
+        value: formatPercent(health.areas?.customer.memberShare ?? null, t),
+        read: t("owner.health.customerMemberRead"),
+      },
+      {
+        label: t("owner.health.discountRate"),
+        value: formatPercent(health.areas?.customer.discountRatio ?? null, t),
+        read: describeLowerPercentLevel(health.areas?.customer.discountRatio ?? null, 5, 15, t),
       },
     ],
   },
   {
-    key: "profit",
-    label: t("owner.health.profitQuality"),
-    score: health.profitQualityScore,
-    rawStatus: health.labels.profitQuality,
-    status: translateStatus(health.labels.profitQuality, t),
-    summary: t("owner.health.profitSummary"),
+    key: "inventory",
+    label: t("owner.health.inventory"),
+    score: health.inventoryAreaScore,
+    rawStatus: health.labels.inventory,
+    status: translateStatus(health.labels.inventory, t),
+    summary: t("owner.health.inventorySummary"),
     metrics: [
       {
-        label: t("owner.health.margin"),
-        value: formatPercent(health.netProfitMargin, t),
-        read: describePercentLevel(health.netProfitMargin, 20, t),
+        label: t("owner.inventory.criticalItems"),
+        value: formatNumber(health.areas?.inventory.criticalItems ?? 0),
+        read: t("owner.health.inventoryCriticalRead"),
       },
       {
-        label: t("owner.health.netProfit"),
-        value: formatOptionalCurrency(health.netProfitEstimate, t),
-        read: describeCurrencySignal(health.netProfitEstimate, t),
+        label: t("owner.inventory.dataIssues"),
+        value: formatNumber(health.areas?.inventory.dataIssues ?? 0),
+        read: t("owner.health.inventoryDataRead"),
+      },
+      {
+        label: t("owner.inventory.pendingReports"),
+        value: formatNumber(health.areas?.inventory.pendingReports ?? 0),
+        read: t("owner.health.inventoryReportRead"),
+      },
+    ],
+  },
+  {
+    key: "staff",
+    label: t("owner.health.staff"),
+    score: health.staffAreaScore,
+    rawStatus: health.labels.staff,
+    status: translateStatus(health.labels.staff, t),
+    summary: t("owner.health.staffSummary"),
+    metrics: [
+      {
+        label: t("owner.staff.attendanceRate"),
+        value: formatPercent(health.areas?.staff.attendanceRate ?? null, t),
+        read: t("owner.health.staffAttendanceRead"),
+      },
+      {
+        label: t("owner.staff.lateCount"),
+        value: formatPercent(health.areas?.staff.lateRate ?? null, t),
+        read: describeLowerPercentLevel(health.areas?.staff.lateRate ?? null, 5, 20, t),
+      },
+      {
+        label: t("owner.staff.overtimeCount"),
+        value: formatPercent(health.areas?.staff.overtimeRate ?? null, t),
+        read: describeLowerPercentLevel(health.areas?.staff.overtimeRate ?? null, 10, 30, t),
       },
     ],
   },
   {
     key: "operations",
-    label: t("owner.health.operationalFlow"),
-    score: health.operationalFlowScore,
-    rawStatus: health.labels.operationalFlow,
-    status: translateStatus(health.labels.operationalFlow, t),
+    label: t("owner.health.operations"),
+    score: health.operationsAreaScore,
+    rawStatus: health.labels.operations,
+    status: translateStatus(health.labels.operations, t),
     summary: t("owner.health.operationsSummary"),
     metrics: [
       {
         label: t("owner.health.completion"),
-        value: formatPercent(health.completionRate, t),
-        read: describeCompletionRate(health.completionRate, t),
+        value: formatPercent(health.areas?.operations.completionRate ?? health.completionRate, t),
+        read: describeCompletionRate(health.areas?.operations.completionRate ?? health.completionRate, t),
+      },
+      {
+        label: t("owner.health.cancellationRate"),
+        value: formatPercent(health.areas?.operations.cancelledRate ?? health.cancelledRate, t),
+        read: describeLowerPercentLevel(health.areas?.operations.cancelledRate ?? health.cancelledRate, 2, 10, t),
       },
       {
         label: t("owner.health.serviceTime"),
-        value: health.serviceMinutes === null ? t("owner.health.noSamples") : t("owner.staff.minutesShort", { value: health.serviceMinutes.toFixed(1) }),
+        value: (health.areas?.operations.serviceMinutes ?? health.serviceMinutes) === null
+          ? t("owner.health.noSamples")
+          : t("owner.staff.minutesShort", {
+              value: (health.areas?.operations.serviceMinutes ?? health.serviceMinutes ?? 0).toFixed(1),
+            }),
         read:
-          health.serviceMinutes === null
+          (health.areas?.operations.serviceMinutes ?? health.serviceMinutes) === null
             ? t("owner.health.noTimestampSamples")
-            : t("owner.health.timedOrders", { count: health.serviceSampleSize }),
+            : t("owner.health.timedOrders", {
+                count: health.areas?.operations.serviceSampleSize ?? health.serviceSampleSize,
+              }),
       },
     ],
   },
@@ -319,13 +363,16 @@ function DetailModal({
   const { t } = useLanguage();
   const drivers = buildDriverDetails(health, t);
   const weakestDriverKey = (() => {
-    if (health.weakestDriver === "Demand") return "demand";
-    if (health.weakestDriver === "Transaction Quality") return "transaction";
-    if (health.weakestDriver === "Profit Quality") return "profit";
-    if (health.weakestDriver === "Operational Flow") return "operations";
-    return "demand";
+    if (health.weakestDriver === "Sales") return "sales";
+    if (health.weakestDriver === "Customer") return "customer";
+    if (health.weakestDriver === "Inventory") return "inventory";
+    if (health.weakestDriver === "Staff") return "staff";
+    if (health.weakestDriver === "Operations") return "operations";
+    return "sales";
   })();
   const initialDriver =
+    drivers.find((driver) => driver.key === weakestDriverKey) ?? drivers[0];
+  const weakestDriver =
     drivers.find((driver) => driver.key === weakestDriverKey) ?? drivers[0];
   const [activeDriverKey, setActiveDriverKey] = useState<DriverKey>(
     initialDriver.key,
@@ -338,77 +385,133 @@ function DetailModal({
       isOpen
       title={t("owner.health.details")}
       description={t("owner.health.detailsDescription")}
-      maxWidthClassName="max-w-lg"
+      maxWidthClassName="max-w-5xl"
       onClose={onClose}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+        >
+          {t("common.close")}
+        </button>
+      }
     >
-      <div className="grid gap-5">
-        <nav className="grid grid-cols-2 gap-2">
-          {drivers.map((driver) => {
-            const isActive = driver.key === activeDriver.key;
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="space-y-4">
+          <section className="rounded-lg border border-gray-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase text-gray-400">
+              {t("owner.health.businessAreas")}
+            </p>
+            <nav className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {drivers.map((driver) => {
+                const isActive = driver.key === activeDriver.key;
 
-            return (
-              <button
-                key={driver.key}
-                type="button"
-                onClick={() => setActiveDriverKey(driver.key)}
-                className={`min-h-12 rounded-lg border px-3 py-2 text-left transition ${
-                  isActive
-                    ? "border-gray-950 bg-gray-950 text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
-                }`}
-              >
-                <p className={`text-sm font-bold ${isActive ? "text-white" : "text-gray-950"}`}>
-                  {driver.label}
+                return (
+                  <button
+                    key={driver.key}
+                    type="button"
+                    onClick={() => setActiveDriverKey(driver.key)}
+                    className={`min-h-16 rounded-lg border px-3 py-2 text-left transition ${
+                      isActive
+                        ? "border-gray-950 bg-gray-950 text-white"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <p className={`text-sm font-semibold ${isActive ? "text-white" : "text-gray-900"}`}>
+                      {driver.label}
+                    </p>
+                    <p className={`mt-1 text-xs ${isActive ? "text-gray-300" : "text-gray-500"}`}>
+                      {driver.score === null
+                        ? t("owner.health.noData")
+                        : t("owner.health.scoreOutOf100", {
+                            score: clampScore(driver.score),
+                          })}
+                    </p>
+                  </button>
+                );
+              })}
+            </nav>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400">
+                  {t("owner.health.selectedDriver")}
                 </p>
-              </button>
-            );
-          })}
-        </nav>
-
-        <section className="min-h-75 rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                {t("owner.health.selectedDriver")}
-              </p>
-              <h4 className="mt-1 text-xl font-bold text-gray-950">
-                {activeDriver.label}
-              </h4>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600">
-                {activeDriver.summary}
-              </p>
-            </div>
-            <div className="shrink-0 sm:text-right">
-              <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(activeDriver.rawStatus)}`}>
+                <h3 className="mt-1 text-lg font-semibold text-gray-900">
+                  {activeDriver.label}
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-gray-600">
+                  {activeDriver.summary}
+                </p>
+              </div>
+              <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(activeDriver.rawStatus)}`}>
                 {activeDriver.status}
               </span>
             </div>
-          </div>
 
-          <div className="mt-5">
-            <DriverProgress score={activeDriver.score} />
-          </div>
-
-          <div className="mt-5 overflow-hidden rounded-lg border border-gray-100">
-            <div className="hidden gap-3 bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 sm:grid sm:grid-cols-[1fr_110px_1fr]">
-              <span>{t("owner.staff.metric")}</span>
-              <span className="text-right">{t("owner.staff.sheet.value")}</span>
-              <span>{t("owner.health.read")}</span>
+            <div className="mt-4">
+              <DriverProgress score={activeDriver.score} />
             </div>
-            {activeDriver.metrics.map((metric) => (
-              <div
-                key={metric.label}
-                className="grid gap-1 border-t border-gray-100 px-4 py-3 text-sm sm:grid-cols-[1fr_110px_1fr] sm:gap-3"
-              >
-                <p className="font-bold text-gray-700">{metric.label}</p>
-                <p className="font-bold text-gray-950 sm:text-right">
-                  {metric.value}
-                </p>
-                <p className="font-semibold text-gray-500">{metric.read}</p>
+
+            <div className="mt-4 divide-y divide-gray-100 border-y border-gray-100">
+              {activeDriver.metrics.map((metric) => (
+                <div
+                  key={metric.label}
+                  className="grid gap-1 py-3 text-sm sm:grid-cols-[1fr_130px_1.2fr] sm:items-center sm:gap-4"
+                >
+                  <p className="font-semibold text-gray-700">{metric.label}</p>
+                  <p className="font-bold text-gray-950 sm:text-right">
+                    {metric.value}
+                  </p>
+                  <p className="text-gray-500">{metric.read}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-4">
+          <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="text-sm font-semibold text-gray-900">
+              {t("owner.health.summary")}
+            </h3>
+            <ScoreGauge health={health} compact t={t} />
+            <dl className="mt-2 space-y-3 border-t border-gray-200 pt-4 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-gray-500">{t("owner.health.weakestDriver")}</dt>
+                <dd className="text-right font-semibold text-gray-900">
+                  {weakestDriver.label}
+                </dd>
               </div>
-            ))}
-          </div>
-        </section>
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-gray-500">{t("owner.health.dataConfidence")}</dt>
+                <dd className="text-right font-semibold text-gray-900">
+                  {translateStatus(health.confidence, t)}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-gray-500">{t("owner.health.areaCoverageLabel")}</dt>
+                <dd className="text-right font-semibold text-gray-900">
+                  {t("owner.health.areaCoverage", {
+                    available: health.availableAreaCount,
+                  })}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase text-gray-400">
+              {t("owner.health.ownerRead")}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              {t("owner.health.scoreExplanation")}
+            </p>
+          </section>
+        </aside>
       </div>
     </StandardModal>
   );

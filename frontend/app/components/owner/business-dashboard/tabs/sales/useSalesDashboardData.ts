@@ -6,6 +6,7 @@ import {
   loadDashboardOrderCorrections,
   type DashboardOrderCorrectionRow,
 } from "../shared/orderCorrectionClient";
+import { loadAllDashboardRows } from "../shared/dashboardQueryUtils";
 import type {
   CategoryRow,
   InventoryItemRow,
@@ -96,13 +97,20 @@ export default function useSalesDashboardData() {
         orderCorrections,
       ] =
         await Promise.all([
-          supabase
-            .from("orders")
-            .select("id,total,discount,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id")
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("order_items")
-            .select("order_id,product_id,product_name,quantity,total_price"),
+          loadAllDashboardRows<OrderRow>((from, to) =>
+            supabase
+              .from("orders")
+              .select("id,order_number,subtotal,total,discount,tax,status,payment_status,payment_method,order_date,order_time,created_at,fulfillment_method,customer_id,reward_redemption_id")
+              .order("created_at", { ascending: true })
+              .range(from, to),
+          ),
+          loadAllDashboardRows<OrderItemRow>((from, to) =>
+            supabase
+              .from("order_items")
+              .select("order_id,product_id,product_name,quantity,total_price")
+              .order("id", { ascending: true })
+              .range(from, to),
+          ),
           supabase
             .from("products")
             .select("id,name,price,stock,available,type,category_id,category:categories(name)")

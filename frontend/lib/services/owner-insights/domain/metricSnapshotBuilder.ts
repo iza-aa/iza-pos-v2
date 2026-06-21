@@ -7,6 +7,9 @@ export function toNumber(value: unknown) {
 
 export function percentChange(current: number, previous: number) {
   if (previous === 0) return current > 0 ? 100 : 0;
+  // Perubahan =
+  // ((Periode dipilih - Periode pembanding)
+  //  / Periode pembanding) × 100%
   return ((current - previous) / previous) * 100;
 }
 

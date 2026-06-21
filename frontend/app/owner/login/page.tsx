@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import { useLanguage } from "@/app/components/shared/i18n";
+import { clearAuth, cleanupDeprecatedStorage, storeInternalIdentity } from "@/lib/utils";
 
 const slides = [
 	{
@@ -31,9 +32,12 @@ export default function OwnerLoginPage() {
 	const [current, setCurrent] = useState(0);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [rememberMe, setRememberMe] = useState(false);
 
 	// Auto slide
 	useEffect(() => {
+		clearAuth();
+		cleanupDeprecatedStorage();
 		const interval = setInterval(() => {
 			setCurrent((prev) => (prev + 1) % slides.length);
 		}, 4000);
@@ -48,16 +52,22 @@ export default function OwnerLoginPage() {
 		const res = await fetch("/api/owner/login", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password }),
+			body: JSON.stringify({ email, password, remember_me: rememberMe }),
 		});
 
 		const result = await res.json();
 		setLoading(false);
 
 		if (res.ok && result.success) {
-			localStorage.setItem("user_id", result.user_id);
-			localStorage.setItem("user_name", result.user_name);
-			localStorage.setItem("user_role", "owner");
+			clearAuth();
+			cleanupDeprecatedStorage();
+			storeInternalIdentity({
+				id: result.user_id,
+				name: result.user_name,
+				role: "owner",
+				staffCode: result.staff_code,
+				staffType: result.staff_type,
+			});
 			
 			// Log successful login
 			await logActivity({
@@ -163,20 +173,16 @@ export default function OwnerLoginPage() {
 						</div>
 						<div className="flex items-center justify-between">
 							<label className="flex items-center">
-								<input
-									type="checkbox"
-									className="rounded border-gray-300"
+				<input
+					type="checkbox"
+					checked={rememberMe}
+					onChange={(event) => setRememberMe(event.target.checked)}
+					className="rounded border-gray-300"
 								/>
 								<span className="ml-2 text-sm text-gray-400">
 									Remember me
 								</span>
 							</label>
-							<a
-								href="#"
-								className="text-sm text-blue-400 hover:text-blue-600"
-							>
-								Forgot password?
-							</a>
 						</div>
 						<button
 							type="submit"

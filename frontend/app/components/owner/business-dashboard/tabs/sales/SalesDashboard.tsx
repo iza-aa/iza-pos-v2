@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  LabelList,
+  Line,
+  LineChart,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -33,14 +34,19 @@ import {
 import { formatCurrency, formatNumber } from "../shared/dashboardUtils";
 import {
   buildCategoryRevenue,
+  buildSalesAovTrend,
   buildSalesPerformance,
+  buildSalesRevenueTrend,
   buildTopSellingMenus,
-  getQuadrantData,
 } from "./salesLogic";
 import useBookkeepingSalesSummary from "./useBookkeepingSalesSummary";
 import useSalesDashboardData from "./useSalesDashboardData";
 import type { PaymentBreakdownRow } from "@/lib/services/bookkeeping/bookkeepingTypes";
-import { exportWorkbook } from "../shared/exportUtils";
+import {
+  exportReport,
+  getReportExportItems,
+  type ReportExportFormat,
+} from "@/lib/utils/reportExport";
 
 type PaymentBreakdownDisplayRow = PaymentBreakdownRow & {
   isTotal?: boolean;
@@ -70,14 +76,8 @@ const sumAvailableCost = (rows: Array<{ estimatedCost: number | null }>) => {
   return availableRows.reduce((sum, row) => sum + (row.estimatedCost ?? 0), 0);
 };
 
-const formatMissingCostNames = (rows: Array<{ name: string }>) => {
-  const visibleNames = rows.slice(0, 3).map((row) => row.name);
-  const remainingCount = rows.length - visibleNames.length;
-
-  if (remainingCount <= 0) return visibleNames.join(", ");
-
-  return `${visibleNames.join(", ")} and ${remainingCount} more`;
-};
+const normalizeProductName = (value: string | null | undefined) =>
+  String(value ?? "").trim().toLowerCase();
 
 function statusTone(status: string) {
   if (status === "Star Menu" || status === "Healthy") {
@@ -122,57 +122,118 @@ export default function SalesDashboard() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const data = useSalesDashboardData();
   const salesSummary = useBookkeepingSalesSummary(dateRange);
-  const products = buildSalesPerformance(data, dateRange);
-  const topMenus = buildTopSellingMenus(products);
-  const categoryRevenue = buildCategoryRevenue(products);
-  const quadrantData = getQuadrantData(products);
+  const products = useMemo(
+    () => buildSalesPerformance(data, dateRange),
+    [data, dateRange],
+  );
+  const topMenus = useMemo(() => buildTopSellingMenus(products), [products]);
+  const categoryRevenue = useMemo(() => buildCategoryRevenue(products), [products]);
+  const revenueTrend = useMemo(
+    () => buildSalesRevenueTrend(data.orders, dateRange),
+    [data.orders, dateRange.endDate, dateRange.startDate],
+  );
+  const aovTrend = useMemo(
+    () => buildSalesAovTrend(data.orders, dateRange),
+    [data.orders, dateRange.endDate, dateRange.startDate],
+  );
   const paymentTotalAmount = salesSummary.paymentBreakdown.reduce((sum, row) => sum + row.amount, 0);
   type ProductPerformanceRow = (typeof products)[number];
-  const productsByKey = new Map<string, ProductPerformanceRow>();
+  const profitabilityRows: ProductPerformanceRow[] = useMemo(() => {
+    if (!salesSummary.menuMargins.length) return products;
 
-  products.forEach((product) => {
-    productsByKey.set(product.id, product);
-    productsByKey.set(product.name.trim().toLowerCase(), product);
-  });
+    const categoryById = new Map(
+      data.categories.map((category) => [
+        category.id,
+        category.name || t("owner.sales.uncategorized"),
+      ]),
+    );
+    const catalogById = new Map(data.products.map((product) => [product.id, product]));
+    const catalogByName = new Map(
+      data.products.map((product) => [
+        normalizeProductName(product.name),
+        product,
+      ]),
+    );
+    const resolveCatalogCategory = (id: string, name: string) => {
+      const catalogProduct =
+        catalogById.get(id) ?? catalogByName.get(normalizeProductName(name));
+      const relation = Array.isArray(catalogProduct?.category)
+        ? catalogProduct.category[0]
+        : catalogProduct?.category;
 
-  const profitabilityRows: ProductPerformanceRow[] = salesSummary.menuMargins.length
-    ? salesSummary.menuMargins.map((row) => {
-        const matchingProduct =
-          productsByKey.get(row.id) ?? productsByKey.get(row.menuName.trim().toLowerCase());
+      return (
+        relation?.name ||
+        categoryById.get(catalogProduct?.category_id ?? "") ||
+        t("owner.sales.uncategorized")
+      );
+    };
+    const productsByKey = new Map<string, ProductPerformanceRow>();
+    products.forEach((product) => {
+      productsByKey.set(product.id, product);
+      productsByKey.set(normalizeProductName(product.name), product);
+    });
 
-        return {
-          id: row.id,
-          name: row.menuName,
-          category: matchingProduct?.category ?? "-",
-          sold: row.quantitySold,
-          revenue: row.revenue,
-          estimatedCost: row.estimatedCogs,
-          grossProfit: row.grossProfit,
-          margin: row.marginPct,
-          status: getProfitabilityStatus({
-            status: row.status,
-            sold: row.quantitySold,
-            revenue: row.revenue,
-            margin: row.marginPct,
-          }),
-        };
-      })
-    : products;
+    const rowsByProduct = salesSummary.menuMargins.reduce((result, row) => {
+      const matchingProduct =
+        productsByKey.get(row.id) ??
+        productsByKey.get(normalizeProductName(row.menuName));
+      const id = matchingProduct?.id ?? row.id;
+      const existing = result.get(id);
+      const sold = (existing?.sold ?? 0) + row.quantitySold;
+      const revenue = (existing?.revenue ?? 0) + row.revenue;
+      const estimatedCost =
+        existing?.estimatedCost === null || row.estimatedCogs === null
+          ? null
+          : (existing?.estimatedCost ?? 0) + row.estimatedCogs;
+      const grossProfit = estimatedCost === null ? null : revenue - estimatedCost;
+      const margin =
+        grossProfit === null || revenue <= 0 ? null : (grossProfit / revenue) * 100;
+
+      result.set(id, {
+        id,
+        name: matchingProduct?.name ?? existing?.name ?? row.menuName,
+        category:
+          matchingProduct?.category && matchingProduct.category !== "-"
+            ? matchingProduct.category
+            : existing?.category && existing.category !== "-"
+              ? existing.category
+              : resolveCatalogCategory(row.id, row.menuName),
+        sold,
+        revenue,
+        estimatedCost,
+        grossProfit,
+        margin,
+        status: getProfitabilityStatus({
+          status: row.status,
+          sold,
+          revenue,
+          margin,
+        }),
+      });
+
+      return result;
+    }, new Map<string, ProductPerformanceRow>());
+
+    return Array.from(rowsByProduct.values());
+  }, [
+    data.categories,
+    data.products,
+    products,
+    salesSummary.menuMargins,
+    t,
+  ]);
   const missingCostRows = profitabilityRows.filter(
     (row) => row.estimatedCost === null || row.grossProfit === null || row.margin === null,
   );
-  const missingCostNames = formatMissingCostNames(missingCostRows);
   const availableFoodCost =
     salesSummary.summary.estimatedCogs ?? sumAvailableCost(profitabilityRows);
-  const netProfitEstimate =
-    salesSummary.summary.netProfitEstimate ??
-    (availableFoodCost === null
-      ? null
-      : salesSummary.summary.netSales -
-        availableFoodCost -
-        salesSummary.summary.operatingExpenses);
-  const hasPartialCostData =
-    missingCostRows.length > 0 && availableFoodCost !== null;
+  const netProfitEstimate = salesSummary.summary.netProfitEstimate;
+  const averageOrderValue = salesSummary.summary.totalOrders
+    ? salesSummary.summary.netSales / salesSummary.summary.totalOrders
+    : 0;
+  const serviceChargeAdjustments =
+    salesSummary.summary.netSales -
+    (salesSummary.summary.grossSales - salesSummary.summary.discounts);
   const paymentBreakdownRows: PaymentBreakdownDisplayRow[] =
     salesSummary.paymentBreakdown.length > 0 || salesSummary.summary.totalOrders > 0
       ? [
@@ -274,29 +335,66 @@ export default function SalesDashboard() {
       sortValue: (item) => item.status,
     },
   ];
-  const exportSalesWorkbook = async () => {
+  const exportSalesReport = async (format: ReportExportFormat) => {
     try {
-      await exportWorkbook(`owner-sales-${dateRange.startDate}-to-${dateRange.endDate}.xlsx`, [
-        {
+      await exportReport(format, {
+        filename: `owner-sales-${dateRange.startDate}-to-${dateRange.endDate}`,
+        title: `${t("owner.dashboard.sales")} Report`,
+        subtitle: `${dateRange.startDate} - ${dateRange.endDate}`,
+        sheets: [{
           name: t("owner.sales.sheet.summary"),
+          description: "Owner-facing Sales KPIs followed by the supporting profit reconciliation.",
           rows: [
             [t("owner.staff.metric"), t("owner.staff.sheet.value")],
             [t("owner.staff.sheet.startDate"), dateRange.startDate],
             [t("owner.staff.sheet.endDate"), dateRange.endDate],
-            [t("owner.sales.revenue"), salesSummary.summary.grossSales],
             [t("owner.bookkeeping.netSales"), salesSummary.summary.netSales],
-            [t("owner.sales.discounts"), salesSummary.summary.discounts],
-            [t("owner.sales.cogsEstimate"), availableFoodCost ?? ""],
+            [t("owner.sales.totalOrders"), salesSummary.summary.totalOrders],
+            [t("owner.sales.averageOrderValue"), averageOrderValue],
             [t("owner.sales.netProfitEstimate"), netProfitEstimate ?? ""],
-            [t("owner.sales.orders"), salesSummary.summary.totalOrders],
+            [t("owner.sales.grossSales"), salesSummary.summary.grossSales],
+            [t("owner.sales.discounts"), salesSummary.summary.discounts],
+            [t("owner.sales.serviceChargeAdjustments"), serviceChargeAdjustments],
+            [t("owner.sales.taxCollected"), salesSummary.summary.taxCollected],
+            [t("owner.sales.cogsEstimate"), salesSummary.summary.estimatedCogs ?? ""],
+            [t("owner.sales.operatingExpenses"), salesSummary.summary.operatingExpenses],
+            [t("owner.sales.calculation"), t("owner.sales.netProfitFormula")],
+          ],
+        },
+        {
+          name: t("owner.sales.sheet.trends"),
+          description: "Net Sales and Average Order Value movement for the selected and previous periods.",
+          rows: [
+            [
+              t("owner.overview.sheet.period"),
+              t("owner.bookkeeping.netSales"),
+              t("owner.sales.selectedPeriodAov"),
+              t("owner.sales.previousPeriodAov"),
+            ],
+            ...revenueTrend.map((row, index) => [
+              row.date,
+              row.revenue,
+              aovTrend[index]?.current ?? 0,
+              aovTrend[index]?.previous ?? 0,
+            ]),
           ],
         },
         {
           name: t("owner.sales.sheet.paymentBreakdown"),
+          description: "Payment method totals for valid sales in the selected date range.",
           rows: [[t("owner.sales.paymentMethod"), t("owner.sales.orders"), t("owner.sales.amount")], ...paymentBreakdownRows.map((row) => [row.method, row.orders, row.amount])],
         },
         {
+          name: t("owner.sales.sheet.categoryPerformance"),
+          description: "Sales value grouped by menu category.",
+          rows: [
+            [t("owner.sales.category"), t("owner.sales.revenue")],
+            ...categoryRevenue.map((row) => [row.name, row.revenue]),
+          ],
+        },
+        {
           name: t("owner.sales.sheet.menuProfitability"),
+          description: "Menu-level sales and profitability. Missing cost values indicate incomplete recipe or inventory cost data.",
           rows: [
             [t("owner.sales.menuName"), t("owner.sales.category"), t("owner.sales.sold"), t("owner.sales.revenue"), t("owner.sales.cogsEstimate"), t("owner.sales.grossProfit"), t("owner.sales.profitMargin"), t("owner.sales.status")],
             ...profitabilityRows.map((row) => [
@@ -307,11 +405,11 @@ export default function SalesDashboard() {
               row.estimatedCost ?? "",
               row.grossProfit ?? "",
               row.margin ?? "",
-              row.status,
+              getStatusLabel(row.status, t),
             ]),
           ],
-        },
-      ]);
+        }],
+      });
       showSuccess(t("owner.sales.exportSuccess"));
     } catch (error) {
       console.error("Failed to export sales report:", error);
@@ -327,14 +425,10 @@ export default function SalesDashboard() {
         <ExportButton
           label={t("owner.sales.export")}
           disabled={data.loading || salesSummary.loading}
-          items={[
-            {
-              id: "excel",
-              label: t("owner.sales.downloadExcel"),
-              onClick: () => void exportSalesWorkbook(),
-              disabled: data.loading || salesSummary.loading,
-            },
-          ]}
+          items={getReportExportItems({
+            onExport: (format) => void exportSalesReport(format),
+            disabled: data.loading || salesSummary.loading,
+          })}
         />
       </div>
 
@@ -354,54 +448,30 @@ export default function SalesDashboard() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label={t("owner.sales.netProfitEstimate")}
-          value={formatOptionalCurrency(netProfitEstimate, t("owner.dashboard.costDataNeeded"))}
-          helper={
-            hasPartialCostData
-              ? t("owner.sales.partialCostHelper", { count: missingCostRows.length, plural: missingCostRows.length === 1 ? "" : "s" })
-              : missingCostRows.length
-                ? t("owner.sales.costNeededHelper", { count: missingCostRows.length, plural: missingCostRows.length === 1 ? "" : "s" })
-                : t("owner.sales.netProfitFullHelper")
-          }
-          tone={missingCostRows.length ? "warning" : "success"}
+          label={t("owner.bookkeeping.netSales")}
+          value={formatCurrency(salesSummary.summary.netSales)}
+          helper={t("owner.sales.netSalesHelper")}
+          tone="info"
         />
         <MetricCard
-          label={t("owner.sales.revenue")}
-          value={formatCurrency(salesSummary.summary.grossSales)}
-          helper={t("owner.sales.revenueHelper")}
+          label={t("owner.sales.totalOrders")}
+          value={formatNumber(salesSummary.summary.totalOrders)}
+          helper={t("owner.sales.totalOrdersHelper")}
           tone="progress"
         />
         <MetricCard
-          label={t("owner.sales.discounts")}
-          value={formatCurrency(salesSummary.summary.discounts)}
-          helper={t("owner.sales.discountsHelper")}
+          label={t("owner.sales.averageOrderValue")}
+          value={formatCurrency(averageOrderValue)}
+          helper={t("owner.sales.averageOrderValueHelper")}
           tone="premium"
         />
         <MetricCard
-          label={t("owner.sales.foodCost")}
-          value={formatOptionalCurrency(availableFoodCost, t("owner.dashboard.costDataNeeded"))}
-          helper={
-            hasPartialCostData
-              ? t("owner.sales.partialCostHelper", { count: missingCostRows.length, plural: missingCostRows.length === 1 ? "" : "s" })
-              : missingCostRows.length
-                ? t("owner.sales.costNeededHelper", { count: missingCostRows.length, plural: missingCostRows.length === 1 ? "" : "s" })
-                : t("owner.sales.foodCostFullHelper")
-          }
-          tone={missingCostRows.length ? "warning" : "coffee"}
-        />
-        <MetricCard
-          label={t("owner.sales.operatingExpenses")}
-          value={formatCurrency(salesSummary.summary.operatingExpenses)}
-          helper={t("owner.sales.operatingExpensesHelper")}
-          tone="waiting"
-        />
-        <MetricCard
-          label={t("owner.sales.taxCollected")}
-          value={formatCurrency(salesSummary.summary.taxCollected)}
-          helper={t("owner.sales.taxCollectedHelper")}
-          tone="neutral"
+          label={t("owner.sales.netProfitEstimate")}
+          value={formatOptionalCurrency(netProfitEstimate, t("owner.dashboard.costDataNeeded"))}
+          helper={t("owner.sales.netProfitShortHelper")}
+          tone={missingCostRows.length ? "warning" : "success"}
         />
       </div>
 
@@ -410,16 +480,86 @@ export default function SalesDashboard() {
           className={`rounded-xl border p-4 text-sm ${OWNER_SEMANTIC_TONES.warning.badgeClass}`}
         >
           <p className="font-bold text-gray-900">{t("owner.sales.incompleteCostTitle")}</p>
-          <p className="mt-1 leading-6">
-            {t("owner.sales.incompleteCostMessage", {
-              available: availableFoodCost === null ? "." : ` (${formatCurrency(availableFoodCost)}).`,
-              count: missingCostRows.length,
-              plural: missingCostRows.length === 1 ? "" : "s",
-              names: missingCostNames,
-            })}
+          <p className="mt-1 leading-5">
+            {t("owner.sales.incompleteCostShortMessage", { count: missingCostRows.length })}
           </p>
         </div>
       ) : null}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <ChartCard
+          title={t("owner.sales.revenueTrend")}
+          subtitle={t("owner.sales.revenueTrendSubtitle")}
+        >
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={revenueTrend} margin={{ left: -8, right: 16 }}>
+                <defs>
+                  <linearGradient id="sales-revenue-trend" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={OWNER_CHART_COLORS.INDIGO_BLUE} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={OWNER_CHART_COLORS.INDIGO_BLUE} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={OWNER_SEMANTIC_TONES.neutral.border} />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => formatAxisCurrency(Number(value))}
+                  width={72}
+                />
+                <Tooltip content={<StandardTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  name={t("owner.bookkeeping.netSales")}
+                  stroke={OWNER_CHART_COLORS.INDIGO_BLUE}
+                  fill="url(#sales-revenue-trend)"
+                  strokeWidth={3}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+
+        <ChartCard
+          title={t("owner.sales.aovTrend")}
+          subtitle={t("owner.sales.aovTrendSubtitle")}
+        >
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={aovTrend} margin={{ left: -8, right: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={OWNER_SEMANTIC_TONES.neutral.border} />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => formatAxisCurrency(Number(value))}
+                  width={72}
+                />
+                <Tooltip content={<StandardTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="current"
+                  name={t("owner.sales.selectedPeriodAov")}
+                  stroke={OWNER_CHART_COLORS.INDIGO_BLUE}
+                  strokeWidth={3}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="previous"
+                  name={t("owner.sales.previousPeriodAov")}
+                  stroke={OWNER_CHART_COLORS.SOFT_SKY_BLUE}
+                  strokeWidth={3}
+                  strokeDasharray="6 6"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+      </div>
 
       <ChartCard
         title={t("owner.sales.paymentBreakdown")}
@@ -435,60 +575,7 @@ export default function SalesDashboard() {
         />
       </ChartCard>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ChartCard
-          title={t("owner.sales.menuQuadrant")}
-          subtitle={t("owner.sales.menuQuadrantSubtitle")}
-        >
-          {quadrantData.length ? (
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ left: -8, right: 16, top: 12, bottom: 12 }}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke={OWNER_SEMANTIC_TONES.neutral.border}
-                  />
-                  <XAxis
-                    type="number"
-                    dataKey="sold"
-                    name={t("owner.sales.sold")}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="quadrantValue"
-                    name={t("owner.sales.revenue")}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${Number(value) / 1000}k`}
-                  />
-                  <Tooltip content={<StandardTooltip />} />
-                  <Scatter data={quadrantData} fill={OWNER_CHART_COLORS.INDIGO_BLUE}>
-                    {quadrantData.map((item, index) => (
-                      <Cell
-                        key={item.id}
-                        fill={
-                          index % 2 === 0
-                            ? OWNER_CHART_COLORS.INDIGO_BLUE
-                            : OWNER_CHART_COLORS.SOFT_SKY_BLUE
-                        }
-                      />
-                    ))}
-                    <LabelList
-                      dataKey="name"
-                      position="right"
-                      className="fill-gray-700 text-[11px] font-semibold"
-                    />
-                  </Scatter>
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <EmptyState label={t("owner.sales.noMenuSalesData")} />
-          )}
-        </ChartCard>
-
+      <div className="grid grid-cols-1 gap-4">
         <ChartCard title={t("owner.sales.topSellingMenu")} subtitle={t("owner.sales.topSellingMenuSubtitle")}>
           {topMenus.length ? (
             <div className="h-80">

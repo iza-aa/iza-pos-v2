@@ -15,7 +15,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <RoleGuard allowedRole="owner" loginPath="/owner/login" verifyActiveStaff={false}>
+    <RoleGuard allowedRole="owner" loginPath="/owner/login">
       <div>
         {!isLogin && <Navbar role="owner" canSwitchRole={true} />}
         <main>{children}</main>

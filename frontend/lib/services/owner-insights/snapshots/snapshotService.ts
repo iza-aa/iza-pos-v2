@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { OwnerInsightCategory } from "./insightSchema";
+import type { OwnerInsightCategory } from "../domain/insightSchema";
 import { buildActivityLogRecommendationSnapshot } from "./activityLogSnapshotBuilder";
 import { buildCustomerRecommendationSnapshot } from "./customerSnapshotBuilder";
 import { buildInventoryRecommendationSnapshot } from "./inventorySnapshotBuilder";
@@ -7,11 +7,11 @@ import { buildOperationsRecommendationSnapshot } from "./operationsSnapshotBuild
 import { buildOverviewRecommendationSnapshot } from "./overviewSnapshotBuilder";
 import { buildSalesRecommendationSnapshot } from "./salesSnapshotBuilder";
 import { buildStaffRecommendationSnapshot } from "./staffSnapshotBuilder";
-import type { OwnerInsightPeriod } from "./recommendationSnapshotTypes";
+import type { OwnerInsightPeriod } from "../domain/recommendationSnapshotTypes";
 
-export type { OwnerInsightPeriod } from "./recommendationSnapshotTypes";
+export type { OwnerInsightPeriod } from "../domain/recommendationSnapshotTypes";
 
-const OWNER_INSIGHT_PROMPT_VERSION = "v14";
+const OWNER_INSIGHT_PROMPT_VERSION = "v15";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const isDateString = (value: string | undefined) =>

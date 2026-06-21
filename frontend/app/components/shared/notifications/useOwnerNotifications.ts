@@ -71,10 +71,9 @@ type ActivityLogRow = {
   action?: string | null;
   action_description?: string | null;
   action_category?: string | null;
-  entity_type?: string | null;
   resource_type?: string | null;
   severity?: string | null;
-  created_at?: string | null;
+  timestamp?: string | null;
 };
 
 type BookkeepingOverview = {
@@ -244,10 +243,10 @@ export default function useOwnerNotifications(enabled: boolean) {
           .limit(200),
         supabase
           .from("activity_logs")
-          .select("*")
-          .gte("created_at", startIso)
-          .lte("created_at", endIso)
-          .order("created_at", { ascending: false })
+          .select("id,action,action_description,action_category,resource_type,severity,timestamp")
+          .gte("timestamp", startIso)
+          .lte("timestamp", endIso)
+          .order("timestamp", { ascending: false })
           .limit(50)
           .then((result) => {
             const message = result.error?.message.toLowerCase() || "";
@@ -255,7 +254,7 @@ export default function useOwnerNotifications(enabled: boolean) {
               ? { data: [] as ActivityLogRow[], error: null }
               : result;
           }),
-        fetch(`/api/owner/bookkeeping/overview?startDate=${today}&endDate=${today}`, {
+        fetch(`/api/owner/bookkeeping/overview?startDate=${today}&endDate=${today}&mode=summary`, {
           headers: getOwnerRequestHeaders(),
         })
           .then(async (response): Promise<BookkeepingOverview | null> => {
@@ -525,7 +524,7 @@ export default function useOwnerNotifications(enabled: boolean) {
         const firstLog = criticalLogs[0] || warningLogs[0];
         const activityDescription =
           firstLog?.action_description ||
-          [firstLog?.action, firstLog?.resource_type || firstLog?.entity_type]
+          [firstLog?.action, firstLog?.resource_type]
             .filter(Boolean)
             .join(" ") ||
           t("owner.notifications.activityRiskFallback", {
@@ -538,7 +537,7 @@ export default function useOwnerNotifications(enabled: boolean) {
           message: activityDescription,
           severity: criticalLogs.length ? "critical" : "warning",
           source: t("owner.notifications.sourceActivityLog"),
-          createdAt: firstLog?.created_at || now,
+          createdAt: firstLog?.timestamp || now,
           actionHref: "/owner/activitylog",
           actionLabel: t("owner.notifications.openActivityLog"),
         });

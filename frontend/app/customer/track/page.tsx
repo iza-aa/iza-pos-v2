@@ -19,6 +19,7 @@ import OrderProgressBar, {
 } from "@/app/components/customer/track/OrderProgressBar";
 import LoadingScreen from "@/app/components/customer/LoadingScreen";
 import { showInfo, showSuccess } from "@/lib/services/errorHandling";
+import { getStoredCustomerTableSession } from "@/lib/customer/customerSession";
 
 interface TableInfo {
   id: string;
@@ -81,37 +82,6 @@ interface StatusConfig {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function parseStoredTable(value: string | null): TableInfo | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    if (!isRecord(parsed)) {
-      return null;
-    }
-
-    const id = parsed.id;
-    const tableNumber = parsed.table_number;
-
-    if (typeof id !== "string" || typeof tableNumber !== "string") {
-      return null;
-    }
-
-    return {
-      id,
-      table_id: typeof parsed.table_id === "string" ? parsed.table_id : undefined,
-      table_number: tableNumber,
-    };
-  } catch {
-    localStorage.removeItem("customer_table");
-    localStorage.removeItem("table_session_start");
-    return null;
-  }
 }
 
 function normalizeOrder(row: OrderRow): Order {
@@ -336,7 +306,14 @@ function CustomerTrackContent() {
     const queryCode = searchParams.get("code")?.trim() || null;
     const storedOrderId = localStorage.getItem("current_order_id");
     const storedPickupCode = localStorage.getItem("current_pickup_code");
-    const storedTable = parseStoredTable(localStorage.getItem("customer_table"));
+    const storedSession = getStoredCustomerTableSession();
+    const storedTable: TableInfo | null = storedSession
+      ? {
+          id: storedSession.table_id,
+          table_id: storedSession.table_id,
+          table_number: storedSession.table_number,
+        }
+      : null;
     const pickupCode = queryCode || storedPickupCode || null;
 
     setCurrentOrderId(storedOrderId);

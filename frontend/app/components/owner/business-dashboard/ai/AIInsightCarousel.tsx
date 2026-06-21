@@ -3,12 +3,16 @@
 import { useState } from "react";
 import {
   ArrowPathIcon,
+  ChartBarIcon,
+  CheckCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ExclamationTriangleIcon,
+  LightBulbIcon,
   SparklesIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
-import type { AIInsight } from "@/lib/services/owner-insights/insightSchema";
+import type { AIInsight } from "@/lib/services/owner-insights";
+import { StandardModal } from "@/app/components/shared";
 import { useLanguage } from "@/app/components/shared/i18n";
 
 const thinkingTextClassName =
@@ -23,6 +27,7 @@ type AIInsightCarouselProps = {
   generationCount?: number;
   showDetail: boolean;
   onGenerate: () => void;
+  summaryLabel?: string;
 };
 
 export default function AIInsightCarousel({
@@ -34,6 +39,7 @@ export default function AIInsightCarousel({
   generationCount,
   showDetail,
   onGenerate,
+  summaryLabel = "Owner Insight Summary",
 }: AIInsightCarouselProps) {
   const { t } = useLanguage();
   const [index, setIndex] = useState(0);
@@ -51,6 +57,12 @@ export default function AIInsightCarousel({
   const showNext = () => {
     setIndex((current) => (current === insights.length - 1 ? 0 : current + 1));
   };
+  const priorityClass =
+    insight?.priority === "high"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : insight?.priority === "medium"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700";
 
   return (
     <>
@@ -76,7 +88,7 @@ export default function AIInsightCarousel({
         <div className="md:px-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-700">
             <SparklesIcon className="h-4 w-4" />
-            Owner Insight Summary
+            {summaryLabel}
           </div>
 
           <h2 className="mt-5 text-sm font-bold leading-tight text-gray-900">
@@ -194,104 +206,144 @@ export default function AIInsightCarousel({
       </section>
 
       {detailOpen && insight ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-gray-100 p-5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  {t("owner.ai.adviceDetail")}
-                </p>
-                <h3 className="mt-1 text-xl font-bold text-gray-900">
-                  {insight.title}
-                </h3>
-              </div>
+        <StandardModal
+          isOpen
+          title={insight.title}
+          description={t("owner.ai.detailDescription")}
+          maxWidthClassName="max-w-5xl"
+          onClose={() => setDetailOpen(false)}
+          footer={
+            <>
               <button
                 type="button"
                 onClick={() => setDetailOpen(false)}
-                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                aria-label={t("owner.ai.closeDetail")}
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 p-5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  What Happened
-                </p>
-                <p className="mt-2 text-sm leading-7 text-gray-700">
-                  {insight.problem}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  Supporting Data
-                </p>
-                <ul className="mt-2 space-y-2 text-sm leading-6 text-gray-700">
-                  {insight.evidence.map((item) => (
-                    <li key={item} className="flex gap-2">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-900" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="rounded-2xl bg-gray-900 p-4 text-white">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-300">
-                  What To Check
-                </p>
-                <p className="mt-2 text-sm leading-7">
-                  {insight.recommendation}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  Why It Matters
-                </p>
-                <p className="mt-2 text-sm leading-7 text-gray-700">
-                  {insight.expectedImpact}
-                </p>
-              </div>
-
-              <div className="grid gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
-                <div>
-                  <p className="font-semibold text-gray-900">{t("owner.ai.generated")}</p>
-                  <p className="mt-1">
-                    {generatedAt
-                      ? new Date(generatedAt).toLocaleString("en-US")
-                      : t("notifications.today")}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{t("owner.ai.dailyAttempts")}</p>
-                  <p className="mt-1">{t("owner.ai.attemptsCount", { count: generationCount ?? 1, max: 3 })}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 p-5">
-              <button
-                type="button"
-                onClick={() => setDetailOpen(false)}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
                 {t("common.close")}
               </button>
               {insight.actionHref && insight.actionLabel ? (
                 <a
                   href={insight.actionHref}
-                  className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                  className="rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
                 >
                   {insight.actionLabel}
                 </a>
               ) : null}
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+            <div className="space-y-4">
+              <section className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-gray-100 p-2">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      {t("owner.ai.whatHappened")}
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600">
+                      {insight.problem}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-gray-100 p-2">
+                    <ChartBarIcon className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {t("owner.ai.supportingData")}
+                  </h3>
+                </div>
+                <div className="mt-4 divide-y divide-gray-100 border-y border-gray-100">
+                  {insight.evidence.map((item) => (
+                    <div key={item} className="flex gap-3 py-3 text-sm leading-6 text-gray-700">
+                      <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-gray-900 bg-gray-900 p-4 text-white">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-white/10 p-2">
+                    <LightBulbIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">
+                      {t("owner.ai.whatToCheck")}
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-200">
+                      {insight.recommendation}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-gray-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  {t("owner.ai.whyItMatters")}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  {insight.expectedImpact}
+                </p>
+              </section>
             </div>
+
+            <aside className="space-y-4">
+              <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  {t("owner.ai.summary")}
+                </h3>
+                <dl className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-gray-500">{t("owner.ai.priority")}</dt>
+                    <dd className={`rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${priorityClass}`}>
+                      {insight.priority}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-gray-500">{t("owner.ai.confidence")}</dt>
+                    <dd className="font-semibold capitalize text-gray-900">
+                      {insight.confidence}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-gray-500">{t("owner.ai.generated")}</dt>
+                    <dd className="text-right font-semibold text-gray-900">
+                      {generatedAt
+                        ? new Date(generatedAt).toLocaleString()
+                        : t("notifications.today")}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-gray-500">{t("owner.ai.dailyAttempts")}</dt>
+                    <dd className="font-semibold text-gray-900">
+                      {t("owner.ai.attemptsCount", {
+                        count: generationCount ?? 1,
+                        max: 3,
+                      })}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section className="rounded-lg border border-gray-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-gray-400">
+                  {t("owner.ai.ownerRead")}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  {t("owner.ai.ownerReadDescription")}
+                </p>
+              </section>
+            </aside>
           </div>
-        </div>
+        </StandardModal>
       ) : null}
     </>
   );

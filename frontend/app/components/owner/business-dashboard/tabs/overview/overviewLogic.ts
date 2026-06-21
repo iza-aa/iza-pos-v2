@@ -1,96 +1,14 @@
 import type { DateRangeValue } from "../DateRangeFilter";
-import type { OrderRow } from "../shared/dashboardTypes";
+import type { DashboardData, OrderRow } from "../shared/dashboardTypes";
 import type { BookkeepingSummary } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import {
+  getBusinessDateFromTimestamp,
   getDatesBetween,
   getOrderBusinessDate,
   getOrderBusinessHour,
-  getPreviousDateRange,
   isValidSalesOrder,
   toNumber,
 } from "../shared/dashboardUtils";
-
-export function buildRevenueTrendForRange(
-  orders: OrderRow[],
-  range: DateRangeValue,
-) {
-  const validOrders = orders.filter(isValidSalesOrder);
-
-  if (range.startDate === range.endDate) {
-    return Array.from({ length: 24 }, (_, hour) => {
-      const hourLabel = `${String(hour).padStart(2, "0")}:00`;
-      const rows = validOrders.filter(
-        (order) =>
-          getOrderBusinessDate(order) === range.startDate &&
-          getOrderBusinessHour(order) === String(hour).padStart(2, "0"),
-      );
-
-      return {
-        date: hourLabel,
-        revenue: rows.reduce((sum, order) => sum + toNumber(order.total), 0),
-        orders: rows.length,
-      };
-    });
-  }
-
-  return getDatesBetween(range.startDate, range.endDate).map((date) => {
-    const rows = validOrders.filter((order) => getOrderBusinessDate(order) === date);
-    return {
-      date: date.slice(5),
-      revenue: rows.reduce((sum, order) => sum + toNumber(order.total), 0),
-      orders: rows.length,
-    };
-  });
-}
-
-function calculateAov(orders: OrderRow[]) {
-  const validOrders = orders.filter(isValidSalesOrder);
-  const revenue = validOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
-  return validOrders.length ? revenue / validOrders.length : 0;
-}
-
-export function buildAovTrendComparison(
-  orders: OrderRow[],
-  range: DateRangeValue,
-) {
-  if (range.startDate === range.endDate) {
-    const previousDate = getPreviousDateRange(range).startDate;
-
-    return Array.from({ length: 24 }, (_, hour) => {
-      const hourKey = String(hour).padStart(2, "0");
-      const getRows = (date: string) =>
-        orders.filter(
-          (order) =>
-            getOrderBusinessDate(order) === date &&
-            getOrderBusinessHour(order) === hourKey,
-        );
-
-      return {
-        date: `${hourKey}:00`,
-        current: Math.round(calculateAov(getRows(range.startDate))),
-        previous: Math.round(calculateAov(getRows(previousDate))),
-      };
-    });
-  }
-
-  const currentDates = getDatesBetween(range.startDate, range.endDate);
-  const previousRange = getPreviousDateRange(range);
-  const previousDates = getDatesBetween(previousRange.startDate, previousRange.endDate);
-
-  return currentDates.map((date, index) => {
-    const previousDate = previousDates[index];
-
-    return {
-      date: date.slice(5),
-      current: Math.round(
-        calculateAov(orders.filter((order) => getOrderBusinessDate(order) === date)),
-      ),
-      previous: Math.round(
-        calculateAov(orders.filter((order) => getOrderBusinessDate(order) === previousDate)),
-      ),
-    };
-  });
-}
 
 function percentChange(current: number, previous: number) {
   if (previous === 0) return null;
@@ -159,8 +77,59 @@ const getLowestDriver = (drivers: Array<{ label: string; score: number | null }>
 
 export type BusinessHealthFinancials = Pick<
   BookkeepingSummary,
-  "grossSales" | "discounts" | "estimatedCogs" | "netProfitEstimate"
+  "grossSales" | "netSales" | "discounts" | "estimatedCogs" | "netProfitEstimate"
 >;
+
+export type BusinessAreaOverview = {
+  sales: {
+    netSales: number;
+    validOrders: number;
+    averageOrderValue: number;
+    discountRate: number | null;
+    previousNetSales: number;
+    previousValidOrders: number;
+    score: number;
+  };
+  customer: {
+    validOrders: number;
+    repeatCustomerRate: number;
+    memberShare: number;
+    discountRatio: number;
+    score: number;
+  };
+  inventory: {
+    criticalItems: number;
+    totalItems: number;
+    dataIssues: number;
+    pendingReports: number;
+    score: number;
+  };
+  staff: {
+    activeStaff: number;
+    attendanceRecords: number;
+    attendanceRate: number;
+    lateRate: number;
+    overtimeRate: number;
+    score: number;
+  };
+  operations: {
+    totalOrders: number;
+    completionRate: number;
+    cancelledRate: number;
+    serviceMinutes: number | null;
+    serviceSampleSize: number;
+    score: number;
+  };
+};
+
+export type BusinessAreaTrendRow = {
+  label: string;
+  sales: number;
+  customer: number;
+  inventory: number;
+  staff: number;
+  operations: number;
+};
 
 function getAverageServiceMinutes(orders: OrderRow[]) {
   const durations = orders
@@ -183,10 +152,330 @@ function getAverageServiceMinutes(orders: OrderRow[]) {
   };
 }
 
+const isCancelledOrder = (status: string | null | undefined) =>
+  ["cancelled", "canceled", "void", "refunded"].includes(
+    String(status ?? "").toLowerCase(),
+  );
+
+const isCompletedOrder = (status: string | null | undefined) =>
+  ["completed", "served", "paid"].includes(String(status ?? "").toLowerCase());
+
+const getOrdersInRange = (orders: OrderRow[], range: DateRangeValue) =>
+  orders.filter((order) => {
+    const date = getOrderBusinessDate(order);
+    return date >= range.startDate && date <= range.endDate;
+  });
+
+const getValidOrdersInRange = (orders: OrderRow[], range: DateRangeValue) =>
+  getOrdersInRange(orders, range).filter(isValidSalesOrder);
+
+const getSalesSummaryFromOrders = (orders: OrderRow[]) => {
+  const revenue = orders.reduce((sum, order) => sum + toNumber(order.total), 0);
+  const discounts = orders.reduce((sum, order) => sum + toNumber(order.discount), 0);
+
+  return {
+    revenue,
+    discounts,
+    orderCount: orders.length,
+    averageOrderValue: orders.length ? revenue / orders.length : 0,
+    discountRate: revenue > 0 ? (discounts / revenue) * 100 : null,
+  };
+};
+
+const getCustomerSummary = (allOrders: OrderRow[], range: DateRangeValue) => {
+  const validOrders = allOrders.filter(isValidSalesOrder);
+  const rangeOrders = getOrdersInRange(validOrders, range);
+  const memberOrders = rangeOrders.filter((order) => Boolean(order.customer_id));
+  const activeCustomerIds = new Set(
+    memberOrders.map((order) => order.customer_id).filter(Boolean),
+  );
+  const lifetimeByCustomer = new Map<string, number>();
+
+  validOrders
+    .filter((order) => getOrderBusinessDate(order) <= range.endDate)
+    .forEach((order) => {
+      const customerId = order.customer_id;
+      if (!customerId) return;
+      lifetimeByCustomer.set(customerId, (lifetimeByCustomer.get(customerId) ?? 0) + 1);
+    });
+
+  const repeatCustomers = Array.from(activeCustomerIds).filter(
+    (customerId) => (lifetimeByCustomer.get(customerId ?? "") ?? 0) >= 2,
+  ).length;
+  const revenue = rangeOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
+  const discountCost = rangeOrders.reduce((sum, order) => sum + toNumber(order.discount), 0);
+
+  return {
+    validOrders: rangeOrders.length,
+    repeatCustomerRate: activeCustomerIds.size
+      ? (repeatCustomers / activeCustomerIds.size) * 100
+      : 0,
+    memberShare: rangeOrders.length ? (memberOrders.length / rangeOrders.length) * 100 : 0,
+    discountRatio: revenue ? (discountCost / revenue) * 100 : 0,
+  };
+};
+
+const getInventoryCriticalCount = (data: DashboardData) =>
+  data.inventoryItems.filter((item) => {
+    const current = toNumber(item.current_stock);
+    const minimum = toNumber(item.reorder_level);
+    return minimum > 0 && current <= minimum;
+  }).length;
+
+const getInventoryDataIssueCount = (data: DashboardData) =>
+  data.inventoryItems.filter((item) => {
+    const current = toNumber(item.current_stock);
+    const minimum = toNumber(item.reorder_level);
+    return current < 0 || minimum <= 0 || !item.unit;
+  }).length;
+
+const isPendingStockReport = (status: string | null | undefined) => {
+  const normalized = String(status ?? "").toLowerCase();
+  return !["resolved", "closed", "approved", "completed", "done"].includes(normalized);
+};
+
+const getStaffSummary = (data: DashboardData, range: DateRangeValue) => {
+  const activeStaff = data.staff.filter((staff) => staff.status !== "inactive");
+  const activeStaffIds = new Set(activeStaff.map((staff) => staff.id));
+  const attendance = data.attendance.filter(
+    (row) =>
+      row.attendance_date &&
+      row.attendance_date >= range.startDate &&
+      row.attendance_date <= range.endDate &&
+      row.staff_id &&
+      activeStaffIds.has(row.staff_id),
+  );
+  const operatingDays = new Set(attendance.map((row) => row.attendance_date).filter(Boolean)).size;
+  const expectedRecords = activeStaff.length * operatingDays;
+  const clockedIn = attendance.filter((row) => row.clock_in_at).length;
+  const late = attendance.filter((row) => row.check_in_status === "late").length;
+  const overtime = attendance.filter((row) => row.check_out_status === "overtime").length;
+
+  return {
+    activeStaff: activeStaff.length,
+    attendanceRecords: attendance.length,
+    attendanceRate: expectedRecords ? (clockedIn / expectedRecords) * 100 : 0,
+    lateRate: attendance.length ? (late / attendance.length) * 100 : 0,
+    overtimeRate: attendance.length ? (overtime / attendance.length) * 100 : 0,
+  };
+};
+
+const getOperationsSummary = (orders: OrderRow[]) => {
+  const completedOrders = orders.filter((order) => isCompletedOrder(order.status));
+  const cancelledOrders = orders.filter((order) => isCancelledOrder(order.status));
+  const service = getAverageServiceMinutes(orders);
+
+  return {
+    totalOrders: orders.length,
+    completionRate: orders.length ? (completedOrders.length / orders.length) * 100 : 0,
+    cancelledRate: orders.length ? (cancelledOrders.length / orders.length) * 100 : 0,
+    serviceMinutes: service.minutes,
+    serviceSampleSize: service.sampleSize,
+  };
+};
+
+export function buildBusinessAreaOverview(
+  data: DashboardData,
+  range: DateRangeValue,
+  previousRange: DateRangeValue,
+  financials?: BusinessHealthFinancials | null,
+): BusinessAreaOverview {
+  const currentValidOrders = getValidOrdersInRange(data.orders, range);
+  const previousValidOrders = getValidOrdersInRange(data.orders, previousRange);
+  const sales = getSalesSummaryFromOrders(currentValidOrders);
+  const previousSales = getSalesSummaryFromOrders(previousValidOrders);
+  const netSales = financials?.netSales ?? (
+    financials?.grossSales
+      ? financials.grossSales - (financials.discounts ?? 0)
+      : sales.revenue
+  );
+  const discountRate = financials?.grossSales
+    ? ((financials.discounts ?? 0) / financials.grossSales) * 100
+    : sales.discountRate;
+  const customer = getCustomerSummary(data.orders, range);
+  const criticalItems = getInventoryCriticalCount(data);
+  const dataIssues = getInventoryDataIssueCount(data);
+  const pendingReports = data.stockReports.filter((report) =>
+    isPendingStockReport(report.status),
+  ).length;
+  const staff = getStaffSummary(data, range);
+  const ordersInRange = getOrdersInRange(data.orders, range);
+  const operations = getOperationsSummary(ordersInRange);
+  const inventoryTotal = data.inventoryItems.length;
+  const stockRiskRatio = inventoryTotal ? (criticalItems / inventoryTotal) * 100 : 0;
+  const dataIssueRatio = inventoryTotal ? (dataIssues / inventoryTotal) * 100 : 0;
+  const pendingReportRatio = inventoryTotal ? (pendingReports / inventoryTotal) * 100 : 0;
+  const serviceScore =
+    operations.serviceMinutes === null
+      ? ordersInRange.length > 0
+        ? 40
+        : 0
+      : clampScore(100 - Math.max(0, operations.serviceMinutes - 10) * 3);
+
+  return {
+    sales: {
+      netSales,
+      validOrders: currentValidOrders.length,
+      averageOrderValue: sales.averageOrderValue,
+      discountRate,
+      previousNetSales: previousSales.revenue,
+      previousValidOrders: previousValidOrders.length,
+      score: averageScores([
+        scoreMovement(netSales, previousSales.revenue),
+        scoreMovement(currentValidOrders.length, previousValidOrders.length),
+        scorePercentageLowerIsBetter(discountRate, 5, 15),
+      ]) ?? 0,
+    },
+    customer: {
+      ...customer,
+      score: averageScores([
+        scorePercentageHigherIsBetter(customer.repeatCustomerRate, 35, 0),
+        scorePercentageHigherIsBetter(customer.memberShare, 50, 0),
+        scorePercentageLowerIsBetter(customer.discountRatio, 5, 15),
+      ]) ?? 0,
+    },
+    inventory: {
+      criticalItems,
+      totalItems: inventoryTotal,
+      dataIssues,
+      pendingReports,
+      score: averageScores([
+        scorePercentageLowerIsBetter(stockRiskRatio, 0, 30),
+        scorePercentageLowerIsBetter(dataIssueRatio, 0, 20),
+        scorePercentageLowerIsBetter(pendingReportRatio, 0, 15),
+      ]) ?? 0,
+    },
+    staff: {
+      ...staff,
+      score: averageScores([
+        scorePercentageHigherIsBetter(staff.attendanceRate, 95, 50),
+        scorePercentageLowerIsBetter(staff.lateRate, 5, 20),
+        scorePercentageLowerIsBetter(staff.overtimeRate, 10, 30),
+      ]) ?? 0,
+    },
+    operations: {
+      ...operations,
+      score: averageScores([
+        scorePercentageHigherIsBetter(operations.completionRate, 95, 50),
+        scorePercentageLowerIsBetter(operations.cancelledRate, 2, 10),
+        serviceScore,
+      ]) ?? 0,
+    },
+  };
+}
+
+const getTrendBuckets = (range: DateRangeValue) => {
+  if (range.startDate === range.endDate) {
+    return Array.from({ length: 24 }, (_, hour) => {
+      const hourKey = String(hour).padStart(2, "0");
+      return {
+        label: `${hourKey}:00`,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        hour: hourKey,
+      };
+    });
+  }
+
+  const dates = getDatesBetween(range.startDate, range.endDate);
+  const maxBuckets = 14;
+  const step = Math.max(1, Math.ceil(dates.length / maxBuckets));
+  const buckets: Array<{
+    label: string;
+    startDate: string;
+    endDate: string;
+    hour: string | null;
+  }> = [];
+
+  for (let index = 0; index < dates.length; index += step) {
+    const bucketDates = dates.slice(index, index + step);
+    const first = bucketDates[0];
+    const last = bucketDates[bucketDates.length - 1];
+
+    buckets.push({
+      label: first === last ? first.slice(5) : `${first.slice(5)}-${last.slice(5)}`,
+      startDate: first,
+      endDate: last,
+      hour: null,
+    });
+  }
+
+  return buckets;
+};
+
+export function buildBusinessAreaTrends(
+  data: DashboardData,
+  range: DateRangeValue,
+): BusinessAreaTrendRow[] {
+  const activeStaffIds = new Set(
+    data.staff.filter((staff) => staff.status !== "inactive").map((staff) => staff.id),
+  );
+  const totalInventoryItems = Math.max(1, data.inventoryItems.length);
+
+  const rows = getTrendBuckets(range).map((bucket) => {
+    const bucketOrders = data.orders.filter((order) => {
+      const date = getOrderBusinessDate(order);
+      const hour = getOrderBusinessHour(order);
+
+      return (
+        date >= bucket.startDate &&
+        date <= bucket.endDate &&
+        (!bucket.hour || hour === bucket.hour)
+      );
+    });
+    const validOrders = bucketOrders.filter(isValidSalesOrder);
+    const salesRevenue = validOrders.reduce((sum, order) => sum + toNumber(order.total), 0);
+    const customer = getCustomerSummary(data.orders, {
+      startDate: bucket.startDate,
+      endDate: bucket.endDate,
+    });
+    const stockRiskReports = data.stockReports.filter((report) => {
+      const date = getBusinessDateFromTimestamp(report.created_at);
+      return (
+        date >= bucket.startDate &&
+        date <= bucket.endDate &&
+        isPendingStockReport(report.status)
+      );
+    }).length;
+    const attendance = data.attendance.filter(
+      (row) =>
+        row.attendance_date &&
+        row.attendance_date >= bucket.startDate &&
+        row.attendance_date <= bucket.endDate &&
+        row.staff_id &&
+        activeStaffIds.has(row.staff_id),
+    );
+    const attendanceDays = new Set(attendance.map((row) => row.attendance_date).filter(Boolean)).size;
+    const expectedAttendance = activeStaffIds.size * attendanceDays;
+    const attendanceRate = expectedAttendance
+      ? (attendance.filter((row) => row.clock_in_at).length / expectedAttendance) * 100
+      : 0;
+    const operations = getOperationsSummary(bucketOrders);
+
+    return {
+      label: bucket.label,
+      salesRevenue,
+      customer: clampScore(customer.repeatCustomerRate),
+      inventory: clampScore(100 - (stockRiskReports / totalInventoryItems) * 100),
+      staff: clampScore(attendanceRate),
+      operations: clampScore(operations.completionRate),
+    };
+  });
+  const highestSalesRevenue = Math.max(0, ...rows.map((row) => row.salesRevenue));
+
+  return rows.map(({ salesRevenue, ...row }) => ({
+    ...row,
+    sales: highestSalesRevenue
+      ? clampScore((salesRevenue / highestSalesRevenue) * 100)
+      : 0,
+  }));
+}
+
 export function buildBusinessHealth(
   currentOrders: OrderRow[],
   previousOrders: OrderRow[],
   financials?: BusinessHealthFinancials | null,
+  areas?: BusinessAreaOverview | null,
 ) {
   const currentValidOrders = currentOrders.filter(isValidSalesOrder);
   const previousValidOrders = previousOrders.filter(isValidSalesOrder);
@@ -263,8 +552,18 @@ export function buildBusinessHealth(
           serviceScore,
         ]) ?? 0)
       : null;
-  const dataConfidenceScore =
-    currentValidOrders.length >= 10
+  const availableAreaCount = areas
+    ? [
+        areas.sales.validOrders > 0,
+        areas.customer.validOrders > 0,
+        areas.inventory.totalItems > 0,
+        areas.staff.activeStaff > 0 && areas.staff.attendanceRecords > 0,
+        areas.operations.totalOrders > 0,
+      ].filter(Boolean).length
+    : 0;
+  const dataConfidenceScore = areas
+    ? availableAreaCount * 20
+    : currentValidOrders.length >= 10
       ? 100
       : currentValidOrders.length >= 5
         ? 70
@@ -277,14 +576,30 @@ export function buildBusinessHealth(
               : 0;
   const effectiveProfitQualityScore = profitQualityScore ?? 50;
   const effectiveOperationalFlowScore = operationalFlowScore ?? 0;
-  const uncappedScore = clampScore(
-    demandScore * 0.3 +
-      effectiveProfitQualityScore * 0.35 +
-      effectiveOperationalFlowScore * 0.25 +
-      dataConfidenceScore * 0.1,
-  );
-  const sampleCap =
-    currentValidOrders.length >= 10
+  const effectiveTransactionQualityScore = transactionQualityScore ?? 0;
+  const salesAreaScore = areas?.sales.score ?? demandScore;
+  const customerAreaScore = areas?.customer.score ?? effectiveTransactionQualityScore;
+  const inventoryAreaScore = areas?.inventory.score ?? effectiveProfitQualityScore;
+  const staffAreaScore = areas?.staff.score ?? dataConfidenceScore;
+  const operationsAreaScore = areas?.operations.score ?? effectiveOperationalFlowScore;
+  const uncappedScore = areas
+    ? clampScore(
+        salesAreaScore * 0.25 +
+          customerAreaScore * 0.15 +
+          inventoryAreaScore * 0.2 +
+          staffAreaScore * 0.15 +
+          operationsAreaScore * 0.25,
+      )
+    : clampScore(
+        demandScore * 0.25 +
+          effectiveTransactionQualityScore * 0.15 +
+          effectiveProfitQualityScore * 0.3 +
+          effectiveOperationalFlowScore * 0.2 +
+          dataConfidenceScore * 0.1,
+      );
+  const sampleCap = areas
+    ? ([30, 45, 60, 75, 90, 100][availableAreaCount] ?? 30)
+    : currentValidOrders.length >= 10
       ? 100
       : currentValidOrders.length >= 5
         ? 80
@@ -296,8 +611,15 @@ export function buildBusinessHealth(
               ? 45
               : 30;
   const score = Math.min(uncappedScore, sampleCap);
-  const confidence =
-    currentValidOrders.length >= 10
+  const confidence = areas
+    ? availableAreaCount === 5
+      ? "Reliable"
+      : availableAreaCount >= 3
+        ? "Moderate"
+        : availableAreaCount > 0
+          ? "Low Data"
+          : "No Signal"
+    : currentValidOrders.length >= 10
       ? "Reliable"
       : currentValidOrders.length >= 5
         ? "Moderate"
@@ -305,7 +627,7 @@ export function buildBusinessHealth(
           ? "Low Data"
           : "No Signal";
   const status =
-    currentValidOrders.length > 0 && currentValidOrders.length < 5
+    (areas ? availableAreaCount > 0 && availableAreaCount < 3 : currentValidOrders.length > 0 && currentValidOrders.length < 5)
       ? "Low Data"
       : score >= 80
         ? "Healthy"
@@ -318,14 +640,16 @@ export function buildBusinessHealth(
     status,
     confidence,
     weakestDriver: getLowestDriver([
-      { label: "Demand", score: demandScore },
-      { label: "Transaction Quality", score: transactionQualityScore },
-      { label: "Profit Quality", score: profitQualityScore },
-      { label: "Operational Flow", score: operationalFlowScore },
+      { label: "Sales", score: salesAreaScore },
+      { label: "Customer", score: customerAreaScore },
+      { label: "Inventory", score: inventoryAreaScore },
+      { label: "Staff", score: staffAreaScore },
+      { label: "Operations", score: operationsAreaScore },
     ]),
     validOrderCount: currentValidOrders.length,
     totalOrderCount: currentOrders.length,
     dataConfidenceScore,
+    availableAreaCount,
     demandScore,
     transactionQualityScore,
     profitQualityScore,
@@ -342,7 +666,18 @@ export function buildBusinessHealth(
     cancelledRate,
     serviceMinutes: service.minutes,
     serviceSampleSize: service.sampleSize,
+    areas,
+    salesAreaScore,
+    customerAreaScore,
+    inventoryAreaScore,
+    staffAreaScore,
+    operationsAreaScore,
     labels: {
+      sales: getScoreLabel(salesAreaScore),
+      customer: getScoreLabel(customerAreaScore),
+      inventory: getScoreLabel(inventoryAreaScore),
+      staff: getScoreLabel(staffAreaScore),
+      operations: getScoreLabel(operationsAreaScore),
       demand: getScoreLabel(demandScore),
       transactionQuality: getScoreLabel(transactionQualityScore),
       profitQuality: getScoreLabel(profitQualityScore),

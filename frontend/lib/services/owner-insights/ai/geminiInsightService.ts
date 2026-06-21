@@ -3,8 +3,8 @@ import {
   sanitizeInsights,
   type AIInsight,
   type OwnerInsightCategory,
-} from "./insightSchema";
-import { validateAllowedIssueInsights } from "./allowedIssueInsightGuards";
+} from "../domain/insightSchema";
+import { validateAllowedIssueInsights } from "../domain/allowedIssueInsightGuards";
 import { buildJsonRepairPrompt, buildOwnerInsightPrompt } from "./promptService";
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";

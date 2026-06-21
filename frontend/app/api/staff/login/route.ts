@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { setInternalSessionCookie } from "@/lib/auth/internalSession";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
@@ -164,18 +165,29 @@ const getActiveStaffByCode = async (staffCode: string) => {
   return data as StaffRecord | null;
 };
 
-const buildLoginPayload = (staff: StaffRecord) => ({
-  success: true,
-  user_id: staff.id,
-  user_name: staff.name,
-  user_role: staff.role,
-  staff_type: staff.staff_type,
-  staff_code: staff.staff_code,
-});
+const buildLoginResponse = async (staff: StaffRecord, rememberMe = false) => {
+  const response = NextResponse.json({
+    success: true,
+    user_id: staff.id,
+    user_name: staff.name,
+    user_role: staff.role,
+    staff_type: staff.staff_type,
+    staff_code: staff.staff_code,
+  });
+  await setInternalSessionCookie(response, {
+    id: staff.id,
+    name: staff.name,
+    role: staff.role as "staff" | "manager" | "owner",
+    staffCode: staff.staff_code,
+    staffType: staff.staff_type,
+  }, rememberMe);
+  return response;
+};
 
 const handleLogin = async (body: Record<string, unknown>) => {
   const staffCode = normalizeStaffCode(body.staff_code);
   const credential = normalizeCredential(body.credential ?? body.login_code ?? body.pin);
+  const rememberMe = body.remember_me === true;
 
   if (!staffCode || !credential) {
     return jsonError("Staff ID dan PIN / kode login wajib diisi.", 400);
@@ -191,7 +203,7 @@ const handleLogin = async (body: Record<string, unknown>) => {
   const pinIsValid = verifyPin(credential, storedPinHash);
 
   if (pinIsValid && !staff.must_change_pin) {
-    return NextResponse.json(buildLoginPayload(staff));
+    return buildLoginResponse(staff, rememberMe);
   }
 
   const loginCodeIsValid =
@@ -277,7 +289,7 @@ const handleSetPin = async (body: Record<string, unknown>) => {
 
   if (error) throw error;
 
-  return NextResponse.json(buildLoginPayload({ ...staff, pin_hash: pinHash, must_change_pin: false }));
+  return buildLoginResponse({ ...staff, pin_hash: pinHash, must_change_pin: false });
 };
 
 const handleChangePin = async (body: Record<string, unknown>) => {
