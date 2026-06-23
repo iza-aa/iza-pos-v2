@@ -36,7 +36,7 @@ const shouldApplyServiceCharge = (options: OrderFinancialOptions) => {
     .replace(/[-_]/g, " ");
 
   if (fulfillmentMethod === "counter pickup") return false;
-  if (fulfillmentMethod === "pager" || fulfillmentMethod === "table service") return true;
+  if (fulfillmentMethod === "table service") return true;
 
   return isDineInOrder(options.orderType);
 };

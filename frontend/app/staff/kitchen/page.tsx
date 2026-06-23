@@ -19,7 +19,8 @@ interface KitchenOrder {
   orders?: {
     id: string;
     order_number: string;
-    table_number?: number;
+    table_number?: string;
+    fulfillment_method?: "table_service" | "counter_pickup" | null;
     customer_name?: string;
     created_at: string;
   };
@@ -71,7 +72,11 @@ function formatWaitingTime(value: string) {
 }
 
 function getTableLabel(item: KitchenOrder) {
-  return item.orders?.table_number ? `Table ${item.orders.table_number}` : "Takeaway";
+  if (item.orders?.fulfillment_method === "table_service" && item.orders.table_number) {
+    return `Table ${item.orders.table_number}`;
+  }
+
+  return "Counter Pickup";
 }
 
 function getVariantLabel(variants?: Record<string, string>) {
@@ -266,6 +271,7 @@ export default function KitchenPage() {
             id,
             order_number,
             table_number,
+            fulfillment_method,
             customer_name,
             created_at
           )

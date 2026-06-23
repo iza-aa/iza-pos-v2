@@ -130,13 +130,11 @@ const getVariantText = (variants: unknown): string => {
     .join(", ");
 };
 
-type FulfillmentMethod = "table_service" | "pager" | "counter_pickup";
+type FulfillmentMethod = "table_service" | "counter_pickup";
 
 type OrderWithFulfillment = Order & {
   fulfillment_method?: FulfillmentMethod | string | null;
   fulfillmentMethod?: FulfillmentMethod | string | null;
-  pager_number?: string | null;
-  pagerNumber?: string | null;
   pickup_code?: string | null;
   pickupCode?: string | null;
   table_number?: string | null;
@@ -174,7 +172,6 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
   const method = getFulfillmentMethod(order);
   const tableNumber =
     order.table_number ?? order.tableNumber ?? order.table ?? null;
-  const pagerNumber = order.pager_number ?? order.pagerNumber ?? null;
   const pickupCode = order.pickup_code ?? order.pickupCode ?? null;
 
   if (method === "table_service") {
@@ -182,14 +179,6 @@ const getFulfillmentInfo = (order: OrderWithFulfillment): FulfillmentInfo => {
       label: tableNumber ? `Table ${tableNumber}` : "Table Service",
       shortLabel: tableNumber ? `Table ${tableNumber}` : "Table Service",
       badgeClass: OWNER_SEMANTIC_TONES.info.badgeClass,
-    };
-  }
-
-  if (method === "pager") {
-    return {
-      label: pagerNumber ? `Pager ${pagerNumber}` : "Pager",
-      shortLabel: pagerNumber ? `Pager ${pagerNumber}` : "Pager",
-      badgeClass: OWNER_SEMANTIC_TONES.premium.badgeClass,
     };
   }
 

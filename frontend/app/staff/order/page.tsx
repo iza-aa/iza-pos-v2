@@ -46,8 +46,7 @@ interface Order {
   createdByRole?: string;
   servedByNames?: string[];
   servedByRoles?: string[];
-  fulfillmentMethod?: "table_service" | "pager" | "counter_pickup" | null;
-  pagerNumber?: string | null;
+  fulfillmentMethod?: "table_service" | "counter_pickup" | null;
   pickupCode?: string | null;
 }
 
@@ -425,7 +424,6 @@ export default function StaffOrderPage() {
           servedByNames,
           servedByRoles: servedByTypes,
           fulfillmentMethod: order.fulfillment_method ?? null,
-          pagerNumber: order.pager_number ?? null,
           pickupCode: order.pickup_code ?? null,
           createdAt: order.created_at,
         };
@@ -752,7 +750,8 @@ export default function StaffOrderPage() {
   const filteredOrders = orderList.filter((order) => {
     const matchesSearch =
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase());
+      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.tableNumber.toLowerCase().includes(searchQuery.toLowerCase());
 
     let matchesFilter = true;
 

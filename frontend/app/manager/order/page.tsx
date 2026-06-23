@@ -46,8 +46,7 @@ interface Order {
   createdByRole?: string;
   servedByNames?: string[];
   servedByRoles?: string[];
-  fulfillmentMethod?: "table_service" | "pager" | "counter_pickup" | null;
-  pagerNumber?: string | null;
+  fulfillmentMethod?: "table_service" | "counter_pickup" | null;
   pickupCode?: string | null;
 }
 
@@ -450,7 +449,6 @@ export default function ManagerOrderPage() {
           servedByNames,
           servedByRoles: servedByTypes,
           fulfillmentMethod: order.fulfillment_method ?? null,
-          pagerNumber: order.pager_number ?? null,
           pickupCode: order.pickup_code ?? null,
           createdAt: order.created_at,
         };

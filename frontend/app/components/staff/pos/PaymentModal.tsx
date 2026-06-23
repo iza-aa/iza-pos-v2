@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   BanknotesIcon,
-  BellAlertIcon,
+  BuildingOffice2Icon,
   ClipboardDocumentCheckIcon,
   CreditCardIcon,
   QrCodeIcon,
@@ -13,7 +13,7 @@ import { StandardModal } from '@/app/components/shared';
 import { formatCurrency } from '@/lib/constants';
 import { showError } from '@/lib/services/errorHandling';
 
-type FulfillmentMethod = 'pager' | 'counter_pickup';
+type FulfillmentMethod = 'table_service' | 'counter_pickup';
 type PaymentMethod = 'cash' | 'qris' | 'card';
 
 interface PaymentModalProps {
@@ -26,7 +26,7 @@ interface PaymentModalProps {
     notes?: string;
     cashAmount?: number;
     fulfillmentMethod: FulfillmentMethod;
-    pagerNumber?: string;
+    tableNumber?: string;
   }) => void;
   totalAmount: number;
   getTotalAmount?: (fulfillmentMethod: FulfillmentMethod) => number;
@@ -43,8 +43,8 @@ export default function PaymentModal({
 }: PaymentModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [fulfillmentMethod, setFulfillmentMethod] =
-    useState<FulfillmentMethod>('pager');
-  const [pagerNumber, setPagerNumber] = useState('');
+    useState<FulfillmentMethod>('table_service');
+  const [tableNumber, setTableNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -53,9 +53,9 @@ export default function PaymentModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    setFulfillmentMethod('pager');
+    setFulfillmentMethod('table_service');
     setPaymentMethod('cash');
-    setPagerNumber('');
+    setTableNumber('');
     setCustomerName('');
     setCustomerPhone('');
     setNotes('');
@@ -79,10 +79,10 @@ export default function PaymentModal({
     if (isSubmitting) return;
 
     const received = Number(cashReceived) || 0;
-    const trimmedPagerNumber = pagerNumber.trim();
+    const trimmedTableNumber = tableNumber.trim();
 
-    if (fulfillmentMethod === 'pager' && !trimmedPagerNumber) {
-      showError('Nomor pager wajib diisi.');
+    if (fulfillmentMethod === 'table_service' && !trimmedTableNumber) {
+      showError('Nomor meja wajib diisi.');
       return;
     }
 
@@ -98,8 +98,8 @@ export default function PaymentModal({
       notes: notes.trim() || undefined,
       cashAmount: paymentMethod === 'cash' ? received : undefined,
       fulfillmentMethod,
-      pagerNumber:
-        fulfillmentMethod === 'pager' ? trimmedPagerNumber : undefined,
+      tableNumber:
+        fulfillmentMethod === 'table_service' ? trimmedTableNumber : undefined,
     });
   };
 
@@ -110,10 +110,10 @@ export default function PaymentModal({
     icon: React.ElementType;
   }> = [
     {
-      value: 'pager',
-      title: 'Guest Pager',
-      description: 'Customer receives a pager and picks up the order when called.',
-      icon: BellAlertIcon,
+      value: 'table_service',
+      title: 'Dine In',
+      description: 'Customer eats at the restaurant using a table number.',
+      icon: BuildingOffice2Icon,
     },
     {
       value: 'counter_pickup',
@@ -196,7 +196,7 @@ export default function PaymentModal({
                       setFulfillmentMethod(option.value);
 
                       if (option.value === 'counter_pickup') {
-                        setPagerNumber('');
+                        setTableNumber('');
                       }
                     }}
                     className={`rounded-xl border p-4 text-left transition ${
@@ -227,27 +227,28 @@ export default function PaymentModal({
             </div>
           </section>
 
-          {fulfillmentMethod === 'pager' ? (
+          {fulfillmentMethod === 'table_service' ? (
             <section>
               <label
-                htmlFor="pager-number"
+                htmlFor="table-number"
                 className="mb-2 block text-sm font-semibold text-gray-800"
               >
-                Pager Number <span className="text-red-500">*</span>
+                Table Number <span className="text-red-500">*</span>
               </label>
 
               <input
-                id="pager-number"
+                id="table-number"
                 type="text"
-                value={pagerNumber}
-                onChange={(event) => setPagerNumber(event.target.value)}
+                value={tableNumber}
+                onChange={(event) => setTableNumber(event.target.value)}
                 disabled={isSubmitting}
+                maxLength={10}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                 placeholder="Example: 12"
               />
 
               <p className="mt-1 text-xs text-gray-500">
-                Staff will manually call this pager when the order is ready.
+                Enter the table number used by the customer.
               </p>
             </section>
           ) : (

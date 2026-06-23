@@ -18,14 +18,12 @@ interface OrderTableProps {
   onReviewCorrection?: (correctionId: string) => void;
 }
 
-type FulfillmentMethod = "table_service" | "pager" | "counter_pickup";
+type FulfillmentMethod = "table_service" | "counter_pickup";
 
 type OrderWithFulfillment = Order & {
   fulfillmentMethod?: FulfillmentMethod | null;
-  pagerNumber?: string | null;
   pickupCode?: string | null;
   fulfillment_method?: FulfillmentMethod | null;
-  pager_number?: string | null;
   pickup_code?: string | null;
 };
 
@@ -61,7 +59,6 @@ const getStatusBadgeClass = (status: string) => {
 const getFulfillmentInfo = (order: OrderWithFulfillment) => {
   const fulfillmentMethod =
     order.fulfillmentMethod ?? order.fulfillment_method ?? null;
-  const pagerNumber = order.pagerNumber ?? order.pager_number ?? null;
   const pickupCode = order.pickupCode ?? order.pickup_code ?? null;
 
   if (fulfillmentMethod === "table_service") {
@@ -69,14 +66,6 @@ const getFulfillmentInfo = (order: OrderWithFulfillment) => {
       label: order.table || order.tableNumber || "Table",
       description: "Table Service",
       badgeClass: OWNER_SEMANTIC_TONES.info.badgeClass,
-    };
-  }
-
-  if (fulfillmentMethod === "pager") {
-    return {
-      label: pagerNumber ? `Pager ${pagerNumber}` : "Pager",
-      description: "Guest Pager",
-      badgeClass: OWNER_SEMANTIC_TONES.premium.badgeClass,
     };
   }
 

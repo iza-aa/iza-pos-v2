@@ -92,6 +92,12 @@ Before dropping a column/table/value:
   - Earlier endpoint error showed `orders.ready_at` does not exist. Current cleanup direction: service timing should use item-level `order_items.ready_at` and `order_items.served_at`, while order completion uses `orders.completed_at`.
   - Do not add `orders.ready_at` / `orders.served_at` only to satisfy one query unless the business meaning is order-level rollup. If rollup is needed, define whether it is first item ready, last item ready, first served, or last served.
 
+- Order fulfillment method
+  - Canonical values: `table_service` and `counter_pickup`.
+  - Dine-in POS orders must store their identifier in `orders.table_number`.
+  - The retired pager fulfillment value and `orders.pager_number` column are migrated by `supabase/migrations/202606220001_replace_pager_with_table_number.sql`.
+  - Do not add a separate pager workflow back into the application; operational identifiers used for dine-in service belong to the table-number flow.
+
 - Product availability fields
   - Code has used both `available` and `is_available`.
   - Cleanup target: choose one canonical product availability boolean, migrate old rows, then update all product/customer/menu/POS selects.

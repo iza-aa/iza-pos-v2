@@ -43,8 +43,7 @@ export type CorrectionOrder = {
   createdAt?: string;
   createdByName?: string;
   createdByRole?: string;
-  fulfillmentMethod?: "table_service" | "pager" | "counter_pickup" | null;
-  pagerNumber?: string | null;
+  fulfillmentMethod?: "table_service" | "counter_pickup" | null;
   pickupCode?: string | null;
 };
 
@@ -117,9 +116,9 @@ const getDefaultPhysicalStatus = (order?: CorrectionOrder): PhysicalStatus => {
 };
 
 const getFulfillmentLabel = (order: CorrectionOrder) => {
-  if (order.fulfillmentMethod === "pager") return order.pagerNumber ? `Pager ${order.pagerNumber}` : "Pager";
   if (order.fulfillmentMethod === "counter_pickup") return order.pickupCode ? `Pickup ${order.pickupCode}` : "Counter Pickup";
-  return order.table || order.tableNumber || order.orderType || "Order";
+  const tableNumber = order.table || order.tableNumber;
+  return tableNumber ? `Table ${tableNumber}` : order.orderType || "Order";
 };
 
 const buildSnapshot = (order: CorrectionOrder) => ({

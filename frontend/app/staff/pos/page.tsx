@@ -81,7 +81,7 @@ interface CartItem {
 	image?: string;
 }
 
-type FulfillmentMethod = "pager" | "counter_pickup";
+type FulfillmentMethod = "table_service" | "counter_pickup";
 
 type PaymentConfirmData = {
 	paymentMethod: string;
@@ -90,7 +90,7 @@ type PaymentConfirmData = {
 	notes?: string;
 	cashAmount?: number;
 	fulfillmentMethod?: FulfillmentMethod;
-	pagerNumber?: string;
+	tableNumber?: string;
 };
 
 type PreparationStation = "kitchen" | "bar" | "cashier" | "none";
@@ -532,7 +532,7 @@ export default function POSPage() {
 	};
 
 	const calculateFinancialTotals = (
-		fulfillmentMethod: FulfillmentMethod = "pager",
+		fulfillmentMethod: FulfillmentMethod = "table_service",
 	) => {
 		return calculateOrderFinancialTotals(calculateTotal(), financialSettings, {
 			orderType: "Dine in",
@@ -563,14 +563,16 @@ export default function POSPage() {
 			const fulfillmentMethod: FulfillmentMethod =
 				paymentData.fulfillmentMethod || "counter_pickup";
 			const orderFinancialTotals = calculateFinancialTotals(fulfillmentMethod);
+			const orderType =
+				fulfillmentMethod === "table_service" ? "Dine in" : "Take Away";
 
-			const pagerNumber =
-				fulfillmentMethod === "pager"
-					? paymentData.pagerNumber?.trim() || null
+			const tableNumber =
+				fulfillmentMethod === "table_service"
+					? paymentData.tableNumber?.trim() || null
 					: null;
 
-			if (fulfillmentMethod === "pager" && !pagerNumber) {
-				showError("Nomor pager wajib diisi untuk order dengan pager.");
+			if (fulfillmentMethod === "table_service" && !tableNumber) {
+				showError("Nomor meja wajib diisi untuk order dine in.");
 				return;
 			}
 
@@ -588,12 +590,11 @@ export default function POSPage() {
 					{
 						order_number: orderNumber,
 						customer_name: customerName,
-						table_number: null,
+						table_number: tableNumber,
 						table_id: null,
 						order_source: "pos",
-						order_type: "Dine in",
+						order_type: orderType,
 						fulfillment_method: fulfillmentMethod,
-						pager_number: pagerNumber,
 						pickup_code: orderNumber,
 						status: "new",
 						subtotal: orderFinancialTotals.subtotal,
@@ -741,7 +742,7 @@ export default function POSPage() {
 					items_count: cart.length,
 					payment_method: paymentMethod,
 					fulfillment_method: fulfillmentMethod,
-					pager_number: pagerNumber,
+					table_number: tableNumber,
 					pickup_code: orderNumber,
 				},
 				changesSummary: inventoryChangesSummary,
@@ -750,8 +751,8 @@ export default function POSPage() {
 			});
 
 			const fulfillmentLabel =
-				fulfillmentMethod === "pager"
-					? `Pager ${pagerNumber}`
+				fulfillmentMethod === "table_service"
+					? `Table ${tableNumber}`
 					: `Pickup ${orderNumber}`;
 
 			showSuccess(`Order ${orderNumber} placed successfully. ${fulfillmentLabel}.`);

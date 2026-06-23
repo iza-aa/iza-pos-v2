@@ -9,15 +9,13 @@ import {
 import { supabase } from '@/lib/config/supabaseClient';
 import type { Order } from '@/lib/types';
 
-type FulfillmentMethod = 'table_service' | 'pager' | 'counter_pickup';
+type FulfillmentMethod = 'table_service' | 'counter_pickup';
 
 type OrderWithFulfillment = Order & {
   fulfillmentMethod?: FulfillmentMethod | null;
-  pagerNumber?: string | null;
   pickupCode?: string | null;
 
   fulfillment_method?: FulfillmentMethod | null;
-  pager_number?: string | null;
   pickup_code?: string | null;
 
   tableId?: string | null;
@@ -223,8 +221,8 @@ export default function TableOrderMapView({ orders }: TableOrderMapViewProps) {
               Table Order Map
             </h2>
             <p className="text-sm text-gray-500">
-              Read-only map for active table service orders. Pager and counter
-              pickup orders are handled in Kanban/List View.
+              Read-only map for active dine-in orders linked to registered
+              tables. Counter pickup orders are handled in Kanban/List View.
             </p>
           </div>
 
