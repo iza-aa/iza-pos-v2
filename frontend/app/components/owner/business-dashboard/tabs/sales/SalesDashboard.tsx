@@ -69,12 +69,6 @@ const formatOptionalCurrency = (value: number | null | undefined, fallback: stri
   return value === null || value === undefined ? fallback : formatCurrency(value);
 };
 
-const sumAvailableCost = (rows: Array<{ estimatedCost: number | null }>) => {
-  const availableRows = rows.filter((row) => row.estimatedCost !== null);
-  if (!availableRows.length) return null;
-
-  return availableRows.reduce((sum, row) => sum + (row.estimatedCost ?? 0), 0);
-};
 
 const normalizeProductName = (value: string | null | undefined) =>
   String(value ?? "").trim().toLowerCase();
@@ -130,11 +124,11 @@ export default function SalesDashboard() {
   const categoryRevenue = useMemo(() => buildCategoryRevenue(products), [products]);
   const revenueTrend = useMemo(
     () => buildSalesRevenueTrend(data.orders, dateRange),
-    [data.orders, dateRange.endDate, dateRange.startDate],
+    [data.orders, dateRange],
   );
   const aovTrend = useMemo(
     () => buildSalesAovTrend(data.orders, dateRange),
-    [data.orders, dateRange.endDate, dateRange.startDate],
+    [data.orders, dateRange],
   );
   const paymentTotalAmount = salesSummary.paymentBreakdown.reduce((sum, row) => sum + row.amount, 0);
   type ProductPerformanceRow = (typeof products)[number];
@@ -225,8 +219,6 @@ export default function SalesDashboard() {
   const missingCostRows = profitabilityRows.filter(
     (row) => row.estimatedCost === null || row.grossProfit === null || row.margin === null,
   );
-  const availableFoodCost =
-    salesSummary.summary.estimatedCogs ?? sumAvailableCost(profitabilityRows);
   const netProfitEstimate = salesSummary.summary.netProfitEstimate;
   const averageOrderValue = salesSummary.summary.totalOrders
     ? salesSummary.summary.netSales / salesSummary.summary.totalOrders

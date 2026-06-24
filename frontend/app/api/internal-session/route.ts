@@ -5,6 +5,10 @@ import {
   INTERNAL_SESSION_COOKIE,
   verifyInternalSessionToken,
 } from "@/lib/auth/internalSession";
+import {
+  getPrimaryStaffPosition,
+  getStaffPositions,
+} from "@/lib/staff/positions";
 
 const getVerifiedUser = async (request: NextRequest) => {
   const payload = await verifyInternalSessionToken(
@@ -18,14 +22,22 @@ const getVerifiedUser = async (request: NextRequest) => {
   const supabase = createClient(url, key, { auth: { persistSession: false } });
   const { data, error } = await supabase
     .from("staff")
-    .select("id,name,role,status,staff_code,staff_type,profile_picture")
+    .select("id,name,role,status,staff_code,staff_type,profile_picture,staff_positions(id,staff_id,position,is_primary,is_active)")
     .eq("id", payload.sub)
     .maybeSingle();
 
   if (error || !data || data.status !== "active" || data.role !== payload.role) {
     return null;
   }
-  return data;
+  const staffPositions = getStaffPositions(data);
+  const primaryPosition = getPrimaryStaffPosition(data);
+
+  return {
+    ...data,
+    staff_type: primaryPosition ?? data.staff_type,
+    staff_positions: staffPositions,
+    primary_position: primaryPosition,
+  };
 };
 
 export async function GET(request: NextRequest) {

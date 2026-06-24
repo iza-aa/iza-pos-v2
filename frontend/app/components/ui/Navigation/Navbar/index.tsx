@@ -46,6 +46,14 @@ import useOwnerNotifications from '../../../shared/notifications/useOwnerNotific
 import useStaffNotifications from '../../../shared/notifications/useStaffNotifications'
 import { useLanguage } from '../../../shared/i18n'
 import type { TranslationKey } from '../../../shared/i18n'
+import {
+  getPrimaryStaffPosition,
+  getStaffPositions,
+  normalizeStaffPosition,
+  normalizeStaffPositions,
+  type StaffPosition,
+  type StaffPositionAssignment,
+} from '@/lib/staff/positions'
 
 // ============ MENU CONFIGURATIONS ============
 const menuConfig = {
@@ -60,31 +68,31 @@ const menuConfig = {
     { label: 'Inventory', labelKey: 'nav.manager.inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Closing', labelKey: 'nav.manager.closing', path: '/manager/closing', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Order', labelKey: 'nav.manager.order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
-    { label: 'Staff', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
+    { label: 'Staff Manager', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', labelKey: 'nav.manager.table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],
   staff: {
     kitchen: [
       { label: 'Kitchen', labelKey: 'nav.staff.kitchen', path: '/staff/kitchen', icon: FireIcon, iconSolid: FireIconSolid },
-      { label: 'Order', labelKey: 'nav.staff.order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
       { label: 'Stock Check', labelKey: 'nav.staff.stockCheck', path: '/staff/stock-check', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
-      { label: 'Attendance', labelKey: 'nav.staff.attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
     ],
     cashier: [
       { label: 'POS', labelKey: 'nav.staff.pos', path: '/staff/pos', icon: TicketIcon, iconSolid: TicketIconSolid },
       { label: 'Order', labelKey: 'nav.staff.order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
-      { label: 'Attendance', labelKey: 'nav.staff.attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
     ],
     barista: [
-      { label: 'Order', labelKey: 'nav.staff.order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
       { label: 'Stock Check', labelKey: 'nav.staff.stockCheck', path: '/staff/stock-check', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
-      { label: 'Attendance', labelKey: 'nav.staff.attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
     ],
-    waiter: [
-      { label: 'Order', labelKey: 'nav.staff.order', path: '/staff/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
-      { label: 'Attendance', labelKey: 'nav.staff.attendance', path: '/staff/attendance', icon: ClockIcon, iconSolid: ClockIconSolid },
-    ],
+    waiter: [],
   },
+}
+
+const attendanceMenuItem = {
+  label: 'Attendance',
+  labelKey: 'nav.staff.attendance',
+  path: '/staff/attendance',
+  icon: ClockIcon,
+  iconSolid: ClockIconSolid,
 }
 
 // Menu untuk Owner ketika mengakses fitur role lain (TANPA Dashboard)
@@ -94,7 +102,7 @@ const ownerAccessMenu = {
     { label: 'Inventory', labelKey: 'nav.manager.inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Closing', labelKey: 'nav.manager.closing', path: '/manager/closing', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Order', labelKey: 'nav.manager.order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
-    { label: 'Staff', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
+    { label: 'Staff Manager', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', labelKey: 'nav.manager.table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],
   staff: [
@@ -114,7 +122,7 @@ const roleConfig = {
 
 // ============ TYPES ============
 type Role = 'owner' | 'manager' | 'staff'
-type StaffType = 'kitchen' | 'cashier' | 'barista' | 'waiter'
+type StaffType = StaffPosition
 
 interface StoredProfile {
   id: string
@@ -122,6 +130,7 @@ interface StoredProfile {
   role: string
   staffCode: string
   staffType: string
+  staffPositions: StaffPosition[]
   profilePicture: string
 }
 
@@ -133,12 +142,14 @@ interface NavbarProfileRow {
   role: string | null
   staff_code: string | null
   staff_type: string | null
+  staff_positions?: StaffPositionAssignment[] | null
   profile_picture: string | null
 }
 
 interface NavbarProps {
   role: Role
   staffType?: StaffType | null
+  staffPositions?: StaffPosition[]
   canSwitchRole?: boolean
 }
 
@@ -157,11 +168,21 @@ const readStoredProfile = () => {
       role: '',
       staffCode: '',
       staffType: '',
+      staffPositions: [],
       profilePicture: '',
     } satisfies StoredProfile;
   }
 
   const currentUser = getCurrentUser();
+
+  let storedPositions: StaffPosition[] = []
+  try {
+    storedPositions = normalizeStaffPositions(
+      JSON.parse(localStorage.getItem('staff_positions') || '[]'),
+    )
+  } catch {
+    storedPositions = []
+  }
 
   return {
     id: localStorage.getItem('user_id') || currentUser?.id || '',
@@ -169,6 +190,7 @@ const readStoredProfile = () => {
     role: localStorage.getItem('user_role') || currentUser?.role || '',
     staffCode: localStorage.getItem('staff_code') || '',
     staffType: localStorage.getItem('staff_type') || '',
+    staffPositions: storedPositions,
     profilePicture: localStorage.getItem('profile_picture') || '',
   } satisfies StoredProfile;
 };
@@ -180,13 +202,21 @@ const writeStoredProfile = (profile: Partial<StoredProfile>) => {
   if (profile.role !== undefined) localStorage.setItem('user_role', profile.role || '');
   if (profile.staffCode !== undefined) localStorage.setItem('staff_code', profile.staffCode || '');
   if (profile.staffType !== undefined) localStorage.setItem('staff_type', profile.staffType || '');
+  if (profile.staffPositions !== undefined) {
+    localStorage.setItem('staff_positions', JSON.stringify(profile.staffPositions));
+  }
   if (profile.profilePicture !== undefined) {
     localStorage.setItem('profile_picture', profile.profilePicture || '');
   }
 };
 
 // ============ NAVBAR COMPONENT ============
-export default function Navbar({ role, staffType, canSwitchRole = false }: NavbarProps) {
+export default function Navbar({
+  role,
+  staffType,
+  staffPositions = [],
+  canSwitchRole = false,
+}: NavbarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -202,11 +232,24 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
   const [storedUserRole, setStoredUserRole] = useState('')
   const [storedStaffCode, setStoredStaffCode] = useState('')
   const [storedStaffType, setStoredStaffType] = useState('')
+  const [storedStaffPositions, setStoredStaffPositions] = useState<StaffPosition[]>([])
   const [profilePicture, setProfilePicture] = useState('')
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set())
   const ownerNotificationsEnabled = canSwitchRole || role === 'owner' || storedUserRole === 'owner'
   const managerNotificationsEnabled = !ownerNotificationsEnabled && (role === 'manager' || storedUserRole === 'manager')
-  const effectiveStaffType = staffType || storedStaffType
+  const configuredStaffPositions = normalizeStaffPositions(
+    staffPositions.length > 0 ? staffPositions : storedStaffPositions,
+  )
+  const legacyStaffPosition = normalizeStaffPosition(staffType || storedStaffType)
+  const effectiveStaffPositions =
+    legacyStaffPosition && !configuredStaffPositions.includes(legacyStaffPosition)
+      ? [legacyStaffPosition, ...configuredStaffPositions]
+      : configuredStaffPositions
+  const effectiveStaffType =
+    getPrimaryStaffPosition({
+      positions: effectiveStaffPositions,
+      staff_type: staffType || storedStaffType,
+    }) || null
   const staffNotificationsEnabled = !ownerNotificationsEnabled && !managerNotificationsEnabled && (role === 'staff' || storedUserRole === 'staff')
   const notificationStorageKey = ownerNotificationsEnabled
     ? 'owner_notification_read_ids'
@@ -240,6 +283,7 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
       setStoredUserRole(storedProfile.role)
       setStoredStaffCode(storedProfile.staffCode)
       setStoredStaffType(storedProfile.staffType)
+      setStoredStaffPositions(storedProfile.staffPositions)
       setProfilePicture(storedProfile.profilePicture)
     }
 
@@ -249,19 +293,22 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
 
       const { data, error } = await supabase
         .from('staff')
-        .select('id, name, role, staff_code, staff_type, profile_picture')
+        .select('id, name, role, staff_code, staff_type, profile_picture, staff_positions(id, staff_id, position, is_primary, is_active)')
         .eq('id', storedProfile.id)
         .maybeSingle()
 
       if (error || !data) return
 
       const profile = data as NavbarProfileRow
+      const profilePositions = getStaffPositions(profile)
+      const primaryPosition = getPrimaryStaffPosition(profile)
       const nextProfile: StoredProfile = {
         id: profile.id,
         name: profile.name || storedProfile.name || 'User',
         role: profile.role || storedProfile.role || '',
         staffCode: profile.staff_code || '',
-        staffType: profile.staff_type || '',
+        staffType: primaryPosition || profile.staff_type || '',
+        staffPositions: profilePositions,
         profilePicture: profile.profile_picture || '',
       }
 
@@ -270,6 +317,7 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
       setStoredUserRole(nextProfile.role)
       setStoredStaffCode(nextProfile.staffCode)
       setStoredStaffType(nextProfile.staffType)
+      setStoredStaffPositions(nextProfile.staffPositions)
       setProfilePicture(nextProfile.profilePicture)
     }
 
@@ -278,7 +326,7 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
     void syncProfileFromDatabase()
 
     const handleStorage = (event: StorageEvent) => {
-      if (!event.key || ['user_name', 'user_role', 'staff_code', 'staff_type', 'profile_picture'].includes(event.key)) {
+      if (!event.key || ['user_name', 'user_role', 'staff_code', 'staff_type', 'staff_positions', 'profile_picture'].includes(event.key)) {
         syncProfileFromStorage()
       }
     }
@@ -362,8 +410,19 @@ export default function Navbar({ role, staffType, canSwitchRole = false }: Navba
       return menuConfig.owner
     }
     
-    if (role === 'staff' && staffType) {
-      return menuConfig.staff[staffType] || menuConfig.staff.cashier
+    if (role === 'staff') {
+      const orderedPositions: StaffPosition[] = ['cashier', 'kitchen', 'barista', 'waiter']
+      const paths = new Set<string>()
+      const items = orderedPositions
+        .filter((position) => effectiveStaffPositions.includes(position))
+        .flatMap((position) => menuConfig.staff[position])
+        .filter((item) => {
+          if (paths.has(item.path)) return false
+          paths.add(item.path)
+          return true
+        })
+
+      return [...items, attendanceMenuItem]
     }
     if (role === 'manager') return menuConfig.manager
     return menuConfig.owner

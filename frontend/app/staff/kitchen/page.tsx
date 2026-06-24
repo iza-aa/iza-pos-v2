@@ -3,9 +3,13 @@
 import { useState, useEffect } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
-import { getStaffHomePath, normalizeStaffType } from "@/lib/utils/staffAccess";
+import { getStaffHomePath, hasStaffPosition } from "@/lib/utils/staffAccess";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { supabase } from "@/lib/config/supabaseClient";
+import {
+  shouldRouteToKitchen,
+  type ProductWithPreparationCategory,
+} from "@/lib/orders/stationRouting";
 import { ClockIcon, FireIcon } from "@heroicons/react/24/outline";
 
 interface KitchenOrder {
@@ -24,6 +28,7 @@ interface KitchenOrder {
     customer_name?: string;
     created_at: string;
   };
+  products?: ProductWithPreparationCategory | ProductWithPreparationCategory[] | null;
 }
 
 type KitchenFilter = "all" | "pending" | "cooking";
@@ -235,11 +240,20 @@ export default function KitchenPage() {
   // Page protection - only for Owner, Kitchen staff
   useEffect(() => {
     const currentUser = getCurrentUser();
-    const staffType = normalizeStaffType(localStorage.getItem("staff_type"));
 
     // Allow: Owner OR Kitchen
-    if (currentUser?.role !== "owner" && staffType !== "kitchen") {
-      window.location.href = getStaffHomePath(staffType);
+    if (
+      currentUser?.role !== "owner" &&
+      !hasStaffPosition({
+        position: "kitchen",
+        positions: currentUser?.positions,
+        staffType: currentUser?.staffType,
+      })
+    ) {
+      window.location.href = getStaffHomePath(
+        currentUser?.positions,
+        currentUser?.staffType,
+      );
     }
   }, []);
 
@@ -274,6 +288,12 @@ export default function KitchenPage() {
             fulfillment_method,
             customer_name,
             created_at
+          ),
+          products (
+            id,
+            categories (
+              preparation_station
+            )
           )
         `)
         .in("kitchen_status", ["pending", "cooking"])
@@ -281,7 +301,13 @@ export default function KitchenPage() {
 
       if (error) throw error;
 
-      setOrders(data || []);
+      const kitchenItems = ((data || []) as KitchenOrder[]).filter((item) =>
+        shouldRouteToKitchen(
+          Array.isArray(item.products) ? item.products[0] : item.products,
+        ),
+      );
+
+      setOrders(kitchenItems);
     } catch (error) {
       console.error("Error fetching kitchen orders:", error);
     } finally {

@@ -1,24 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { UserPlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useLanguage } from "@/app/components/shared/i18n";
+import {
+  STAFF_POSITIONS,
+  getStaffPositionLabel,
+  type StaffPosition,
+} from "@/lib/staff/positions";
 
 type StaffRole = "manager" | "staff";
-type StaffType = "cashier" | "barista" | "kitchen" | "waiter";
-
-export type StaffShiftOption = {
-  id: string;
-  shift_name: string;
-  start_time?: string | null;
-  end_time?: string | null;
-  is_active?: boolean | null;
-};
 
 interface AddStaffModalProps {
   onClose: () => void;
   onSave: (staffData: NewStaffData) => Promise<void>;
-  shifts?: StaffShiftOption[];
 }
 
 export interface NewStaffData {
@@ -26,8 +21,9 @@ export interface NewStaffData {
   email: string;
   phone: string;
   role: StaffRole;
-  staff_type?: StaffType | null;
-  shift_id?: string | null;
+  positions: StaffPosition[];
+  primary_position: StaffPosition | null;
+  staff_type?: StaffPosition | null;
   password?: string;
 }
 
@@ -36,44 +32,25 @@ const roleOptions: Array<{ value: StaffRole; label: string }> = [
   { value: "manager", label: "Manager" },
 ];
 
-const staffTypeOptions: Array<{ value: StaffType; label: string }> = [
-  { value: "cashier", label: "Cashier" },
-  { value: "barista", label: "Barista" },
-  { value: "kitchen", label: "Kitchen" },
-  { value: "waiter", label: "Waiter" },
-];
-
-const formatTime = (value?: string | null) => {
-  if (!value) return "--:--";
-
-  return value.slice(0, 5);
-};
-
-const createInitialFormData = (defaultShiftId: string | null): NewStaffData => ({
+const createInitialFormData = (): NewStaffData => ({
   name: "",
   email: "",
   phone: "",
   role: "staff",
+  positions: ["cashier"],
+  primary_position: "cashier",
   staff_type: "cashier",
-  shift_id: defaultShiftId,
   password: "",
 });
 
 export default function AddStaffModal({
   onClose,
   onSave,
-  shifts = [],
 }: AddStaffModalProps) {
   const { t } = useLanguage();
-  const activeShifts = useMemo(
-    () => shifts.filter((shift) => shift.is_active !== false),
-    [shifts],
-  );
-
-  const defaultShiftId = activeShifts[0]?.id ?? null;
 
   const [formData, setFormData] = useState<NewStaffData>(() =>
-    createInitialFormData(defaultShiftId),
+    createInitialFormData(),
   );
 
   const [loading, setLoading] = useState(false);
@@ -81,27 +58,58 @@ export default function AddStaffModal({
 
   const isOperationalStaff = formData.role === "staff";
   const isLoginRole = formData.role === "manager";
-  const canUseShift = formData.role === "staff" || formData.role === "manager";
 
-  useEffect(() => {
-    if (!canUseShift || activeShifts.length === 0 || formData.shift_id) return;
-
-    setFormData((prev) => ({
-      ...prev,
-      shift_id: defaultShiftId,
-    }));
-  }, [activeShifts.length, canUseShift, defaultShiftId, formData.shift_id]);
 
   const handleRoleChange = (role: StaffRole) => {
     setFormData((prev) => ({
       ...prev,
       role,
-      staff_type: role === "staff" ? prev.staff_type ?? "cashier" : null,
-      shift_id:
-        role === "staff" || role === "manager"
-          ? prev.shift_id ?? defaultShiftId
+      positions:
+        role === "staff"
+          ? prev.positions.length > 0
+            ? prev.positions
+            : ["cashier"]
+          : [],
+      primary_position:
+        role === "staff"
+          ? prev.primary_position ?? prev.positions[0] ?? "cashier"
+          : null,
+      staff_type:
+        role === "staff"
+          ? prev.primary_position ?? prev.positions[0] ?? "cashier"
           : null,
       password: role === "manager" ? prev.password ?? "" : "",
+    }));
+  };
+
+  const togglePosition = (position: StaffPosition) => {
+    setFormData((previous) => {
+      const alreadySelected = previous.positions.includes(position);
+      const nextPositions = alreadySelected
+        ? previous.positions.filter((item) => item !== position)
+        : [...previous.positions, position];
+      const nextPrimary =
+        nextPositions.length === 0
+          ? null
+          : previous.primary_position &&
+              nextPositions.includes(previous.primary_position)
+            ? previous.primary_position
+            : nextPositions[0];
+
+      return {
+        ...previous,
+        positions: nextPositions,
+        primary_position: nextPrimary,
+        staff_type: nextPrimary,
+      };
+    });
+  };
+
+  const setPrimaryPosition = (position: StaffPosition) => {
+    setFormData((previous) => ({
+      ...previous,
+      primary_position: position,
+      staff_type: position,
     }));
   };
 
@@ -113,7 +121,6 @@ export default function AddStaffModal({
     const email = formData.email.trim();
     const phone = formData.phone.trim();
     const password = formData.password?.trim() ?? "";
-    const selectedShiftId = canUseShift ? formData.shift_id ?? defaultShiftId : null;
 
     if (!name) {
       setError(t("owner.staff.nameRequired"));
@@ -132,13 +139,11 @@ export default function AddStaffModal({
       }
     }
 
-    if (isOperationalStaff && !formData.staff_type) {
-      setError(t("owner.staff.staffTypeRequiredGeneric"));
-      return;
-    }
-
-    if (canUseShift && activeShifts.length > 0 && !selectedShiftId) {
-      setError(t("owner.staff.shiftRequired"));
+    if (
+      isOperationalStaff &&
+      (formData.positions.length === 0 || !formData.primary_position)
+    ) {
+      setError("Pilih minimal satu posisi dan tentukan posisi utama.");
       return;
     }
 
@@ -147,10 +152,12 @@ export default function AddStaffModal({
       email,
       phone,
       role: formData.role,
-      staff_type: isOperationalStaff ? formData.staff_type ?? "cashier" : null,
-      shift_id: selectedShiftId,
+      positions: isOperationalStaff ? formData.positions : [],
+      primary_position: isOperationalStaff ? formData.primary_position : null,
+      staff_type: isOperationalStaff ? formData.primary_position : null,
       password: isLoginRole ? password : undefined,
     };
+
 
     setLoading(true);
 
@@ -165,17 +172,6 @@ export default function AddStaffModal({
     }
   };
 
-  const renderShiftOptions = () => {
-    if (activeShifts.length === 0) {
-      return <option value="">{t("owner.staff.noActiveShift")}</option>;
-    }
-
-    return activeShifts.map((shift) => (
-      <option key={shift.id} value={shift.id}>
-        {shift.shift_name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
-      </option>
-    ));
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -254,53 +250,59 @@ export default function AddStaffModal({
           {isOperationalStaff && (
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                {t("owner.staff.staffType")} <span className="text-red-500">*</span>
+                Posisi Staff <span className="text-red-500">*</span>
               </label>
-              <select
-                value={formData.staff_type ?? "cashier"}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    staff_type: event.target.value as StaffType,
-                  }))
-                }
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                required
-                disabled={loading}
-              >
-                {staffTypeOptions.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
+              <p className="mb-3 text-xs leading-5 text-gray-500">
+                Pilih semua posisi yang dapat dikerjakan. Posisi utama dipakai
+                sebagai default selama masa transisi sistem.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {STAFF_POSITIONS.map((position) => {
+                  const selected = formData.positions.includes(position);
+                  const primary = formData.primary_position === position;
+
+                  return (
+                    <div
+                      key={position}
+                      className={`rounded-xl border p-3 transition ${
+                        selected
+                          ? "border-gray-900 bg-gray-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => togglePosition(position)}
+                          disabled={loading}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        {getStaffPositionLabel(position)}
+                      </label>
+                      <label
+                        className={`mt-2 flex items-center gap-2 text-xs ${
+                          selected
+                            ? "cursor-pointer text-gray-600"
+                            : "cursor-not-allowed text-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="primary-position"
+                          checked={primary}
+                          onChange={() => setPrimaryPosition(position)}
+                          disabled={loading || !selected}
+                        />
+                        Posisi utama
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {canUseShift && (
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                {t("owner.staff.workShift")} {activeShifts.length > 0 && <span className="text-red-500">*</span>}
-              </label>
-              <select
-                value={formData.shift_id ?? defaultShiftId ?? ""}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    shift_id: event.target.value || null,
-                  }))
-                }
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-                disabled={loading || activeShifts.length === 0}
-                required={activeShifts.length > 0}
-              >
-                {renderShiftOptions()}
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                This shift is used to validate clock-in time, lateness, clock-out time, and overtime.
-              </p>
-            </div>
-          )}
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-gray-700">

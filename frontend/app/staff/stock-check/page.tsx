@@ -20,7 +20,11 @@ import { SidebarTabset, DateRangeFilter, getDefaultDateRange, type DateRangeValu
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
 import { supabase } from "@/lib/config/supabaseClient";
 import { getCurrentUser } from "@/lib/utils";
-import { getStaffHomePath, normalizeStaffType } from "@/lib/utils/staffAccess";
+import {
+  getStaffHomePath,
+  hasStaffPosition,
+  normalizeStaffType,
+} from "@/lib/utils/staffAccess";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { convertQuantity } from "@/lib/utils/unitConversion";
 
@@ -378,6 +382,44 @@ const formatDate = (value: string) => {
 export default function StaffStockCheckPage() {
   const currentUser = getCurrentUser();
   const staffType = normalizeStaffType(currentUser?.staffType);
+  const hasBaristaPosition = hasStaffPosition({
+    position: "barista",
+    positions: currentUser?.positions,
+    staffType,
+  });
+  const hasKitchenPosition = hasStaffPosition({
+    position: "kitchen",
+    positions: currentUser?.positions,
+    staffType,
+  });
+  const isOwner = currentUser?.role === "owner";
+  const canUseStockCheck = isOwner || hasBaristaPosition || hasKitchenPosition;
+  const canUseKitchenStation = isOwner || hasKitchenPosition;
+  const effectiveStationScope: StationScope | null = isOwner
+    ? null
+    : staffType === "barista" && hasBaristaPosition
+      ? "barista"
+      : staffType === "kitchen" && hasKitchenPosition
+        ? "kitchen"
+        : hasBaristaPosition
+          ? "barista"
+          : hasKitchenPosition
+            ? "kitchen"
+            : null;
+  const visibleStockCheckTabs = canUseKitchenStation
+    ? stockCheckTabs
+    : stockCheckTabs.filter((tab) => tab.id !== "kitchen-station");
+  const visibleInventoryScopes = useMemo<StationScope[]>(
+    () =>
+      isOwner
+        ? ["barista", "kitchen", "shared"]
+        : [
+            ...(hasBaristaPosition ? (["barista"] as StationScope[]) : []),
+            ...(hasKitchenPosition ? (["kitchen"] as StationScope[]) : []),
+            "shared",
+          ],
+    [hasBaristaPosition, hasKitchenPosition, isOwner],
+  );
   const initialKitchenShift = getDefaultKitchenShiftName();
   const [activeTab, setActiveTab] = useState<StockCheckTab>("stock-check");
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -428,7 +470,7 @@ export default function StaffStockCheckPage() {
     productId: "",
     quantity: "",
     portions: "1",
-    purpose: staffType === "barista" ? "coffee_calibration" : "taste_test",
+    purpose: effectiveStationScope === "barista" ? "coffee_calibration" : "taste_test",
     shiftName: initialKitchenShift,
     notes: "",
   });
@@ -440,29 +482,29 @@ export default function StaffStockCheckPage() {
     anchor: DOMRect;
   } | null>(null);
   const [openKitchenActionMenu, setOpenKitchenActionMenu] = useState<KitchenActionTarget | null>(null);
-  const canUseStockCheck = staffType === "barista" || staffType === "kitchen";
 
   useEffect(() => {
-    if (currentUser?.role === "owner") return;
+    if (isOwner) return;
     if (!currentUser || currentUser.role !== "staff" || !canUseStockCheck) {
-      window.location.replace(getStaffHomePath(currentUser?.staffType));
+      window.location.replace(
+        getStaffHomePath(currentUser?.positions, currentUser?.staffType),
+      );
     }
-  }, [canUseStockCheck, currentUser]);
+  }, [canUseStockCheck, currentUser, isOwner]);
+
+  useEffect(() => {
+    if (activeTab === "kitchen-station" && !canUseKitchenStation) {
+      setActiveTab("stock-check");
+    }
+  }, [activeTab, canUseKitchenStation]);
 
   const loadItems = useCallback(async () => {
-    if (!canUseStockCheck && currentUser?.role !== "owner") return;
-
-    const stationScope: StationScope | null =
-      staffType === "barista" || staffType === "kitchen" ? staffType : null;
-    const scopes: StationScope[] =
-      currentUser?.role === "owner" || !stationScope
-        ? ["barista", "kitchen", "shared"]
-        : [stationScope, "shared"];
+    if (!canUseStockCheck) return;
 
     const initialResult = await supabase
       .from("inventory_items")
       .select("id,name,category,station_scope,tracking_mode,par_level,current_stock,reorder_level,unit,supplier,cost_per_unit")
-      .in("station_scope", scopes)
+      .in("station_scope", visibleInventoryScopes)
       .order("name", { ascending: true });
     const data = initialResult.data as InventoryItem[] | null;
     const error = initialResult.error;
@@ -498,7 +540,7 @@ export default function StaffStockCheckPage() {
 
     setStationScopeAvailable(true);
     setItems((data ?? []) as InventoryItem[]);
-  }, [canUseStockCheck, currentUser?.role, staffType]);
+  }, [canUseStockCheck, visibleInventoryScopes]);
 
   const loadReports = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -549,7 +591,7 @@ export default function StaffStockCheckPage() {
   }, [currentUser?.id, dateRange]);
 
   const loadStationBatches = useCallback(async () => {
-    if (staffType !== "kitchen" && currentUser?.role !== "owner") {
+    if (!canUseKitchenStation) {
       setStationBatches([]);
       return;
     }
@@ -578,10 +620,10 @@ export default function StaffStockCheckPage() {
 
     setKitchenStationAvailable(true);
     setStationBatches((data ?? []) as StationBatch[]);
-  }, [currentUser?.role, staffType]);
+  }, [canUseKitchenStation]);
 
   const loadMasterBatches = useCallback(async () => {
-    if (staffType !== "kitchen" && currentUser?.role !== "owner") {
+    if (!canUseKitchenStation) {
       setMasterBatches([]);
       return;
     }
@@ -607,10 +649,10 @@ export default function StaffStockCheckPage() {
     }
 
     setMasterBatches((data ?? []) as InventoryBatch[]);
-  }, [currentUser?.role, staffType]);
+  }, [canUseKitchenStation]);
 
   const loadBulkOpenedMovements = useCallback(async () => {
-    if (staffType !== "kitchen" && currentUser?.role !== "owner") {
+    if (!canUseKitchenStation) {
       setBulkOpenedMovements([]);
       return;
     }
@@ -654,10 +696,15 @@ export default function StaffStockCheckPage() {
     }
 
     setBulkOpenedMovements((data ?? []) as BulkOpenedMovement[]);
-  }, [currentUser?.role, staffType]);
+  }, [canUseKitchenStation]);
 
   const loadTestingReferenceData = useCallback(async () => {
-    const productType = staffType === "barista" ? "drink" : staffType === "kitchen" ? "food" : null;
+    const productType =
+      effectiveStationScope === "barista"
+        ? "drink"
+        : effectiveStationScope === "kitchen"
+          ? "food"
+          : null;
     const productQuery = supabase
       .from("products")
       .select("id,name,type,available")
@@ -694,7 +741,7 @@ export default function StaffStockCheckPage() {
     } else {
       setRecipeIngredients((ingredientsResult.data ?? []) as RecipeIngredient[]);
     }
-  }, [staffType]);
+  }, [effectiveStationScope]);
 
   const loadPageData = useCallback(async () => {
     setLoading(true);
@@ -876,12 +923,12 @@ export default function StaffStockCheckPage() {
     if (!item || costingMode === "kitchen_overhead" || requiredQuantity <= 0) return "none";
     if (
       item.tracking_mode === "kitchen_station_auto_deduct" &&
-      (staffType === "kitchen" || currentUser?.role === "owner")
+      canUseKitchenStation
     ) {
       return "station";
     }
     return "master";
-  }, [currentUser?.role, staffType]);
+  }, [canUseKitchenStation]);
 
   const getTestingLineAvailableQuantity = useCallback((line: TestingRecipeLine) => {
     if (!line.item) return 0;
@@ -942,7 +989,7 @@ export default function StaffStockCheckPage() {
       productId: "",
       quantity: "",
       portions: "1",
-      purpose: staffType === "barista" ? "coffee_calibration" : "taste_test",
+      purpose: effectiveStationScope === "barista" ? "coffee_calibration" : "taste_test",
       shiftName: initialKitchenShift,
       notes: "",
     });
@@ -1504,7 +1551,7 @@ export default function StaffStockCheckPage() {
       report_type: "testing_usage" as ReportType,
       quantity_note: `Testing Usage ${quantity} ${unit}`.trim(),
       description,
-      station_scope: item.station_scope || (staffType === "kitchen" ? "kitchen" : staffType === "barista" ? "barista" : "shared"),
+      station_scope: item.station_scope || effectiveStationScope || "shared",
       status: "pending" as ReportStatus,
       reported_by: currentUser.id,
       reported_by_name: currentUser.name,
@@ -1671,7 +1718,7 @@ export default function StaffStockCheckPage() {
     const shiftName = testingForm.shiftName || initialKitchenShift;
     const baseNotes = [
       `Purpose: ${purposeLabel}`,
-      `Station: ${staffType === "barista" ? "Barista" : staffType === "kitchen" ? "Kitchen" : "Staff"}`,
+      `Station: ${effectiveStationScope === "barista" ? "Barista" : effectiveStationScope === "kitchen" ? "Kitchen" : "Staff"}`,
       testingForm.notes.trim(),
     ].filter(Boolean).join(" | ");
 
@@ -2460,7 +2507,7 @@ export default function StaffStockCheckPage() {
         <SidebarTabset
           title="Stock Check"
           description="Report material issues without editing inventory."
-          items={stockCheckTabs}
+          items={visibleStockCheckTabs}
           activeId={activeTab}
           onSelect={setActiveTab}
         />
@@ -2644,11 +2691,11 @@ export default function StaffStockCheckPage() {
 
       {testingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl">
+          <div className="flex max-h-[92vh] w-full  flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl">
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                  {staffType === "barista" ? "Barista" : staffType === "kitchen" ? "Kitchen" : "Staff"}
+                  {effectiveStationScope === "barista" ? "Barista" : effectiveStationScope === "kitchen" ? "Kitchen" : "Staff"}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-gray-950">Test Menu</h2>
                 <p className="mt-2 text-sm text-gray-500">
@@ -2718,7 +2765,7 @@ export default function StaffStockCheckPage() {
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Menu scope</p>
                     <p className="mt-2 text-lg font-bold text-gray-950">
-                      {staffType === "barista" ? "Drinks" : staffType === "kitchen" ? "Food" : "All"}
+                      {effectiveStationScope === "barista" ? "Drinks" : effectiveStationScope === "kitchen" ? "Food" : "All"}
                     </p>
                   </div>
                 </div>

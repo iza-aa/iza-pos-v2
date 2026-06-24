@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { setInternalSessionCookie } from "@/lib/auth/internalSession";
+import {
+  getPrimaryStaffPosition,
+  getStaffPositions,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
@@ -23,6 +28,7 @@ type StaffRecord = {
   name: string;
   role: string;
   staff_type: string | null;
+  staff_positions?: StaffPositionAssignment[] | null;
   status: string;
   login_code: string | null;
   login_code_expires_at: string | null;
@@ -136,7 +142,7 @@ const verifyPin = (pin: string, storedHash: string | null | undefined) => {
 };
 
 const selectStaffFields =
-  "id, staff_code, name, role, staff_type, status, login_code, login_code_expires_at, pin_hash, password_hash, must_change_pin";
+  "id, staff_code, name, role, staff_type, status, login_code, login_code_expires_at, pin_hash, password_hash, must_change_pin, staff_positions(id, staff_id, position, is_primary, is_active)";
 
 const getStaffLoginByCode = async (staffCode: string) => {
   const { data, error } = await supabase
@@ -166,12 +172,16 @@ const getActiveStaffByCode = async (staffCode: string) => {
 };
 
 const buildLoginResponse = async (staff: StaffRecord, rememberMe = false) => {
+  const staffPositions = getStaffPositions(staff);
+  const primaryPosition = getPrimaryStaffPosition(staff);
   const response = NextResponse.json({
     success: true,
     user_id: staff.id,
     user_name: staff.name,
     user_role: staff.role,
-    staff_type: staff.staff_type,
+    staff_type: primaryPosition ?? staff.staff_type,
+    staff_positions: staffPositions,
+    primary_position: primaryPosition,
     staff_code: staff.staff_code,
   });
   await setInternalSessionCookie(response, {
@@ -179,7 +189,8 @@ const buildLoginResponse = async (staff: StaffRecord, rememberMe = false) => {
     name: staff.name,
     role: staff.role as "staff" | "manager" | "owner",
     staffCode: staff.staff_code,
-    staffType: staff.staff_type,
+    staffType: primaryPosition ?? staff.staff_type,
+    staffPositions,
   }, rememberMe);
   return response;
 };
@@ -212,13 +223,17 @@ const handleLogin = async (body: Record<string, unknown>) => {
     safeEqual(credential, staff.login_code!);
 
   if (loginCodeIsValid) {
+    const staffPositions = getStaffPositions(staff);
+    const primaryPosition = getPrimaryStaffPosition(staff);
     return NextResponse.json({
       success: true,
       must_set_pin: true,
       user_id: staff.id,
       user_name: staff.name,
       user_role: staff.role,
-      staff_type: staff.staff_type,
+      staff_type: primaryPosition ?? staff.staff_type,
+      staff_positions: staffPositions,
+      primary_position: primaryPosition,
       staff_code: staff.staff_code,
       message: "Kode login valid. Silakan buat PIN baru.",
     });

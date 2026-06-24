@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         .order("created_at", { ascending: true }),
       supabase
         .from("staff")
-        .select("id, name, staff_code, role, status, shift_id")
+        .select("id, name, staff_code, role, status")
         .eq("role", "staff")
         .eq("status", "active")
         .order("name", { ascending: true }),

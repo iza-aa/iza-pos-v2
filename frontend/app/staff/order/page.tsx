@@ -16,7 +16,6 @@ import { supabase } from "@/lib/config/supabaseClient";
 import {
   parseSupabaseTimestamp,
   getJakartaNow,
-  formatJakartaDate,
   formatJakartaTime,
   getMinutesDifference,
 } from "@/lib/utils";
@@ -27,6 +26,8 @@ import { getCurrentUser } from "@/lib/utils/auth";
 import { canUpdateStaffOrders } from "@/lib/utils/staffAccess";
 import { reverseOrderInventoryUsageWithBatches } from "@/lib/services/inventory/inventoryBatchService";
 import OrderCorrectionModal from "@/app/components/staff/order/OrderCorrectionModal";
+import { getOrderOperationalTimestamp } from "@/lib/orders/orderPresentation";
+import { getProductPreparationStation } from "@/lib/orders/stationRouting";
 
 interface Order {
   id: string;
@@ -48,7 +49,18 @@ interface Order {
   servedByRoles?: string[];
   fulfillmentMethod?: "table_service" | "counter_pickup" | null;
   pickupCode?: string | null;
+  timeLabel: string;
+  paymentMethod?: string | null;
+  paymentAmount?: number;
+  changeAmount?: number;
 }
+
+type AvailableStaffOption = {
+  id: string;
+  name: string;
+  positions?: string[];
+  primaryPosition?: string | null;
+};
 
 type OrderCorrectionReview = {
   id: string;
@@ -125,6 +137,7 @@ export default function StaffOrderPage() {
   const currentUser = getCurrentUser();
   const canUpdateOrders = canUpdateStaffOrders({
     role: currentUser?.role,
+    positions: currentUser?.positions,
     staffType: currentUser?.staffType,
   });
   const canDeleteOrders = currentUser?.role === "owner";
@@ -140,10 +153,14 @@ export default function StaffOrderPage() {
   const [kanbanFilter, setKanbanFilter] = useState<KanbanFilter>("all");
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
   const [orderCorrections, setOrderCorrections] = useState<OrderCorrectionReview[]>([]);
+  const [availableBaristas, setAvailableBaristas] = useState<AvailableStaffOption[]>([]);
+  const [availableWaiters, setAvailableWaiters] = useState<AvailableStaffOption[]>([]);
 
   useEffect(() => {
     fetchOrders();
     fetchOrderCorrections();
+    fetchAvailableBaristas();
+    fetchAvailableWaiters();
 
     const channel = supabase
       .channel("manager-orders-changes")
@@ -166,17 +183,61 @@ export default function StaffOrderPage() {
     const interval = setInterval(() => {
       fetchOrders();
       fetchOrderCorrections();
+      fetchAvailableBaristas();
+      fetchAvailableWaiters();
     }, POLLING_INTERVALS.SLOW);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
+    // Existing polling bootstrap intentionally runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     void fetchOrderCorrections();
+    // Date filter refresh only; fetchOrderCorrections reads the latest date range.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange]);
+
+  async function fetchAvailableStaffByPosition(position: "barista" | "waiter") {
+    try {
+      const user = getCurrentUser();
+      if (!user) return [];
+
+      const response = await fetch(`/api/staff/available?position=${position}`, {
+        headers: {
+          "x-user-id": user.id,
+          "x-user-name": user.name,
+          "x-user-role": user.role,
+        },
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        data?: AvailableStaffOption[];
+        available?: AvailableStaffOption[];
+      };
+
+      if (!response.ok) {
+        console.warn(`Failed to load available ${position}s:`, result);
+        return [];
+      }
+
+      return result.data || result.available || [];
+    } catch (error) {
+      console.warn(`Failed to load available ${position}s:`, error);
+      return [];
+    }
+  }
+
+  async function fetchAvailableBaristas() {
+    setAvailableBaristas(await fetchAvailableStaffByPosition("barista"));
+  }
+
+  async function fetchAvailableWaiters() {
+    setAvailableWaiters(await fetchAvailableStaffByPosition("waiter"));
+  }
 
   async function fetchOrderCorrections() {
     try {
@@ -228,23 +289,64 @@ export default function StaffOrderPage() {
 						served,
 						served_at,
 						served_by,
+						served_recorded_by,
 						kitchen_status,
 						ready_at,
+						assigned_barista_id,
+						assigned_barista_by,
+						assigned_barista_at,
 						notes,
-						products (name, image)
+						products (
+              name,
+              image,
+              categories (preparation_station)
+            )
 					)
 				`,
         )
         .order("created_at", { ascending: false });
 
       if (error) {
-        showError("Gagal mengambil data order.");
+        console.error("Failed to fetch orders:", error);
+        showError(`Failed to load orders: ${error.message}`);
         return;
       }
 
       if (!ordersData) {
         setOrderList([]);
         return;
+      }
+
+      const orderIds = ordersData.map((order) => order.id);
+      const paymentByOrderId = new Map<
+        string,
+        {
+          paymentMethod: string | null;
+          paymentAmount?: number;
+          changeAmount?: number;
+        }
+      >();
+
+      if (orderIds.length > 0) {
+        const { data: paymentRows, error: paymentError } = await supabase
+          .from("payment_transactions")
+          .select("order_id, payment_method, amount_paid, amount_change, created_at")
+          .in("order_id", orderIds)
+          .order("created_at", { ascending: false });
+
+        if (paymentError) {
+          console.warn("Failed to load order payment details:", paymentError);
+        } else {
+          (paymentRows || []).forEach((payment) => {
+            if (!paymentByOrderId.has(payment.order_id)) {
+              paymentByOrderId.set(payment.order_id, {
+                paymentMethod: payment.payment_method ?? null,
+                paymentAmount: Number(payment.amount_paid ?? 0),
+                changeAmount: Number(payment.amount_change ?? 0),
+              });
+            }
+          });
+        }
       }
 
       const createdByIds = [
@@ -266,7 +368,22 @@ export default function StaffOrderPage() {
         ),
       ];
 
-      const allStaffIds = [...new Set([...createdByIds, ...servedByIds])];
+      const assignedBaristaIds = [
+        ...new Set(
+          ordersData.flatMap((order) =>
+            (order.order_items || [])
+              .map(
+                (item: OrderItem & { assigned_barista_id?: string | null }) =>
+                  item.assigned_barista_id,
+              )
+              .filter(isValidStaffId),
+          ),
+        ),
+      ];
+
+      const allStaffIds = [
+        ...new Set([...createdByIds, ...servedByIds, ...assignedBaristaIds]),
+      ];
 
       const staffMap = new Map<string, { name: string; type: string }>();
 
@@ -301,30 +418,26 @@ export default function StaffOrderPage() {
       const transformedOrders: Order[] = ordersData.map((order) => {
         const orderItems = (order.order_items || []) as (OrderItem & {
           product_name?: string;
-          products?: { name?: string };
+          products?: {
+            name?: string;
+            categories?:
+              | { preparation_station?: string | null }
+              | { preparation_station?: string | null }[]
+              | null;
+          };
           base_price?: number;
           kitchen_status?: string;
           ready_at?: string;
           served_by?: string | null;
+          assigned_barista_id?: string | null;
         })[];
 
         const servedCount = orderItems.filter((item) => item.served).length;
         const totalCount = orderItems.length;
 
-        const orderCreatedAt = parseSupabaseTimestamp(order.created_at);
         const now = getJakartaNow();
-        const minutesSinceCreated = getMinutesDifference(now, orderCreatedAt);
 
         let status = order.status as Order["status"];
-
-        if (order.status === "new" && minutesSinceCreated >= 5) {
-          status = "preparing";
-
-          void supabase
-            .from("orders")
-            .update({ status: "preparing" })
-            .eq("id", order.id);
-        }
 
         if (servedCount > 0 && servedCount < totalCount) {
           status = "partially-served";
@@ -383,6 +496,16 @@ export default function StaffOrderPage() {
           .map((staffId) => staffMap.get(staffId)?.type)
           .filter((type): type is string => typeof type === "string");
 
+        const operationalTime = getOrderOperationalTimestamp({
+          status,
+          createdAt: order.created_at,
+          updatedAt: order.updated_at,
+          completedAt: order.completed_at,
+          readyAtValues: orderItems.map((item) => item.ready_at),
+          servedAtValues: orderItems.map((item) => item.served_at),
+        });
+        const payment = paymentByOrderId.get(order.id);
+
         return {
           id: order.id,
           customerName: order.customer_name || "Guest",
@@ -407,10 +530,17 @@ export default function StaffOrderPage() {
             kitchenStatus:
               item.kitchen_status || item.kitchenStatus || "not_required",
             readyAt: item.ready_at || item.readyAt,
+            preparationStation: getProductPreparationStation(item.products),
+            assigned_barista_id: item.assigned_barista_id ?? null,
+            assignedBaristaId: item.assigned_barista_id ?? null,
+            assignedBaristaName: item.assigned_barista_id
+              ? staffMap.get(item.assigned_barista_id)?.name ?? null
+              : null,
           })),
           total: order.total || 0,
-          date: formatJakartaDate(orderCreatedAt),
-          time: formatJakartaTime(orderCreatedAt),
+          date: operationalTime.date,
+          time: operationalTime.time,
+          timeLabel: operationalTime.label,
           status,
           table: order.table_number || undefined,
           tableNumber: order.table_number || order.table || "",
@@ -426,29 +556,99 @@ export default function StaffOrderPage() {
           fulfillmentMethod: order.fulfillment_method ?? null,
           pickupCode: order.pickup_code ?? null,
           createdAt: order.created_at,
+          paymentMethod: payment?.paymentMethod ?? order.payment_method ?? null,
+          paymentAmount: payment?.paymentAmount,
+          changeAmount: payment?.changeAmount,
         };
       });
 
       setOrderList(transformedOrders);
-    } catch {
-      showError("Gagal mengambil data order.");
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+      showError(
+        error instanceof Error
+          ? `Failed to load orders: ${error.message}`
+          : "Failed to load orders.",
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleProcessOrder(orderId: string) {
+  const waiterNameById = new Map(
+    availableWaiters.map((waiter) => [waiter.id, waiter.name]),
+  );
+  const isCurrentUserClockedInBarista = Boolean(
+    currentUser && availableBaristas.some((b) => b.id === currentUser.id)
+  );
+  const availableBaristaOptions = availableBaristas;
+  const effectiveBaristaNameById = new Map(
+    availableBaristaOptions.map((barista) => [barista.id, barista.name]),
+  );
+
+  const isBarItem = (item: OrderItem) => {
+    return item.preparationStation === "bar";
+  };
+
+  const orderHasBarItems = (order: Order) => {
+    return order.items.some(isBarItem);
+  };
+
+  async function handleProcessOrder(orderId: string, baristaId?: string) {
     if (!canUpdateOrders) {
       showError("This staff role can view orders but cannot update them.");
       return;
     }
 
     try {
+      const nowIso = new Date().toISOString();
+      const targetOrder = orderList.find((order) => order.id === orderId);
+
+      if (!targetOrder) {
+        showError("Order tidak ditemukan.");
+        return;
+      }
+
+      let selectedBaristaId = baristaId;
+      if (selectedBaristaId === undefined) {
+        if (currentUser && isCurrentUserClockedInBarista) {
+          selectedBaristaId = currentUser.id;
+        } else if (availableBaristaOptions.length === 1) {
+          selectedBaristaId = availableBaristaOptions[0]?.id ?? "";
+        } else {
+          selectedBaristaId = "";
+        }
+      }
+
+      const barItemIds = targetOrder.items
+        .filter((item) => isBarItem(item) && !item.served)
+        .map((item) => item.id)
+        .filter(isValidStaffId);
+      const shouldSaveBarAttribution = Boolean(
+        selectedBaristaId && barItemIds.length > 0,
+      );
+
+      if (shouldSaveBarAttribution) {
+        const { error: attributionError } = await supabase
+          .from("order_items")
+          .update({
+            assigned_barista_id: selectedBaristaId,
+            assigned_barista_by: currentUser?.id ?? null,
+            assigned_barista_at: nowIso,
+          })
+          .in("id", barItemIds);
+
+        if (attributionError) {
+          showError(`Failed to save bar attribution: ${attributionError.message}`);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("orders")
         .update({
           status: "preparing",
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         })
         .eq("id", orderId);
 
@@ -458,17 +658,44 @@ export default function StaffOrderPage() {
       }
 
       setOrderList((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? {
-                ...order,
-                status: "preparing",
-              }
-            : order,
-        ),
+        prev.map((order) => {
+          if (order.id !== orderId) return order;
+          const assignedBaristaName = selectedBaristaId
+            ? effectiveBaristaNameById.get(selectedBaristaId) ?? null
+            : null;
+          const operationalTime = getOrderOperationalTimestamp({
+            status: "preparing",
+            createdAt: order.createdAt,
+            updatedAt: nowIso,
+          });
+
+          return {
+            ...order,
+            status: "preparing",
+            items: shouldSaveBarAttribution
+              ? order.items.map((item) =>
+                  barItemIds.includes(item.id)
+                    ? {
+                        ...item,
+                        assigned_barista_id: selectedBaristaId,
+                        assignedBaristaId: selectedBaristaId,
+                        assignedBaristaName: assignedBaristaName,
+                      }
+                    : item,
+                )
+              : order.items,
+            date: operationalTime.date,
+            time: operationalTime.time,
+            timeLabel: operationalTime.label,
+          };
+        }),
       );
 
-      showSuccess("Order moved to On Process");
+      showSuccess(
+        shouldSaveBarAttribution
+          ? "Order moved to On Process. Bar attribution saved."
+          : "Order moved to On Process",
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Silakan coba lagi.";
@@ -486,7 +713,15 @@ export default function StaffOrderPage() {
     );
   };
 
-  async function handleMarkServed(orderId: string, itemIds: string[]) {
+  const shouldShowWaiterHandoff = (order: Order) => {
+    return order.fulfillmentMethod === "table_service";
+  };
+
+  async function handleMarkServed(
+    orderId: string,
+    itemIds: string[],
+    handoffStaffId?: string,
+  ) {
     if (!canUpdateOrders) {
       showError("This staff role can view orders but cannot update them.");
       return;
@@ -510,12 +745,14 @@ export default function StaffOrderPage() {
       }
 
       const nowIso = new Date().toISOString();
+      const servedByStaffId = handoffStaffId || currentUser?.id || null;
       const { error: itemsError } = await supabase
         .from("order_items")
         .update({
           served: true,
           served_at: nowIso,
-          served_by: currentUser?.id ?? null,
+          served_by: servedByStaffId,
+          served_recorded_by: currentUser?.id ?? null,
         })
         .in("id", validItemIds);
 
@@ -529,6 +766,8 @@ export default function StaffOrderPage() {
           ? {
               ...item,
               served: true,
+              served_by: servedByStaffId ?? undefined,
+              served_recorded_by: currentUser?.id ?? null,
               servedAt: formatJakartaTime(parseSupabaseTimestamp(nowIso)),
             }
           : item,
@@ -557,21 +796,41 @@ export default function StaffOrderPage() {
       }
 
       setOrderList((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? {
-                ...order,
-                status: nextStatus,
-                items: nextItems,
-              }
-            : order,
-        ),
+        prev.map((order) => {
+          if (order.id !== orderId) return order;
+          const servedByDisplayName = servedByStaffId
+            ? waiterNameById.get(servedByStaffId) ||
+              (servedByStaffId === currentUser?.id ? currentUser?.name : null)
+            : null;
+          const operationalTime = getOrderOperationalTimestamp({
+            status: nextStatus,
+            createdAt: order.createdAt,
+            updatedAt: nowIso,
+            servedAtValues: [nowIso],
+          });
+
+          return {
+            ...order,
+            status: nextStatus,
+            items: nextItems,
+            servedByNames: servedByDisplayName
+              ? [...new Set([...(order.servedByNames || []), servedByDisplayName])]
+              : order.servedByNames,
+            date: operationalTime.date,
+            time: operationalTime.time,
+            timeLabel: operationalTime.label,
+          };
+        }),
       );
 
       showSuccess(
-        nextStatus === "served"
-          ? "Semua item berhasil disajikan."
-          : "Item berhasil disajikan sebagian.",
+        handoffStaffId
+          ? nextStatus === "served"
+            ? "All items marked as handed off."
+            : "Selected items marked as handed off."
+          : nextStatus === "served"
+            ? "Semua item berhasil disajikan."
+            : "Item berhasil disajikan sebagian.",
       );
     } catch (error) {
       const errorMessage =
@@ -904,6 +1163,27 @@ export default function StaffOrderPage() {
     );
   };
 
+  // Queue sequence calculation for active columns
+  const activeOrdersSorted = [...orderList]
+    .filter(
+      (o) =>
+        o.status === "new" ||
+        o.status === "preparing" ||
+        o.status === "partially-served"
+    )
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const activeOrderQueueNumberMap = new Map<string, number>();
+  activeOrdersSorted.forEach((order, index) => {
+    activeOrderQueueNumberMap.set(order.id, index + 1);
+  });
+
+  const defaultBaristaId = currentUser && isCurrentUserClockedInBarista
+    ? currentUser.id
+    : availableBaristaOptions.length === 1
+      ? availableBaristaOptions[0]?.id ?? ""
+      : "";
+
   return (
     <div className="min-h-[calc(100vh-55px)] bg-gray-100">
       <OrderCorrectionModal
@@ -1015,7 +1295,7 @@ export default function StaffOrderPage() {
                           ? columnOrders.length > 0
                             ? "flex-1 min-h-0 p-4 overflow-y-auto"
                             : "flex-1 min-h-0 p-4"
-                          : "p-3 space-y-3 min-h-130"
+                          : "p-3 space-y-3 min-h-122"
                       }
                     >
                       {columnOrders.length > 0 ? (
@@ -1030,39 +1310,40 @@ export default function StaffOrderPage() {
                                   const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
 
                                   return (
-                                <OrderCard
-                                  order={order}
-                                  correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
-                                  showDeleteButton={!pendingCorrection && canDeleteOrders}
-                                  onDelete={handleDeleteOrder}
-                                  enableFlipCard={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
-                                  showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
-                                  serveOrderLabel="Serve Order"
-                                  disabledServeOrderLabel="Waiting for Kitchen"
-                                  onMarkServed={handleMarkServed}
-                                  customActions={
-                                    pendingCorrection ? (
-                                      <button
-                                        type="button"
-                                        disabled
-                                        className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
-                                      >
-                                        Waiting for manager review
-                                      </button>
-                                    ) : canUpdateOrders && order.status === "new" ? (
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          handleProcessOrder(order.id);
-                                        }}
-                                        className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
-                                      >
-                                        Process
-                                      </button>
-                                    ) : null
-                                  }
-                                />
+                                    <OrderCard
+                                      order={order}
+                                      correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
+                                      showDeleteButton={!pendingCorrection && canDeleteOrders}
+                                      onDelete={handleDeleteOrder}
+                                      enableFlipCard={!pendingCorrection && canUpdateOrders && (canShowServeOrderButton(order) || (order.status === "new" && orderHasBarItems(order)))}
+                                      showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
+                                      serveOrderLabel="Serve Order"
+                                      disabledServeOrderLabel="Waiting for Kitchen"
+                                      onMarkServed={handleMarkServed}
+                                      showHandoffStaffSelector={shouldShowWaiterHandoff(order)}
+                                      handoffStaffOptions={availableWaiters}
+                                      handoffStaffLabel="Handoff to waiter"
+                                      noHandoffStaffLabel="No waiter handoff"
+                                      showProcessAction={!pendingCorrection && canUpdateOrders && order.status === "new"}
+                                      onProcessOrder={handleProcessOrder}
+                                      showBaristaSelector={orderHasBarItems(order)}
+                                      baristaOptions={availableBaristaOptions}
+                                      baristaLabel="Bar handled by"
+                                      noBaristaLabel="No bar attribution"
+                                      defaultBaristaId={defaultBaristaId}
+                                      queueNumber={activeOrderQueueNumberMap.get(order.id)}
+                                      customActions={
+                                        pendingCorrection ? (
+                                          <button
+                                            type="button"
+                                            disabled
+                                            className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+                                          >
+                                            Waiting for manager review
+                                          </button>
+                                        ) : null
+                                      }
+                                    />
                                   );
                                 })()}
                               </div>
@@ -1074,40 +1355,41 @@ export default function StaffOrderPage() {
                               const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
 
                               return (
-                            <OrderCard
-                              key={order.id}
-                              order={order}
-                              correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
-                              showDeleteButton={!pendingCorrection && canDeleteOrders}
-                              onDelete={handleDeleteOrder}
-                              enableFlipCard={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
-                              showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
-                              serveOrderLabel="Serve Order"
-                              disabledServeOrderLabel="Waiting for Kitchen"
-                              onMarkServed={handleMarkServed}
-                              customActions={
-                                pendingCorrection ? (
-                                  <button
-                                    type="button"
-                                    disabled
-                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
-                                  >
-                                    Waiting for manager review
-                                  </button>
-                                ) : canUpdateOrders && order.status === "new" ? (
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleProcessOrder(order.id);
-                                    }}
-                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
-                                  >
-                                    Process
-                                  </button>
-                                ) : null
-                              }
-                            />
+                                <OrderCard
+                                  key={order.id}
+                                  order={order}
+                                  correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
+                                  showDeleteButton={!pendingCorrection && canDeleteOrders}
+                                  onDelete={handleDeleteOrder}
+                                  enableFlipCard={!pendingCorrection && canUpdateOrders && (canShowServeOrderButton(order) || (order.status === "new" && orderHasBarItems(order)))}
+                                  showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
+                                  serveOrderLabel="Serve Order"
+                                  disabledServeOrderLabel="Waiting for Kitchen"
+                                  onMarkServed={handleMarkServed}
+                                  showHandoffStaffSelector={shouldShowWaiterHandoff(order)}
+                                  handoffStaffOptions={availableWaiters}
+                                  handoffStaffLabel="Handoff to waiter"
+                                  noHandoffStaffLabel="No waiter handoff"
+                                  showProcessAction={!pendingCorrection && canUpdateOrders && order.status === "new"}
+                                  onProcessOrder={handleProcessOrder}
+                                  showBaristaSelector={orderHasBarItems(order)}
+                                  baristaOptions={availableBaristaOptions}
+                                  baristaLabel="Bar handled by"
+                                  noBaristaLabel="No bar attribution"
+                                  defaultBaristaId={defaultBaristaId}
+                                  queueNumber={activeOrderQueueNumberMap.get(order.id)}
+                                  customActions={
+                                    pendingCorrection ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+                                      >
+                                        Waiting for manager review
+                                      </button>
+                                    ) : null
+                                  }
+                                />
                               );
                             })()
                           ))
@@ -1116,7 +1398,7 @@ export default function StaffOrderPage() {
                         <div
                           className={
                             isSingleFilteredColumn
-                              ? "h-full min-h-130 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
+                              ? "h-full min-h-122 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
                               : "h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
                           }
                         >

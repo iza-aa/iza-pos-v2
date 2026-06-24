@@ -1,41 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClipboardDocumentIcon, KeyIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { Staff } from "@/lib/types";
 import { useLanguage } from "@/app/components/shared/i18n";
 import { getStaffAccessState } from "./staffAccessUtils";
+import {
+  STAFF_POSITIONS,
+  getPrimaryStaffPosition,
+  getStaffPositionLabel,
+  getStaffPositions,
+  type StaffPosition,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 type StaffRole = "owner" | "manager" | "staff";
-type StaffType = "barista" | "kitchen" | "waiter" | "cashier";
 type EditableStaffStatus = "active" | "inactive" | "on-leave";
-
-export type StaffShiftOption = {
-  id: string;
-  shift_name: string;
-  start_time?: string | null;
-  end_time?: string | null;
-  is_active?: boolean | null;
-};
 
 type StaffRecordValue = Staff & {
   email?: string | null;
   phone?: string | null;
   role?: string | null;
   staff_type?: string | null;
+  staff_positions?: StaffPositionAssignment[] | null;
+  positions?: StaffPosition[];
+  primary_position?: StaffPosition | null;
   status?: string | null;
   login_code?: string | null;
   login_code_expires_at?: string | null;
   pin_hash?: string | null;
   password_hash?: string | null;
   must_change_pin?: boolean | null;
-  shift_id?: string | null;
-  weekly_shift_overrides?: WeeklyShiftOverride[];
-};
-
-type WeeklyShiftOverride = {
-  weekday: number;
-  shift_id: string;
 };
 
 type StaffFormData = {
@@ -43,86 +38,46 @@ type StaffFormData = {
   email: string;
   phone: string;
   role: StaffRole;
-  staff_type: StaffType | null;
-  shift_id: string | null;
+  positions: StaffPosition[];
+  primary_position: StaffPosition | null;
+  staff_type: StaffPosition | null;
   status: EditableStaffStatus;
 };
 
 interface EditStaffModalProps {
   isOpen: boolean;
   staff: Staff | null;
-  shifts?: StaffShiftOption[];
   onClose: () => void;
   onSave: (updatedStaff: Staff) => void | Promise<void>;
   onGeneratePass?: (id: string) => void | Promise<void>;
   onCopyCode?: (code: string) => void;
   isGeneratingCode?: boolean;
+  allowOwnerRole?: boolean;
 }
-
-const STAFF_TYPE_OPTIONS: Array<{
-  value: StaffType;
-  label: string;
-}> = [
-  { value: "cashier", label: "Cashier" },
-  { value: "barista", label: "Barista" },
-  { value: "kitchen", label: "Kitchen" },
-  { value: "waiter", label: "Waiter" },
-];
 
 const ROLE_OPTIONS: Array<{
   value: StaffRole;
   label: string;
 }> = [
-  { value: "owner", label: "Owner" },
-  { value: "manager", label: "Manager" },
-  { value: "staff", label: "Staff" },
-];
+    { value: "owner", label: "Owner" },
+    { value: "manager", label: "Manager" },
+    { value: "staff", label: "Staff" },
+  ];
 
 const STATUS_OPTIONS: Array<{
   value: EditableStaffStatus;
   label: string;
 }> = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "on-leave", label: "On Leave" },
-];
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+    { value: "on-leave", label: "On Leave" },
+  ];
 
-const WEEKDAY_OPTIONS = [
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
-  { value: 7, label: "Sunday" },
-];
 
 const normalizeRole = (value: unknown): StaffRole => {
   if (value === "owner") return "owner";
   if (value === "manager") return "manager";
   return "staff";
-};
-
-const normalizeStaffType = (
-  value: unknown,
-  role: StaffRole,
-): StaffType | null => {
-  if (role !== "staff") return null;
-
-  if (value === "barista") return "barista";
-  if (value === "kitchen") return "kitchen";
-  if (value === "waiter") return "waiter";
-  if (value === "cashier") return "cashier";
-
-  if (value === "server" || value === "pelayan" || value === "waitress") {
-    return "waiter";
-  }
-
-  if (value === "bar") {
-    return "barista";
-  }
-
-  return "barista";
 };
 
 const normalizeStatus = (value: unknown): EditableStaffStatus => {
@@ -135,80 +90,68 @@ const toSafeString = (value: unknown) => {
   return typeof value === "string" ? value : "";
 };
 
-const formatTime = (value?: string | null) => {
-  if (!value) return "--:--";
-
-  return value.slice(0, 5);
-};
 
 export default function EditStaffModal({
   isOpen,
   staff,
-  shifts = [],
   onClose,
   onSave,
   onGeneratePass,
   onCopyCode,
   isGeneratingCode = false,
+  allowOwnerRole = true,
 }: EditStaffModalProps) {
   const { t } = useLanguage();
-  const activeShifts = useMemo(
-    () => shifts.filter((shift) => shift.is_active !== false),
-    [shifts],
-  );
-
-  const defaultShiftId = activeShifts[0]?.id ?? null;
 
   const [formData, setFormData] = useState<StaffFormData>({
     name: "",
     email: "",
     phone: "",
     role: "staff",
+    positions: ["barista"],
+    primary_position: "barista",
     staff_type: "barista",
-    shift_id: null,
     status: "active",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [weeklyShiftOverrides, setWeeklyShiftOverrides] = useState<Record<number, string>>({});
+  const roleOptions = allowOwnerRole
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((roleOption) => roleOption.value !== "owner");
 
   useEffect(() => {
     if (!staff || !isOpen) return;
 
     const staffRecord = staff as StaffRecordValue;
     const normalizedRole = normalizeRole(staffRecord.role);
-    const canUseShift = normalizedRole === "staff" || normalizedRole === "manager";
-    const currentShiftId = toSafeString(staffRecord.shift_id) || null;
+    const positions =
+      normalizedRole === "staff" ? getStaffPositions(staffRecord) : [];
+    const primaryPosition =
+      normalizedRole === "staff"
+        ? getPrimaryStaffPosition(staffRecord) ?? positions[0] ?? "barista"
+        : null;
 
     setFormData({
       name: toSafeString(staffRecord.name),
       email: toSafeString(staffRecord.email),
       phone: toSafeString(staffRecord.phone),
       role: normalizedRole,
-      staff_type: normalizeStaffType(staffRecord.staff_type, normalizedRole),
-      shift_id: canUseShift ? currentShiftId ?? defaultShiftId : null,
+      positions,
+      primary_position: primaryPosition,
+      staff_type: primaryPosition,
       status: normalizeStatus(staffRecord.status),
     });
-    setWeeklyShiftOverrides(
-      (staffRecord.weekly_shift_overrides || []).reduce<Record<number, string>>((current, override) => {
-        if (override.weekday >= 1 && override.weekday <= 7 && override.shift_id) {
-          current[override.weekday] = override.shift_id;
-        }
-        return current;
-      }, {}),
-    );
 
     setError("");
     setLoading(false);
-  }, [staff, isOpen, defaultShiftId]);
+  }, [staff, isOpen]);
 
   if (!isOpen || !staff) {
     return null;
   }
 
   const staffRecord = staff as StaffRecordValue;
-  const canUseShift = formData.role === "staff" || formData.role === "manager";
   const accessState = getStaffAccessState({
     role: formData.role,
     login_code: staffRecord.login_code,
@@ -232,16 +175,51 @@ export default function EditStaffModal({
     setFormData((prev) => ({
       ...prev,
       role,
+      positions:
+        role === "staff"
+          ? prev.positions.length > 0
+            ? prev.positions
+            : ["barista"]
+          : [],
+      primary_position:
+        role === "staff"
+          ? prev.primary_position ?? prev.positions[0] ?? "barista"
+          : null,
       staff_type:
-        role === "staff" ? normalizeStaffType(prev.staff_type, role) : null,
-      shift_id: role === "staff" || role === "manager" ? prev.shift_id ?? defaultShiftId : null,
+        role === "staff"
+          ? prev.primary_position ?? prev.positions[0] ?? "barista"
+          : null,
     }));
   };
 
-  const handleStaffTypeChange = (staffTypeValue: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      staff_type: normalizeStaffType(staffTypeValue, prev.role),
+  const togglePosition = (position: StaffPosition) => {
+    setFormData((previous) => {
+      const alreadySelected = previous.positions.includes(position);
+      const nextPositions = alreadySelected
+        ? previous.positions.filter((item) => item !== position)
+        : [...previous.positions, position];
+      const nextPrimary =
+        nextPositions.length === 0
+          ? null
+          : previous.primary_position &&
+            nextPositions.includes(previous.primary_position)
+            ? previous.primary_position
+            : nextPositions[0];
+
+      return {
+        ...previous,
+        positions: nextPositions,
+        primary_position: nextPrimary,
+        staff_type: nextPrimary,
+      };
+    });
+  };
+
+  const setPrimaryPosition = (position: StaffPosition) => {
+    setFormData((previous) => ({
+      ...previous,
+      primary_position: position,
+      staff_type: position,
     }));
   };
 
@@ -249,20 +227,16 @@ export default function EditStaffModal({
     event.preventDefault();
     setError("");
 
-    const selectedShiftId = canUseShift ? formData.shift_id ?? defaultShiftId : null;
-
     if (!formData.name.trim()) {
       setError(t("owner.staff.nameRequired"));
       return;
     }
 
-    if (formData.role === "staff" && !formData.staff_type) {
-      setError(t("owner.staff.staffTypeRequired"));
-      return;
-    }
-
-    if (canUseShift && activeShifts.length > 0 && !selectedShiftId) {
-      setError(t("owner.staff.shiftRequired"));
+    if (
+      formData.role === "staff" &&
+      (formData.positions.length === 0 || !formData.primary_position)
+    ) {
+      setError("Select at least one position and choose a primary position.");
       return;
     }
 
@@ -277,19 +251,11 @@ export default function EditStaffModal({
         email: formData.email.trim() || null,
         phone: formData.phone.trim() || null,
         role: formData.role,
+        positions: formData.role === "staff" ? formData.positions : [],
+        primary_position:
+          formData.role === "staff" ? formData.primary_position : null,
         staff_type:
-          formData.role === "staff"
-            ? normalizeStaffType(formData.staff_type, formData.role)
-            : null,
-        shift_id: selectedShiftId,
-        weekly_shift_overrides: canUseShift
-          ? Object.entries(weeklyShiftOverrides)
-              .filter(([, shiftId]) => Boolean(shiftId))
-              .map(([weekday, shiftId]) => ({
-                weekday: Number(weekday),
-                shift_id: shiftId,
-              }))
-          : [],
+          formData.role === "staff" ? formData.primary_position : null,
         status: formData.status,
       };
 
@@ -306,22 +272,6 @@ export default function EditStaffModal({
     }
   };
 
-  const renderShiftOptions = () => {
-    if (!canUseShift) {
-      return <option value="">Tidak diperlukan</option>;
-    }
-
-    if (activeShifts.length === 0) {
-      return <option value="">No active shift yet</option>;
-    }
-
-    return activeShifts.map((shift) => (
-      <option key={shift.id} value={shift.id}>
-        {shift.shift_name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
-      </option>
-    ));
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl">
@@ -329,7 +279,7 @@ export default function EditStaffModal({
           <div>
             <h2 className="text-lg font-bold text-gray-900">{t("owner.staff.editTitle")}</h2>
             <p className="text-sm text-gray-500">
-              Perbarui data staff, role, tipe staff, shift, dan status.
+              Update staff details, role, positions, and status.
             </p>
           </div>
 
@@ -422,7 +372,7 @@ export default function EditStaffModal({
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
                 disabled={loading}
               >
-                {ROLE_OPTIONS.map((roleOption) => (
+                {roleOptions.map((roleOption) => (
                   <option key={roleOption.value} value={roleOption.value}>
                     {roleOption.label}
                   </option>
@@ -454,167 +404,59 @@ export default function EditStaffModal({
             </div>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              {t("owner.staff.staffType")}
-            </label>
-            <select
-              value={formData.staff_type ?? ""}
-              onChange={(event) => handleStaffTypeChange(event.target.value)}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-              disabled={loading || formData.role !== "staff"}
-            >
-              {formData.role !== "staff" && <option value="">Tidak diperlukan</option>}
-
-              {formData.role === "staff" &&
-                STAFF_TYPE_OPTIONS.map((staffTypeOption) => (
-                  <option key={staffTypeOption.value} value={staffTypeOption.value}>
-                    {staffTypeOption.label}
-                  </option>
-                ))}
-            </select>
-
-            {formData.role !== "staff" && (
-              <p className="mt-2 text-xs text-gray-500">
-                {t("owner.staff.staffTypeHelper")}
+          {formData.role === "staff" && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Posisi Staff
+              </label>
+              <p className="mb-3 text-xs leading-5 text-gray-500">
+                Pilih semua posisi yang dapat dikerjakan. Posisi utama
+                menjadi default selama masa transisi sistem.
               </p>
-            )}
-          </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {STAFF_POSITIONS.map((position) => {
+                  const selected = formData.positions.includes(position);
+                  const primary = formData.primary_position === position;
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              {t("owner.staff.workShift")} {canUseShift && activeShifts.length > 0 && <span className="text-red-500">*</span>}
-            </label>
-            <select
-              value={
-                canUseShift
-                  ? formData.shift_id ?? defaultShiftId ?? ""
-                  : ""
-              }
-              onChange={(event) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  shift_id: event.target.value || null,
-                }))
-              }
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-              disabled={loading || !canUseShift || activeShifts.length === 0}
-              required={canUseShift && activeShifts.length > 0}
-            >
-              {renderShiftOptions()}
-            </select>
-
-            <p className="mt-2 text-xs text-gray-500">
-              Default shift is used every day unless a weekly override below is set.
-            </p>
-          </div>
-
-          {canUseShift ? (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-gray-900">{t("owner.staff.weeklyOverride")}</p>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">
-                    {t("owner.staff.weeklyOverrideHelper")}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const usedDays = new Set(Object.keys(weeklyShiftOverrides).map(Number));
-                    const nextDay = WEEKDAY_OPTIONS.find((day) => !usedDays.has(day.value));
-                    const nextShiftId = activeShifts.find((shift) => shift.id !== (formData.shift_id ?? defaultShiftId))?.id
-                      ?? activeShifts[0]?.id
-                      ?? "";
-
-                    if (!nextDay || !nextShiftId) return;
-
-                    setWeeklyShiftOverrides((current) => ({
-                      ...current,
-                      [nextDay.value]: nextShiftId,
-                    }));
-                  }}
-                  disabled={loading || activeShifts.length === 0 || Object.keys(weeklyShiftOverrides).length >= WEEKDAY_OPTIONS.length}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {t("owner.staff.addWeeklyOverride")}
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {Object.entries(weeklyShiftOverrides).length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-xs font-semibold text-gray-500">
-                    No weekly override. This staff uses the default shift every day.
-                  </p>
-                ) : null}
-
-                {Object.entries(weeklyShiftOverrides)
-                  .sort(([left], [right]) => Number(left) - Number(right))
-                  .map(([weekday, shiftId]) => (
-                    <div key={weekday} className="grid grid-cols-1 gap-2 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <select
-                        value={weekday}
-                        onChange={(event) => {
-                          const nextWeekday = Number(event.target.value);
-                          const currentWeekday = Number(weekday);
-                          setWeeklyShiftOverrides((current) => {
-                            const next = { ...current };
-                            const currentShiftId = next[currentWeekday];
-
-                            delete next[currentWeekday];
-                            next[nextWeekday] = currentShiftId;
-                            return next;
-                          });
-                        }}
-                        className="rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                        disabled={loading}
+                  return (
+                    <div
+                      key={position}
+                      className={`rounded-xl border p-3 transition ${selected
+                        ? "border-gray-900 bg-gray-50"
+                        : "border-gray-200 bg-white"
+                        }`}
+                    >
+                      <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => togglePosition(position)}
+                          disabled={loading}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        {getStaffPositionLabel(position)}
+                      </label>
+                      <label
+                        className={`mt-2 flex items-center gap-2 text-xs ${selected
+                          ? "cursor-pointer text-gray-600"
+                          : "cursor-not-allowed text-gray-300"
+                          }`}
                       >
-                        {WEEKDAY_OPTIONS.map((day) => (
-                          <option
-                            key={day.value}
-                            value={day.value}
-                            disabled={Boolean(weeklyShiftOverrides[day.value]) && day.value !== Number(weekday)}
-                          >
-                            {day.label}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={shiftId}
-                        onChange={(event) => {
-                          setWeeklyShiftOverrides((current) => ({
-                            ...current,
-                            [Number(weekday)]: event.target.value,
-                          }));
-                        }}
-                        className="rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                        disabled={loading || activeShifts.length === 0}
-                      >
-                        {activeShifts.map((shift) => (
-                          <option key={shift.id} value={shift.id}>
-                            {shift.shift_name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWeeklyShiftOverrides((current) => {
-                            const next = { ...current };
-                            delete next[Number(weekday)];
-                            return next;
-                          });
-                        }}
-                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50"
-                        disabled={loading}
-                      >
-                        Remove
-                      </button>
+                        <input
+                          type="radio"
+                          name="edit-primary-position"
+                          checked={primary}
+                          onChange={() => setPrimaryPosition(position)}
+                          disabled={loading || !selected}
+                        />
+                        Posisi utama
+                      </label>
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             </div>
-          ) : null}
+          )}
 
           {accessState.shouldShowAccess && (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
@@ -623,7 +465,7 @@ export default function EditStaffModal({
                   <div className="flex items-center gap-2">
                     <KeyIcon className="h-5 w-5 text-gray-500" />
                     <p className="text-sm font-bold text-gray-900">
-                    {t("owner.staff.access")}
+                      {t("owner.staff.access")}
                     </p>
                   </div>
 

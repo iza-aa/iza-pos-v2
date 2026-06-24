@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
 import { supabase } from "@/lib/config/supabaseClient";
@@ -16,6 +16,7 @@ import {
   type DateRangeValue,
 } from "@/app/components/shared";
 import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection";
+import { EditStaffModal } from "@/app/components/owner/staffmanager";
 import { useLanguage } from "@/app/components/shared/i18n";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { Staff } from "@/lib/types";
@@ -24,104 +25,74 @@ import {
   MapPinIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
+import {
+  getPrimaryStaffPosition,
+  getStaffPositionLabel,
+  getStaffPositions,
+  normalizeStaffPositions,
+  type StaffPosition,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 type StaffViewMode = "card" | "table";
 type StaffManagerTab = "staff" | "attendance";
 type AttendanceTab = "monitor" | "settings";
-
-type StaffShiftInfo = {
-  id: string;
-  shift_name: string;
-  start_time?: string | null;
-  end_time?: string | null;
-  check_in_grace_until?: string | null;
-  check_out_grace_until?: string | null;
-};
+type StaffRole = "staff" | "manager" | "owner";
+type StaffStatus = "active" | "inactive" | "on-leave" | "terminated";
 
 type ManagerStaffRecord = Staff & {
   email?: string | null;
   staff_type?: string | null;
-  shift_id?: string | null;
-  shift?: StaffShiftInfo | null;
+  staff_positions?: StaffPositionAssignment[] | null;
+  positions?: StaffPosition[];
+  primary_position?: StaffPosition | null;
 };
 
 type RawStaffRecord = Record<string, unknown>;
-type GeneratedLoginCode = {
-  staffName: string;
-  staffCode: string;
-  loginCode: string;
-  expiresAt: string;
-};
-
-const getSingleRelation = <T extends Record<string, unknown>>(
-  value: unknown,
-): T | null => {
-  if (!value) return null;
-
-  if (Array.isArray(value)) {
-    const firstValue = value[0];
-
-    if (
-      firstValue &&
-      typeof firstValue === "object" &&
-      !Array.isArray(firstValue)
-    ) {
-      return firstValue as T;
-    }
-
-    return null;
-  }
-
-  if (typeof value === "object") {
-    return value as T;
-  }
-
-  return null;
-};
-
-const toSafeString = (value: unknown) => {
-  return typeof value === "string" ? value : "";
-};
 
 const toNullableString = (value: unknown) => {
   return typeof value === "string" && value.trim() ? value : null;
 };
 
-const normalizeShift = (value: unknown): StaffShiftInfo | null => {
-  const shift = getSingleRelation<Record<string, unknown>>(value);
-
-  if (!shift) return null;
-
-  const id = toSafeString(shift.id);
-  const shiftName = toSafeString(shift.shift_name);
-
-  if (!id || !shiftName) return null;
-
-  return {
-    id,
-    shift_name: shiftName,
-    start_time: toNullableString(shift.start_time),
-    end_time: toNullableString(shift.end_time),
-    check_in_grace_until: toNullableString(shift.check_in_grace_until),
-    check_out_grace_until: toNullableString(shift.check_out_grace_until),
-  };
-};
-
 const normalizeStaffRecord = (rawStaff: RawStaffRecord): ManagerStaffRecord => {
+  const positionRecord = rawStaff as RawStaffRecord & {
+    staff_positions?: StaffPositionAssignment[] | null;
+  };
+  const positions = getStaffPositions(positionRecord);
+  const primaryPosition = getPrimaryStaffPosition(positionRecord);
   const normalizedStaff = {
     ...rawStaff,
     email: toNullableString(rawStaff.email),
-    staff_type: toNullableString(rawStaff.staff_type),
-    shift_id: toNullableString(rawStaff.shift_id),
-    shift: normalizeShift(rawStaff.shift),
+    staff_type: primaryPosition ?? toNullableString(rawStaff.staff_type),
+    staff_positions: positionRecord.staff_positions ?? null,
+    positions,
+    primary_position: primaryPosition,
   };
 
   return normalizedStaff as unknown as ManagerStaffRecord;
 };
 
+const normalizeStaffRole = (role: unknown): StaffRole => {
+  const normalizedRole = String(role ?? "").trim().toLowerCase();
+
+  if (normalizedRole === "owner") return "owner";
+  if (normalizedRole === "manager") return "manager";
+  return "staff";
+};
+
+const normalizeStaffStatus = (status: unknown): StaffStatus => {
+  const normalizedStatus = String(status ?? "").trim().toLowerCase();
+
+  if (normalizedStatus === "inactive") return "inactive";
+  if (normalizedStatus === "on-leave") return "on-leave";
+  if (normalizedStatus === "terminated") return "terminated";
+  return "active";
+};
+
 export default function ManagerStaffPage() {
   useSessionValidation();
   const { t } = useLanguage();
+  const currentUser = getCurrentUser();
 
   const [staffList, setStaffList] = useState<ManagerStaffRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -131,10 +102,8 @@ export default function ManagerStaffPage() {
     useState<AttendanceTab>("monitor");
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
   const [staffFetchError, setStaffFetchError] = useState("");
-  const [generatingAccessStaffId, setGeneratingAccessStaffId] = useState("");
-  const [generatedLoginCode, setGeneratedLoginCode] =
-    useState<GeneratedLoginCode | null>(null);
-  const [copyMsg, setCopyMsg] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<ManagerStaffRecord | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const isFetchingStaffRef = useRef(false);
   const [attendanceDateRange, setAttendanceDateRange] =
@@ -146,7 +115,7 @@ export default function ManagerStaffPage() {
     }
   };
 
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     if (isFetchingStaffRef.current) return;
 
     isFetchingStaffRef.current = true;
@@ -161,13 +130,12 @@ export default function ManagerStaffPage() {
         .select(
           `
             *,
-            shift:staff_shift_id_fkey (
+            staff_positions (
               id,
-              shift_name,
-              start_time,
-              end_time,
-              check_in_grace_until,
-              check_out_grace_until
+              staff_id,
+              position,
+              is_primary,
+              is_active
             )
           `,
         )
@@ -178,7 +146,28 @@ export default function ManagerStaffPage() {
         query = query.neq("id", currentUser.id);
       }
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+
+      if (
+        error &&
+        (error.message.toLowerCase().includes("staff_positions") ||
+          error.message.toLowerCase().includes("relationship") ||
+          error.message.toLowerCase().includes("schema cache"))
+      ) {
+        let legacyQuery = supabase
+          .from("staff")
+          .select("*")
+          .neq("role", "owner")
+          .order("created_at", { ascending: true });
+
+        if (currentUser?.id) {
+          legacyQuery = legacyQuery.neq("id", currentUser.id);
+        }
+
+        const legacyResult = await legacyQuery;
+        data = legacyResult.data;
+        error = legacyResult.error;
+      }
 
       if (error) {
         throw error;
@@ -198,23 +187,28 @@ export default function ManagerStaffPage() {
       isFetchingStaffRef.current = false;
       setIsLoadingStaff(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void fetchStaff();
-  }, []);
+  }, [fetchStaff]);
 
   const filteredStaff = useMemo(() => {
     const trimmedQuery = searchQuery.trim().toLowerCase();
 
-    if (!trimmedQuery) return staffList;
+    const visibleStaff = staffList.filter(
+      (staff) => String(staff.status ?? "").trim().toLowerCase() !== "terminated",
+    );
 
-    return staffList.filter((staff) => {
+    if (!trimmedQuery) return visibleStaff;
+
+    return visibleStaff.filter((staff) => {
       const searchableValues = [
         staff.name,
         staff.staff_code,
         staff.role,
         staff.staff_type,
+        ...getStaffPositions(staff).map(getStaffPositionLabel),
         staff.email,
         staff.phone,
         staff.status,
@@ -243,7 +237,7 @@ export default function ManagerStaffPage() {
   const staffManagerTabs = [
     {
       id: "staff" as const,
-      label: t("manager.staff.staffData"),
+      label: t("owner.staff.managerTitle"),
       description: t("manager.staff.profilesAndAccess"),
       icon: UsersIcon,
     },
@@ -299,60 +293,88 @@ export default function ManagerStaffPage() {
   const attendanceDateRangeProps =
     getAttendanceDateRangeProps(attendanceDateRange);
 
-  const handleCopy = async (code: string) => {
-    await navigator.clipboard.writeText(code);
-    setCopyMsg(t("manager.staff.codeCopied"));
-    window.setTimeout(() => setCopyMsg(""), 2000);
+  const handleEdit = (id: string) => {
+    const staff = staffList.find((item) => item.id === id);
+
+    if (!staff) return;
+
+    setSelectedStaff(staff);
+    setShowEditModal(true);
   };
 
-  const formatLoginCodeExpiry = (value: string) => {
-    const date = new Date(value);
+  const persistStaffPositions = async ({
+    staffId,
+    role,
+    positions,
+    primaryPosition,
+  }: {
+    staffId: string;
+    role: StaffRole;
+    positions: StaffPosition[];
+    primaryPosition: StaffPosition | null;
+  }) => {
+    const operationalPositions =
+      role === "staff" ? normalizeStaffPositions(positions) : [];
 
-    if (Number.isNaN(date.getTime())) return "-";
+    const response = await fetch("/api/owner/staff-manager/positions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        staffId,
+        positions: operationalPositions,
+        primaryPosition: role === "staff" ? primaryPosition : null,
+      }),
+    });
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
 
-    return new Intl.DateTimeFormat("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  };
-
-  const handleGenerateAccessCode = async (id: string) => {
-    if (generatingAccessStaffId) return;
-
-    setGeneratingAccessStaffId(id);
-
-    try {
-      const response = await fetch("/api/staff/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reset_pin",
-          staff_id: id,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || t("manager.staff.loginCodeCreateError"));
-      }
-
-      await fetchStaff();
-      await handleCopy(result.login_code);
-
-      setGeneratedLoginCode({
-        staffName: result.staff_name || t("owner.staff.staff"),
-        staffCode: result.staff_code || "-",
-        loginCode: result.login_code,
-        expiresAt: result.expires_at,
-      });
-
-      showSuccess(t("manager.staff.loginCodeCreated"));
-    } catch (error) {
-      showError(error instanceof Error ? error.message : t("manager.staff.loginCodeCreateError"));
-    } finally {
-      setGeneratingAccessStaffId("");
+    if (!response.ok) {
+      throw new Error(result.error || "Staff positions could not be saved.");
     }
+  };
+
+  const handleSaveEdit = async (updatedStaff: Staff) => {
+    const staffToUpdate = updatedStaff as ManagerStaffRecord;
+    const selectedRole = normalizeStaffRole(staffToUpdate.role);
+    const selectedPositions =
+      selectedRole === "staff"
+        ? normalizeStaffPositions(staffToUpdate.positions)
+        : [];
+    const selectedPrimaryPosition =
+      selectedRole === "staff"
+        ? (staffToUpdate.primary_position ?? selectedPositions[0] ?? null)
+        : null;
+    const selectedStatus = normalizeStaffStatus(staffToUpdate.status);
+
+    const { error } = await supabase
+      .from("staff")
+      .update({
+        name: staffToUpdate.name,
+        email: staffToUpdate.email || null,
+        phone: staffToUpdate.phone || null,
+        role: selectedRole,
+        staff_type: selectedPrimaryPosition,
+        status: selectedStatus,
+      })
+      .eq("id", staffToUpdate.id);
+
+    if (error) {
+      showError(error.message);
+      throw new Error(error.message);
+    }
+
+    await persistStaffPositions({
+      staffId: staffToUpdate.id,
+      role: selectedRole,
+      positions: selectedPositions,
+      primaryPosition: selectedPrimaryPosition,
+    });
+
+    await fetchStaff();
+    setShowEditModal(false);
+    setSelectedStaff(null);
+    showSuccess(t("owner.staff.updated"));
   };
 
   return (
@@ -437,22 +459,17 @@ export default function ManagerStaffPage() {
                   <StaffCard
                     key={staff.id}
                     staff={staff}
-                    onEdit={() => undefined}
+                    onEdit={() => handleEdit(staff.id)}
                     onDelete={undefined}
-                    showActions={false}
-                    onGenerateAccessCode={() => void handleGenerateAccessCode(staff.id)}
-                    isGeneratingAccessCode={generatingAccessStaffId === staff.id}
+                    showActions
                   />
                 ))}
               </div>
             ) : (
               <StaffTable
                 staffList={sanitizedFilteredStaffForTable}
-                onEdit={() => undefined}
-                onDelete={() => undefined}
-                showActions={false}
-                onGenerateAccessCode={(id) => void handleGenerateAccessCode(id)}
-                generatingAccessStaffId={generatingAccessStaffId}
+                onEdit={handleEdit}
+                showActions
                 title={t("manager.staff.accessList")}
                 description={t("manager.staff.accessListDescription")}
                 loading={isLoadingStaff}
@@ -477,67 +494,30 @@ export default function ManagerStaffPage() {
             customStartDate={attendanceDateRangeProps.customStartDate}
             customEndDate={attendanceDateRangeProps.customEndDate}
             section={activeAttendanceTab}
+            requester={
+              currentUser
+                ? {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    role: currentUser.role,
+                  }
+                : null
+            }
           />
         )}
         </section>
       </div>
 
-      {copyMsg && (
-        <div className="fixed right-4 top-4 z-50 rounded bg-green-600 px-4 py-2 text-white shadow">
-          {copyMsg}
-        </div>
-      )}
-
-      {generatedLoginCode && (
-        <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                {t("manager.staff.loginCodeTitle")}
-              </p>
-              <h2 className="mt-1 text-xl font-bold text-gray-900">
-                {generatedLoginCode.staffName}
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {t("owner.staff.staffId", { code: generatedLoginCode.staffCode })}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("manager.staff.code")}
-              </p>
-              <p className="mt-2 font-mono text-4xl font-bold tracking-[0.35em] text-gray-900">
-                {generatedLoginCode.loginCode}
-              </p>
-              <p className="mt-3 text-sm text-gray-500">
-                {t("manager.staff.validUntil", { time: formatLoginCodeExpiry(generatedLoginCode.expiresAt) })}
-              </p>
-            </div>
-
-            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-              {t("manager.staff.loginCodeWarning")}
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => void handleCopy(generatedLoginCode.loginCode)}
-                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
-              >
-                {t("manager.staff.copyCode")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setGeneratedLoginCode(null)}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                {t("common.close")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditStaffModal
+        isOpen={showEditModal}
+        staff={selectedStaff}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedStaff(null);
+        }}
+        onSave={handleSaveEdit}
+        allowOwnerRole={false}
+      />
     </div>
   );
 }

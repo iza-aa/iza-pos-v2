@@ -1,4 +1,5 @@
 import type { NextResponse } from "next/server";
+import type { StaffPosition } from "@/lib/staff/positions";
 
 export const INTERNAL_SESSION_COOKIE = "iza_internal_session";
 export const INTERNAL_SESSION_HOURS = 8;
@@ -12,6 +13,7 @@ export type InternalSessionPayload = {
   role: InternalUserRole;
   staffCode: string;
   staffType: string | null;
+  staffPositions: StaffPosition[];
   iat: number;
   exp: number;
   nonce: string;
@@ -23,6 +25,7 @@ export type InternalSessionUser = {
   role: InternalUserRole;
   staffCode: string;
   staffType: string | null;
+  staffPositions?: StaffPosition[];
 };
 
 const encoder = new TextEncoder();
@@ -91,6 +94,7 @@ export async function createInternalSessionToken(
     role: user.role,
     staffCode: user.staffCode,
     staffType: user.staffType,
+    staffPositions: user.staffPositions ?? [],
     iat: now,
     exp: now + ttlSeconds,
     nonce: crypto.randomUUID(),
@@ -124,7 +128,14 @@ export async function verifyInternalSessionToken(token: string | undefined) {
       return null;
     }
 
-    return payload as InternalSessionPayload;
+    return {
+      ...payload,
+      staffPositions: Array.isArray(payload.staffPositions)
+        ? payload.staffPositions
+        : payload.staffType
+          ? [payload.staffType as StaffPosition]
+          : [],
+    } as InternalSessionPayload;
   } catch {
     return null;
   }

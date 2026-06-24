@@ -6,6 +6,7 @@ import StandardTable, {
   type StandardTableColumn,
 } from "@/app/components/shared/StandardTable";
 import OrderSourceBadge from "@/app/components/shared/OrderSourceBadge";
+import PaymentMethodBadge from "@/app/components/shared/PaymentMethodBadge";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 
 interface OrderTableProps {
@@ -139,7 +140,9 @@ export default function OrderTable({
         render: (order) => (
           <div>
             <p className="font-semibold text-gray-900">{order.time}</p>
-            <p className="mt-1 text-xs text-gray-500">{order.date}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {order.timeLabel || "Ordered"} · {order.date}
+            </p>
           </div>
         ),
         sortValue: (order) => `${order.date} ${order.time}`,
@@ -207,6 +210,31 @@ export default function OrderTable({
           </span>
         ),
         sortValue: (order) => order.total ?? 0,
+        className: "align-top",
+      },
+      {
+        key: "payment",
+        header: "Payment",
+        render: (order) => (
+          <div className="space-y-1.5">
+            <PaymentMethodBadge
+              method={order.paymentMethod ?? order.payment_method}
+            />
+            {typeof (order.paymentAmount ?? order.payment_amount) === "number" ? (
+              <p className="text-xs text-gray-500">
+                Paid {formatRupiah(order.paymentAmount ?? order.payment_amount ?? 0)}
+              </p>
+            ) : null}
+            {typeof (order.changeAmount ?? order.change_amount) === "number" &&
+            (order.changeAmount ?? order.change_amount ?? 0) > 0 ? (
+              <p className="text-xs text-gray-500">
+                Change {formatRupiah(order.changeAmount ?? order.change_amount ?? 0)}
+              </p>
+            ) : null}
+          </div>
+        ),
+        sortValue: (order) =>
+          String(order.paymentMethod ?? order.payment_method ?? ""),
         className: "align-top",
       },
       {
@@ -286,7 +314,7 @@ export default function OrderTable({
         getRowKey={(order) => order.id}
         loading={loading}
         emptyLabel="No orders match the current filters."
-        minWidthClassName="min-w-[1280px]"
+        minWidthClassName="min-w-[1420px]"
       />
     </section>
   );

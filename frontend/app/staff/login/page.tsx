@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import { clearAuth, cleanupDeprecatedStorage, storeInternalIdentity } from "@/lib/utils";
+import { getStaffHomePath } from "@/lib/utils/staffAccess";
 
 const slides = [
   {
@@ -86,6 +88,8 @@ type LoginResult = {
   user_name?: string;
   user_role?: string;
   staff_type?: string | null;
+  staff_positions?: string[];
+  primary_position?: string | null;
   staff_code?: string;
   message?: string;
 };
@@ -95,6 +99,7 @@ type PendingPinSetup = {
   staffCode: string;
   userRole: string;
   staffType: string | null;
+  staffPositions: string[];
   loginCode: string;
 };
 
@@ -123,17 +128,23 @@ const saveSession = (result: LoginResult) => {
     name: result.user_name,
     role: result.user_role as "staff" | "manager" | "owner",
     staffType: result.staff_type,
+    staffPositions: result.staff_positions,
+    primaryPosition: result.primary_position,
     staffCode: result.staff_code,
   });
 };
 
-const redirectByRole = (role?: string) => {
+const redirectByRole = (result: LoginResult) => {
+  const role = result.user_role;
   if (role === "manager") {
     window.location.href = "/manager/menu";
     return;
   }
 
-  window.location.href = "/staff/attendance";
+  window.location.href = getStaffHomePath(
+    result.staff_positions,
+    result.staff_type,
+  );
 };
 
 function PinBoxesInput({
@@ -341,6 +352,7 @@ export default function LoginStaffPage() {
           staffCode: result.staff_code ?? staffId.trim().toUpperCase(),
           userRole: result.user_role ?? "staff",
           staffType: result.staff_type ?? null,
+          staffPositions: result.staff_positions ?? [],
           loginCode: normalizedCredential,
         });
         setInfo(result.message || "Kode login valid. Silakan buat PIN baru.");
@@ -351,7 +363,7 @@ export default function LoginStaffPage() {
       if (response.ok && result.success) {
         saveSession(result);
         await logSuccessfulLogin(result);
-        redirectByRole(result.user_role);
+        redirectByRole(result);
         return;
       }
 
@@ -407,7 +419,7 @@ export default function LoginStaffPage() {
       if (response.ok && result.success) {
         saveSession(result);
         await logSuccessfulLogin(result);
-        redirectByRole(result.user_role);
+        redirectByRole(result);
         return;
       }
 
@@ -429,13 +441,16 @@ export default function LoginStaffPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-white">
       <div className="hidden w-[85%] items-center justify-center bg-white py-8 pl-8  lg:block">
         <div className="relative flex h-full w-full items-end overflow-hidden rounded-3xl bg-black/70 shadow-xl">
-          <img
+          <Image
             src={slides[current].img}
             alt="Testimonial"
-            className="absolute inset-0 z-0 h-full w-full rounded-3xl object-cover"
+            fill
+            sizes="64vw"
+            priority
+            className="absolute inset-0 z-0 rounded-3xl object-cover"
           />
           <div className="absolute inset-0 z-10 rounded-3xl bg-black/45" />
           <div className="relative z-20 w-full p-10 text-white">
@@ -462,10 +477,16 @@ export default function LoginStaffPage() {
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-center px-5 py-8 sm:px-2 lg:w-[36%]">
-        <div className="w-full p-6 sm:p-6">
+      <div className="flex w-full items-center justify-center bg-white px-5 py-8 sm:px-8 lg:w-[36%]">
+        <div className="w-full max-w-md p-2 sm:p-6">
           <div className="mb-8 flex items-center justify-center">
-            <img src="/logo/IZALogo2.png" alt="Logo" className="mr-3 w-20" />
+            <Image
+              src="/logo/IZALogo2.png"
+              alt="IZA POS"
+              width={96}
+              height={64}
+              className="h-auto w-24 object-contain"
+            />
           </div>
 
           <div className="mb-6">

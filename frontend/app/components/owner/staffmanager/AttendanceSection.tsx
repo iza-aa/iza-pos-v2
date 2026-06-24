@@ -27,25 +27,29 @@ import {
 type ViewMode = "card" | "table";
 type DateRangeMode = "all" | "today" | "week" | "month" | "custom";
 export type AttendanceSectionView = "monitor" | "settings";
-type CheckInStatus = "early" | "on_time" | "late" | null;
-type CheckOutStatus = "early_leave" | "on_time" | "overtime" | null;
+type CheckInStatus = "early" | "on_time" | "late" | "out_of_shift" | null;
+type CheckOutStatus = "early_leave" | "on_time" | "overtime" | "out_of_shift" | null;
 
 type ShiftRecord = {
   id: string;
   shift_name: string;
+  check_in_window_start: string | null;
   start_time: string;
   check_in_grace_until: string;
   end_time: string;
   check_out_grace_until: string;
+  check_out_window_end: string | null;
   is_active?: boolean | null;
 };
 
 type ShiftFormData = {
   shift_name: string;
+  check_in_window_start: string;
   start_time: string;
   check_in_grace_until: string;
   end_time: string;
   check_out_grace_until: string;
+  check_out_window_end: string;
   is_active: boolean;
 };
 
@@ -80,10 +84,12 @@ type ActiveStaffRecord = AttendanceStaff & {
 type AttendanceShift = {
   id: string;
   shift_name: string;
+  check_in_window_start: string | null;
   start_time: string;
   check_in_grace_until: string;
   end_time: string;
   check_out_grace_until: string;
+  check_out_window_end: string | null;
 };
 
 type AttendanceRecord = {
@@ -136,10 +142,12 @@ interface AttendanceSectionProps {
 
 const EMPTY_SHIFT_FORM: ShiftFormData = {
   shift_name: "",
+  check_in_window_start: "06:00",
   start_time: "08:00",
   check_in_grace_until: "08:15",
   end_time: "15:00",
   check_out_grace_until: "15:15",
+  check_out_window_end: "18:00",
   is_active: true,
 };
 
@@ -222,16 +230,20 @@ const getSingleRelation = <T extends Record<string, unknown>>(
 };
 
 const normalizeCheckInStatus = (value: unknown): CheckInStatus => {
-  if (value === "early") return "early";
-  if (value === "on_time") return "on_time";
-  if (value === "late") return "late";
+  const strValue = typeof value === "string" ? value : "";
+  if (strValue === "early") return "early";
+  if (strValue === "on_time") return "on_time";
+  if (strValue === "late") return "late";
+  if (strValue === "out_of_shift") return "out_of_shift";
   return null;
 };
 
 const normalizeCheckOutStatus = (value: unknown): CheckOutStatus => {
-  if (value === "early_leave") return "early_leave";
-  if (value === "on_time") return "on_time";
-  if (value === "overtime") return "overtime";
+  const strValue = typeof value === "string" ? value : "";
+  if (strValue === "early_leave") return "early_leave";
+  if (strValue === "on_time") return "on_time";
+  if (strValue === "overtime") return "overtime";
+  if (strValue === "out_of_shift") return "out_of_shift";
   return null;
 };
 
@@ -282,20 +294,24 @@ const normalizeShift = (value: unknown): AttendanceShift | null => {
 
   const id = toSafeString(shift.id);
   const shiftName = toSafeString(shift.shift_name);
+  const checkInWindowStart = toNullableString(shift.check_in_window_start);
   const startTime = toSafeString(shift.start_time);
   const checkInGraceUntil = toSafeString(shift.check_in_grace_until);
   const endTime = toSafeString(shift.end_time);
   const checkOutGraceUntil = toSafeString(shift.check_out_grace_until);
+  const checkOutWindowEnd = toNullableString(shift.check_out_window_end);
 
   if (!id || !shiftName) return null;
 
   return {
     id,
     shift_name: shiftName,
+    check_in_window_start: checkInWindowStart,
     start_time: startTime,
     check_in_grace_until: checkInGraceUntil,
     end_time: endTime,
     check_out_grace_until: checkOutGraceUntil,
+    check_out_window_end: checkOutWindowEnd,
   };
 };
 
@@ -391,6 +407,7 @@ const getCheckInStatusLabel = (status: CheckInStatus) => {
   if (status === "early") return "Early Arrival";
   if (status === "on_time") return "On-Time Clock In";
   if (status === "late") return "Late";
+  if (status === "out_of_shift") return "Di Luar Shift";
   return "Not Clocked In";
 };
 
@@ -398,6 +415,7 @@ const getCheckOutStatusLabel = (status: CheckOutStatus) => {
   if (status === "early_leave") return "Early Leave";
   if (status === "on_time") return "On-Time Clock Out";
   if (status === "overtime") return "Overtime";
+  if (status === "out_of_shift") return "Di Luar Shift";
   return "Not Clocked Out";
 };
 
@@ -405,6 +423,7 @@ const getCheckInStatusClassName = (status: CheckInStatus) => {
   if (status === "late") return OWNER_SEMANTIC_TONES.danger.badgeClass;
   if (status === "early") return OWNER_SEMANTIC_TONES.info.badgeClass;
   if (status === "on_time") return OWNER_SEMANTIC_TONES.success.badgeClass;
+  if (status === "out_of_shift") return "border-gray-300 bg-gray-100 text-gray-700";
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
@@ -420,6 +439,8 @@ const getCheckOutStatusClassName = (status: CheckOutStatus) => {
   if (status === "on_time") {
     return OWNER_SEMANTIC_TONES.success.badgeClass;
   }
+
+  if (status === "out_of_shift") return "border-gray-300 bg-gray-100 text-gray-700";
 
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
@@ -578,17 +599,21 @@ const isValidStoreSettingsForm = (formData: StoreSettingsFormData) => {
 };
 
 const isValidShiftForm = (formData: ShiftFormData) => {
+  const checkInWindowStart = normalizeTimeForDb(formData.check_in_window_start);
   const startTime = normalizeTimeForDb(formData.start_time);
   const checkInGraceUntil = normalizeTimeForDb(formData.check_in_grace_until);
   const endTime = normalizeTimeForDb(formData.end_time);
   const checkOutGraceUntil = normalizeTimeForDb(formData.check_out_grace_until);
+  const checkOutWindowEnd = normalizeTimeForDb(formData.check_out_window_end);
 
   return (
     !!formData.shift_name.trim() &&
+    !!checkInWindowStart &&
     !!startTime &&
     !!checkInGraceUntil &&
     !!endTime &&
     !!checkOutGraceUntil &&
+    !!checkOutWindowEnd &&
     checkInGraceUntil >= startTime &&
     checkOutGraceUntil >= endTime
   );
@@ -622,12 +647,16 @@ const buildAttendanceListWithAbsentStaff = ({
   shiftList,
   startDate,
   endDate,
+  dailyAssignments,
+  weeklyAssignments,
 }: {
   attendanceList: AttendanceRecord[];
   staffList: ActiveStaffRecord[];
   shiftList: ShiftRecord[];
   startDate: string | null;
   endDate: string | null;
+  dailyAssignments: { staff_id: string; shift_id: string; work_date: string }[];
+  weeklyAssignments: { staff_id: string; shift_id: string; weekday: number }[];
 }) => {
   if (!startDate || !endDate || startDate !== endDate) {
     return attendanceList;
@@ -643,15 +672,37 @@ const buildAttendanceListWithAbsentStaff = ({
       .map((attendance) => attendance.staff_id),
   );
 
+  const targetDate = new Date(`${startDate}T00:00:00`);
+  const targetDayOfWeek = targetDate.getDay(); // 0 is Sunday, 1 is Monday...
+
   const absentAttendanceList: AttendanceRecord[] = staffList
     .filter((staff) => !existingStaffIds.has(staff.id))
     .map((staff) => {
-      const staffShift = staff.shift_id ? shiftMap.get(staff.shift_id) : null;
+      let assignedShiftId: string | null = null;
+
+      const daily = dailyAssignments.find(
+        (a) => a.staff_id === staff.id && a.work_date === startDate
+      );
+
+      if (daily) {
+        assignedShiftId = daily.shift_id;
+      } else {
+        const weekly = weeklyAssignments.find(
+          (a) => a.staff_id === staff.id && a.weekday === targetDayOfWeek
+        );
+        if (weekly) {
+          assignedShiftId = weekly.shift_id;
+        }
+      }
+
+      if (!assignedShiftId) return null; // Only show absent if they actually have a shift today
+
+      const staffShift = assignedShiftId ? shiftMap.get(assignedShiftId) : null;
 
       return {
         id: `absent-${staff.id}-${startDate}`,
         staff_id: staff.id,
-        shift_id: staff.shift_id,
+        shift_id: assignedShiftId,
         attendance_date: startDate,
         clock_in_at: null,
         clock_out_at: null,
@@ -674,14 +725,17 @@ const buildAttendanceListWithAbsentStaff = ({
           ? {
               id: staffShift.id,
               shift_name: staffShift.shift_name,
+              check_in_window_start: staffShift.check_in_window_start,
               start_time: staffShift.start_time,
               check_in_grace_until: staffShift.check_in_grace_until,
               end_time: staffShift.end_time,
               check_out_grace_until: staffShift.check_out_grace_until,
+              check_out_window_end: staffShift.check_out_window_end,
             }
           : null,
-      };
-    });
+      } as AttendanceRecord;
+    })
+    .filter((record): record is AttendanceRecord => record !== null);
 
   return [...attendanceList, ...absentAttendanceList].sort((a, b) => {
     const aClock = a.clock_in_at ?? "";
@@ -731,7 +785,7 @@ const loadAttendanceSnapshot = async ({
     const shiftsPromise = supabase
       .from("shifts")
       .select(
-        "id, shift_name, start_time, check_in_grace_until, end_time, check_out_grace_until, is_active",
+        "id, shift_name, check_in_window_start, start_time, check_in_grace_until, end_time, check_out_grace_until, check_out_window_end, is_active",
       )
       .order("start_time", { ascending: true });
 
@@ -739,7 +793,6 @@ const loadAttendanceSnapshot = async ({
       .from("staff")
       .select("id, name, staff_code, staff_type, role, shift_id")
       .eq("status", "active")
-      .not("shift_id", "is", null)
       .order("name", { ascending: true });
 
     const storeSettingsPromise = supabase
@@ -796,13 +849,35 @@ const loadAttendanceSnapshot = async ({
         .lte("attendance_date", endDate);
     }
 
-    const [shiftsResult, staffResult, attendanceResult, storeSettingsResult] =
-      await Promise.all([
-        shiftsPromise,
-        staffPromise,
-        attendanceQuery,
-        storeSettingsPromise,
-      ]);
+    let dailyAssignmentsPromise: Promise<{ data: unknown; error: unknown }> = Promise.resolve({ data: [], error: null });
+    let weeklyAssignmentsPromise: Promise<{ data: unknown; error: unknown }> = Promise.resolve({ data: [], error: null });
+
+    if (startDate && endDate && startDate === endDate) {
+      dailyAssignmentsPromise = supabase
+        .from("staff_shift_daily_assignments")
+        .select("staff_id, shift_id, work_date")
+        .eq("work_date", startDate);
+
+      weeklyAssignmentsPromise = supabase
+        .from("staff_shift_weekly_assignments")
+        .select("staff_id, shift_id, weekday");
+    }
+
+    const [
+      shiftsResult,
+      staffResult,
+      attendanceResult,
+      storeSettingsResult,
+      dailyResult,
+      weeklyResult,
+    ] = await Promise.all([
+      shiftsPromise,
+      staffPromise,
+      attendanceQuery,
+      storeSettingsPromise,
+      dailyAssignmentsPromise,
+      weeklyAssignmentsPromise,
+    ]);
 
     if (shiftsResult.error) {
       throw shiftsResult.error;
@@ -818,6 +893,14 @@ const loadAttendanceSnapshot = async ({
 
     if (storeSettingsResult.error) {
       throw storeSettingsResult.error;
+    }
+
+    if (dailyResult.error) {
+      throw dailyResult.error;
+    }
+
+    if (weeklyResult.error) {
+      throw weeklyResult.error;
     }
 
     const storeSettingsData =
@@ -848,6 +931,8 @@ const loadAttendanceSnapshot = async ({
         shiftList,
         startDate,
         endDate,
+        dailyAssignments: (dailyResult.data ?? []) as { staff_id: string; shift_id: string; work_date: string }[],
+        weeklyAssignments: (weeklyResult.data ?? []) as { staff_id: string; shift_id: string; weekday: number }[],
       }),
     };
 
@@ -995,10 +1080,12 @@ export default function AttendanceSection({
     setEditingShift(shift);
     setShiftFormData({
       shift_name: shift.shift_name,
+      check_in_window_start: formatTime(shift.check_in_window_start),
       start_time: formatTime(shift.start_time),
       check_in_grace_until: formatTime(shift.check_in_grace_until),
       end_time: formatTime(shift.end_time),
       check_out_grace_until: formatTime(shift.check_out_grace_until),
+      check_out_window_end: formatTime(shift.check_out_window_end),
       is_active: shift.is_active !== false,
     });
     setShowShiftForm(true);
@@ -1105,6 +1192,7 @@ export default function AttendanceSection({
     try {
       const payload = {
         shift_name: shiftFormData.shift_name.trim(),
+        check_in_window_start: normalizeTimeForDb(shiftFormData.check_in_window_start),
         start_time: normalizeTimeForDb(shiftFormData.start_time),
         check_in_grace_until: normalizeTimeForDb(
           shiftFormData.check_in_grace_until,
@@ -1113,6 +1201,7 @@ export default function AttendanceSection({
         check_out_grace_until: normalizeTimeForDb(
           shiftFormData.check_out_grace_until,
         ),
+        check_out_window_end: normalizeTimeForDb(shiftFormData.check_out_window_end),
         is_active: shiftFormData.is_active,
         updated_at: new Date().toISOString(),
       };
@@ -1932,75 +2021,115 @@ export default function AttendanceSection({
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    value={shiftFormData.start_time}
-                    onChange={(event) =>
-                      setShiftFormData((prev) => ({
-                        ...prev,
-                        start_time: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  />
-                </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-4">
+                <h4 className="text-sm font-bold text-gray-900">Clock In (Absen Masuk)</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-700">
+                      Buka Absen Masuk
+                    </label>
+                    <input
+                      type="time"
+                      value={shiftFormData.check_in_window_start}
+                      onChange={(event) =>
+                        setShiftFormData((prev) => ({
+                          ...prev,
+                          check_in_window_start: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Clock-In Grace Until
-                  </label>
-                  <input
-                    type="time"
-                    value={shiftFormData.check_in_grace_until}
-                    onChange={(event) =>
-                      setShiftFormData((prev) => ({
-                        ...prev,
-                        check_in_grace_until: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  />
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-700">
+                      Jadwal Masuk Shift
+                    </label>
+                    <input
+                      type="time"
+                      value={shiftFormData.start_time}
+                      onChange={(event) =>
+                        setShiftFormData((prev) => ({
+                          ...prev,
+                          start_time: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-700">
+                      Toleransi Telat s/d
+                    </label>
+                    <input
+                      type="time"
+                      value={shiftFormData.check_in_grace_until}
+                      onChange={(event) =>
+                        setShiftFormData((prev) => ({
+                          ...prev,
+                          check_in_grace_until: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    value={shiftFormData.end_time}
-                    onChange={(event) =>
-                      setShiftFormData((prev) => ({
-                        ...prev,
-                        end_time: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  />
-                </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-4">
+                <h4 className="text-sm font-bold text-gray-900">Clock Out (Absen Keluar)</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-700">
+                      Jadwal Pulang Shift
+                    </label>
+                    <input
+                      type="time"
+                      value={shiftFormData.end_time}
+                      onChange={(event) =>
+                        setShiftFormData((prev) => ({
+                          ...prev,
+                          end_time: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Clock-Out Grace Until
-                  </label>
-                  <input
-                    type="time"
-                    value={shiftFormData.check_out_grace_until}
-                    onChange={(event) =>
-                      setShiftFormData((prev) => ({
-                        ...prev,
-                        check_out_grace_until: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  />
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-700">
+                      Dihitung Normal s/d
+                    </label>
+                    <input
+                      type="time"
+                      value={shiftFormData.check_out_grace_until}
+                      onChange={(event) =>
+                        setShiftFormData((prev) => ({
+                          ...prev,
+                          check_out_grace_until: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-700">
+                      Batas Akhir Absen
+                    </label>
+                    <input
+                      type="time"
+                      value={shiftFormData.check_out_window_end}
+                      onChange={(event) =>
+                        setShiftFormData((prev) => ({
+                          ...prev,
+                          check_out_window_end: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-300 px-4 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
                 </div>
               </div>
 

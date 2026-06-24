@@ -2,7 +2,6 @@
 
 import {
   CalendarDaysIcon,
-  ClockIcon,
   EnvelopeIcon,
   PhoneIcon,
 } from "@heroicons/react/24/outline";
@@ -10,26 +9,26 @@ import { getInitials } from "@/lib/utils";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import type { Staff } from "@/lib/types";
 import { useLanguage } from "./i18n";
-
-type ShiftRecord = {
-  id: string;
-  shift_name: string;
-  start_time?: string | null;
-  end_time?: string | null;
-};
+import {
+  getStaffPositionLabel,
+  getOrderedStaffPositions,
+  type StaffPosition,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 type StaffCardRecord = Staff & {
   email?: string | null;
   phone?: string | null;
   staff_type?: string | null;
+  staff_positions?: StaffPositionAssignment[] | null;
+  positions?: StaffPosition[];
   hired_date?: string | null;
-  shift_id?: string | null;
-  shift?: ShiftRecord | null;
   login_code?: string | null;
   login_code_expires_at?: string | null;
   pin_hash?: string | null;
   password_hash?: string | null;
   must_change_pin?: boolean | null;
+  profile_picture?: string | null;
 };
 
 interface StaffCardProps {
@@ -51,18 +50,6 @@ const formatLabel = (value: unknown) => {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
-};
-
-const formatStaffType = (value: unknown, t: ReturnType<typeof useLanguage>["t"]) => {
-  const staffType = String(value ?? "").trim().toLowerCase();
-
-  if (!staffType) return t("owner.staff.notAssigned");
-  if (staffType === "cashier") return t("owner.staff.cashier");
-  if (staffType === "barista") return t("owner.staff.barista");
-  if (staffType === "kitchen") return t("owner.staff.kitchen");
-  if (staffType === "waiter") return t("owner.staff.waiter");
-
-  return formatLabel(staffType);
 };
 
 const formatRole = (value: unknown, t: ReturnType<typeof useLanguage>["t"]) => {
@@ -100,23 +87,6 @@ const formatHiredDate = (value: unknown) => {
   }).format(date);
 };
 
-const formatTime = (value?: string | null) => {
-  if (!value) return "--:--";
-
-  return value.slice(0, 5);
-};
-
-const getShiftLabel = (staff: StaffCardRecord) => {
-  if (staff.shift?.shift_name) return staff.shift.shift_name;
-
-  return "";
-};
-
-const getShiftTimeLabel = (staff: StaffCardRecord) => {
-  if (!staff.shift) return "-";
-
-  return `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`;
-};
 
 const getRoleBadgeClass = (role: unknown) => {
   const normalizedRole = String(role ?? "").trim().toLowerCase();
@@ -138,13 +108,11 @@ const getStatusBadgeClass = (status: unknown) => {
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
-const getStaffTypeBadgeClass = (staffType: unknown) => {
-  const normalizedStaffType = String(staffType ?? "").trim().toLowerCase();
-
-  if (normalizedStaffType === "cashier") return OWNER_SEMANTIC_TONES.cashier.badgeClass;
-  if (normalizedStaffType === "barista") return OWNER_SEMANTIC_TONES.coffee.badgeClass;
-  if (normalizedStaffType === "kitchen") return OWNER_SEMANTIC_TONES.warning.badgeClass;
-  if (normalizedStaffType === "waiter") return OWNER_SEMANTIC_TONES.info.badgeClass;
+const getStaffTypeBadgeClass = (position: StaffPosition) => {
+  if (position === "cashier") return OWNER_SEMANTIC_TONES.cashier.badgeClass;
+  if (position === "barista") return OWNER_SEMANTIC_TONES.coffee.badgeClass;
+  if (position === "kitchen") return OWNER_SEMANTIC_TONES.warning.badgeClass;
+  if (position === "waiter") return OWNER_SEMANTIC_TONES.info.badgeClass;
 
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
@@ -165,10 +133,9 @@ export default function StaffCard({
   const emailText = staff.email?.trim() || "-";
   const statusText = formatStatus(staff.status, t);
   const roleText = formatRole(staff.role, t);
-  const staffTypeText = formatStaffType(staff.staff_type, t);
+  const staffPositions = getOrderedStaffPositions(staff);
   const hiredDateText = formatHiredDate(staff.hired_date);
-  const shiftText = getShiftLabel(staff) || t("owner.staff.noShift");
-  const shiftTimeText = getShiftTimeLabel(staff);
+  const profilePicture = staff.profile_picture?.trim() || "";
 
   return (
     <div className="flex break-inside-avoid flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
@@ -191,8 +158,19 @@ export default function StaffCard({
         </div>
 
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-gray-900 text-xl font-bold text-white shadow-lg">
+          <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-900 text-xl font-bold text-white shadow-lg">
             {getInitials(staff.name)}
+            {profilePicture ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profilePicture}
+                alt={staff.name || t("owner.staff.staff")}
+                className="absolute inset-0 h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -202,44 +180,38 @@ export default function StaffCard({
           <h3 className="truncate text-lg font-bold text-gray-900">{staff.name || "-"}</h3>
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-            <span
-              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getRoleBadgeClass(
-                staff.role,
-              )}`}
-            >
-              {roleText}
-            </span>
-
             {shouldShowStaffType && (
-              <span
-                className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(
-                  staff.staff_type,
-                )}`}
-              >
-                {staffTypeText}
-              </span>
+              <>
+                {staffPositions.length > 0 ? (
+                  staffPositions.map((position) => (
+                    <span
+                      key={position}
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(position)}`}
+                    >
+                      {getStaffPositionLabel(position)}
+                    </span>
+                  ))
+                ) : (
+                  <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${OWNER_SEMANTIC_TONES.neutral.badgeClass}`}>
+                    {t("owner.staff.notAssigned")}
+                  </span>
+                )}
+              </>
             )}
 
             {!shouldShowStaffType && (
-              <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-                {t("owner.staff.management")}
+              <span
+                className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getRoleBadgeClass(
+                  staff.role,
+                )}`}
+              >
+                {roleText}
               </span>
             )}
           </div>
         </div>
 
         <div className="mt-5 space-y-3">
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-            <div className="mb-2 flex items-center gap-2">
-              <ClockIcon className="h-4 w-4 text-gray-400" />
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("owner.staff.workShift")}
-              </p>
-            </div>
-            <p className="text-sm font-semibold text-gray-900">{shiftText}</p>
-            <p className="mt-1 text-xs text-gray-500">{shiftTimeText}</p>
-          </div>
-
           <div className="grid grid-cols-1 gap-3 text-sm">
             <div className="flex items-center gap-3">
               <PhoneIcon className="h-4 w-4 shrink-0 text-gray-400" />

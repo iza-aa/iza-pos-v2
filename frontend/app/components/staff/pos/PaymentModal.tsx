@@ -12,6 +12,7 @@ import {
 import { StandardModal } from '@/app/components/shared';
 import { formatCurrency } from '@/lib/constants';
 import { showError } from '@/lib/services/errorHandling';
+import CashPaymentInput from './CashPaymentInput';
 
 type FulfillmentMethod = 'table_service' | 'counter_pickup';
 type PaymentMethod = 'cash' | 'qris' | 'card';
@@ -67,11 +68,6 @@ export default function PaymentModal({
   }
 
   const activeTotalAmount = getTotalAmount?.(fulfillmentMethod) ?? totalAmount;
-
-  const calculateChange = () => {
-    const received = Number(cashReceived) || 0;
-    return Math.max(0, received - activeTotalAmount);
-  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -354,38 +350,12 @@ export default function PaymentModal({
           </section>
 
           {paymentMethod === 'cash' ? (
-            <section>
-              <label
-                htmlFor="cash-received"
-                className="mb-2 block text-sm font-semibold text-gray-800"
-              >
-                Cash Received <span className="text-red-500">*</span>
-              </label>
-
-              <input
-                id="cash-received"
-                type="number"
-                required
-                min={activeTotalAmount}
-                step="1000"
-                value={cashReceived}
-                onChange={(event) => setCashReceived(event.target.value)}
-                disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                placeholder={`Minimum ${formatCurrency(activeTotalAmount)}`}
-              />
-
-              {cashReceived ? (
-                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Change</span>
-                    <span className="font-bold text-gray-900">
-                      {formatCurrency(calculateChange())}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-            </section>
+            <CashPaymentInput
+              totalAmount={activeTotalAmount}
+              value={cashReceived}
+              onChange={setCashReceived}
+              disabled={isSubmitting}
+            />
           ) : (
             <section className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
               <p className="text-sm text-blue-900">

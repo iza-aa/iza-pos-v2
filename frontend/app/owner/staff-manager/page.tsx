@@ -31,12 +31,20 @@ import {
   UsersIcon,
 } from "@heroicons/react/24/outline";
 import { useLanguage } from "@/app/components/shared/i18n";
+import {
+  getPrimaryStaffPosition,
+  getStaffPositionLabel,
+  getStaffPositions,
+  normalizeStaffPositions,
+  type StaffPosition,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 type StaffRole = "staff" | "manager" | "owner";
 type StaffManagerTab = "staff" | "attendance";
 type AttendanceTab = "monitor" | "settings";
 type StaffViewMode = "card" | "table";
-type StaffType = "barista" | "kitchen" | "cashier" | "waiter";
+type StaffType = StaffPosition;
 type StaffStatus = "active" | "inactive" | "on-leave" | "terminated";
 
 type ShiftRecord = {
@@ -52,6 +60,9 @@ type ShiftRecord = {
 
 type StaffRecord = Staff & {
   staff_type?: StaffType | null;
+  staff_positions?: StaffPositionAssignment[] | null;
+  positions?: StaffPosition[];
+  primary_position?: StaffPosition | null;
   email?: string | null;
   phone?: string | null;
   password_hash?: string | null;
@@ -62,8 +73,6 @@ type StaffRecord = Staff & {
   login_code_created_at?: string | null;
   pin_updated_at?: string | null;
   pin_reset_at?: string | null;
-  shift_id?: string | null;
-  shift?: ShiftRecord | null;
   weekly_shift_overrides?: WeeklyShiftOverride[];
 };
 
@@ -79,7 +88,6 @@ type StaffInsert = {
   phone: string | null;
   role: StaffRole;
   staff_type: StaffType | null;
-  shift_id: string | null;
   status: "active";
   hired_date: string;
   password_hash?: string;
@@ -87,11 +95,12 @@ type StaffInsert = {
 
 type StaffFormPayload = Omit<
   NewStaffData,
-  "role" | "staff_type" | "password" | "shift_id"
+  "role" | "staff_type" | "password"
 > & {
   role?: unknown;
   staff_type?: StaffType | null;
-  shift_id?: string | null;
+  positions?: StaffPosition[];
+  primary_position?: StaffPosition | null;
   password?: string;
 };
 
@@ -192,12 +201,14 @@ const normalizeStaffStatus = (status: unknown): StaffStatus => {
   return "active";
 };
 
-const normalizeShiftId = (value: unknown, role: StaffRole) => {
-  if (role === "owner") return null;
+const isMissingStaffPositionsRelation = (message?: string) => {
+  const normalizedMessage = String(message ?? "").toLowerCase();
 
-  const text = String(value ?? "").trim();
-
-  return text ? text : null;
+  return (
+    normalizedMessage.includes("staff_positions") ||
+    normalizedMessage.includes("relationship") ||
+    normalizedMessage.includes("schema cache")
+  );
 };
 
 const safeDecodeURIComponent = (value: string) => {
@@ -382,7 +393,7 @@ const getCookieIdentity = () => {
 export default function StaffManagerPage() {
   const { t } = useLanguage();
   const [staffList, setStaffList] = useState<StaffRecord[]>([]);
-  const [shiftList, setShiftList] = useState<ShiftRecord[]>([]);
+  const [, setShiftList] = useState<ShiftRecord[]>([]);
   const [viewMode, setViewMode] = useState<StaffViewMode>("card");
   const [staffSearchQuery, setStaffSearchQuery] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
@@ -409,24 +420,34 @@ export default function StaffManagerPage() {
   };
 
   const fetchStaff = useCallback(async () => {
-    const { data, error } = await supabase
+    const staffWithPositionsResult = await supabase
       .from("staff")
       .select(
         `
           *,
-          shift:staff_shift_id_fkey (
+          staff_positions (
             id,
-            shift_name,
-            start_time,
-            check_in_grace_until,
-            end_time,
-            check_out_grace_until,
-            description,
+            staff_id,
+            position,
+            is_primary,
             is_active
           )
         `,
       )
       .order("created_at", { ascending: true });
+
+    let data = staffWithPositionsResult.data;
+    let error = staffWithPositionsResult.error;
+
+    if (error && isMissingStaffPositionsRelation(error.message)) {
+      const legacyResult = await supabase
+        .from("staff")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      data = legacyResult.data;
+      error = legacyResult.error;
+    }
 
     if (error) {
       showError(t("owner.staff.fetchError", { message: error.message }));
@@ -435,11 +456,19 @@ export default function StaffManagerPage() {
 
     const normalizedStaffList = (
       (data ?? []) as Array<StaffRecord & { login_code?: string | null }>
-    ).map((staff) => ({
-      ...staff,
-      login_code:
-        typeof staff.login_code === "string" ? staff.login_code : undefined,
-    }));
+    ).map((staff) => {
+      const positions = getStaffPositions(staff);
+      const primaryPosition = getPrimaryStaffPosition(staff);
+
+      return {
+        ...staff,
+        positions,
+        primary_position: primaryPosition,
+        staff_type: primaryPosition ?? staff.staff_type ?? null,
+        login_code:
+          typeof staff.login_code === "string" ? staff.login_code : undefined,
+      };
+    });
 
     setStaffList(normalizedStaffList);
   }, [t]);
@@ -463,6 +492,74 @@ export default function StaffManagerPage() {
   const refreshStaffAndShifts = useCallback(async () => {
     await Promise.all([fetchStaff(), fetchShifts()]);
   }, [fetchStaff, fetchShifts]);
+
+  const persistStaffPositions = async ({
+    staffId,
+    role,
+    positions,
+    primaryPosition,
+  }: {
+    staffId: string;
+    role: StaffRole;
+    positions: StaffPosition[];
+    primaryPosition: StaffPosition | null;
+  }) => {
+    const operationalPositions =
+      role === "staff" ? normalizeStaffPositions(positions) : [];
+
+    if (
+      role === "staff" &&
+      (operationalPositions.length === 0 ||
+        !primaryPosition ||
+        !operationalPositions.includes(primaryPosition))
+    ) {
+      throw new Error(
+        "Pilih minimal satu posisi dan tentukan posisi utama.",
+      );
+    }
+
+    const response = await fetch("/api/owner/staff-manager/positions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        staffId,
+        positions: operationalPositions,
+        primaryPosition: role === "staff" ? primaryPosition : null,
+      }),
+    });
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    if (!response.ok) {
+      const message = result.error || "Gagal menyimpan posisi staff.";
+
+      if (isMissingStaffPositionsRelation(message)) {
+        throw new Error(
+          "Migration staff_positions belum diterapkan di Supabase.",
+        );
+      }
+
+      throw new Error(message);
+    }
+  };
+
+  const ensureStaffPositionsAvailable = async () => {
+    const { error } = await supabase
+      .from("staff_positions")
+      .select("id")
+      .limit(1);
+
+    if (error) {
+      if (isMissingStaffPositionsRelation(error.message)) {
+        throw new Error(
+          "Migration staff_positions belum diterapkan di Supabase.",
+        );
+      }
+
+      throw new Error(error.message);
+    }
+  };
 
   useEffect(() => {
     refreshStaffAndShifts();
@@ -570,13 +667,12 @@ export default function StaffManagerPage() {
       getRoleLabel(staff.role),
       staff.staff_type,
       getStaffTypeLabel(staff.staff_type),
+      ...getStaffPositions(staff).map(getStaffPositionLabel),
       staff.status,
       getStatusLabel(staff.status),
       staff.pin_hash || staff.password_hash ? "access active" : "not activated",
       staff.must_change_pin ? "reset pin" : "",
       staff.login_code && staff.login_code_expires_at ? "active login code" : "",
-      staff.shift?.shift_name,
-      staff.shift_id,
     ];
 
     return searchableValues.some((value) =>
@@ -584,7 +680,9 @@ export default function StaffManagerPage() {
     );
   };
 
-  const visibleStaffList = sortedStaffList.filter(staffMatchesSearch);
+  const visibleStaffList = sortedStaffList
+    .filter((staff) => normalizeText(staff.status) !== "terminated")
+    .filter(staffMatchesSearch);
 
   const visibleStaffListForTable: Staff[] = visibleStaffList.map((staff) => ({
     ...staff,
@@ -748,29 +846,42 @@ export default function StaffManagerPage() {
       staff_code: selectedStaff.staff_code,
       role: selectedStaff.role,
       staff_type: selectedStaff.staff_type,
+      positions: getStaffPositions(selectedStaff),
+      primary_position: getPrimaryStaffPosition(selectedStaff),
       status: selectedStaff.status,
-      shift_id: selectedStaff.shift_id,
     };
 
-    const { error: activityLogError } = await supabase
-      .from("activity_logs")
-      .delete()
-      .eq("user_id", selectedStaff.id);
-
-    if (activityLogError) {
-      showError(t("owner.staff.deleteLogsError", { message: activityLogError.message }));
-      return;
-    }
-
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from("staff")
-      .delete()
+      .update({
+        status: "terminated",
+        staff_type: null,
+        login_code: null,
+        login_code_expires_at: null,
+        login_code_created_at: null,
+        pin_hash: null,
+        must_change_pin: false,
+        updated_at: now,
+      })
       .eq("id", selectedStaff.id);
 
     if (error) {
       showError(t("owner.staff.deleteError", { message: error.message }));
       return;
     }
+
+    await Promise.allSettled([
+      supabase.from("staff_positions").delete().eq("staff_id", selectedStaff.id),
+      supabase
+        .from("staff_shift_weekly_assignments")
+        .delete()
+        .eq("staff_id", selectedStaff.id),
+      supabase
+        .from("staff_shift_daily_assignments")
+        .delete()
+        .eq("staff_id", selectedStaff.id),
+    ]);
 
     await fetchStaff();
     setShowDeleteModal(false);
@@ -796,21 +907,7 @@ export default function StaffManagerPage() {
     const staff = staffList.find((item) => item.id === id);
 
     if (staff) {
-      const response = await fetch(`/api/owner/staff-manager/weekly-shifts?staffId=${id}`);
-      const result = (await response.json().catch(() => ({}))) as {
-        data?: WeeklyShiftOverride[];
-        error?: string;
-      };
-
-      if (!response.ok) {
-        showError(t("owner.staff.weeklyScheduleLoadError", { message: result.error || t("owner.staff.unknown") }));
-        return;
-      }
-
-      setSelectedStaff({
-        ...(staff as StaffRecord),
-        weekly_shift_overrides: result.data || [],
-      } as unknown as Staff);
+      setSelectedStaff(staff as unknown as Staff);
       setShowEditModal(true);
     }
   };
@@ -819,15 +916,20 @@ export default function StaffManagerPage() {
     const staffToUpdate = updatedStaff as StaffRecord;
     const oldStaff = staffList.find((item) => item.id === staffToUpdate.id);
     const selectedRole = normalizeStaffRole(staffToUpdate.role);
-    const selectedStaffType = normalizeStaffType(
-      staffToUpdate.staff_type,
-      selectedRole,
-    );
-    const selectedShiftId = normalizeShiftId(
-      staffToUpdate.shift_id,
-      selectedRole,
-    );
+    const selectedPositions =
+      selectedRole === "staff"
+        ? normalizeStaffPositions(staffToUpdate.positions)
+        : [];
+    const selectedStaffType =
+      selectedRole === "staff"
+        ? normalizeStaffType(
+            staffToUpdate.primary_position ?? staffToUpdate.staff_type,
+            selectedRole,
+          )
+        : null;
     const selectedStatus = normalizeStaffStatus(staffToUpdate.status);
+
+    await ensureStaffPositionsAvailable();
 
     const { error } = await supabase
       .from("staff")
@@ -837,42 +939,30 @@ export default function StaffManagerPage() {
         phone: staffToUpdate.phone || null,
         role: selectedRole,
         staff_type: selectedStaffType,
-        shift_id: selectedShiftId,
         status: selectedStatus,
       })
       .eq("id", staffToUpdate.id);
 
     if (error) {
       showError(t("owner.staff.updateError", { message: error.message }));
-      return;
+      throw new Error(error.message);
     }
 
-    const weeklyOverrides = Array.isArray(staffToUpdate.weekly_shift_overrides)
-      ? staffToUpdate.weekly_shift_overrides
-      : [];
-
-    const scheduleResponse = await fetch("/api/owner/staff-manager/weekly-shifts", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      await persistStaffPositions({
         staffId: staffToUpdate.id,
-        overrides: selectedShiftId
-          ? weeklyOverrides.map((override) => ({
-              weekday: override.weekday,
-              shiftId: override.shift_id,
-            }))
-          : [],
-      }),
-    });
-    const scheduleResult = (await scheduleResponse.json().catch(() => ({}))) as {
-      error?: string;
-    };
+        role: selectedRole,
+        positions: selectedPositions,
+        primaryPosition: selectedStaffType,
+      });
+    } catch (positionError) {
+      const message =
+        positionError instanceof Error
+          ? positionError.message
+          : "Gagal menyimpan posisi staff.";
 
-    if (!scheduleResponse.ok) {
-      showError(t("owner.staff.weeklyScheduleUpdateError", { message: scheduleResult.error || t("owner.staff.unknown") }));
-      return;
+      showError(message);
+      throw positionError;
     }
 
     await fetchStaff();
@@ -894,7 +984,8 @@ export default function StaffManagerPage() {
           phone: oldStaff.phone,
           role: oldStaff.role,
           staff_type: oldStaff.staff_type,
-          shift_id: oldStaff.shift_id,
+          positions: getStaffPositions(oldStaff),
+          primary_position: getPrimaryStaffPosition(oldStaff),
           status: oldStaff.status,
         },
         newValue: {
@@ -903,7 +994,8 @@ export default function StaffManagerPage() {
           phone: staffToUpdate.phone,
           role: selectedRole,
           staff_type: selectedStaffType,
-          shift_id: selectedShiftId,
+          positions: selectedPositions,
+          primary_position: selectedStaffType,
           status: selectedStatus,
         },
         severity: "info",
@@ -951,15 +1043,20 @@ export default function StaffManagerPage() {
     try {
       const staffPayload = staffData as unknown as StaffFormPayload;
       const selectedRole = normalizeStaffRole(staffPayload.role);
-      const selectedStaffType = normalizeStaffType(
-        staffPayload.staff_type,
-        selectedRole,
-      );
-      const selectedShiftId = normalizeShiftId(
-        staffPayload.shift_id,
-        selectedRole,
-      );
+      const selectedPositions =
+        selectedRole === "staff"
+          ? normalizeStaffPositions(staffPayload.positions)
+          : [];
+      const selectedStaffType =
+        selectedRole === "staff"
+          ? normalizeStaffType(
+              staffPayload.primary_position ?? staffPayload.staff_type,
+              selectedRole,
+            )
+          : null;
       const staffCode = await generateUniqueStaffCode(selectedRole);
+
+      await ensureStaffPositionsAvailable();
 
       const newStaffData: StaffInsert = {
         staff_code: staffCode,
@@ -968,7 +1065,6 @@ export default function StaffManagerPage() {
         phone: staffData.phone || null,
         role: selectedRole,
         staff_type: selectedStaffType,
-        shift_id: selectedShiftId,
         status: "active",
         hired_date: new Date().toISOString().split("T")[0],
       };
@@ -990,12 +1086,24 @@ export default function StaffManagerPage() {
 
       if (error) {
         if (error.code === "23505") {
-          showError(t("owner.staff.codeUsed"));
-          return;
+          throw new Error(t("owner.staff.codeUsed"));
         }
 
-        showError(t("owner.staff.addError", { message: error.message }));
-        return;
+        throw new Error(error.message);
+      }
+
+      if (insertedStaff?.id) {
+        try {
+          await persistStaffPositions({
+            staffId: insertedStaff.id,
+            role: selectedRole,
+            positions: selectedPositions,
+            primaryPosition: selectedStaffType,
+          });
+        } catch (positionError) {
+          await supabase.from("staff").delete().eq("id", insertedStaff.id);
+          throw positionError;
+        }
       }
 
       await fetchStaff();
@@ -1018,7 +1126,8 @@ export default function StaffManagerPage() {
           staff_code: staffCode,
           role: selectedRole,
           staff_type: selectedStaffType,
-          shift_id: selectedShiftId,
+          positions: selectedPositions,
+          primary_position: selectedStaffType,
         },
         severity: "info",
         tags: ["staff", "create"],
@@ -1030,6 +1139,7 @@ export default function StaffManagerPage() {
           : t("owner.staff.unknownError");
 
       showError(t("owner.staff.addError", { message }));
+      throw error instanceof Error ? error : new Error(message);
     }
   };
 
@@ -1126,6 +1236,11 @@ export default function StaffManagerPage() {
             customStartDate={attendanceDateRangeProps.customStartDate}
             customEndDate={attendanceDateRangeProps.customEndDate}
             section={activeAttendanceTab}
+            requester={
+              currentStaffIdentity.id
+                ? currentStaffIdentity
+                : null
+            }
             onShiftChanged={refreshStaffAndShifts}
           />
         )}
@@ -1194,7 +1309,6 @@ export default function StaffManagerPage() {
       <EditStaffModal
         isOpen={showEditModal}
         staff={selectedStaff}
-        shifts={shiftList}
         onClose={() => {
           setShowEditModal(false);
           setSelectedStaff(null);
@@ -1207,7 +1321,6 @@ export default function StaffManagerPage() {
 
       {showAddModal && (
         <AddStaffModal
-          shifts={shiftList}
           onClose={() => setShowAddModal(false)}
           onSave={handleAddStaff}
         />

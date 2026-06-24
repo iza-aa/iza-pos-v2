@@ -152,6 +152,7 @@ export interface OrderItem {
   notes?: string;
   served: boolean;
   served_by?: string;
+  served_recorded_by?: string | null;
   served_at?: string;
   servedAt?: string; // Alias for compatibility
   created_at?: string;
@@ -160,6 +161,10 @@ export interface OrderItem {
   kitchenStatus?: string; // 'pending' | 'cooking' | 'ready' | 'not_required'
   ready_at?: string;
   readyAt?: string;
+  preparationStation?: "kitchen" | "bar" | "cashier" | "none";
+  assigned_barista_id?: string | null;
+  assignedBaristaId?: string | null;
+  assignedBaristaName?: string | null;
 
   // Relations
   products?: {
@@ -192,9 +197,13 @@ export interface Order {
   total?: number; // Alias for compatibility
   date?: string;
   time?: string;
-  payment_method?: PaymentMethod | string;
+  timeLabel?: string;
+  payment_method?: PaymentMethod | string | null;
+  paymentMethod?: PaymentMethod | string | null;
   payment_amount?: number;
+  paymentAmount?: number;
   change_amount?: number;
+  changeAmount?: number;
   notes?: string;
   created_by?: string;
   createdByName?: string;

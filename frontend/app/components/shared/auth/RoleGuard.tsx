@@ -90,6 +90,8 @@ export default function RoleGuard({
               role: string;
               staff_code?: string | null;
               staff_type?: string | null;
+              staff_positions?: string[];
+              primary_position?: string | null;
               profile_picture?: string | null;
             };
           }
@@ -120,6 +122,8 @@ export default function RoleGuard({
         role: currentRole,
         staffCode: currentUser.staff_code,
         staffType: currentUser.staff_type,
+        staffPositions: currentUser.staff_positions,
+        primaryPosition: currentUser.primary_position,
         profilePicture: currentUser.profile_picture,
       });
       cleanupDeprecatedStorage();

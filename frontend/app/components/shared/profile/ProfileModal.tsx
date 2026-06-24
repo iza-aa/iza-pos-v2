@@ -8,6 +8,11 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { clearAuth, cleanupDeprecatedStorage, getCurrentUser } from "@/lib/utils";
+import {
+  getStaffPositionLabel,
+  normalizeStaffPositions,
+  type StaffPosition,
+} from "@/lib/staff/positions";
 import { useLanguage } from "../i18n";
 
 type UserRole = "owner" | "manager" | "staff";
@@ -22,6 +27,7 @@ type CurrentUser = {
   role?: string | null;
   staff_code?: string | null;
   staff_type?: string | null;
+  staff_positions?: StaffPosition[];
   profile_picture?: string | null;
 };
 
@@ -46,16 +52,27 @@ const getFallbackAvatar = (name: string) => {
 const readUserFromStorage = (): CurrentUser => {
   if (typeof window === "undefined") return {};
 
-  const currentUser = getCurrentUser?.() as CurrentUser | null;
+  const currentUser = getCurrentUser?.();
+  let storedPositions: StaffPosition[] = [];
+
+  try {
+    storedPositions = normalizeStaffPositions(
+      JSON.parse(localStorage.getItem("staff_positions") || "[]"),
+    );
+  } catch {
+    storedPositions = [];
+  }
 
   return {
     id: currentUser?.id ?? localStorage.getItem("user_id"),
     name: currentUser?.name ?? localStorage.getItem("user_name"),
     role: currentUser?.role ?? localStorage.getItem("user_role"),
-    staff_code: currentUser?.staff_code ?? localStorage.getItem("staff_code"),
-    staff_type: currentUser?.staff_type ?? localStorage.getItem("staff_type"),
+    staff_code: currentUser?.staffCode ?? localStorage.getItem("staff_code"),
+    staff_type: currentUser?.staffType ?? localStorage.getItem("staff_type"),
+    staff_positions:
+      currentUser?.positions?.length ? currentUser.positions : storedPositions,
     profile_picture:
-      currentUser?.profile_picture ?? localStorage.getItem("profile_picture"),
+      currentUser?.profilePicture ?? localStorage.getItem("profile_picture"),
   };
 };
 
@@ -80,10 +97,20 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     const parts = [roleLabel];
 
     if (user.staff_code) parts.push(user.staff_code);
-    if (role === "staff" && user.staff_type) parts.push(user.staff_type);
+    if (role === "staff") {
+      const positionLabels = normalizeStaffPositions(
+        user.staff_positions?.length
+          ? user.staff_positions
+          : user.staff_type
+            ? [user.staff_type]
+            : [],
+      ).map(getStaffPositionLabel);
+
+      if (positionLabels.length > 0) parts.push(positionLabels.join(", "));
+    }
 
     return parts.filter(Boolean).join(" • ");
-  }, [role, roleLabel, user.staff_code, user.staff_type]);
+  }, [role, roleLabel, user.staff_code, user.staff_positions, user.staff_type]);
 
   const handleNavigate = (path: string) => {
     onClose();

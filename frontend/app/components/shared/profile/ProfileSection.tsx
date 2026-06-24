@@ -12,6 +12,12 @@ import { supabase } from "@/lib/config/supabaseClient";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { sanitizePhoneNumber } from "@/lib/utils";
+import {
+  getOrderedStaffPositions,
+  getPrimaryStaffPosition,
+  getStaffPositionLabel,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 import { useLanguage } from "../i18n";
 
 type RoleScope = "owner" | "manager" | "staff";
@@ -28,6 +34,7 @@ type StaffProfile = {
   phone: string | null;
   role: string;
   staff_type: string | null;
+  staff_positions?: StaffPositionAssignment[] | null;
   status: string;
   profile_picture: string | null;
 };
@@ -332,7 +339,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
 
       const { data, error: fetchError } = await supabase
         .from("staff")
-        .select("id, staff_code, name, email, phone, role, staff_type, status, profile_picture")
+        .select("id, staff_code, name, email, phone, role, staff_type, status, profile_picture, staff_positions(id, staff_id, position, is_primary, is_active)")
         .eq("id", userId)
         .maybeSingle();
 
@@ -344,6 +351,8 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       }
 
       const normalizedProfile = data as StaffProfile;
+      const orderedPositions = getOrderedStaffPositions(normalizedProfile);
+      const primaryPosition = getPrimaryStaffPosition(normalizedProfile);
       setProfile(normalizedProfile);
       setName(normalizedProfile.name || "");
       setEmail(normalizedProfile.email || "");
@@ -354,7 +363,11 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
         localStorage.setItem("user_name", normalizedProfile.name || t("profile.user"));
         localStorage.setItem("user_role", normalizedProfile.role || roleScope);
         localStorage.setItem("staff_code", normalizedProfile.staff_code || "");
-        localStorage.setItem("staff_type", normalizedProfile.staff_type || "");
+        localStorage.setItem(
+          "staff_type",
+          primaryPosition || normalizedProfile.staff_type || "",
+        );
+        localStorage.setItem("staff_positions", JSON.stringify(orderedPositions));
         localStorage.setItem("profile_picture", normalizedProfile.profile_picture || "");
         dispatchProfileUpdatedEvent();
       }
@@ -700,7 +713,13 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
               </div>
               <div>
                 <p className="text-gray-400">{t("owner.staff.type")}</p>
-                <p className="font-semibold capitalize text-gray-900">{profile?.staff_type || "-"}</p>
+                <p className="font-semibold text-gray-900">
+                  {profile
+                    ? getOrderedStaffPositions(profile)
+                        .map(getStaffPositionLabel)
+                        .join(", ") || "-"
+                    : "-"}
+                </p>
               </div>
               <div>
                 <p className="text-gray-400">{t("profile.status")}</p>

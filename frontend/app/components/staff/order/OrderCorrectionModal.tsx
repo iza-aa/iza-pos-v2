@@ -5,6 +5,11 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { StandardModal } from "@/app/components/shared";
 import { getCurrentUser } from "@/lib/utils/auth";
 import { showError, showSuccess, showWarning } from "@/lib/services/errorHandling";
+import {
+  getOrderPhysicalStatus,
+  isOrderEligibleForCorrectionStatus,
+  type OrderCorrectionPhysicalStatus,
+} from "@/lib/orders/orderCorrection";
 
 type CorrectionType =
   | "wrong_order_input"
@@ -13,7 +18,7 @@ type CorrectionType =
   | "payment_or_total_issue"
   | "other";
 
-type PhysicalStatus = "not_processed" | "processing_or_made" | "served";
+type PhysicalStatus = OrderCorrectionPhysicalStatus;
 
 type CorrectionOrderItem = {
   id?: string;
@@ -25,6 +30,8 @@ type CorrectionOrderItem = {
   total_price?: number;
   subtotal?: number;
   served?: boolean;
+  kitchenStatus?: string;
+  kitchen_status?: string;
 };
 
 export type CorrectionOrder = {
@@ -108,13 +115,6 @@ const formatRupiah = (value: number | null | undefined) =>
     maximumFractionDigits: 0,
   }).format(Number(value ?? 0));
 
-const getDefaultPhysicalStatus = (order?: CorrectionOrder): PhysicalStatus => {
-  if (!order) return "not_processed";
-  if (order.status === "new") return "not_processed";
-  if (order.status === "served" || order.status === "completed") return "served";
-  return "processing_or_made";
-};
-
 const getFulfillmentLabel = (order: CorrectionOrder) => {
   if (order.fulfillmentMethod === "counter_pickup") return order.pickupCode ? `Pickup ${order.pickupCode}` : "Counter Pickup";
   const tableNumber = order.table || order.tableNumber;
@@ -158,24 +158,26 @@ export default function OrderCorrectionModal({
     () => orders.find((order) => order.id === orderId) ?? null,
     [orders, orderId],
   );
+  const eligibleOrders = useMemo(
+    () =>
+      orders.filter((order) =>
+        isOrderEligibleForCorrectionStatus(order, physicalStatus),
+      ),
+    [orders, physicalStatus],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
-    const nextOrder =
-      orders.find((order) => order.id === initialOrderId) ??
-      orders[0] ??
-      null;
-    setOrderId(nextOrder?.id ?? "");
-    setPhysicalStatus(getDefaultPhysicalStatus(nextOrder ?? undefined));
+    const initialOrder = orders.find((order) => order.id === initialOrderId);
+    const initialPhysicalStatus = initialOrder
+      ? getOrderPhysicalStatus(initialOrder)
+      : "not_processed";
+    setPhysicalStatus(initialPhysicalStatus);
+    setOrderId(initialOrder?.id ?? "");
     setCorrectionType("wrong_order_input");
     setNote("");
     setTouched({});
   }, [initialOrderId, isOpen, orders]);
-
-  useEffect(() => {
-    if (!selectedOrder) return;
-    setPhysicalStatus(getDefaultPhysicalStatus(selectedOrder));
-  }, [selectedOrder?.id]);
 
   const getInputClassName = (field: string) => {
     const invalid = touched[field] && (field === "orderId" ? !orderId : field === "note" ? !note.trim() : false);
@@ -287,6 +289,38 @@ export default function OrderCorrectionModal({
         <div className="space-y-4">
           <div>
             <label className="mb-2 block text-sm font-bold text-gray-800">
+              Product Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={physicalStatus}
+              onChange={(event) => {
+                const nextStatus = event.target.value as PhysicalStatus;
+                setPhysicalStatus(nextStatus);
+                setOrderId((currentOrderId) => {
+                  const currentOrder = orders.find(
+                    (order) => order.id === currentOrderId,
+                  );
+                  return currentOrder &&
+                    isOrderEligibleForCorrectionStatus(currentOrder, nextStatus)
+                    ? currentOrderId
+                    : "";
+                });
+              }}
+              className="w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition"
+            >
+              {physicalStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs leading-5 text-gray-500">
+              {selectedPhysicalOption?.helper}
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-bold text-gray-800">
               Order <span className="text-red-500">*</span>
             </label>
             <select
@@ -299,57 +333,37 @@ export default function OrderCorrectionModal({
               className={getInputClassName("orderId")}
             >
               <option value="">Select order</option>
-              {orders.map((order) => (
+              {eligibleOrders.map((order) => (
                 <option key={order.id} value={order.id}>
                   {order.orderNumber || order.id} - {order.customerName || "Customer"} - {order.status}
                 </option>
               ))}
             </select>
-            {orders.length === 0 ? (
+            {eligibleOrders.length === 0 ? (
               <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                No eligible orders in this date range. Orders that already have a correction request are hidden.
+                No orders match this product status in the selected date range.
               </p>
             ) : null}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-bold text-gray-800">
-                Correction Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={correctionType}
-                onChange={(event) => setCorrectionType(event.target.value as CorrectionType)}
-                className="w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition"
-              >
-                {correctionTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs leading-5 text-gray-500">
-                {correctionTypeOptions.find((option) => option.value === correctionType)?.helper}
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-bold text-gray-800">
-                Product Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={physicalStatus}
-                onChange={(event) => setPhysicalStatus(event.target.value as PhysicalStatus)}
-                className="w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition"
-              >
-                {physicalStatusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs leading-5 text-gray-500">{selectedPhysicalOption?.helper}</p>
-            </div>
+          <div>
+            <label className="mb-2 block text-sm font-bold text-gray-800">
+              Correction Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={correctionType}
+              onChange={(event) => setCorrectionType(event.target.value as CorrectionType)}
+              className="w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition"
+            >
+              {correctionTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs leading-5 text-gray-500">
+              {correctionTypeOptions.find((option) => option.value === correctionType)?.helper}
+            </p>
           </div>
 
           {physicalStatus !== "not_processed" ? (

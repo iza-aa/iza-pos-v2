@@ -15,12 +15,6 @@ const getRequester = (request: NextRequest) => ({
   role: request.headers.get("x-user-role") ?? "",
 });
 
-const getIsoWeekday = (businessDate: string) => {
-  const [year, month, day] = businessDate.split("-").map(Number);
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  return weekday === 0 ? 7 : weekday;
-};
-
 export async function POST(request: NextRequest) {
   const requester = getRequester(request);
 
@@ -79,28 +73,6 @@ export async function POST(request: NextRequest) {
 
       if (insertError) throw insertError;
 
-      const { data: dailyAssignments, error: dailyAssignmentsError } = await supabase
-        .from("staff_shift_daily_assignments")
-        .select("id, work_date")
-        .eq("staff_id", staffId)
-        .eq("status", "assigned");
-
-      if (dailyAssignmentsError) throw dailyAssignmentsError;
-
-      const overrideWeekdays = new Set(normalizedOverrides.map((override) => override.weekday));
-      const conflictingDailyIds = (dailyAssignments || [])
-        .filter((assignment) => overrideWeekdays.has(getIsoWeekday(String(assignment.work_date))))
-        .map((assignment) => assignment.id)
-        .filter(Boolean);
-
-      if (conflictingDailyIds.length > 0) {
-        const { error: deleteDailyError } = await supabase
-          .from("staff_shift_daily_assignments")
-          .delete()
-          .in("id", conflictingDailyIds);
-
-        if (deleteDailyError) throw deleteDailyError;
-      }
     }
 
     return NextResponse.json({ success: true });
@@ -121,10 +93,43 @@ export async function GET(request: NextRequest) {
   }
 
   const staffId = String(request.nextUrl.searchParams.get("staffId") || "").trim();
-  if (!staffId) return NextResponse.json({ error: "Staff is required." }, { status: 400 });
 
   try {
     const supabase = createBookkeepingSupabaseClient();
+
+    if (!staffId) {
+      const [assignmentsResult, staffResult, shiftsResult] = await Promise.all([
+        supabase
+          .from("staff_shift_weekly_assignments")
+          .select("staff_id, weekday, shift_id")
+          .eq("status", "assigned")
+          .order("weekday", { ascending: true }),
+        supabase
+          .from("staff")
+          .select("id, name, staff_code, role, status, profile_picture")
+          .in("role", ["staff", "manager"])
+          .eq("status", "active")
+          .order("name", { ascending: true }),
+        supabase
+          .from("shifts")
+          .select("id, shift_name, start_time, end_time, is_active")
+          .eq("is_active", true)
+          .order("start_time", { ascending: true }),
+      ]);
+
+      if (assignmentsResult.error) throw assignmentsResult.error;
+      if (staffResult.error) throw staffResult.error;
+      if (shiftsResult.error) throw shiftsResult.error;
+
+      return NextResponse.json({
+        data: {
+          assignments: assignmentsResult.data || [],
+          staff: staffResult.data || [],
+          shifts: shiftsResult.data || [],
+        },
+      });
+    }
+
     const { data, error } = await supabase
       .from("staff_shift_weekly_assignments")
       .select("weekday, shift_id")

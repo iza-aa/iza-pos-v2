@@ -50,8 +50,8 @@ function CustomerDiscountDashboard() {
   const [loadingBundles, setLoadingBundles] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingBundle, setSavingBundle] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [bundleFeedback, setBundleFeedback] = useState("");
+  const [, setFeedback] = useState("");
+  const [, setBundleFeedback] = useState("");
   const [attemptedDiscountSubmit, setAttemptedDiscountSubmit] = useState(false);
   const [attemptedBundleSubmit, setAttemptedBundleSubmit] = useState(false);
   const discountNameRef = useRef<HTMLInputElement | null>(null);

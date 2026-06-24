@@ -5,7 +5,8 @@ import { ReactNode, useState, useRef, useEffect } from "react";
 import type { MouseEvent } from "react";
 import { formatCurrency } from "@/lib/constants";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
-import type { Order } from "@/lib/types";
+import type { Order, OrderItem } from "@/lib/types";
+import PaymentMethodBadge from "./PaymentMethodBadge";
 
 type VariantValue = string | number | boolean | null | undefined;
 
@@ -18,13 +19,22 @@ type VariantOption = {
 
 type VariantRecord = Record<string, VariantValue>;
 
+type HandoffStaffOption = {
+  id: string;
+  name: string;
+};
+
 interface OrderCardProps {
   order: Order;
   onDelete?: (orderId: string) => void;
   showDeleteButton?: boolean;
   onServeItem?: (orderId: string, itemId: string) => void;
   onServeAll?: (orderId: string) => void;
-  onMarkServed?: (orderId: string, itemIds: string[]) => void;
+  onMarkServed?: (
+    orderId: string,
+    itemIds: string[],
+    handoffStaffId?: string,
+  ) => void;
   showServeButtons?: boolean;
   enableFlipCard?: boolean;
   customActions?: ReactNode;
@@ -32,6 +42,19 @@ interface OrderCardProps {
   serveOrderLabel?: string;
   disabledServeOrderLabel?: string;
   correctionLabel?: string;
+  showHandoffStaffSelector?: boolean;
+  handoffStaffOptions?: HandoffStaffOption[];
+  handoffStaffLabel?: string;
+  noHandoffStaffLabel?: string;
+  // For process order actions
+  showProcessAction?: boolean;
+  onProcessOrder?: (orderId: string, baristaId?: string) => void;
+  showBaristaSelector?: boolean;
+  baristaOptions?: HandoffStaffOption[];
+  baristaLabel?: string;
+  noBaristaLabel?: string;
+  defaultBaristaId?: string;
+  queueNumber?: number;
 }
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
@@ -303,9 +326,26 @@ export default function OrderCard({
   serveOrderLabel = "Serve Order",
   disabledServeOrderLabel = "Waiting for Kitchen",
   correctionLabel,
+  showHandoffStaffSelector = false,
+  handoffStaffOptions = [],
+  handoffStaffLabel = "Handoff to waiter",
+  noHandoffStaffLabel = "No waiter handoff",
+  showProcessAction = false,
+  onProcessOrder,
+  showBaristaSelector = false,
+  baristaOptions = [],
+  baristaLabel = "Bar handled by",
+  noBaristaLabel = "No bar attribution",
+  defaultBaristaId,
+  queueNumber,
 }: OrderCardProps) {
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [flipMode, setFlipMode] = useState<"serve" | "process" | null>(null);
+  const isFlipped = flipMode !== null;
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedHandoffStaffId, setSelectedHandoffStaffId] = useState<
+    string | undefined
+  >(undefined);
+  const [selectedBaristaId, setSelectedBaristaId] = useState<string | undefined>(undefined);
   const [cardHeight, setCardHeight] = useState<number | "auto">("auto");
 
   const frontRef = useRef<HTMLDivElement>(null);
@@ -325,7 +365,7 @@ export default function OrderCard({
     } else if (!isFlipped && frontRef.current) {
       setCardHeight(frontRef.current.offsetHeight);
     }
-  }, [isFlipped, selectedItems]);
+  }, [isFlipped, selectedItems, flipMode]);
 
   const renderKitchenBadge = (kitchenStatus?: string) => {
     const badge = getKitchenBadgeInfo(kitchenStatus);
@@ -337,6 +377,18 @@ export default function OrderCard({
       >
         {badge.label}
       </span>
+    );
+  };
+
+  const renderBarAttribution = (item: OrderItem) => {
+    if (item.preparationStation !== "bar" || !item.assignedBaristaName) {
+      return null;
+    }
+
+    return (
+      <p className="mt-1 text-xs font-medium text-amber-700">
+        Bar: {item.assignedBaristaName}
+      </p>
     );
   };
 
@@ -365,6 +417,28 @@ export default function OrderCard({
         {hasServedBy && (
           <span>Served by {order.servedByNames?.join(", ")}</span>
         )}
+      </div>
+    );
+  };
+
+  const renderPaymentMetadata = () => {
+    const paymentMethod = order.paymentMethod ?? order.payment_method;
+    const paymentAmount = order.paymentAmount ?? order.payment_amount;
+    const changeAmount = order.changeAmount ?? order.change_amount;
+
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <PaymentMethodBadge method={paymentMethod} />
+        {typeof paymentAmount === "number" ? (
+          <span className="text-xs text-gray-500">
+            Paid {formatCurrency(paymentAmount)}
+          </span>
+        ) : null}
+        {typeof changeAmount === "number" && changeAmount > 0 ? (
+          <span className="text-xs text-gray-500">
+            Change {formatCurrency(changeAmount)}
+          </span>
+        ) : null}
       </div>
     );
   };
@@ -408,6 +482,7 @@ export default function OrderCard({
       <div className="pt-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
         <div>
           {renderOrderPaymentSummary()}
+          {renderPaymentMetadata()}
           {renderStaffAuditTrail()}
         </div>
 
@@ -437,6 +512,12 @@ export default function OrderCard({
 
   const readyToServeItems = pendingItems.filter(isItemReadyToServe);
   const hasReadyToServeItems = readyToServeItems.length > 0;
+  const effectiveHandoffStaffId =
+    selectedHandoffStaffId !== undefined
+      ? selectedHandoffStaffId
+      : showHandoffStaffSelector && handoffStaffOptions.length === 1
+        ? handoffStaffOptions[0]?.id ?? ""
+        : "";
   const shouldShowServeOrderAction =
     enableFlipCard &&
     showServeOrderAction &&
@@ -474,9 +555,14 @@ export default function OrderCard({
   const handleMarkServedBatch = () => {
     if (selectedItems.length === 0 || !onMarkServed) return;
 
-    onMarkServed(order.id, selectedItems);
+    onMarkServed(
+      order.id,
+      selectedItems,
+      showHandoffStaffSelector ? effectiveHandoffStaffId || undefined : undefined,
+    );
     setSelectedItems([]);
-    setIsFlipped(false);
+    setSelectedHandoffStaffId(undefined);
+    setFlipMode(null);
   };
 
   const handleOpenServePanel = (e: MouseEvent<HTMLButtonElement>) => {
@@ -485,7 +571,7 @@ export default function OrderCard({
     if (!hasReadyToServeItems) return;
 
     setSelectedItems([]);
-    setIsFlipped(true);
+    setSelectedHandoffStaffId(undefined);
   };
 
   if (enableFlipCard) {
@@ -539,6 +625,15 @@ export default function OrderCard({
                     {correctionLabel ? <CorrectionBadge label={correctionLabel} /> : null}
                   </div>
                 </div>
+
+                {queueNumber !== undefined && (
+                  <span
+                    className="ml-2 shrink-0 inline-flex items-center justify-center bg-gray-100 text-gray-700 text-xs font-bold w-6 h-6 rounded-full border border-gray-200 shadow-sm"
+                    title={`Queue position: ${queueNumber}`}
+                  >
+                    #{queueNumber}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
@@ -557,7 +652,7 @@ export default function OrderCard({
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  {order.time}
+                  {order.timeLabel ? `${order.timeLabel} ${order.time}` : order.time}
                 </span>
 
                 <span>{order.date}</span>
@@ -585,6 +680,7 @@ export default function OrderCard({
                       </div>
 
                       {renderVariants(item.variants)}
+                      {renderBarAttribution(item)}
                     </div>
 
                     <span
@@ -608,11 +704,34 @@ export default function OrderCard({
 
               {renderOrderFooter()}
 
+              {showProcessAction && (
+                <div className="mt-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (showBaristaSelector) {
+                        setSelectedBaristaId(defaultBaristaId);
+                        setFlipMode("process");
+                      } else {
+                        onProcessOrder?.(order.id);
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
+                  >
+                    Process
+                  </button>
+                </div>
+              )}
+
               {shouldShowServeOrderAction && (
                 <div className="mt-3 pt-3">
                   <button
                     type="button"
-                    onClick={handleOpenServePanel}
+                    onClick={(e) => {
+                      handleOpenServePanel(e);
+                      setFlipMode("serve");
+                    }}
                     disabled={!hasReadyToServeItems}
                     className={`w-full px-3 py-2 rounded-lg text-sm font-semibold transition ${
                       hasReadyToServeItems
@@ -647,12 +766,21 @@ export default function OrderCard({
           >
             <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-gray-900">
-                  {order.orderNumber}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-gray-900">
+                    {order.orderNumber}
+                  </h3>
+                  {queueNumber !== undefined && (
+                    <span className="inline-flex items-center justify-center bg-gray-200 text-gray-700 text-2xs font-bold px-1.5 py-0.5 rounded border border-gray-300">
+                      #{queueNumber}
+                    </span>
+                  )}
+                </div>
 
                 <p className="text-xs text-gray-600 mt-0.5">
-                  {order.customerName} • {fulfillmentInfo.label}
+                  {flipMode === "process"
+                    ? "Barista Attribution"
+                    : ""}
                 </p>
               </div>
 
@@ -660,8 +788,9 @@ export default function OrderCard({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsFlipped(false);
+                  setFlipMode(null);
                   setSelectedItems([]);
+                  setSelectedBaristaId(undefined);
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
@@ -682,137 +811,252 @@ export default function OrderCard({
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-3 max-h-100">
-              {pendingItems.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">
-                    Pending Items ({pendingItems.length})
-                  </h4>
-
-                  <div className="space-y-1.5">
-                    {pendingItems.map((item) => {
-                      const isReady =
-                        item.kitchenStatus === "ready" ||
-                        item.kitchenStatus === "not_required";
-
-                      return (
-                        <label
-                          key={item.id}
-                          className={`flex items-start p-2.5 rounded-lg transition-colors ${
-                            isReady
-                              ? "bg-gray-50 hover:bg-gray-100 cursor-pointer"
-                              : "bg-gray-100 cursor-not-allowed"
-                          }`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedItems.includes(item.id)}
-                            onChange={() =>
-                              handleCheckboxChange(item.id, item.served)
-                            }
-                            disabled={!isReady}
-                            className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-
-                          <div className="ml-2.5 flex-1">
-                            <p className="text-sm font-medium text-gray-900">
-                              {item.quantity} × {item.name}
-                            </p>
-
-                            {getVariantText(item.variants) && (
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {getVariantText(item.variants)}
-                              </p>
-                            )}
-
-                            {!isOrderCompleted && renderKitchenBadge(item.kitchenStatus)}
-                          </div>
-
-                          <span className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(item.price)}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {servedItems.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">
-                    Served Items ({servedItems.length})
-                  </h4>
-
-                  <div className="space-y-1.5">
-                    {servedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center p-2.5 bg-green-50 rounded-lg opacity-75"
+              {flipMode === "process" ? (
+                <>
+                  {showBaristaSelector ? (
+                    <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50/70 p-3">
+                      <label
+                        htmlFor={`barista-staff-${order.id}`}
+                        className="block text-xs font-semibold text-amber-900"
                       >
-                        <svg
-                          className="w-4 h-4 text-green-600"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        {baristaLabel}
+                      </label>
+                      <select
+                        id={`barista-staff-${order.id}`}
+                        value={selectedBaristaId || ""}
+                        onChange={(event) =>
+                          setSelectedBaristaId(event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+                      >
+                        <option value="">{noBaristaLabel}</option>
+                        {baristaOptions.map((barista) => (
+                          <option key={barista.id} value={barista.id}>
+                            {barista.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-amber-800">
+                        Optional. Choose who handles the bar items.
+                      </p>
+                    </div>
+                  ) : null}
 
-                        <div className="ml-2.5 flex-1">
-                          <p className="text-sm font-medium text-gray-700">
-                            {item.quantity} × {item.name}
-                          </p>
-
-                          {item.servedAt && (
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              Served at {item.servedAt}
-                            </p>
-                          )}
-                        </div>
-
-                        <span className="text-sm font-semibold text-gray-700">
-                          {formatCurrency(item.price)}
-                        </span>
-                      </div>
-                    ))}
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">
+                      Bar Items to Process
+                    </h4>
+                    <div className="space-y-1.5">
+                      {(order.items || [])
+                        .filter((item) => item.preparationStation === "bar")
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center p-2.5 bg-amber-50/50 border border-amber-100 rounded-lg animate-fade-in"
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900">
+                                {item.quantity} × {item.name}
+                              </p>
+                            </div>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(item.price)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  {showHandoffStaffSelector ? (
+                    <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/70 p-3">
+                      <label
+                        htmlFor={`handoff-staff-${order.id}`}
+                        className="block text-xs font-semibold text-blue-900"
+                      >
+                        {handoffStaffLabel}
+                      </label>
+                      <select
+                        id={`handoff-staff-${order.id}`}
+                        value={effectiveHandoffStaffId}
+                        onChange={(event) =>
+                          setSelectedHandoffStaffId(event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="">{noHandoffStaffLabel}</option>
+                        {handoffStaffOptions.map((staff) => (
+                          <option key={staff.id} value={staff.id}>
+                            {staff.name}
+                          </option>
+                        ))}
+                      </select>
+                      {handoffStaffOptions.length === 0 ? (
+                        <p className="mt-1 text-xs text-blue-800">
+                          No clocked-in waiter found. You can still mark items as
+                          served.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-blue-800">
+                          Optional. Use this only when a waiter takes the table
+                          handoff.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {pendingItems.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">
+                        Pending Items ({pendingItems.length})
+                      </h4>
+
+                      <div className="space-y-1.5">
+                        {pendingItems.map((item) => {
+                          const isReady =
+                            item.kitchenStatus === "ready" ||
+                            item.kitchenStatus === "not_required";
+
+                          return (
+                            <label
+                              key={item.id}
+                              className={`flex items-start p-2.5 rounded-lg transition-colors ${
+                                isReady
+                                  ? "bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                                  : "bg-gray-100 cursor-not-allowed"
+                              }`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedItems.includes(item.id)}
+                                onChange={() =>
+                                  handleCheckboxChange(item.id, item.served)
+                                }
+                                disabled={!isReady}
+                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+
+                              <div className="ml-2.5 flex-1">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {item.quantity} × {item.name}
+                                </p>
+
+                                {getVariantText(item.variants) && (
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {getVariantText(item.variants)}
+                                  </p>
+                                )}
+
+                                {!isOrderCompleted && renderKitchenBadge(item.kitchenStatus)}
+                                {renderBarAttribution(item)}
+                              </div>
+
+                              <span className="text-sm font-semibold text-gray-900">
+                                {formatCurrency(item.price)}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {servedItems.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">
+                        Served Items ({servedItems.length})
+                      </h4>
+
+                      <div className="space-y-1.5">
+                        {servedItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center p-2.5 bg-green-50 rounded-lg opacity-75"
+                          >
+                            <svg
+                              className="w-4 h-4 text-green-600"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+
+                            <div className="ml-2.5 flex-1">
+                              <p className="text-sm font-medium text-gray-700">
+                                {item.quantity} × {item.name}
+                              </p>
+
+                              {item.servedAt && (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Served at {item.servedAt}
+                                </p>
+                              )}
+                            </div>
+
+                            <span className="text-sm font-semibold text-gray-700">
+                              {formatCurrency(item.price)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {pendingItems.length > 0 && (
-              <div className="bg-gray-50 px-4 py-3  flex items-center justify-between">
-                <div className="text-xs text-gray-600">
-                  {selectedItems.length > 0 ? (
-                    <span className="font-semibold text-green-600">
-                      {selectedItems.length} item
-                      {selectedItems.length > 1 ? "s" : ""} selected
-                    </span>
-                  ) : (
-                    <span>Select items to mark</span>
-                  )}
-                </div>
-
+            {flipMode === "process" ? (
+              <div className="bg-gray-50 px-4 py-3 flex items-center justify-end">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleMarkServedBatch();
+                    onProcessOrder?.(order.id, selectedBaristaId);
+                    setFlipMode(null);
+                    setSelectedBaristaId(undefined);
                   }}
-                  disabled={selectedItems.length === 0}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all ${
-                    selectedItems.length > 0
-                      ? "bg-green-600 hover:bg-green-700 shadow-md"
-                      : "bg-gray-300 cursor-not-allowed"
-                  }`}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 shadow-md transition-all"
                 >
-                  Mark as Served
+                  Confirm Process
                 </button>
               </div>
+            ) : (
+              pendingItems.length > 0 && (
+                <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
+                  <div className="text-xs text-gray-600">
+                    {selectedItems.length > 0 ? (
+                      <span className="font-semibold text-green-600">
+                        {selectedItems.length} item
+                        {selectedItems.length > 1 ? "s" : ""} selected
+                      </span>
+                    ) : (
+                      <span>Select items to mark</span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMarkServedBatch();
+                    }}
+                    disabled={selectedItems.length === 0}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all ${
+                      selectedItems.length > 0
+                        ? "bg-green-600 hover:bg-green-700 shadow-md"
+                        : "bg-gray-300 cursor-not-allowed"
+                    }`}
+                  >
+                    Mark as Served
+                  </button>
+                </div>
+              )
             )}
           </div>
         </div>
@@ -840,6 +1084,15 @@ export default function OrderCard({
             </div>
 
             <div className="flex items-center gap-2">
+              {queueNumber !== undefined && (
+                <span
+                  className="inline-flex items-center justify-center bg-gray-100 text-gray-700 text-xs font-bold w-6 h-6 rounded-full border border-gray-200 shadow-sm"
+                  title={`Queue position: ${queueNumber}`}
+                >
+                  #{queueNumber}
+                </span>
+              )}
+
               {showDeleteButton && onDelete && !isOrderCompleted && (
                 <button
                   type="button"
@@ -880,7 +1133,7 @@ export default function OrderCard({
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              {order.time}
+              {order.timeLabel ? `${order.timeLabel} ${order.time}` : order.time}
             </span>
 
             <span>{order.date}</span>
@@ -908,6 +1161,7 @@ export default function OrderCard({
                   </div>
 
                   {renderVariants(item.variants)}
+                  {renderBarAttribution(item)}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -943,6 +1197,21 @@ export default function OrderCard({
           </div>
 
           {renderOrderFooter()}
+
+          {showProcessAction && (
+            <div className="mt-3 pt-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onProcessOrder?.(order.id);
+                }}
+                className="w-full px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
+              >
+                Process
+              </button>
+            </div>
+          )}
 
           {customActions && (
             <div className="pt-3 flex flex-col gap-2 [&_button]:w-full [&_button]:justify-center">

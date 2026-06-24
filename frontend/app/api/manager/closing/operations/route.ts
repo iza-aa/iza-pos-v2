@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     const [staffResult, shiftsResult, assignmentsResult, weeklyAssignmentsResult, closingsResult, expensesResult] = await Promise.all([
       supabase
         .from("staff")
-        .select("id, name, staff_code, role, status, shift_id")
+        .select("id, name, staff_code, role, status")
         .eq("role", "staff")
         .eq("status", "active")
         .order("name", { ascending: true }),

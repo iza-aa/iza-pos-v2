@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBookkeepingSupabaseClient } from "@/lib/services/bookkeeping/bookkeepingServer";
+import {
+  isOrderEligibleForCorrectionStatus,
+  type OrderCorrectionPhysicalStatus,
+} from "@/lib/orders/orderCorrection";
 
 type CorrectionType =
   | "wrong_order_input"
@@ -8,7 +12,7 @@ type CorrectionType =
   | "payment_or_total_issue"
   | "other";
 
-type PhysicalStatus = "not_processed" | "processing_or_made" | "served";
+type PhysicalStatus = OrderCorrectionPhysicalStatus;
 
 type CorrectionRequest = {
   action?: "create" | "review";
@@ -507,12 +511,32 @@ export async function POST(request: NextRequest) {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id, order_number, status, created_at, completed_at")
+      .select(
+        "id, order_number, status, created_at, completed_at, order_items(served, kitchen_status)",
+      )
       .eq("id", orderId)
       .maybeSingle();
 
     if (orderError) throw orderError;
     if (!order) return NextResponse.json({ error: "Order was not found." }, { status: 404 });
+
+    if (
+      !isOrderEligibleForCorrectionStatus(
+        {
+          status: order.status,
+          order_items: order.order_items,
+        },
+        physicalStatus,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "The selected order does not match the reported product status. Refresh the order list and choose a matching order.",
+        },
+        { status: 409 },
+      );
+    }
 
     const { data: existingCorrection, error: existingCorrectionError } = await supabase
       .from("order_corrections")

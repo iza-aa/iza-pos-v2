@@ -20,6 +20,11 @@ import {
 import { recordOrderInventoryUsageWithBatches } from "@/lib/services/inventory/inventoryBatchService";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import { showError } from "@/lib/services/errorHandling";
+import {
+  getKitchenStatusForPreparationStation,
+  getProductPreparationStation,
+  type PreparationStation,
+} from "@/lib/orders/stationRouting";
 
 interface CartItem {
   id: string;
@@ -49,6 +54,7 @@ interface CreatedOrder {
 
 interface ProductCategory {
   name: string | null;
+  preparation_station?: PreparationStation | string | null;
 }
 
 interface ProductLookupRow {
@@ -143,41 +149,14 @@ function getCategoryRelation(
   return category ?? null;
 }
 
-function normalizeText(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function isBeverageText(value: string): boolean {
-  return (
-    value.includes("coffee") ||
-    value.includes("non coffee") ||
-    value.includes("drink") ||
-    value.includes("beverage") ||
-    value.includes("tea") ||
-    value.includes("juice") ||
-    value.includes("milk") ||
-    value.includes("latte") ||
-    value.includes("americano") ||
-    value.includes("espresso") ||
-    value.includes("cappuccino") ||
-    value.includes("macchiato")
-  );
-}
-
 function getKitchenStatusForCartItem(
-  item: CartItem,
   product: ProductLookupRow | undefined,
 ): KitchenStatus {
-  const category = getCategoryRelation(product?.category ?? product?.categories);
-  const categoryName = normalizeText(category?.name);
-  const productName = normalizeText(item.name);
-  const combined = `${categoryName} ${productName}`;
+  const preparationStation = getProductPreparationStation({
+    categories: getCategoryRelation(product?.category ?? product?.categories),
+  });
 
-  if (isBeverageText(combined)) {
-    return "not_required";
-  }
-
-  return "pending";
+  return getKitchenStatusForPreparationStation(preparationStation);
 }
 
 function generatePickupCode(): string {
@@ -345,11 +324,11 @@ export default function CustomerCheckoutPage() {
   const fetchProductLookup = async (productIds: string[]): Promise<ProductLookupRow[]> => {
     const { data, error } = await supabase
       .from("products")
-      .select("id, category:categories(name)")
+      .select("id, category:categories(name, preparation_station)")
       .in("id", productIds);
 
     if (error) {
-      console.warn("Product lookup failed. Falling back to item name detection.", error);
+      console.warn("Product lookup failed. Falling back to kitchen routing.", error);
       return [];
     }
 
@@ -498,7 +477,7 @@ export default function CustomerCheckoutPage() {
 
       const orderItems = cart.map((item) => {
         const product = productLookup.find((productItem) => productItem.id === item.productId);
-        const kitchenStatus = getKitchenStatusForCartItem(item, product);
+        const kitchenStatus = getKitchenStatusForCartItem(product);
 
         return {
           order_id: createdOrder.id,

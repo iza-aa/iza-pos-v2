@@ -273,9 +273,9 @@ export default function ManagerClosingPage() {
       const datedAssignment = assignmentsByStaff.get(staff.id);
       const weeklyAssignment = weeklyAssignmentsByStaff.get(staff.id);
 
-      if (weeklyAssignment) return weeklyAssignment.shift_id === shiftId;
       if (datedAssignment) return datedAssignment.shift_id === shiftId;
-      return staff.shift_id === shiftId;
+      if (weeklyAssignment) return weeklyAssignment.shift_id === shiftId;
+      return false;
     });
   };
   const shiftStatusRows: ShiftStatusRow[] = data

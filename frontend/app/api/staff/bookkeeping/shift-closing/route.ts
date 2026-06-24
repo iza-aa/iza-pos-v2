@@ -10,7 +10,6 @@ type StaffRow = {
   staff_code?: string | null;
   role?: string | null;
   status?: string | null;
-  shift_id?: string | null;
 };
 
 type ShiftRow = {
@@ -83,17 +82,14 @@ const mapStaffOption = (staff: StaffRow) => ({
   name: staff.name,
   staffCode: staff.staff_code,
   role: staff.role,
-  shiftId: staff.shift_id,
 });
 
 const loadAssignedShiftId = async ({
   businessDate,
-  fallbackShiftId,
   staffId,
   supabase,
 }: {
   businessDate: string;
-  fallbackShiftId?: string | null;
   staffId: string;
   supabase: ReturnType<typeof createBookkeepingSupabaseClient>;
 }) => {
@@ -113,9 +109,9 @@ const loadAssignedShiftId = async ({
     .in("status", ["assigned", "completed"])
     .maybeSingle();
 
-  if (error) return fallbackShiftId || null;
+  if (!error && data?.shift_id) return String(data.shift_id);
   if (!weeklyError && weeklyData?.shift_id) return String(weeklyData.shift_id);
-  return String(data?.shift_id || fallbackShiftId || "") || null;
+  return null;
 };
 
 const getJakartaDate = () => {
@@ -312,7 +308,7 @@ async function loadStaffShiftContext(request: NextRequest, businessDate: string)
   if (requester.role === "owner") {
     const { data: staffOptionsData, error: staffOptionsError } = await supabase
       .from("staff")
-      .select("id, name, staff_code, role, status, shift_id")
+      .select("id, name, staff_code, role, status")
       .eq("role", "staff")
       .eq("status", "active")
       .order("name", { ascending: true });
@@ -335,7 +331,6 @@ async function loadStaffShiftContext(request: NextRequest, businessDate: string)
 
     const assignedShiftId = await loadAssignedShiftId({
       businessDate,
-      fallbackShiftId: staffRow.shift_id,
       staffId: staffRow.id,
       supabase,
     });
@@ -379,7 +374,7 @@ async function loadStaffShiftContext(request: NextRequest, businessDate: string)
 
   const { data: staff, error: staffError } = await supabase
     .from("staff")
-    .select("id, name, staff_code, role, status, shift_id")
+    .select("id, name, staff_code, role, status")
     .eq("id", requester.id)
     .eq("role", "staff")
     .maybeSingle();
@@ -394,7 +389,6 @@ async function loadStaffShiftContext(request: NextRequest, businessDate: string)
 
   const assignedShiftId = await loadAssignedShiftId({
     businessDate,
-    fallbackShiftId: staffRow.shift_id,
     staffId: staffRow.id,
     supabase,
   });

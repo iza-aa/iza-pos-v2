@@ -6,21 +6,21 @@ import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import StandardTable, { type StandardTableColumn } from "./StandardTable";
 import type { Staff } from "@/lib/types";
 import { useLanguage } from "./i18n";
-
-type ShiftRecord = {
-  id: string;
-  shift_name: string;
-  start_time?: string | null;
-  end_time?: string | null;
-};
+import {
+  getStaffPositionLabel,
+  getOrderedStaffPositions,
+  getStaffPositions,
+  type StaffPosition,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 type StaffTableRecord = Staff & {
   email?: string | null;
   phone?: string | null;
   staff_type?: string | null;
+  staff_positions?: StaffPositionAssignment[] | null;
+  positions?: StaffPosition[];
   hired_date?: string | null;
-  shift_id?: string | null;
-  shift?: ShiftRecord | null;
 };
 
 interface StaffTableProps {
@@ -41,7 +41,6 @@ type SortKey =
   | "name"
   | "role"
   | "staff_type"
-  | "shift"
   | "phone"
   | "email"
   | "status"
@@ -77,34 +76,14 @@ const getRoleLabel = (role: unknown, t: Translator) => {
 
 const getStaffTypeLabel = (staff: StaffTableRecord, t: Translator) => {
   const role = normalizeText(staff.role);
-  const staffType = normalizeText(staff.staff_type);
 
   if (role === "owner" || role === "manager") return t("owner.staff.management");
 
-  if (staffType === "cashier") return t("owner.staff.cashier");
-  if (staffType === "barista") return t("owner.staff.barista");
-  if (staffType === "kitchen") return t("owner.staff.kitchen");
-  if (staffType === "waiter") return t("owner.staff.waiter");
+  const positions = getStaffPositions(staff);
 
-  return "-";
-};
-
-const getShiftLabel = (staff: StaffTableRecord, t: Translator) => {
-  if (staff.shift?.shift_name) return staff.shift.shift_name;
-
-  return t("owner.staff.noShift");
-};
-
-const formatTime = (value?: string | null) => {
-  if (!value) return "--:--";
-
-  return value.slice(0, 5);
-};
-
-const getShiftTimeLabel = (staff: StaffTableRecord) => {
-  if (!staff.shift) return "-";
-
-  return `${formatTime(staff.shift.start_time)} - ${formatTime(staff.shift.end_time)}`;
+  return positions.length > 0
+    ? positions.map(getStaffPositionLabel).join(", ")
+    : "-";
 };
 
 const getStatusLabel = (status: unknown, t: Translator) => {
@@ -132,37 +111,24 @@ const getRoleBadgeClass = (role: unknown) => {
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
-const getStaffTypeBadgeClass = (staff: StaffTableRecord) => {
-  const role = normalizeText(staff.role);
-  const staffType = normalizeText(staff.staff_type);
-
-  if (role === "owner" || role === "manager") {
-    return OWNER_SEMANTIC_TONES.neutral.badgeClass;
-  }
-
-  if (staffType === "cashier") {
+const getStaffTypeBadgeClass = (position: StaffPosition) => {
+  if (position === "cashier") {
     return OWNER_SEMANTIC_TONES.cashier.badgeClass;
   }
 
-  if (staffType === "barista") {
+  if (position === "barista") {
     return OWNER_SEMANTIC_TONES.coffee.badgeClass;
   }
 
-  if (staffType === "kitchen") {
+  if (position === "kitchen") {
     return OWNER_SEMANTIC_TONES.warning.badgeClass;
   }
 
-  if (staffType === "waiter") {
+  if (position === "waiter") {
     return OWNER_SEMANTIC_TONES.info.badgeClass;
   }
 
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
-};
-
-const getShiftBadgeClass = (staff: StaffTableRecord) => {
-  if (!staff.shift_id) return OWNER_SEMANTIC_TONES.neutral.badgeClass;
-
-  return OWNER_SEMANTIC_TONES.progress.badgeClass;
 };
 
 const getStatusBadgeClass = (status: unknown) => {
@@ -276,7 +242,6 @@ const getSortValue = (staff: StaffTableRecord, key: SortKey, t: Translator) => {
   if (key === "name") return normalizeText(staff.name);
   if (key === "role") return normalizeText(getRoleLabel(staff.role, t));
   if (key === "staff_type") return normalizeText(getStaffTypeLabel(staff, t));
-  if (key === "shift") return normalizeText(getShiftLabel(staff, t));
   if (key === "phone") return normalizeText(staff.phone);
   if (key === "email") return normalizeText(staff.email);
   if (key === "status") return normalizeText(getStatusLabel(staff.status, t));
@@ -361,33 +326,32 @@ export default function StaffTable({
         header: t("owner.staff.type"),
         sortValue: (staff) => getSortValue(staff, "staff_type", t),
         className: "align-middle",
-        render: (staff) => (
-          <span
-            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(
-              staff,
-            )}`}
-          >
-            {getStaffTypeLabel(staff, t)}
-          </span>
-        ),
-      },
-      {
-        key: "shift",
-        header: t("owner.staff.shift"),
-        sortValue: (staff) => getSortValue(staff, "shift", t),
-        className: "align-middle",
-        render: (staff) => (
-          <div>
-            <span
-              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getShiftBadgeClass(
-                staff,
-              )}`}
-            >
-              {getShiftLabel(staff, t)}
-            </span>
-            <p className="mt-1 text-xs text-gray-500">{getShiftTimeLabel(staff)}</p>
-          </div>
-        ),
+        render: (staff) => {
+          const positions = getOrderedStaffPositions(staff);
+
+          if (normalizeText(staff.role) !== "staff") {
+            return (
+              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${OWNER_SEMANTIC_TONES.neutral.badgeClass}`}>
+                {t("owner.staff.management")}
+              </span>
+            );
+          }
+
+          if (positions.length === 0) return <span className="text-gray-400">-</span>;
+
+          return (
+            <div className="flex flex-wrap gap-1.5">
+              {positions.map((position) => (
+                <span
+                  key={position}
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStaffTypeBadgeClass(position)}`}
+                >
+                  {getStaffPositionLabel(position)}
+                </span>
+              ))}
+            </div>
+          );
+        },
       },
       {
         key: "phone",

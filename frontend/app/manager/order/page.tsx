@@ -324,6 +324,7 @@ export default function ManagerOrderPage() {
       }
 
       const transformedOrders: Order[] = ordersData.map((order) => {
+        const orderCreatedAt = parseSupabaseTimestamp(order.created_at);
         const orderItems = (order.order_items || []) as (OrderItem & {
           product_name?: string;
           products?: { name?: string };
@@ -336,20 +337,8 @@ export default function ManagerOrderPage() {
         const servedCount = orderItems.filter((item) => item.served).length;
         const totalCount = orderItems.length;
 
-        const orderCreatedAt = parseSupabaseTimestamp(order.created_at);
         const now = getJakartaNow();
-        const minutesSinceCreated = getMinutesDifference(now, orderCreatedAt);
-
         let status = order.status as Order["status"];
-
-        if (order.status === "new" && minutesSinceCreated >= 5) {
-          status = "preparing";
-
-          void supabase
-            .from("orders")
-            .update({ status: "preparing" })
-            .eq("id", order.id);
-        }
 
         if (servedCount > 0 && servedCount < totalCount) {
           status = "partially-served";
@@ -884,6 +873,20 @@ export default function ManagerOrderPage() {
     return filteredOrders.filter((order) => getOrderEffectiveStatus(order) === columnKey);
   };
 
+  const activeOrdersSorted = [...orderList]
+    .filter(
+      (o) =>
+        o.status === "new" ||
+        o.status === "preparing" ||
+        o.status === "partially-served"
+    )
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const activeOrderQueueNumberMap = new Map<string, number>();
+  activeOrdersSorted.forEach((order, index) => {
+    activeOrderQueueNumberMap.set(order.id, index + 1);
+  });
+
   const visibleKanbanColumns =
     isCardView && isStatusFilter(orderFilter) && orderFilter !== "all"
       ? kanbanColumns.filter((column) => column.key === orderFilter)
@@ -1101,49 +1104,41 @@ export default function ManagerOrderPage() {
                               const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
 
                               return (
-                            <OrderCard
-                              order={order}
-                              correctionLabel={
-                                correctionOrderIds.has(order.id)
-                                  ? t("manager.order.correctionCancelled")
-                                  : undefined
-                              }
-                              showDeleteButton={!pendingCorrection}
-                              onDelete={handleDeleteOrder}
-                              enableFlipCard={!pendingCorrection && canShowServeOrderButton(order)}
-                              showServeOrderAction={!pendingCorrection && canShowServeOrderButton(order)}
-                              serveOrderLabel={t("manager.order.serveOrder")}
-                              disabledServeOrderLabel={t("manager.order.waitingKitchen")}
-                              onMarkServed={handleMarkServed}
-                              customActions={
-                                pendingCorrection ? (
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleReviewCorrection(pendingCorrection.id);
-                                    }}
-                                    disabled={reviewingCorrectionId === pendingCorrection.id}
-                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-                                  >
-                                    {reviewingCorrectionId === pendingCorrection.id
-                                      ? t("manager.order.reviewing")
-                                      : t("manager.order.markReviewed")}
-                                  </button>
-                                ) : order.status === "new" ? (
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleProcessOrder(order.id);
-                                    }}
-                                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition"
-                                  >
-                                    Process
-                                  </button>
-                                ) : null
-                              }
-                            />
+                             <OrderCard
+                               order={order}
+                               correctionLabel={
+                                 correctionOrderIds.has(order.id)
+                                   ? t("manager.order.correctionCancelled")
+                                   : undefined
+                               }
+                               showDeleteButton={!pendingCorrection}
+                               onDelete={handleDeleteOrder}
+                               enableFlipCard={!pendingCorrection && canShowServeOrderButton(order)}
+                               showServeOrderAction={!pendingCorrection && canShowServeOrderButton(order)}
+                               serveOrderLabel={t("manager.order.serveOrder")}
+                               disabledServeOrderLabel={t("manager.order.waitingKitchen")}
+                               onMarkServed={handleMarkServed}
+                               showProcessAction={!pendingCorrection && order.status === "new"}
+                               onProcessOrder={handleProcessOrder}
+                               queueNumber={activeOrderQueueNumberMap.get(order.id)}
+                               customActions={
+                                 pendingCorrection ? (
+                                   <button
+                                     type="button"
+                                     onClick={(event) => {
+                                       event.stopPropagation();
+                                       handleReviewCorrection(pendingCorrection.id);
+                                     }}
+                                     disabled={reviewingCorrectionId === pendingCorrection.id}
+                                     className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                                   >
+                                     {reviewingCorrectionId === pendingCorrection.id
+                                       ? t("manager.order.reviewing")
+                                       : t("manager.order.markReviewed")}
+                                   </button>
+                                 ) : null
+                               }
+                             />
                               );
                             })()}
                           </div>
@@ -1152,7 +1147,7 @@ export default function ManagerOrderPage() {
                         <div
                           className={
                             visibleKanbanColumns.length === 1
-                              ? "flex h-full min-h-130 w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center text-sm text-gray-400"
+                              ? "flex h-full min-h-122 w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center text-sm text-gray-400"
                               : "h-32 w-full rounded-xl border border-dashed border-gray-300 bg-white flex items-center justify-center text-sm text-gray-400 text-center px-4"
                           }
                         >

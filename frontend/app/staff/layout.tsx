@@ -7,23 +7,24 @@ import RoleGuard from "../components/shared/auth/RoleGuard";
 import { setupNetworkMonitoring } from "@/lib/services/errorHandling";
 import { getCurrentUser } from "@/lib/utils";
 import { canAccessStaffPath, getStaffHomePath } from "@/lib/utils/staffAccess";
+import type { StaffPosition } from "@/lib/staff/positions";
 
-type StaffType = "kitchen" | "cashier" | "barista" | "waiter";
 type UserRole = "staff" | "manager" | "owner";
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLogin = pathname === "/staff/login";
-  const [staffType, setStaffType] = useState<StaffType | null>(null);
+  const [staffType, setStaffType] = useState<StaffPosition | null>(null);
+  const [staffPositions, setStaffPositions] = useState<StaffPosition[]>([]);
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
     setupNetworkMonitoring();
-    setStaffType(localStorage.getItem("staff_type") as StaffType | null);
-
     const user = getCurrentUser();
     const role = user?.role;
+    setStaffType(user?.staffType ?? null);
+    setStaffPositions(user?.positions ?? []);
 
     if (role === "owner" || role === "manager" || role === "staff") {
       setCurrentRole(role);
@@ -35,10 +36,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       !canAccessStaffPath({
         path: pathname,
         role: user.role,
+        positions: user.positions,
         staffType: user.staffType,
       })
     ) {
-      router.replace(getStaffHomePath(user.staffType));
+      router.replace(getStaffHomePath(user.positions, user.staffType));
     }
   }, [isLogin, pathname, router]);
 
@@ -49,6 +51,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           <Navbar
             role="staff"
             staffType={staffType}
+            staffPositions={staffPositions}
             canSwitchRole={currentRole === "owner"}
           />
         )}

@@ -8,10 +8,13 @@
  */
 export type UserRole = 'owner' | 'manager' | 'staff';
 
-/**
- * Staff types available in the system
- */
-export type StaffType = 'cashier' | 'waiter' | 'barista' | 'kitchen' | null;
+import {
+  getPrimaryStaffPosition,
+  normalizeStaffPositions,
+  type StaffPosition,
+} from "@/lib/staff/positions";
+
+export type StaffType = StaffPosition | null;
 
 /**
  * Current user information from localStorage
@@ -21,7 +24,9 @@ export interface CurrentUser {
   role: UserRole;
   name: string;
   staffType: StaffType;
+  positions: StaffPosition[];
   staffCode: string;
+  profilePicture: string;
 }
 
 /**
@@ -36,6 +41,7 @@ const INTERNAL_AUTH_STORAGE_KEYS = [
   'user_name',
   'user_role',
   'staff_type',
+  'staff_positions',
   'staff_code',
   'profile_picture',
   'session_id',
@@ -54,6 +60,8 @@ export function storeInternalIdentity(user: {
   role: UserRole;
   staffCode?: string | null;
   staffType?: StaffType | string;
+  staffPositions?: StaffPosition[] | string[];
+  primaryPosition?: StaffType | string;
   profilePicture?: string | null;
 }): void {
   if (typeof window === 'undefined') return;
@@ -61,7 +69,22 @@ export function storeInternalIdentity(user: {
   localStorage.setItem('user_name', user.name);
   localStorage.setItem('user_role', user.role);
   localStorage.setItem('staff_code', user.staffCode ?? '');
-  localStorage.setItem('staff_type', user.staffType ?? '');
+  const positions = normalizeStaffPositions(user.staffPositions);
+  const primaryPosition =
+    getPrimaryStaffPosition({
+      positions,
+      primary_position: user.primaryPosition as StaffPosition | null,
+      staff_type: user.staffType ?? null,
+    }) ?? null;
+  const storedPositions =
+    positions.length > 0
+      ? positions
+      : primaryPosition
+        ? [primaryPosition]
+        : [];
+
+  localStorage.setItem('staff_type', primaryPosition ?? '');
+  localStorage.setItem('staff_positions', JSON.stringify(storedPositions));
   if (user.profilePicture !== undefined) {
     localStorage.setItem('profile_picture', user.profilePicture ?? '');
   }
@@ -82,12 +105,36 @@ export function getCurrentUser(): CurrentUser | null {
   const id = localStorage.getItem('user_id');
   if (!id) return null;
   
+  const storedPositions = localStorage.getItem('staff_positions');
+  let positions: StaffPosition[] = [];
+
+  try {
+    positions = normalizeStaffPositions(
+      storedPositions ? JSON.parse(storedPositions) : [],
+    );
+  } catch {
+    positions = [];
+  }
+
+  const legacyStaffType = localStorage.getItem('staff_type');
+  const staffType =
+    getPrimaryStaffPosition({
+      positions,
+      staff_type: legacyStaffType,
+    }) ?? null;
+
+  if (positions.length === 0 && staffType) {
+    positions = [staffType];
+  }
+
   return {
     id,
     role: (localStorage.getItem('user_role') || 'staff') as UserRole,
     name: localStorage.getItem('user_name') || 'Unknown User',
-    staffType: localStorage.getItem('staff_type') as StaffType,
+    staffType,
+    positions,
     staffCode: localStorage.getItem('staff_code') || 'UNKNOWN',
+    profilePicture: localStorage.getItem('profile_picture') || '',
   };
 }
 

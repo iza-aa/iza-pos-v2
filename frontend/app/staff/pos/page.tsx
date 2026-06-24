@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentStaffInfo, getCurrentUser } from "@/lib/utils";
-import { getStaffHomePath, normalizeStaffType } from "@/lib/utils/staffAccess";
+import { getStaffHomePath, hasStaffPosition } from "@/lib/utils/staffAccess";
 import { logActivity } from "@/lib/services/activity/activityLogger";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
 import MenuCategories from "@/app/components/staff/pos/MenuCategories";
@@ -42,6 +42,11 @@ import {
 	getProductKitchenAvailability,
 	recordOrderInventoryUsageWithBatches,
 } from "@/lib/services/inventory/inventoryBatchService";
+import {
+	getKitchenStatusForPreparationStation,
+	getProductPreparationStation,
+	type PreparationStation,
+} from "@/lib/orders/stationRouting";
 import type { BookkeepingFinancialSettings } from "@/lib/services/bookkeeping/bookkeepingTypes";
 import type { MenuItem, SelectedVariant } from "@/lib/types";
 
@@ -92,8 +97,6 @@ type PaymentConfirmData = {
 	fulfillmentMethod?: FulfillmentMethod;
 	tableNumber?: string;
 };
-
-type PreparationStation = "kitchen" | "bar" | "cashier" | "none";
 
 type ProductCategoryForOrder = {
 	name?: string;
@@ -235,10 +238,19 @@ export default function POSPage() {
 
 	useEffect(() => {
 		const currentUser = getCurrentUser();
-		const staffType = normalizeStaffType(localStorage.getItem("staff_type"));
 
-		if (currentUser?.role !== "owner" && staffType !== "cashier") {
-			window.location.href = getStaffHomePath(staffType);
+		if (
+			currentUser?.role !== "owner" &&
+			!hasStaffPosition({
+				position: "cashier",
+				positions: currentUser?.positions,
+				staffType: currentUser?.staffType,
+			})
+		) {
+			window.location.href = getStaffHomePath(
+				currentUser?.positions,
+				currentUser?.staffType,
+			);
 		}
 	}, []);
 
@@ -583,6 +595,19 @@ export default function POSPage() {
 			const paymentTransactionMethod = normalizePaymentMethodForTransaction(
 				paymentData.paymentMethod
 			);
+			const cashAmount =
+				paymentMethod === "Cash" ? Number(paymentData.cashAmount) : undefined;
+
+			if (
+				paymentMethod === "Cash" &&
+				(!Number.isFinite(cashAmount) ||
+					(cashAmount ?? 0) < orderFinancialTotals.total)
+			) {
+				showError(
+					`Cash received must be at least ${orderFinancialTotals.total.toLocaleString("id-ID")}.`
+				);
+				return;
+			}
 
 			const { data: orderData, error: orderError } = await supabase
 				.from("orders")
@@ -645,10 +670,9 @@ export default function POSPage() {
 				const product = products.find(
 					(productItem) => productItem.id === item.productId
 				);
-				const category = getProductCategory(product);
-				const preparationStation =
-					category?.preparation_station || "kitchen";
-				const shouldGoToKitchen = preparationStation === "kitchen";
+				const preparationStation = getProductPreparationStation({
+					categories: getProductCategory(product),
+				});
 
 				return {
 					order_id: orderData.id,
@@ -659,7 +683,8 @@ export default function POSPage() {
 					variants:
 						item.variants && item.variants.length > 0 ? item.variants : null,
 					total_price: item.price * item.quantity,
-					kitchen_status: shouldGoToKitchen ? "pending" : "not_required",
+					kitchen_status:
+						getKitchenStatusForPreparationStation(preparationStation),
 				};
 			});
 
@@ -683,8 +708,12 @@ export default function POSPage() {
 					{
 						order_id: orderData.id,
 						payment_method: paymentTransactionMethod,
-						amount_paid: paymentData.cashAmount || orderFinancialTotals.total,
-						amount_change: Math.max((paymentData.cashAmount || orderFinancialTotals.total) - orderFinancialTotals.total, 0),
+						amount_paid: cashAmount ?? orderFinancialTotals.total,
+						amount_change: Math.max(
+							(cashAmount ?? orderFinancialTotals.total) -
+								orderFinancialTotals.total,
+							0
+						),
 						status: "success",
 						created_by: staffId,
 					},
