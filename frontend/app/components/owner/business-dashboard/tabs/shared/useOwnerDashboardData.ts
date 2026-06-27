@@ -139,7 +139,7 @@ export default function useOwnerDashboardData() {
                 ? { data: [] as InventoryBatchRow[], error: null }
                 : result;
             }),
-          supabase.from("staff").select("id,name,role,status"),
+          supabase.from("staff").select("id,name,role,status,staff_positions(position,is_primary)"),
           loadAllDashboardRows<AttendanceRow>((from, to) =>
             supabase
               .from("attendance")

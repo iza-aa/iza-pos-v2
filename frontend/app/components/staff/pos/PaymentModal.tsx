@@ -366,24 +366,6 @@ export default function PaymentModal({
             </section>
           )}
 
-          <section>
-            <label
-              htmlFor="order-notes"
-              className="mb-2 block text-sm font-semibold text-gray-800"
-            >
-              Notes
-            </label>
-
-            <textarea
-              id="order-notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              disabled={isSubmitting}
-              rows={3}
-              className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-              placeholder="Special requests, allergies, etc."
-            />
-          </section>
 
           <section className="rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4">
             <div className="flex items-center justify-between">

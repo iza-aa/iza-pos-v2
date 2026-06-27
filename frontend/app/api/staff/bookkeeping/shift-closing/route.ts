@@ -32,6 +32,7 @@ type OrderRow = {
   subtotal?: number | string | null;
   discount?: number | string | null;
   total?: number | string | null;
+  created_by?: string | null;
 };
 
 type ClosingRow = {
@@ -45,17 +46,23 @@ type ClosingRow = {
   discount_total: number | string;
   net_sales: number | string;
   opening_cash?: number | string | null;
+  opening_cash_actual?: number | string | null;
+  opening_variance?: number | string | null;
+  opening_variance_note?: string | null;
+  previous_shift_id?: string | null;
   cash_expected: number | string;
   expected_drawer_cash?: number | string | null;
   cash_counted?: number | string | null;
   cash_difference?: number | string | null;
   cash_to_deposit?: number | string | null;
   closing_float?: number | string | null;
+  actual_closing_float?: number | string | null;
   float_policy?: "carry_float" | "new_float" | "deposit_all" | null;
   non_cash_sales: number | string;
   cancelled_count: number;
   status: "open" | "draft" | "needs_review" | "submitted" | "closed" | "reopened";
   notes?: string | null;
+  snapshot_json?: Record<string, unknown>;
 };
 
 type SubmitShiftClosingRequest = {
@@ -265,6 +272,12 @@ const mapClosing = (closing: ClosingRow | null, revealCashExpected: boolean) => 
     : toNumber(closing.cash_counted);
 
   const openingCash = toNumber(closing.opening_cash);
+  const openingCashActual = toNumber(closing.opening_cash_actual);
+  const openingVariance = toNumber(closing.opening_variance);
+  const openingVarianceNote = closing.opening_variance_note || null;
+  const previousShiftId = closing.previous_shift_id || null;
+  const actualClosingFloat = toNumber(closing.actual_closing_float);
+
   const cashSales = toNumber(closing.cash_expected);
   const expectedDrawerCash = toNumber(closing.expected_drawer_cash ?? (openingCash + cashSales));
 
@@ -279,6 +292,11 @@ const mapClosing = (closing: ClosingRow | null, revealCashExpected: boolean) => 
     discountTotal: toNumber(closing.discount_total),
     netSales: toNumber(closing.net_sales),
     openingCash,
+    openingCashActual,
+    openingVariance,
+    openingVarianceNote,
+    previousShiftId,
+    actualClosingFloat,
     cashExpected: revealCashExpected ? cashSales : null,
     expectedDrawerCash: revealCashExpected ? expectedDrawerCash : null,
     cashCounted,
@@ -292,6 +310,7 @@ const mapClosing = (closing: ClosingRow | null, revealCashExpected: boolean) => 
     cancelledCount: closing.cancelled_count,
     status: closing.status,
     notes: closing.notes,
+    snapshot_json: closing.snapshot_json,
   };
 };
 
@@ -433,16 +452,57 @@ async function buildShiftSnapshot({
   shift: ShiftRow;
   supabase: ReturnType<typeof createBookkeepingSupabaseClient>;
 }) {
-  const { data: ordersData, error: ordersError } = await supabase
-    .from("orders")
-    .select("id, order_number, created_at, completed_at, status, payment_status, payment_method, subtotal, discount, total")
-    .gte("created_at", toDateTimeStart(businessDate))
-    .lte("created_at", toDateTimeEnd(businessDate))
-    .order("created_at", { ascending: true });
+  const [ordersResult, dailyAssignmentsResult, weeklyAssignmentsResult] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, order_number, created_at, completed_at, status, payment_status, payment_method, subtotal, discount, total, created_by")
+      .gte("created_at", toDateTimeStart(businessDate))
+      .lte("created_at", toDateTimeEnd(businessDate))
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("staff_shift_daily_assignments")
+      .select("staff_id, shift_id, work_date")
+      .eq("work_date", businessDate)
+      .in("status", ["assigned", "completed"]),
+    supabase
+      .from("staff_shift_weekly_assignments")
+      .select("staff_id, shift_id, weekday")
+      .eq("weekday", getIsoWeekday(businessDate))
+      .eq("status", "assigned"),
+  ]);
 
-  if (ordersError) throw ordersError;
+  if (ordersResult.error) throw ordersResult.error;
+  if (dailyAssignmentsResult.error) throw dailyAssignmentsResult.error;
+  if (weeklyAssignmentsResult.error) throw weeklyAssignmentsResult.error;
 
-  const shiftOrders = ((ordersData || []) as OrderRow[]).filter((order) => isOrderInShift(order, shift));
+  const ordersData = ordersResult.data;
+  const dailyAssignments = dailyAssignmentsResult.data || [];
+  const weeklyAssignments = weeklyAssignmentsResult.data || [];
+
+  const shiftOrders = ((ordersData || []) as OrderRow[]).filter((order) => {
+    // 1. Try to match by staff assignment
+    if (order.created_by) {
+      // Check daily override assignment first
+      const dailyAss = dailyAssignments.find(
+        (a) => a.staff_id === order.created_by && a.work_date === businessDate
+      );
+      if (dailyAss) {
+        return dailyAss.shift_id === shift.id;
+      }
+      
+      // Check weekly recurring assignment second
+      const weekday = getIsoWeekday(businessDate);
+      const weeklyAss = weeklyAssignments.find(
+        (a) => a.staff_id === order.created_by && a.weekday === weekday
+      );
+      if (weeklyAss) {
+        return weeklyAss.shift_id === shift.id;
+      }
+    }
+
+    // 2. Fallback to time-based matching
+    return isOrderInShift(order, shift);
+  });
   const validOrders = shiftOrders.filter(isValidOrder);
   const cancelledOrders = shiftOrders.filter(isCancelledOrder);
   const grossSales = validOrders.reduce((sum, order) => sum + toNumber(order.subtotal || order.total), 0);
@@ -495,6 +555,35 @@ async function loadExistingClosing({
   return (data || null) as ClosingRow | null;
 }
 
+const getYesterdayDate = (dateStr: string) => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+};
+
+const getPreviousShiftClosing = async ({
+  supabase,
+  businessDate,
+}: {
+  supabase: any;
+  businessDate: string;
+}) => {
+  const { data, error } = await supabase
+    .from("bookkeeping_shift_closings")
+    .select("id, shift_id, shift_name, closing_float, actual_closing_float, status")
+    .or(`business_date.eq.${businessDate},business_date.eq.${getYesterdayDate(businessDate)}`)
+    .not("closed_at", "is", null)
+    .order("closed_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("Failed to load previous shift closing:", error);
+    return null;
+  }
+  return data?.[0] || null;
+};
+
 export async function GET(request: NextRequest) {
   try {
     const businessDate = request.nextUrl.searchParams.get("businessDate") || getJakartaDate();
@@ -521,14 +610,60 @@ export async function GET(request: NextRequest) {
       shiftId: snapshot.shiftId,
       supabase: context.supabase,
     });
+
+    const previousClosing = await getPreviousShiftClosing({
+      supabase: context.supabase,
+      businessDate,
+    });
+    const openingCashExpected = previousClosing
+      ? (previousClosing.actual_closing_float !== null && previousClosing.actual_closing_float !== undefined
+        ? toNumber(previousClosing.actual_closing_float)
+        : toNumber(previousClosing.closing_float))
+      : 0;
+
+    // Fetch cash movements to display active cash flow
+    const { data: movements } = await context.supabase
+      .from("bookkeeping_cash_movements")
+      .select("type, amount")
+      .eq("shift_id", snapshot.shiftId);
+
+    let totalCashIn = 0;
+    let totalCashOut = 0;
+    let totalCashDrop = 0;
+    if (movements) {
+      for (const m of movements) {
+        if (m.type === "cash_in") totalCashIn += toNumber(m.amount);
+        else if (m.type === "cash_out") totalCashOut += toNumber(m.amount);
+        else if (m.type === "cash_drop") totalCashDrop += toNumber(m.amount);
+      }
+    }
+
     const revealCashExpected = Boolean(existingClosing?.cash_counted);
-    const openingCash = toNumber(existingClosing?.opening_cash);
+    const openingCash = existingClosing ? toNumber(existingClosing.opening_cash_actual || existingClosing.opening_cash) : openingCashExpected;
     const closingFloat = toNumber(existingClosing?.closing_float);
-    const expectedDrawerCash = openingCash + snapshot.cashExpected;
+    const expectedDrawerCash = openingCash + snapshot.cashExpected + totalCashIn - totalCashOut - totalCashDrop;
+
+    const datePart = businessDate.replace(/-/g, "").slice(2);
+    
+    let shiftPart = (context.shift.shift_name || "SHF")
+      .toUpperCase()
+      .replace("SHIFT", "")
+      .replace(/\s+/g, "")
+      .replace(/[^A-Z0-9]/g, "");
+    if (!shiftPart) shiftPart = "SHF";
+
+    const staffPart = (context.staff.name || "STF")
+      .split(" ")[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+    const stableEnvelopeNumber = `ENV-${datePart}-${shiftPart}-${staffPart}`;
+    const envelopeNumber = (existingClosing?.snapshot_json as Record<string, unknown> | undefined)?.envelopeNumber as string | undefined || stableEnvelopeNumber;
 
     return NextResponse.json({
       data: {
         businessDate,
+        envelopeNumber,
         staff: {
           id: context.staff.id,
           name: context.staff.name,
@@ -549,6 +684,9 @@ export async function GET(request: NextRequest) {
           cashToDeposit: revealCashExpected ? Math.max(expectedDrawerCash - closingFloat, 0) : null,
           closingFloat,
           floatPolicy: existingClosing?.float_policy || snapshot.floatPolicy,
+          totalCashIn,
+          totalCashOut,
+          totalCashDrop,
         },
         closing: mapClosing(existingClosing, revealCashExpected),
       },
@@ -568,11 +706,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json().catch(() => ({}))) as SubmitShiftClosingRequest;
+    const body = (await request.json().catch(() => ({}))) as SubmitShiftClosingRequest & {
+      action?: string;
+      openingCashActual?: number | string | null;
+      actualClosingFloat?: number | string | null;
+      envelopeNumber?: string | null;
+    };
     const businessDate = body.businessDate || getJakartaDate();
-    const cashCounted = body.cashCounted === null || body.cashCounted === undefined || body.cashCounted === ""
-      ? null
-      : Number(body.cashCounted);
+    const action = body.action || "close_shift";
     const notes = String(body.notes || "").trim();
 
     if (!DATE_PATTERN.test(businessDate)) {
@@ -590,14 +731,10 @@ export async function POST(request: NextRequest) {
     });
     if (shiftWindowError) return shiftWindowError;
 
-    if (cashCounted === null || !Number.isFinite(cashCounted) || cashCounted < 0) {
-      return NextResponse.json({ error: "Cash counted must be a valid positive number." }, { status: 400 });
-    }
-
     await assertBookkeepingDatesAreOpen({
       supabase: context.supabase,
       dates: [businessDate],
-      action: "Submitting shift closing",
+      action: action === "open_shift" ? "Opening shift" : "Submitting shift closing",
     });
 
     const snapshot = await buildShiftSnapshot({
@@ -615,37 +752,204 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Closed shift closing cannot be updated." }, { status: 409 });
     }
 
-    const openingCash = toNumber(existingClosing?.opening_cash);
-    const closingFloat = toNumber(existingClosing?.closing_float);
-    const floatPolicy = existingClosing?.float_policy || snapshot.floatPolicy;
-    const expectedDrawerCash = openingCash + snapshot.cashExpected;
+    if (action === "open_shift") {
+      const openingCashActual = body.openingCashActual === null || body.openingCashActual === undefined || body.openingCashActual === ""
+        ? null
+        : Number(body.openingCashActual);
+
+      if (openingCashActual === null || !Number.isFinite(openingCashActual) || openingCashActual < 0) {
+        return NextResponse.json({ error: "Opening cash actual must be a valid positive number." }, { status: 400 });
+      }
+
+      const previousClosing = await getPreviousShiftClosing({
+        supabase: context.supabase,
+        businessDate,
+      });
+      const openingCashExpected = previousClosing
+        ? (previousClosing.actual_closing_float !== null && previousClosing.actual_closing_float !== undefined
+          ? toNumber(previousClosing.actual_closing_float)
+          : toNumber(previousClosing.closing_float))
+        : 0;
+
+      const openingVariance = openingCashActual - openingCashExpected;
+
+      const payload = {
+        business_date: businessDate,
+        shift_id: snapshot.shiftId,
+        shift_name: snapshot.shiftName,
+        opened_at: new Date().toISOString(),
+        closed_at: null,
+        submitted_by: context.staff.id,
+        gross_sales: 0,
+        discount_total: 0,
+        net_sales: 0,
+        opening_cash: openingCashExpected,
+        opening_cash_actual: openingCashActual,
+        opening_variance: openingVariance,
+        opening_variance_note: notes || "Opened by staff.",
+        previous_shift_id: previousClosing?.shift_id || null,
+        cash_expected: 0,
+        expected_drawer_cash: openingCashActual,
+        cash_counted: null,
+        cash_difference: null,
+        cash_to_deposit: 0,
+        closing_float: 0,
+        actual_closing_float: 0,
+        float_policy: "carry_float",
+        non_cash_sales: 0,
+        cancelled_count: 0,
+        refund_total: 0,
+        status: "open",
+        notes: notes || "Opened by staff.",
+        snapshot_json: {
+          openedBy: context.staff.id,
+          openedByName: context.staff.name,
+          openedAt: new Date().toISOString(),
+          openingCashExpected,
+          openingCashActual,
+          openingVariance,
+        },
+        updated_at: new Date().toISOString(),
+      };
+
+      let closingId = existingClosing?.id || "";
+      if (existingClosing?.id) {
+        const { error } = await context.supabase
+          .from("bookkeeping_shift_closings")
+          .update(payload)
+          .eq("id", existingClosing.id);
+        if (error) throw error;
+      } else {
+        const { data: inserted, error } = await context.supabase
+          .from("bookkeeping_shift_closings")
+          .insert({
+            ...payload,
+            created_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        closingId = inserted?.id || "";
+      }
+
+      await context.supabase.from("activity_logs").insert({
+        user_id: submitter.id,
+        user_name: submitter.name,
+        user_role: submitter.role,
+        action: existingClosing?.id ? "UPDATE" : "CREATE",
+        action_category: "FINANCIAL",
+        action_description: `Staff ${context.staff.name} opened shift ${snapshot.shiftName} with cash ${openingCashActual}`,
+        resource_type: "Bookkeeping Shift Closing",
+        resource_id: closingId || snapshot.shiftId,
+        resource_name: snapshot.shiftName,
+        previous_value: null,
+        new_value: { businessDate, shiftId: snapshot.shiftId, openingCashActual, openingVariance },
+        changes_summary: ["Staff shift opened"],
+        severity: "info",
+        tags: ["bookkeeping", "staff-open-shift", "cash-count"],
+        notes: notes || null,
+        is_reversible: false,
+        ip_address: "0.0.0.0",
+        device_info: "Server API",
+        session_id: `staff-open-shift-${submitter.id}`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          status: "open",
+          openingCash: openingCashExpected,
+          openingCashActual,
+          openingVariance,
+          closingId,
+        },
+      });
+    }
+
+    // close_shift
+    const cashCounted = body.cashCounted === null || body.cashCounted === undefined || body.cashCounted === ""
+      ? null
+      : Number(body.cashCounted);
+    const actualClosingFloat = body.actualClosingFloat === null || body.actualClosingFloat === undefined || body.actualClosingFloat === ""
+      ? 0
+      : Number(body.actualClosingFloat);
+
+    if (cashCounted === null || !Number.isFinite(cashCounted) || cashCounted < 0) {
+      return NextResponse.json({ error: "Cash counted must be a valid positive number." }, { status: 400 });
+    }
+    if (actualClosingFloat < 0) {
+      return NextResponse.json({ error: "Closing float cannot be negative." }, { status: 400 });
+    }
+
+    // Auto-generate descriptive envelope number (stable fallback)
+    const datePart = businessDate.replace(/-/g, "").slice(2);
+
+    let shiftPart = (context.shift.shift_name || "SHF")
+      .toUpperCase()
+      .replace("SHIFT", "")
+      .replace(/\s+/g, "")
+      .replace(/[^A-Z0-9]/g, "");
+    if (!shiftPart) shiftPart = "SHF";
+
+    const staffPart = (context.staff.name || "STF")
+      .split(" ")[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+    const stableEnvelopeNumber = `ENV-${datePart}-${shiftPart}-${staffPart}`;
+    const envelopeNumber = String(body.envelopeNumber || "").trim() || stableEnvelopeNumber;
+
+    // Fetch cash movements
+    const { data: movements } = await context.supabase
+      .from("bookkeeping_cash_movements")
+      .select("type, amount")
+      .eq("shift_id", snapshot.shiftId);
+
+    let totalCashIn = 0;
+    let totalCashOut = 0;
+    let totalCashDrop = 0;
+    if (movements) {
+      for (const m of movements) {
+        if (m.type === "cash_in") totalCashIn += toNumber(m.amount);
+        else if (m.type === "cash_out") totalCashOut += toNumber(m.amount);
+        else if (m.type === "cash_drop") totalCashDrop += toNumber(m.amount);
+      }
+    }
+
+    const openingCashActual = existingClosing ? toNumber(existingClosing.opening_cash_actual || existingClosing.opening_cash) : 0;
+    const expectedDrawerCash = openingCashActual + snapshot.cashExpected + totalCashIn - totalCashOut - totalCashDrop;
     const cashDifference = cashCounted - expectedDrawerCash;
-    const cashToDeposit = Math.max(cashCounted - closingFloat, 0);
+    const cashToDeposit = Math.max(cashCounted - actualClosingFloat, 0);
     const status = cashDifference === 0 ? "submitted" : "needs_review";
+
     const payload = {
       business_date: businessDate,
       shift_id: snapshot.shiftId,
       shift_name: snapshot.shiftName,
-      opened_at: snapshot.openedAt,
-      closed_at: snapshot.closedAt,
+      closed_at: new Date().toISOString(),
       submitted_by: context.staff.id,
       gross_sales: snapshot.grossSales,
       discount_total: snapshot.discountTotal,
       net_sales: snapshot.netSales,
-      opening_cash: openingCash,
+      opening_cash: existingClosing?.opening_cash || 0,
+      opening_cash_actual: openingCashActual,
+      opening_variance: existingClosing ? toNumber(existingClosing.opening_variance) : 0,
       cash_expected: snapshot.cashExpected,
       expected_drawer_cash: expectedDrawerCash,
       cash_counted: cashCounted,
       cash_difference: cashDifference,
       cash_to_deposit: cashToDeposit,
-      closing_float: closingFloat,
-      float_policy: floatPolicy,
+      closing_float: actualClosingFloat,
+      actual_closing_float: actualClosingFloat,
+      float_policy: "carry_float",
       non_cash_sales: snapshot.nonCashSales,
       cancelled_count: snapshot.cancelledCount,
-      refund_total: 0,
       status,
-      notes: notes || "Submitted by staff end shift.",
+      notes: notes
+        ? `${existingClosing?.notes ? `${existingClosing.notes}\n` : ""}Staff closing: ${notes}`
+        : (existingClosing?.notes || "Submitted by staff end shift."),
       snapshot_json: {
+        ...((existingClosing?.snapshot_json as Record<string, unknown>) || {}),
         submittedBy: context.staff.id,
         submittedByName: context.staff.name,
         submittedByRequester: submitter.id,
@@ -655,23 +959,24 @@ export async function POST(request: NextRequest) {
         orderCount: snapshot.orderCount,
         cashOrderCount: snapshot.cashOrderCount,
         nonCashOrderCount: snapshot.nonCashOrderCount,
-        openingCash,
+        openingCashActual,
         expectedDrawerCash,
         cashToDeposit,
-        closingFloat,
-        floatPolicy,
+        closingFloat: actualClosingFloat,
+        totalCashIn,
+        totalCashOut,
+        totalCashDrop,
+        envelopeNumber,
       },
       updated_at: new Date().toISOString(),
     };
 
     let closingId = existingClosing?.id || "";
-
     if (existingClosing?.id) {
       const { error } = await context.supabase
         .from("bookkeeping_shift_closings")
         .update(payload)
         .eq("id", existingClosing.id);
-
       if (error) throw error;
     } else {
       const { data: inserted, error } = await context.supabase
@@ -682,28 +987,74 @@ export async function POST(request: NextRequest) {
         })
         .select("id")
         .single();
-
       if (error) throw error;
       closingId = inserted?.id || "";
+    }
+
+    // Upsert to bookkeeping_cash_deposits
+    const { data: existingDeposits, error: existingDepositsError } = await context.supabase
+      .from("bookkeeping_cash_deposits")
+      .select("id")
+      .eq("shift_id", snapshot.shiftId)
+      .order("created_at", { ascending: false });
+
+    if (existingDepositsError) throw existingDepositsError;
+
+    if (existingDeposits && existingDeposits.length > 0) {
+      const primaryDeposit = existingDeposits[0];
+      const duplicateIds = existingDeposits.slice(1).map((d) => d.id);
+
+      const { error: depositError } = await context.supabase
+        .from("bookkeeping_cash_deposits")
+        .update({
+          envelope_number: envelopeNumber,
+          expected_amount: cashToDeposit,
+          submitted_amount: cashToDeposit,
+          status: "submitted",
+          received_amount: null,
+          manager_id: null,
+          manager_notes: null,
+          verified_at: null,
+        })
+        .eq("id", primaryDeposit.id);
+      if (depositError) throw depositError;
+
+      // Clean up duplicates if any exist
+      if (duplicateIds.length > 0) {
+        await context.supabase
+          .from("bookkeeping_cash_deposits")
+          .delete()
+          .in("id", duplicateIds);
+      }
+    } else {
+      const { error: depositError } = await context.supabase
+        .from("bookkeeping_cash_deposits")
+        .insert({
+          shift_id: snapshot.shiftId,
+          staff_id: context.staff.id,
+          envelope_number: envelopeNumber,
+          expected_amount: cashToDeposit,
+          submitted_amount: cashToDeposit,
+          status: "submitted",
+        });
+      if (depositError) throw depositError;
     }
 
     await context.supabase.from("activity_logs").insert({
       user_id: submitter.id,
       user_name: submitter.name,
       user_role: submitter.role,
-      action: existingClosing?.id ? "UPDATE" : "CREATE",
+      action: "UPDATE",
       action_category: "FINANCIAL",
-      action_description: submitter.role !== "staff"
-        ? `${submitter.role} submitted shift cash count for ${context.staff.name}`
-        : `Submitted shift cash count for ${snapshot.shiftName}`,
+      action_description: `Staff ${context.staff.name} closed shift ${snapshot.shiftName} with envelope ${envelopeNumber}`,
       resource_type: "Bookkeeping Shift Closing",
       resource_id: closingId || snapshot.shiftId,
       resource_name: snapshot.shiftName,
       previous_value: null,
-      new_value: { businessDate, shiftId: snapshot.shiftId, cashCounted, cashDifference, status },
+      new_value: { businessDate, shiftId: snapshot.shiftId, cashCounted, cashDifference, status, envelopeNumber },
       changes_summary: [`Staff shift closing submitted as ${status}`],
       severity: status === "submitted" ? "info" : "warning",
-      tags: ["bookkeeping", "staff-end-shift", "cash-count"],
+      tags: ["bookkeeping", "staff-end-shift", "cash-count", "deposit"],
       notes: notes || null,
       is_reversible: false,
       ip_address: "0.0.0.0",
@@ -716,22 +1067,27 @@ export async function POST(request: NextRequest) {
       data: {
         status,
         cashExpected: snapshot.cashExpected,
-        openingCash,
+        openingCash: openingCashActual,
         expectedDrawerCash,
         cashCounted,
         cashDifference,
         cashToDeposit,
-        closingFloat,
+        closingFloat: actualClosingFloat,
         closingId,
+        envelopeNumber,
       },
     });
+
   } catch (error) {
     console.error("Failed to submit staff shift closing:", error);
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : (error && typeof error === "object" && "message" in error)
+        ? String((error as any).message)
+        : "Shift closing could not be submitted.";
     return NextResponse.json(
       {
-        error: error instanceof Error
-          ? error.message
-          : "Shift closing could not be submitted.",
+        error: errorMessage,
       },
       { status: 500 },
     );

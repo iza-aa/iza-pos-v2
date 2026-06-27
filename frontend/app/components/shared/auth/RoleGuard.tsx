@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuth, cleanupDeprecatedStorage, storeInternalIdentity } from "@/lib/utils";
+import { useLanguage } from "@/app/components/shared/i18n";
 
 type UserRole = "staff" | "manager" | "owner";
 
@@ -41,12 +42,13 @@ const canAccessRoleArea = (currentRole: UserRole, requiredRole: UserRole) => {
 };
 
 function RoleGuardLoading() {
+  const { t } = useLanguage();
   return (
-    <main className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-gray-100 px-6">
+    <main className="flex min-h-screen items-center justify-center bg-gray-100 px-6">
       <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 text-center">
         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
-        <p className="text-sm font-medium text-gray-900">Memeriksa akses...</p>
-        <p className="mt-1 text-xs text-gray-500">Mohon tunggu sebentar.</p>
+        <p className="text-sm font-medium text-gray-900">{t("guard.checking")}</p>
+        <p className="mt-1 text-xs text-gray-500">{t("guard.pleaseWait")}</p>
       </div>
     </main>
   );

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   // Cari staff dengan role owner
   const { data: staff, error } = await supabase
     .from("staff")
-    .select("id, name, email, password_hash, role, status, staff_code, staff_type")
+    .select("id, name, email, password_hash, role, status, staff_code")
     .eq("email", email)
     .eq("role", "owner")
     .eq("status", "active")
@@ -54,14 +54,13 @@ export async function POST(req: NextRequest) {
     user_name: staff.name,
     user_role: staff.role,
     staff_code: staff.staff_code ?? "",
-    staff_type: staff.staff_type ?? "",
   });
   await setInternalSessionCookie(response, {
     id: staff.id,
     name: staff.name,
     role: "owner",
     staffCode: staff.staff_code ?? "",
-    staffType: staff.staff_type ?? null,
+    staffType: null,
   }, rememberMe);
   return response;
 }

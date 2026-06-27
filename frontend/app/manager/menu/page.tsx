@@ -374,42 +374,40 @@ export default function MenuPage() {
   const handleSaveNewCategory = async (
     name: string,
     icon: string,
-    type: string,
   ) => {
     if (editingCategory) {
       // Update existing category
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("categories")
         .update({
           name: name,
           icon: icon,
-          type: type,
         })
         .eq("id", editingCategory.id)
         .select()
         .single();
 
-      if (data) {
-        // Update local state
-        setCategories((prev) =>
-          prev.map((cat) =>
-            cat.id === editingCategory.id
-              ? { ...cat, name: data.name, icon: data.icon, type: data.type }
-              : cat,
-          ),
-        );
-        setShowAddCategoryModal(false);
-        setEditingCategory(null);
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to update category");
       }
+
+      // Update local state
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === editingCategory.id
+            ? { ...cat, name: data.name, icon: data.icon }
+            : cat,
+        ),
+      );
+      setEditingCategory(null);
     } else {
       // Save new category to Supabase
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("categories")
         .insert([
           {
             name: name,
             icon: icon,
-            type: type,
             sort_order: categories.length,
             is_active: true,
           },
@@ -417,20 +415,20 @@ export default function MenuPage() {
         .select()
         .single();
 
-      if (data) {
-        // Add to local state
-        setCategories((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            name: data.name,
-            icon: data.icon,
-            type: data.type,
-            count: 0,
-          },
-        ]);
-        setShowAddCategoryModal(false);
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to create category");
       }
+
+      // Add to local state
+      setCategories((prev) => [
+        ...prev,
+        {
+          id: data.id,
+          name: data.name,
+          icon: data.icon,
+          count: 0,
+        },
+      ]);
     }
   };
 
@@ -1000,7 +998,6 @@ export default function MenuPage() {
                 id: editingCategory.id,
                 name: editingCategory.name,
                 icon: editingCategory.icon ?? "Coffee",
-                type: editingCategory.type ?? "food",
               }
             : null
         }

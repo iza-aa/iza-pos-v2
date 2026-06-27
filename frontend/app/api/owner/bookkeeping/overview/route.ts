@@ -68,16 +68,21 @@ type ShiftClosingDatabaseRow = {
   discount_total: number | string;
   net_sales: number | string;
   opening_cash?: number | string | null;
+  opening_cash_actual?: number | string | null;
+  opening_variance?: number | string | null;
+  opening_variance_note?: string | null;
   cash_expected: number | string;
   expected_drawer_cash?: number | string | null;
   cash_counted?: number | string | null;
   cash_difference?: number | string | null;
   cash_to_deposit?: number | string | null;
   closing_float?: number | string | null;
+  actual_closing_float?: number | string | null;
   float_policy?: ShiftClosingRow["floatPolicy"] | null;
   non_cash_sales: number | string;
   cancelled_count: number;
   status: ShiftClosingRow["status"];
+  snapshot_json?: Record<string, unknown> | null;
 };
 
 type BookkeepingReportRow = {
@@ -199,10 +204,17 @@ const mergeShiftClosings = (
 
     if (existing) {
       const cashCounted = row.cashCounted;
-      const expectedDrawerCash = row.openingCash + existing.cashExpected;
-      const cashDifference = cashCounted === null || cashCounted === undefined
-        ? null
-        : cashCounted - expectedDrawerCash;
+      // Trust the database stored expectedDrawerCash, difference, and deposit when the shift closing has been submitted
+      const expectedDrawerCash = row.status !== "draft" && row.status !== "open"
+        ? row.expectedDrawerCash
+        : (row.openingCash + existing.cashExpected);
+      const cashDifference = row.status !== "draft" && row.status !== "open"
+        ? row.cashDifference
+        : (cashCounted === null || cashCounted === undefined ? null : cashCounted - expectedDrawerCash);
+      const cashToDeposit = row.status !== "draft" && row.status !== "open"
+        ? row.cashToDeposit
+        : Math.max((cashCounted ?? expectedDrawerCash) - row.closingFloat, 0);
+
       const status = row.status === "needs_review" && cashDifference === 0
         ? "submitted"
         : row.status;
@@ -210,16 +222,21 @@ const mergeShiftClosings = (
       merged.set(key, {
         ...existing,
         openingCash: row.openingCash,
+        openingCashActual: row.openingCashActual,
+        openingVariance: row.openingVariance,
+        openingVarianceNote: row.openingVarianceNote,
+        cashIn: row.cashIn,
+        cashOut: row.cashOut,
         cashCounted,
         closingFloat: row.closingFloat,
+        actualClosingFloat: row.actualClosingFloat,
         floatPolicy: row.floatPolicy,
         expectedDrawerCash,
         cashDifference,
-        cashToDeposit: Math.max(
-          (cashCounted ?? expectedDrawerCash) - row.closingFloat,
-          0,
-        ),
+        cashToDeposit,
         status,
+        snapshotJson: row.snapshotJson,
+        deposit: row.deposit,
       });
       return;
     }
@@ -302,6 +319,48 @@ async function loadStoredBookkeepingRows({
 
   if (shiftClosingsResult.error) throw shiftClosingsResult.error;
 
+  const shiftIds = (shiftClosingsResult.data || []).map((row) => row.shift_id).filter(Boolean);
+
+  type CashDepositRow = {
+    id: string;
+    shift_id: string;
+    envelope_number: string;
+    expected_amount: number | string;
+    submitted_amount: number | string;
+    received_amount: number | string | null;
+    status: string;
+    manager_id?: string | null;
+    manager_notes?: string | null;
+    verified_at?: string | null;
+    staff?: { name: string } | null;
+    manager?: { name: string } | null;
+  };
+
+  type CashMovementRow = {
+    shift_id: string;
+    type: string;
+    amount: number | string;
+  };
+
+  let deposits: CashDepositRow[] = [];
+  let cashMovements: CashMovementRow[] = [];
+  if (shiftIds.length > 0) {
+    const [depResult, movResult] = await Promise.all([
+      supabase
+        .from("bookkeeping_cash_deposits")
+        .select("*, staff:staff_id(name), manager:manager_id(name)")
+        .in("shift_id", shiftIds),
+      supabase
+        .from("bookkeeping_cash_movements")
+        .select("shift_id, type, amount")
+        .in("shift_id", shiftIds),
+    ]);
+    if (depResult.error) throw depResult.error;
+    if (movResult.error) throw movResult.error;
+    deposits = depResult.data || [];
+    cashMovements = movResult.data || [];
+  }
+
   const dailyClosingResult = await supabase
     .from("bookkeeping_daily_closings")
     .select("*")
@@ -368,31 +427,60 @@ async function loadStoredBookkeepingRows({
         status: row.status === "ignored_with_note" ? "acknowledged" : row.status,
       })),
     ],
-    shiftClosings: ((shiftClosingsResult.data || []) as ShiftClosingDatabaseRow[]).map((row): ShiftClosingRow => ({
-      id: row.shift_id || row.id,
-      shiftName: row.shift_name,
-      businessDate: row.business_date,
-      openedAt: row.opened_at || null,
-      closedAt: row.closed_at || null,
-      grossSales: toNumber(row.gross_sales),
-      discountTotal: toNumber(row.discount_total),
-      netSales: toNumber(row.net_sales),
-      openingCash: toNumber(row.opening_cash),
-      cashExpected: toNumber(row.cash_expected),
-      expectedDrawerCash: toNumber(row.expected_drawer_cash ?? row.cash_expected),
-      cashCounted: row.cash_counted === null || row.cash_counted === undefined
-        ? null
-        : toNumber(row.cash_counted),
-      cashDifference: row.cash_difference === null || row.cash_difference === undefined
-        ? null
-        : toNumber(row.cash_difference),
-      cashToDeposit: toNumber(row.cash_to_deposit ?? row.cash_expected),
-      closingFloat: toNumber(row.closing_float),
-      floatPolicy: row.float_policy || "carry_float",
-      nonCashSales: toNumber(row.non_cash_sales),
-      cancelledCount: row.cancelled_count,
-      status: row.status,
-    })),
+    shiftClosings: ((shiftClosingsResult.data || []) as ShiftClosingDatabaseRow[]).map((row): ShiftClosingRow => {
+      const deposit = deposits.find((d) => d.shift_id === row.shift_id);
+      const shiftMovements = cashMovements.filter((m) => m.shift_id === row.shift_id);
+      let cashIn = 0;
+      let cashOut = 0;
+      for (const m of shiftMovements) {
+        if (m.type === "cash_in") cashIn += toNumber(m.amount);
+        else if (m.type === "cash_out") cashOut += toNumber(m.amount);
+      }
+      return {
+        id: row.shift_id || row.id,
+        shiftName: row.shift_name,
+        businessDate: row.business_date,
+        openedAt: row.opened_at || null,
+        closedAt: row.closed_at || null,
+        grossSales: toNumber(row.gross_sales),
+        discountTotal: toNumber(row.discount_total),
+        netSales: toNumber(row.net_sales),
+        openingCash: toNumber(row.opening_cash),
+        openingCashActual: row.opening_cash_actual === null || row.opening_cash_actual === undefined ? null : toNumber(row.opening_cash_actual),
+        openingVariance: row.opening_variance === null || row.opening_variance === undefined ? null : toNumber(row.opening_variance),
+        openingVarianceNote: row.opening_variance_note || null,
+        cashIn,
+        cashOut,
+        cashExpected: toNumber(row.cash_expected),
+        expectedDrawerCash: toNumber(row.expected_drawer_cash ?? row.cash_expected),
+        cashCounted: row.cash_counted === null || row.cash_counted === undefined
+          ? null
+          : toNumber(row.cash_counted),
+        cashDifference: row.cash_difference === null || row.cash_difference === undefined
+          ? null
+          : toNumber(row.cash_difference),
+        cashToDeposit: toNumber(row.cash_to_deposit ?? row.cash_expected),
+        closingFloat: toNumber(row.closing_float),
+        actualClosingFloat: row.actual_closing_float === null || row.actual_closing_float === undefined ? null : toNumber(row.actual_closing_float),
+        floatPolicy: row.float_policy || "carry_float",
+        nonCashSales: toNumber(row.non_cash_sales),
+        cancelledCount: row.cancelled_count,
+        status: row.status,
+        snapshotJson: row.snapshot_json || null,
+        deposit: deposit ? {
+          id: deposit.id,
+          envelopeNumber: deposit.envelope_number,
+          expectedAmount: toNumber(deposit.expected_amount),
+          submittedAmount: toNumber(deposit.submitted_amount),
+          receivedAmount: deposit.received_amount !== null && deposit.received_amount !== undefined ? toNumber(deposit.received_amount) : null,
+          status: deposit.status,
+          managerId: deposit.manager_id || null,
+          managerName: deposit.manager?.name || null,
+          managerNotes: deposit.manager_notes || null,
+          verifiedAt: deposit.verified_at || null,
+        } : null,
+      };
+    }),
     reports: ((reportsResult.data || []) as BookkeepingReportRow[]).map((row): BookkeepingReport => ({
       id: row.id,
       name: "Bookkeeping Summary Report",
@@ -487,9 +575,29 @@ export async function GET(request: NextRequest) {
 
     data.shiftClosings = mergeShiftClosings(data.shiftClosings, storedRows.shiftClosings);
     data.summary.openingCashTotal = data.shiftClosings.reduce((sum, row) => sum + row.openingCash, 0);
-    data.summary.expectedDrawerCash = data.shiftClosings.reduce((sum, row) => sum + row.expectedDrawerCash, 0);
+    const sortedShifts = [...data.shiftClosings].sort((a, b) =>
+      (a.openedAt ?? `${a.businessDate}T00:00:00`).localeCompare(b.openedAt ?? `${b.businessDate}T00:00:00`)
+    );
+    const firstShiftOpeningCash = sortedShifts.length > 0 ? (sortedShifts[0].openingCashActual ?? sortedShifts[0].openingCash) : 0;
+    const totalCashSales = data.shiftClosings.reduce((sum, row) => sum + row.cashExpected, 0);
+    const totalCashIn = data.shiftClosings.reduce((sum, row) => sum + row.cashIn, 0);
+    const totalCashOut = data.shiftClosings.reduce((sum, row) => sum + row.cashOut, 0);
+    data.summary.expectedDrawerCash = firstShiftOpeningCash + totalCashSales + totalCashIn - totalCashOut;
     data.summary.cashToDeposit = data.shiftClosings.reduce((sum, row) => sum + row.cashToDeposit, 0);
-    data.summary.closingFloatTotal = data.shiftClosings.reduce((sum, row) => sum + row.closingFloat, 0);
+    // Closing float retained = the physical cash actually left in the drawer at the
+    // end of the day, carried over to the next day. Earlier shifts hand their float to
+    // the next shift as opening cash, so only the LAST shift's closing float remains in
+    // the drawer. Summing every shift double-counts floats that were already passed on.
+    const endDateShifts = data.shiftClosings.filter((row) => row.businessDate === dateRange.endDate);
+    const sortedEndDateShifts = [...endDateShifts].sort((a, b) =>
+      (a.closedAt ?? a.openedAt ?? `${a.businessDate}T00:00:00`).localeCompare(
+        b.closedAt ?? b.openedAt ?? `${b.businessDate}T00:00:00`,
+      ),
+    );
+    const lastShift = sortedEndDateShifts[sortedEndDateShifts.length - 1];
+    data.summary.closingFloatTotal = lastShift
+      ? Math.max(0, lastShift.actualClosingFloat ?? lastShift.closingFloat)
+      : 0;
 
     if (storedRows.reports.length > 0) {
       data.reports = storedRows.reports;

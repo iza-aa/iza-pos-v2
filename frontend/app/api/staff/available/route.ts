@@ -74,7 +74,6 @@ export async function GET(request: NextRequest) {
           name,
           staff_code,
           role,
-          staff_type,
           status,
           profile_picture,
           staff_positions (

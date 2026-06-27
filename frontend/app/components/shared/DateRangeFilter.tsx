@@ -85,7 +85,7 @@ export default function DateRangeFilter({
   });
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-gray-200 bg-white p-2 px-4 shadow-sm">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="text-sm font-bold text-gray-950">{t("dateRange.title")}</p>
@@ -109,11 +109,10 @@ export default function DateRangeFilter({
                   key={preset.id}
                   type="button"
                   onClick={() => onChange(presetValue)}
-                  className={`flex min-h-12 flex-col items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
-                    active
+                  className={`flex min-h-10 flex-col items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${active
                       ? "border-gray-900 bg-gray-900 text-white"
                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   <span>{t(preset.labelKey)}</span>
                 </button>

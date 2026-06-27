@@ -27,7 +27,7 @@ export default function OrderSourceBadge({
 
   if (source === 'pos') {
     return (
-      <span className={`inline-flex items-center gap-1 ${sizeClasses[size]} rounded-md bg-gray-200 text-gray-800 font-medium border border-gray-300`}>
+      <span className={`inline-flex items-center gap-1 ${sizeClasses[size]} rounded-full bg-gray-200 text-gray-800 font-medium border border-gray-300`}>
         <ComputerDesktopIcon className={iconSize} />
         {showLabel && <span>POS</span>}
       </span>
@@ -36,7 +36,7 @@ export default function OrderSourceBadge({
 
   if (source === 'qr') {
     return (
-      <span className={`inline-flex items-center gap-1 ${sizeClasses[size]} rounded-md bg-gray-800 text-white font-medium`}>
+      <span className={`inline-flex items-center gap-1 ${sizeClasses[size]} rounded-full bg-gray-800 text-white font-medium`}>
         <QrCodeIcon className={iconSize} />
         {showLabel && <span>QR</span>}
       </span>

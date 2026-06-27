@@ -1,5 +1,6 @@
 import type { DateRangeValue } from "@/app/components/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getIsoWeekdayFromDateString } from "@/lib/staff/availability";
 import { supabase } from "@/lib/config/supabaseClient";
 import { convertQuantity } from "@/lib/utils/unitConversion";
 import {
@@ -48,6 +49,7 @@ type OrderRow = {
   correction_id?: string | null;
   correction_status?: string | null;
   correction_physical_status?: string | null;
+  created_by?: string | null;
   correction_note?: string | null;
 };
 
@@ -234,19 +236,25 @@ const buildCashDrawerFields = ({
   closingFloat = 0,
   floatPolicy = "carry_float" as const,
   cashCounted = null,
+  cashIn = 0,
+  cashOut = 0,
 }: {
   cashSales: number;
   openingCash?: number;
   closingFloat?: number;
   floatPolicy?: ShiftClosingRow["floatPolicy"];
   cashCounted?: number | null;
+  cashIn?: number;
+  cashOut?: number;
 }) => {
-  const expectedDrawerCash = openingCash + cashSales;
+  const expectedDrawerCash = openingCash + cashSales + cashIn - cashOut;
   const cashToDeposit = Math.max((cashCounted ?? expectedDrawerCash) - closingFloat, 0);
   const cashDifference = cashCounted === null ? null : cashCounted - expectedDrawerCash;
 
   return {
     openingCash,
+    cashIn,
+    cashOut,
     cashExpected: cashSales,
     expectedDrawerCash,
     cashCounted,
@@ -923,10 +931,24 @@ const buildExceptions = ({
   return exceptions;
 };
 
+type DailyAssignment = {
+  staff_id: string;
+  work_date: string;
+  shift_id: string;
+};
+
+type WeeklyAssignment = {
+  staff_id: string;
+  weekday: number;
+  shift_id: string;
+};
+
 export const buildShiftClosingsFromOrders = (
   orders: OrderRow[],
   dateRange: DateRangeValue,
   shifts: ShiftRow[] = [],
+  dailyAssignments: DailyAssignment[] = [],
+  weeklyAssignments: WeeklyAssignment[] = [],
 ): ShiftClosingRow[] => {
   const validOrders = orders.filter(isValidOrder);
   const cancelledOrders = orders.filter(isCancelledOrder);
@@ -938,6 +960,32 @@ export const buildShiftClosingsFromOrders = (
     const cancelledOrdersByShift = new Map<string, OrderRow[]>();
 
     const matchShift = (order: OrderRow) => {
+      // 1. Try to find the shift based on creator assignment
+      if (order.created_by) {
+        const orderDate = formatBusinessDate(order.created_at);
+        if (orderDate) {
+          // Check daily override assignment first
+          const dailyAss = dailyAssignments.find(
+            (a) => a.staff_id === order.created_by && a.work_date === orderDate
+          );
+          if (dailyAss) {
+            const matchedShift = activeShifts.find((s) => s.id === dailyAss.shift_id);
+            if (matchedShift) return matchedShift;
+          }
+          
+          // Check weekly recurring assignment second
+          const weekday = getIsoWeekdayFromDateString(orderDate);
+          const weeklyAss = weeklyAssignments.find(
+            (a) => a.staff_id === order.created_by && a.weekday === weekday
+          );
+          if (weeklyAss) {
+            const matchedShift = activeShifts.find((s) => s.id === weeklyAss.shift_id);
+            if (matchedShift) return matchedShift;
+          }
+        }
+      }
+
+      // 2. Fallback to original time-based matching
       return activeShifts.find((shift) => isOrderInShift(order, shift));
     };
 
@@ -1082,6 +1130,8 @@ export async function loadBookkeepingDashboardDataFromClient(
     shiftsResult,
     orderCorrectionsResult,
     kitchenMovementsResult,
+    dailyAssignmentsResult,
+    weeklyAssignmentsResult,
   ] =
     await Promise.all([
       db
@@ -1098,6 +1148,7 @@ export async function loadBookkeepingDashboardDataFromClient(
           discount,
           tax,
           total,
+          created_by,
           order_items (
             id,
             product_id,
@@ -1150,6 +1201,16 @@ export async function loadBookkeepingDashboardDataFromClient(
         .gte("business_date", dateRange.startDate)
         .lte("business_date", dateRange.endDate)
         .order("created_at", { ascending: false }),
+      db
+        .from("staff_shift_daily_assignments")
+        .select("staff_id, shift_id, work_date")
+        .in("status", ["assigned", "completed"])
+        .gte("work_date", dateRange.startDate)
+        .lte("work_date", dateRange.endDate),
+      db
+        .from("staff_shift_weekly_assignments")
+        .select("staff_id, shift_id, weekday")
+        .eq("status", "assigned"),
     ]);
 
   if (ordersResult.error) throw ordersResult.error;
@@ -1165,6 +1226,8 @@ export async function loadBookkeepingDashboardDataFromClient(
   if (kitchenMovementsResult.error && !isMissingKitchenStationTableError(kitchenMovementsResult.error)) {
     throw kitchenMovementsResult.error;
   }
+  if (dailyAssignmentsResult.error) throw dailyAssignmentsResult.error;
+  if (weeklyAssignmentsResult.error) throw weeklyAssignmentsResult.error;
 
   const orders = applyOrderCorrections(
     (ordersResult.data || []) as OrderRow[],
@@ -1309,7 +1372,13 @@ export async function loadBookkeepingDashboardDataFromClient(
     exceptions,
     reports: [],
     menuMargins,
-    shiftClosings: buildShiftClosingsFromOrders(orders, dateRange, shifts),
+    shiftClosings: buildShiftClosingsFromOrders(
+      orders,
+      dateRange,
+      shifts,
+      dailyAssignmentsResult.data || [],
+      weeklyAssignmentsResult.data || [],
+    ),
     dailyClosing: null,
   };
 }

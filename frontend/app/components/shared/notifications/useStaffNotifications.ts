@@ -360,42 +360,6 @@ export default function useStaffNotifications(enabled: boolean, rawStaffType?: s
         }
       }
 
-      if (staffType === "barista") {
-        const drinkItems = orderItems.filter((item) => {
-          const product = getRelationObject(item.products);
-          return product?.type === "drink" && !item.served;
-        });
-
-        if (drinkItems.length > 0) {
-          next.push({
-            id: `staff-barista-drink-queue-${today}-${drinkItems.length}`,
-            title: "Drink queue is waiting",
-            message: `${drinkItems.length} drink item(s) still need preparation or serving.`,
-            severity: drinkItems.length >= 8 ? "warning" : "info",
-            source: "Order",
-            createdAt: drinkItems[0].created_at || now,
-            actionHref: "/staff/order",
-          });
-        }
-      }
-
-      if (staffType === "waiter") {
-        const readyOrders = orders.filter((order) =>
-          ["served", "partially_served", "partially-served"].includes(normalizeStatus(order.status)),
-        );
-
-        if (readyOrders.length > 0) {
-          next.push({
-            id: `staff-waiter-serving-${today}-${readyOrders.length}`,
-            title: "Orders may need serving",
-            message: `${readyOrders.length} order(s) are served or partially served. Check tables and handoff.`,
-            severity: "info",
-            source: "Order",
-            createdAt: readyOrders[0].created_at || now,
-            actionHref: "/staff/order",
-          });
-        }
-      }
 
       if (staffType === "cashier") {
         const unpaidOrders = orders.filter((order) => normalizeStatus(order.payment_status).includes("unpaid"));

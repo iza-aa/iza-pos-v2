@@ -39,6 +39,7 @@ type StaffRecord = {
   status: string;
   shift_id?: string | null;
   shift?: ShiftRecord | null;
+  staff_positions?: Array<{ id: string; position: string; is_primary: boolean; is_active: boolean }> | null;
 };
 
 type AttendanceRecord = {
@@ -81,12 +82,36 @@ type ShiftClosingData = {
     startTime?: string | null;
     endTime?: string | null;
   };
+  snapshot?: {
+    openingCash: number;
+    grossSales: number;
+    netSales: number;
+    cashExpected: number | null;
+    expectedDrawerCash: number | null;
+    cashToDeposit: number | null;
+    closingFloat: number;
+    floatPolicy: string;
+    totalCashIn: number;
+    totalCashOut: number;
+    totalCashDrop: number;
+  } | null;
   closing: {
     id: string;
     status: string;
+    grossSales: number;
+    netSales: number;
+    cashExpected: number | null;
     cashCounted: number | null;
     cashDifference: number | null;
     notes?: string | null;
+    openingCash?: number | null;
+    openingCashActual?: number | null;
+    openingVariance?: number | null;
+    openingVarianceNote?: string | null;
+    actualClosingFloat?: number | null;
+    expectedDrawerCash?: number | null;
+    cashToDeposit?: number | null;
+    snapshot_json?: any | null;
   } | null;
 };
 
@@ -150,6 +175,29 @@ const toSafeString = (value: unknown) => {
 
 const toNullableString = (value: unknown) => {
   return typeof value === "string" && value.trim() ? value : null;
+};
+
+const normalizeStaffPosition = (value: unknown) => {
+  const position =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    id: toSafeString(position.id),
+    position: toSafeString(position.position),
+    is_primary: Boolean(position.is_primary),
+    is_active: Boolean(position.is_active),
+  };
+};
+
+const getUnknownErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message);
+  }
+  if (typeof error === "string") return error;
+  return "Failed to submit attendance.";
 };
 
 const getSingleRelation = <T extends Record<string, unknown>>(
@@ -520,6 +568,16 @@ export default function AttendancePage() {
   const [cashCounted, setCashCounted] = useState("");
   const [closingNotes, setClosingNotes] = useState("");
 
+  const [openingCashActual, setOpeningCashActual] = useState("");
+  const [openingNotes, setOpeningNotes] = useState("");
+  const [actualClosingFloat, setActualClosingFloat] = useState("0");
+  const [envelopeNumber, setEnvelopeNumber] = useState("");
+  const [isOpeningShiftSubmitting, setIsOpeningShiftSubmitting] = useState(false);
+  const [isCashMovementSubmitting, setIsCashMovementSubmitting] = useState(false);
+  const [movementForm, setMovementForm] = useState({ type: "cash_in", amount: "", reason: "" });
+  const [movementsList, setMovementsList] = useState<any[]>([]);
+  const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
+
   const canUseEndShift = canAccessEndShift({
     role: currentUser?.role,
     positions: currentUser?.positions,
@@ -538,11 +596,19 @@ export default function AttendancePage() {
   const isCompletedToday = todayAttendance && todayAttendance.clock_out_at;
   const canSubmitShiftClosing = useMemo(() => {
     if (!shiftClosingData || shiftClosingSubmitting) return false;
-    if (shiftClosingData.closing?.status === "closed") return false;
+    if (shiftClosingData.closing?.status === "closed" || shiftClosingData.closing?.status === "submitted") return false;
 
-    const parsed = Number(cashCounted);
-    return cashCounted !== "" && Number.isFinite(parsed) && parsed >= 0;
-  }, [cashCounted, shiftClosingData, shiftClosingSubmitting]);
+    const parsedCash = Number(cashCounted);
+    const parsedFloat = Number(actualClosingFloat);
+    return (
+      cashCounted !== "" &&
+      Number.isFinite(parsedCash) &&
+      parsedCash >= 0 &&
+      actualClosingFloat !== "" &&
+      Number.isFinite(parsedFloat) &&
+      parsedFloat >= 0
+    );
+  }, [cashCounted, actualClosingFloat, shiftClosingData, shiftClosingSubmitting]);
 
   const currentWorkingDuration = useMemo(() => {
     if (!todayAttendance?.clock_in_at) return null;
@@ -576,7 +642,7 @@ export default function AttendancePage() {
     graceTimeToday.setHours(graceHour, graceMinute, 0, 0);
 
     if (currentTime > graceTimeToday) {
-      return `⚠️ You are past the Clock In grace period (${formatTime(staff.shift.check_in_grace_until)}). Your attendance will be marked as Late.`;
+      return `You are past the Clock In grace period (${formatTime(staff.shift.check_in_grace_until)}). Your attendance will be marked as Late.`;
     }
     return null;
   }, [canClockIn, staff, currentTime]);
@@ -584,7 +650,7 @@ export default function AttendancePage() {
   const scheduleWarning = useMemo(() => {
     if (!canClockIn) return null;
     if (!staff?.shift) {
-      return "⚠️ You have no shift scheduled for today. Clocking in will be recorded as an unscheduled override. Please contact your manager.";
+      return "You have no shift scheduled for today. Clocking in will be recorded as an unscheduled override. Please contact your manager.";
     }
     return null;
   }, [canClockIn, staff]);
@@ -648,7 +714,7 @@ export default function AttendancePage() {
       // 1. Fetch staff basic details
       const staffResult = await supabase
         .from("staff")
-        .select("id, staff_code, name, email, phone, role, staff_type, status")
+        .select("id, staff_code, name, email, phone, role, status, staff_positions(id, position, is_primary, is_active)")
         .eq("id", userId)
         .maybeSingle();
 
@@ -732,10 +798,13 @@ export default function AttendancePage() {
           email: toNullableString(rawStaff.email),
           phone: toNullableString(rawStaff.phone),
           role: toSafeString(rawStaff.role),
-          staff_type: toNullableString(rawStaff.staff_type),
+          staff_type: null,
           status: toSafeString(rawStaff.status),
           shift_id: resolvedShiftId,
           shift: resolvedShift,
+          staff_positions: Array.isArray(rawStaff.staff_positions)
+            ? rawStaff.staff_positions.map(normalizeStaffPosition)
+            : [],
         };
       }
 
@@ -880,7 +949,7 @@ export default function AttendancePage() {
         });
 
         const result = (await response.json().catch(() => ({}))) as {
-          data?: ShiftClosingData;
+          data?: any;
           error?: string;
         };
 
@@ -896,7 +965,34 @@ export default function AttendancePage() {
             ? ""
             : String(result.data.closing.cashCounted),
         );
-        setClosingNotes(result.data.closing?.notes || "");
+        setClosingNotes("");
+        setOpeningCashActual(
+          result.data.closing?.openingCashActual === null || result.data.closing?.openingCashActual === undefined
+            ? ""
+            : String(result.data.closing.openingCashActual),
+        );
+        setOpeningNotes(result.data.closing?.openingVarianceNote || "");
+        setActualClosingFloat(
+          result.data.closing?.actualClosingFloat === null || result.data.closing?.actualClosingFloat === undefined
+            ? "0"
+            : String(result.data.closing.actualClosingFloat),
+        );
+        setEnvelopeNumber(
+          result.data.envelopeNumber || result.data.closing?.snapshot_json?.envelopeNumber || ""
+        );
+
+        // Fetch movements
+        const responseMovements = await fetch(`/api/staff/bookkeeping/cash-movement?businessDate=${today}`, {
+          headers: {
+            "x-user-id": userId,
+            "x-user-name": currentUser?.name ?? staff?.name ?? "Staff",
+            "x-user-role": "staff",
+          },
+        });
+        const resultMovements = await responseMovements.json().catch(() => ({}));
+        if (responseMovements.ok && resultMovements.data) {
+          setMovementsList(resultMovements.data);
+        }
       } catch (error) {
         console.error("Failed to load shift closing inside attendance:", error);
         setShiftClosingData(null);
@@ -1088,7 +1184,12 @@ export default function AttendancePage() {
       try {
         position = await getCurrentLocation();
       } catch (locationError) {
-        throw new Error(getLocationErrorMessage(locationError));
+        const errorMsg = getLocationErrorMessage(locationError);
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
       }
 
       const latitude = position.coords.latitude;
@@ -1098,25 +1199,43 @@ export default function AttendancePage() {
         : null;
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        throw new Error("Location data is invalid. Enable device location and try again.");
+        const errorMsg = "Location data is invalid. Enable device location and try again.";
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
       }
 
       if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-        throw new Error("Location data is invalid. Enable device location and try again.");
+        const errorMsg = "Location data is invalid. Enable device location and try again.";
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
       }
 
       if (accuracy === null) {
-        throw new Error("Location accuracy is not available. Enable high-accuracy location mode and try again.");
+        const errorMsg = "Location accuracy is not available. Enable high-accuracy location mode and try again.";
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
       }
 
       if (accuracy > MAX_LOCATION_ACCURACY_METERS) {
-        throw new Error(
-          `Location accuracy is not sufficient. Current accuracy is around ${Math.round(accuracy)} m, maximum ${MAX_LOCATION_ACCURACY_METERS} m. Enable GPS/high-accuracy location and scan again.`,
-        );
+        const errorMsg = `Location accuracy is not sufficient. Current accuracy is around ${Math.round(accuracy)} m, maximum ${MAX_LOCATION_ACCURACY_METERS} m. Enable GPS/high-accuracy location and scan again.`;
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
       }
 
       setLocationMessage(
-        `Location was read with accuracy ±${Math.round(accuracy)} m. Processing attendance...`,
+        `Location was read with accuracy ±${Math.round(accuracy)} m. Processing attendance...`
       );
 
       const { data, error } = await supabase.rpc("submit_qr_attendance", {
@@ -1127,7 +1246,14 @@ export default function AttendancePage() {
         p_accuracy: accuracy,
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMsg = error.message || "Failed to submit attendance.";
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
+      }
 
       const result = data as {
         success?: boolean;
@@ -1138,7 +1264,12 @@ export default function AttendancePage() {
       } | null;
 
       if (!result?.success) {
-        throw new Error("Attendance could not be processed. Please scan the latest QR code.");
+        const errorMsg = "Attendance could not be processed. Please scan the latest QR code.";
+        setCodeError(errorMsg);
+        setQrStatus("invalid");
+        showError(errorMsg);
+        setSubmitting(false);
+        return;
       }
 
       setPresenceCode("");
@@ -1197,7 +1328,10 @@ export default function AttendancePage() {
         },
         body: JSON.stringify({
           businessDate: today,
+          action: "close_shift",
           cashCounted,
+          actualClosingFloat,
+          envelopeNumber,
           notes: closingNotes,
         }),
       });
@@ -1207,6 +1341,7 @@ export default function AttendancePage() {
         data?: {
           status: string;
           cashDifference: number;
+          envelopeNumber?: string;
         };
         error?: string;
       };
@@ -1217,8 +1352,9 @@ export default function AttendancePage() {
       }
 
       const difference = Number(result.data?.cashDifference ?? 0);
+      const envelopeNum = result.data?.envelopeNumber || "";
       setShiftClosingNotice(
-        `Shift closing submitted as ${formatClosingStatus(result.data?.status)}. Difference: ${formatCurrency(difference)}.`,
+        `Shift closing submitted successfully. Please write this Envelope Code on your physical envelope: ${envelopeNum}`,
       );
       await loadShiftClosingData({ quiet: true });
     } catch (error) {
@@ -1229,7 +1365,104 @@ export default function AttendancePage() {
     }
   };
 
+  const handleShiftOpeningSubmit = async () => {
+    if (!userId || currentUser?.role !== "staff") {
+      setShiftClosingError("Staff access is required.");
+      return;
+    }
 
+    setIsOpeningShiftSubmitting(true);
+    setShiftClosingError("");
+    setShiftClosingNotice("");
+
+    try {
+      const response = await fetch("/api/staff/bookkeeping/shift-closing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+          "x-user-name": currentUser?.name ?? staff?.name ?? "Staff",
+          "x-user-role": "staff",
+        },
+        body: JSON.stringify({
+          businessDate: today,
+          action: "open_shift",
+          openingCashActual,
+          notes: openingNotes,
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: {
+          status: string;
+          openingVariance: number;
+        };
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        setShiftClosingError(result.error || "Shift opening could not be processed.");
+        return;
+      }
+
+      setShiftClosingNotice(
+        `Shift opened successfully. Opening Variance: ${formatCurrency(Number(result.data?.openingVariance ?? 0))}.`
+      );
+      await loadShiftClosingData({ quiet: true });
+    } catch (error) {
+      console.error("Failed to open shift:", error);
+      setShiftClosingError(error instanceof Error ? error.message : "Shift opening could not be processed.");
+    } finally {
+      setIsOpeningShiftSubmitting(false);
+    }
+  };
+
+  const handleCashMovementSubmit = async () => {
+    if (!userId || currentUser?.role !== "staff") {
+      setShiftClosingError("Staff access is required.");
+      return;
+    }
+
+    setIsCashMovementSubmitting(true);
+    setShiftClosingError("");
+    setShiftClosingNotice("");
+
+    try {
+      const response = await fetch("/api/staff/bookkeeping/cash-movement", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+          "x-user-name": currentUser?.name ?? staff?.name ?? "Staff",
+          "x-user-role": "staff",
+        },
+        body: JSON.stringify({
+          businessDate: today,
+          type: movementForm.type,
+          amount: movementForm.amount,
+          reason: movementForm.reason,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        setShiftClosingError(result.error || "Cash movement could not be recorded.");
+        return;
+      }
+
+      setShiftClosingNotice("Cash movement recorded successfully.");
+      setMovementForm({ type: "cash_in", amount: "", reason: "" });
+      setCashMovementModalOpen(false);
+      await loadShiftClosingData({ quiet: true });
+    } catch (error) {
+      console.error("Failed to record cash movement:", error);
+      setShiftClosingError(error instanceof Error ? error.message : "Cash movement could not be recorded.");
+    } finally {
+      setIsCashMovementSubmitting(false);
+    }
+  };
 
   const renderMobileTabset = () => (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
@@ -1286,7 +1519,7 @@ export default function AttendancePage() {
             <div className="space-y-1">
               <h2 className="text-2xl font-extrabold text-white tracking-tight">{staff?.name ?? "Staff"}</h2>
               <p className="text-xs text-blue-200/70 font-medium mt-0.5">
-                {staff?.staff_code ?? "-"} / {staff?.staff_type ?? staff?.role ?? "-"}
+                {staff?.staff_code ?? "-"}
               </p>
             </div>
             <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 backdrop-blur-md shrink-0">
@@ -1298,15 +1531,15 @@ export default function AttendancePage() {
 
           {/* Roster & Actions Card */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-5">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div className="flex items-center justify-between ">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Shift Roster</p>
+                <p className="text-sm font-bold uppercase tracking-wider text-gray-600">Shift Roster</p>
                 {staff?.shift ? (
                   <p className="text-sm font-bold text-gray-900 mt-0.5">
                     Working hours: <span className="font-extrabold text-blue-900">{formatTime(staff.shift.start_time)} - {formatTime(staff.shift.end_time)}</span>
                   </p>
                 ) : (
-                  <p className="text-sm font-bold text-rose-600 mt-0.5">No shift assigned today</p>
+                  <p className="text-sm font-bold text-rose-600 mt-0.5"></p>
                 )}
               </div>
               {staff?.shift && (
@@ -1437,7 +1670,7 @@ export default function AttendancePage() {
 
             {/* Grace & Schedule Warnings */}
             {(checkInWarning || scheduleWarning) && (
-              <div className="space-y-2 border-t border-gray-100 pt-3">
+              <div className="space-y-2">
                 {checkInWarning && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800 leading-normal">
                     {checkInWarning}
@@ -1476,7 +1709,7 @@ export default function AttendancePage() {
         <div className="lg:col-span-7 space-y-5">
           {/* Today's Presence Details Card */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div className="flex items-center justify-between  pb-3">
               <h3 className="text-sm font-bold text-gray-900">Today&apos;s Attendance</h3>
               <span className="text-xs text-gray-500 font-semibold">
                 {getTodayFullDateString(today)}
@@ -1583,125 +1816,408 @@ export default function AttendancePage() {
     </div>
   );
 
-  const renderShiftClosingPanel = () => (
-    <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-      <section className="space-y-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4 ">
-          <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+  const renderShiftClosingPanel = () => {
+    if (shiftClosingLoading) {
+      return (
+        <div className="rounded-lg border border-dashed border-gray-300 p-5 text-sm font-semibold text-gray-500">
+          Loading shift closing...
+        </div>
+      );
+    }
+
+    if (shiftClosingError && !shiftClosingData) {
+      return (
+        <div className={`rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.warning.badgeClass}`}>
+          {getSetupGuidance(shiftClosingError) || shiftClosingError || "Shift closing is not ready yet."}
+        </div>
+      );
+    }
+
+    if (!shiftClosingData) {
+      return (
+        <div className="rounded-lg border border-dashed border-gray-300 p-5 text-sm font-semibold text-gray-500">
+          No shift data available.
+        </div>
+      );
+    }
+
+    const isShiftOpen = shiftClosingData.closing?.status === "open";
+    const isShiftReopenable =
+      shiftClosingData.closing?.status === "open" ||
+      shiftClosingData.closing?.status === "needs_review" ||
+      shiftClosingData.closing?.status === "reopened";
+
+    // 1. Shift is not open yet (opening phase)
+    if (!shiftClosingData.closing) {
+      const expectedOpening = shiftClosingData.snapshot?.openingCash ?? 300000;
+      return (
+        <div className="grid gap-6 max-w-2xl mx-auto py-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-6 shadow-sm text-left">
             <div>
-              <h2 className="text-lg font-bold text-gray-950">End Shift</h2>
-              <p className="mt-1 text-sm text-gray-500">Blind cash count for today&apos;s assigned shift.</p>
+              <h2 className="text-xl font-bold text-gray-900">Open Shift</h2>
+              <p className="mt-1 text-sm text-gray-500">Confirm the physical cash drawer float to open the shift.</p>
             </div>
-            {shiftClosingData
-              ? renderStatusBadge(
-                  formatClosingStatus(shiftClosingData.closing?.status),
-                  getClosingStatusClassName(shiftClosingData.closing?.status),
-                )
-              : null}
-          </div>
 
-          {shiftClosingLoading ? (
-            <div className="mt-4 rounded-lg border border-dashed border-gray-300 p-5 text-sm font-semibold text-gray-500">
-              Loading shift closing...
-            </div>
-          ) : shiftClosingData ? (
-            <div className="mt-4 space-y-3">
-              <div className={`rounded-lg border p-3 ${OWNER_SEMANTIC_TONES.info.cardClass}`}>
-                <p className="text-sm font-bold text-gray-950">Blind Cash Count</p>
-                <p className="mt-1 text-sm leading-6 text-gray-700">
-                  Count physical cash first. Expected cash is hidden until submit.
-                </p>
+            <div className={`rounded-xl border p-4 bg-blue-50 border-blue-100 ${OWNER_SEMANTIC_TONES.info.cardClass}`}>
+              <div className="flex justify-between items-center text-sm font-semibold">
+                <span className="text-gray-600">Expected Opening Float:</span>
+                <span className="text-base font-bold text-gray-900">{formatCurrency(expectedOpening)}</span>
               </div>
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                This is the actual closing float from the previous shift. Please count the drawer cash to verify it matches.
+              </p>
+            </div>
 
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Actual Cash Counted (IDR)
+                <input
+                  type="number"
+                  min="0"
+                  value={openingCashActual}
+                  onChange={(e) => setOpeningCashActual(e.target.value)}
+                  placeholder="Enter counted cash in drawer"
+                  className="mt-2 h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-base font-bold text-gray-950 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                />
+              </label>
+
+              <label className="block text-sm font-semibold text-gray-700">
+                Opening Notes / Variance Reason
+                <textarea
+                  value={openingNotes}
+                  onChange={(e) => setOpeningNotes(e.target.value)}
+                  placeholder="Explain if the actual cash differs from the expected float."
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                />
+              </label>
+            </div>
+
+            {shiftClosingError && (
+              <div className={`rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+                {shiftClosingError}
+              </div>
+            )}
+
+            {shiftClosingNotice && (
+              <div className={`rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.success.badgeClass}`}>
+                {shiftClosingNotice}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleShiftOpeningSubmit}
+              disabled={isOpeningShiftSubmitting || !openingCashActual}
+              className="flex h-11 w-full items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+            >
+              {isOpeningShiftSubmitting ? "Opening Shift..." : "Open Active Shift"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Active Shift or Submitted Summary
+    const closing = shiftClosingData.closing;
+    const snapshot = shiftClosingData.snapshot;
+
+    return (
+      <div className="grid gap-6 xl:grid-cols-12 text-left">
+        {/* Left Column: Shift Information & Active Movements (Span 7) */}
+        <div className="xl:col-span-7 space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Active Shift Information</h3>
+                <p className="text-xs text-gray-500">Business Date: {shiftClosingData.businessDate}</p>
+              </div>
+              {renderStatusBadge(
+                formatClosingStatus(closing?.status),
+                getClosingStatusClassName(closing?.status),
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               {renderMetricCard(
                 "Shift",
                 shiftClosingData.shift.shiftName,
                 `${formatTime(shiftClosingData.shift.startTime)} - ${formatTime(shiftClosingData.shift.endTime)}`,
               )}
               {renderMetricCard(
-                "Business Date",
-                shiftClosingData.businessDate,
+                "Cashier",
                 shiftClosingData.staff.name,
+                `Code: ${shiftClosingData.staff.staffCode ?? "-"}`,
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-gray-100 pt-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500">Opening Cash</p>
+                <p className="text-sm font-bold text-gray-900 mt-1">{formatCurrency(closing?.openingCashActual ?? closing?.openingCash ?? 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500">Gross Sales</p>
+                <p className="text-sm font-bold text-gray-900 mt-1">{formatCurrency(closing?.grossSales ?? snapshot?.grossSales ?? 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500">Net Sales</p>
+                <p className="text-sm font-bold text-gray-900 mt-1">{formatCurrency(closing?.netSales ?? snapshot?.netSales ?? 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500">Cash Sales (Paid)</p>
+                <p className="text-sm font-bold text-gray-900 mt-1">
+                  {closing?.cashExpected !== null && closing?.cashExpected !== undefined
+                    ? formatCurrency(closing?.cashExpected ?? 0)
+                    : formatCurrency(snapshot?.cashExpected ?? 0)}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Actions (only if shift is active) */}
+            {isShiftOpen && (
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMovementForm({ type: "cash_in", amount: "", reason: "" });
+                    setCashMovementModalOpen(true);
+                  }}
+                  className="flex-1 flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-xs font-bold text-gray-700 transition hover:border-gray-900"
+                >
+                  <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Cash In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMovementForm({ type: "cash_out", amount: "", reason: "" });
+                    setCashMovementModalOpen(true);
+                  }}
+                  className="flex-1 flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-xs font-bold text-gray-700 transition hover:border-gray-900"
+                >
+                  <svg className="h-4 w-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                  </svg>
+                  Cash Out
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Cash Movements Log */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-900">Shift Cash Movements</h3>
+            {movementsList.length === 0 ? (
+              <p className="text-xs text-gray-500 py-4 text-center">No cash movements recorded during this shift.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-400 font-bold">
+                      <th className="py-2">Time</th>
+                      <th className="py-2">Type</th>
+                      <th className="py-2 text-right">Amount</th>
+                      <th className="py-2 pl-4">Reason / Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 font-semibold text-gray-700">
+                    {movementsList.map((m: any) => {
+                      const isPositive = m.type === "cash_in";
+                      const isDrop = m.type === "cash_drop";
+                      return (
+                        <tr key={m.id}>
+                          <td className="py-2.5 text-gray-500">{formatTime(m.created_at?.split("T")[1])}</td>
+                          <td className="py-2.5">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold border ${
+                              isPositive
+                                ? "bg-emerald-50 border-emerald-100 text-emerald-800"
+                                : isDrop
+                                ? "bg-blue-50 border-blue-100 text-blue-800"
+                                : "bg-rose-50 border-rose-100 text-rose-800"
+                            }`}>
+                              {m.type === "cash_in" ? "Cash In" : m.type === "cash_drop" ? "Cash Drop" : "Cash Out"}
+                            </span>
+                          </td>
+                          <td className={`py-2.5 text-right font-bold ${isPositive ? "text-emerald-700" : isDrop ? "text-blue-700" : "text-rose-700"}`}>
+                            {isPositive ? "+" : "-"}{formatCurrency(m.amount)}
+                          </td>
+                          <td className="py-2.5 pl-4 text-gray-500 max-w-xs truncate">{m.reason}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Handover / Submission Panel (Span 5) */}
+        <div className="xl:col-span-5 space-y-6">
+          {/* If the shift is open, show the cash submission input fields */}
+          {isShiftReopenable ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-5 shadow-sm">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Drawer Cash Count Submission</h3>
+                <p className="mt-1 text-xs text-gray-500">Perform blind cash count first. Discrepancies will be flagged for review.</p>
+              </div>
+
+              {closing?.status === "needs_review" && closing?.notes && (
+                <div className="rounded-xl bg-rose-50 border border-rose-100 p-4 space-y-1">
+                  <span className="text-xs font-bold text-rose-800 uppercase tracking-wider block">Manager Notes / Correction:</span>
+                  <p className="text-sm font-semibold text-rose-950 whitespace-pre-wrap">{closing.notes}</p>
+                </div>
+              )}
+
+              {closing?.status === "reopened" && closing?.notes && (
+                <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 space-y-1">
+                  <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Owner Notes / Reopened Reason:</span>
+                  <p className="text-sm font-semibold text-amber-950 whitespace-pre-wrap">{closing.notes}</p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="block text-sm font-semibold text-gray-700">
+                  Envelope Number / Code
+                  <div className="mt-2 flex h-11 w-full items-center rounded-lg border border-amber-200 bg-amber-50/50 px-4 text-sm font-bold text-amber-900 font-mono tracking-wider">
+                    {envelopeNumber || "Generating code..."}
+                  </div>
+                  <p className="mt-1 text-xs text-amber-700 font-semibold">Please write this Code on your physical envelope before submitting.</p>
+                </div>
+
+                <label className="block text-sm font-semibold text-gray-700">
+                  Total Cash Counted in Drawer (IDR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={cashCounted}
+                    onChange={(event) => setCashCounted(event.target.value)}
+                    placeholder="Count and enter physical cash"
+                    className="mt-2 h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-base font-bold text-gray-950 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-gray-700">
+                  Closing Float Left in Drawer (IDR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={actualClosingFloat}
+                    onChange={(event) => setActualClosingFloat(event.target.value)}
+                    placeholder="Amount to keep in drawer for next shift"
+                    className="mt-2 h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-base font-bold text-gray-950 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-1 block">Default standard float is {formatCurrency(300000)}.</span>
+                </label>
+
+                <label className="block text-sm font-semibold text-gray-700">
+                  Shift Notes
+                  <textarea
+                    value={closingNotes}
+                    onChange={(event) => setClosingNotes(event.target.value)}
+                    placeholder="Optional details, required if there is any expected variance."
+                    rows={3}
+                    className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  />
+                </label>
+              </div>
+
+              {shiftClosingError && (
+                <div className={`rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+                  {shiftClosingError}
+                </div>
+              )}
+
+              {shiftClosingNotice && (
+                <div className={`rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.success.badgeClass}`}>
+                  {shiftClosingNotice}
+                </div>
               )}
 
               <button
                 type="button"
-                onClick={() => void loadShiftClosingData({ quiet: true })}
-                disabled={shiftClosingRefreshing || shiftClosingLoading}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleShiftClosingSubmit}
+                disabled={!canSubmitShiftClosing || shiftClosingSubmitting}
+                className="flex h-11 w-full items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
               >
-                <ArrowPathIcon className={`h-4 w-4 ${shiftClosingRefreshing ? "animate-spin" : ""}`} />
-                Refresh Data
+                {shiftClosingSubmitting ? "Submitting Closing..." : "Submit Shift Closing"}
               </button>
             </div>
           ) : (
-            <div className={`mt-4 rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.warning.badgeClass}`}>
-              {getSetupGuidance(shiftClosingError) || shiftClosingError || "Shift closing is not ready yet."}
+            // Shift is ended/submitted (read-only mode)
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-5 shadow-sm">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Closing Summary</h3>
+                <p className="mt-1 text-xs text-gray-500">Submitted shift details (read-only).</p>
+              </div>
+
+              {closing?.snapshot_json?.envelopeNumber && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-center space-y-1.5 shadow-sm">
+                  <span className="text-xs text-amber-800 font-bold uppercase tracking-wider block">Write this code on your physical envelope:</span>
+                  <div className="text-lg font-black text-amber-950 select-all font-mono tracking-wider">
+                    {closing.snapshot_json.envelopeNumber}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3 text-sm font-semibold">
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Envelope Number:</span>
+                  <span className="text-gray-900 font-extrabold">{closing?.snapshot_json?.envelopeNumber || "-"}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Opening Variance:</span>
+                  <span className={`font-extrabold ${(closing?.openingVariance ?? 0) < 0 ? "text-rose-600" : (closing?.openingVariance ?? 0) > 0 ? "text-emerald-600" : "text-gray-900"}`}>
+                    {formatCurrency(closing?.openingVariance ?? 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Opening Variance Note:</span>
+                  <span className="text-gray-900 text-xs italic">{closing?.openingVarianceNote || "-"}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Expected Drawer Cash:</span>
+                  <span className="text-gray-900 font-extrabold">{formatCurrency(closing?.expectedDrawerCash ?? 0)}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Actual Cash Counted:</span>
+                  <span className="text-gray-900 font-extrabold">{formatCurrency(closing?.cashCounted ?? 0)}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Difference:</span>
+                  <span className={`font-extrabold ${(closing?.cashDifference ?? 0) < 0 ? "text-rose-600" : (closing?.cashDifference ?? 0) > 0 ? "text-emerald-600" : "text-gray-900"}`}>
+                    {formatCurrency(closing?.cashDifference ?? 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Closing Float Kept:</span>
+                  <span className="text-gray-900 font-extrabold">{formatCurrency(closing?.actualClosingFloat ?? 0)}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Cash to Deposit:</span>
+                  <span className="text-gray-900 font-extrabold text-blue-700">{formatCurrency(closing?.cashToDeposit ?? 0)}</span>
+                </div>
+                <div className="flex flex-col pt-1">
+                  <span className="text-gray-500">Closing Notes:</span>
+                  <span className="text-gray-900 text-xs mt-1 bg-gray-50 p-2.5 rounded-lg border border-gray-100 italic leading-relaxed">{closing?.notes || "-"}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs font-semibold text-blue-800 leading-normal flex items-start gap-2">
+                <svg className="h-4 w-4 shrink-0 text-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>This shift closing has been submitted. The manager will review the physical cash envelope and verify the final balance.</span>
+              </div>
             </div>
           )}
         </div>
-      </section>
-
-      <section className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white p-4 ">
-        <div>
-          <h2 className="text-base font-bold text-gray-950">Cash Submission</h2>
-          <p className="mt-1 text-sm text-gray-500">Submit counted drawer cash after the shift ends.</p>
-        </div>
-
-        {shiftClosingData ? (
-          <div className="mt-4 flex flex-1 flex-col">
-            <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-700">
-              Cash Counted
-              <input
-                type="number"
-                min="0"
-                value={cashCounted}
-                onChange={(event) => setCashCounted(event.target.value)}
-                placeholder="Enter counted cash"
-                disabled={shiftClosingData.closing?.status === "closed"}
-                className="mt-2 h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-base font-bold text-gray-950 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:bg-gray-100 disabled:text-gray-400"
-              />
-            </label>
-
-            <label className="block text-sm font-semibold text-gray-700">
-              Notes
-              <textarea
-                value={closingNotes}
-                onChange={(event) => setClosingNotes(event.target.value)}
-                placeholder="Optional note, required by SOP if there is a cash difference."
-                rows={4}
-                disabled={shiftClosingData.closing?.status === "closed"}
-                className="mt-2 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 disabled:bg-gray-100 disabled:text-gray-400"
-              />
-            </label>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleShiftClosingSubmit}
-              disabled={!canSubmitShiftClosing}
-              className="mt-auto flex h-11 w-full items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-            >
-              {shiftClosingSubmitting ? "Submitting..." : "Submit Shift Closing"}
-            </button>
-          </div>
-        ) : null}
-
-        {shiftClosingError && shiftClosingData ? (
-          <div className={`mt-4 rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
-            {getSetupGuidance(shiftClosingError) || shiftClosingError}
-          </div>
-        ) : null}
-
-        {shiftClosingNotice ? (
-          <div className={`mt-4 rounded-lg border p-4 text-sm ${OWNER_SEMANTIC_TONES.success.badgeClass}`}>
-            {shiftClosingNotice}
-          </div>
-        ) : null}
-      </section>
-    </div>
-  );
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -1740,7 +2256,7 @@ export default function AttendancePage() {
         {scannerOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white ">
-              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <div className="flex items-center justify-between px-5 py-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Scan QR Attendance</h3>
                   <p className="text-sm text-gray-500">Point the camera at the attendance QR.</p>
@@ -1816,7 +2332,7 @@ export default function AttendancePage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
             <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white  flex flex-col max-h-[90vh]">
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 shrink-0">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Attendance History</h3>
                   <p className="text-xs text-gray-500">Filter and view past attendance records.</p>
@@ -1837,7 +2353,7 @@ export default function AttendancePage() {
 
                 {/* Flat History List */}
                 <div className="border border-gray-200 rounded-2xl p-5 bg-white space-y-4">
-                  <div className="border-b border-gray-100 pb-3">
+                  <div className="pb-3">
                     <h4 className="text-sm font-bold text-gray-900">Attendance Records</h4>
                   </div>
 
@@ -1957,6 +2473,77 @@ export default function AttendancePage() {
           </div>
         )}
 
+        {cashMovementModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in text-left">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Record Cash Movement</h3>
+                  <p className="text-xs text-gray-500">Log cash added or removed from the drawer.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCashMovementModalOpen(false)}
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 font-semibold">Movement Type</label>
+                  <select
+                    value={movementForm.type}
+                    onChange={(e) => setMovementForm({ ...movementForm, type: e.target.value })}
+                    className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900 text-gray-900"
+                  >
+                    <option value="cash_in">Cash In (Float Addition)</option>
+                    <option value="cash_out">Cash Out (Expense / Paid Out)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 font-semibold">Amount (IDR)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={movementForm.amount}
+                    onChange={(e) => setMovementForm({ ...movementForm, amount: e.target.value })}
+                    placeholder="Enter amount"
+                    className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-base font-bold text-gray-950 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 font-semibold">Reason / Description</label>
+                  <input
+                    type="text"
+                    value={movementForm.reason}
+                    onChange={(e) => setMovementForm({ ...movementForm, reason: e.target.value })}
+                    placeholder="e.g. Paid supplier, additional change"
+                    className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900 text-gray-900"
+                  />
+                </div>
+
+                {shiftClosingError && (
+                  <div className={`rounded-lg border p-4 text-xs ${OWNER_SEMANTIC_TONES.danger.badgeClass}`}>
+                    {shiftClosingError}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCashMovementSubmit}
+                  disabled={isCashMovementSubmitting || !movementForm.amount || !movementForm.reason}
+                  className="flex h-11 w-full items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                >
+                  {isCashMovementSubmitting ? "Recording..." : "Record Movement"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

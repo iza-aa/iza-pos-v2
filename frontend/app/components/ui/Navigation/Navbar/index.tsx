@@ -67,7 +67,6 @@ const menuConfig = {
     { label: 'Menu', labelKey: 'nav.manager.menu', path: '/manager/menu', icon: QueueListIcon, iconSolid: QueueListIconSolid },
     { label: 'Inventory', labelKey: 'nav.manager.inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Closing', labelKey: 'nav.manager.closing', path: '/manager/closing', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
-    { label: 'Order', labelKey: 'nav.manager.order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Staff Manager', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', labelKey: 'nav.manager.table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],
@@ -101,7 +100,6 @@ const ownerAccessMenu = {
     { label: 'Menu', labelKey: 'nav.manager.menu', path: '/manager/menu', icon: QueueListIcon, iconSolid: QueueListIconSolid },
     { label: 'Inventory', labelKey: 'nav.manager.inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
     { label: 'Closing', labelKey: 'nav.manager.closing', path: '/manager/closing', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
-    { label: 'Order', labelKey: 'nav.manager.order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Staff Manager', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', labelKey: 'nav.manager.table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
   ],
@@ -293,7 +291,7 @@ export default function Navbar({
 
       const { data, error } = await supabase
         .from('staff')
-        .select('id, name, role, staff_code, staff_type, profile_picture, staff_positions(id, staff_id, position, is_primary, is_active)')
+        .select('id, name, role, staff_code, profile_picture, staff_positions(id, staff_id, position, is_primary, is_active)')
         .eq('id', storedProfile.id)
         .maybeSingle()
 

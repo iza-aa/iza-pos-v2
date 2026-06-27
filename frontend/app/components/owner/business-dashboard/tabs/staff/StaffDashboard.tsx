@@ -122,7 +122,9 @@ function StaffDashboard() {
     return {
       id: staff.id,
       name: staff.name ?? t("owner.staff.staff"),
-      role: staff.role ?? t("owner.staff.staff"),
+      role: Array.isArray(staff.staff_positions) && staff.staff_positions.length > 0
+        ? staff.staff_positions.map((p) => p.position.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")).join(", ")
+        : staff.role ?? t("owner.staff.staff"),
       ordersHandled: handledOrderIds.size,
       averageServiceMinutes,
       late,

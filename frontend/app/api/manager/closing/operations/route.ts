@@ -26,6 +26,13 @@ type ManagerActionRequest =
       vendor?: string | null;
       receiptUrl?: string | null;
       note?: string | null;
+    }
+  | {
+      action?: "verify_cash_deposit";
+      depositId?: string;
+      receivedAmount?: number | string | null;
+      status?: string | null;
+      managerNotes?: string | null;
     };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createBookkeepingSupabaseClient();
-    const [staffResult, shiftsResult, assignmentsResult, weeklyAssignmentsResult, closingsResult, expensesResult] = await Promise.all([
+    const [staffResult, shiftsResult, assignmentsResult, weeklyAssignmentsResult, closingsResult, expensesResult, depositsResult] = await Promise.all([
       supabase
         .from("staff")
         .select("id, name, staff_code, role, status")
@@ -93,6 +100,11 @@ export async function GET(request: NextRequest) {
         .select("*")
         .eq("expense_date", businessDate)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("bookkeeping_cash_deposits")
+        .select("*, staff:staff_id(id, name)")
+        .like("shift_id", `%-${businessDate}`)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (staffResult.error) throw staffResult.error;
@@ -101,6 +113,7 @@ export async function GET(request: NextRequest) {
     if (weeklyAssignmentsResult.error) throw weeklyAssignmentsResult.error;
     if (closingsResult.error) throw closingsResult.error;
     if (expensesResult.error) throw expensesResult.error;
+    if (depositsResult.error) throw depositsResult.error;
 
     return NextResponse.json({
       data: {
@@ -111,6 +124,7 @@ export async function GET(request: NextRequest) {
         weeklyAssignments: weeklyAssignmentsResult.data || [],
         shiftClosings: closingsResult.data || [],
         expenses: expensesResult.data || [],
+        deposits: depositsResult.data || [],
       },
     });
   } catch (error) {
@@ -306,6 +320,68 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      return NextResponse.json({ success: true, data });
+    }
+
+    if (action === "verify_cash_deposit") {
+      const depositId = String((body as any).depositId || "").trim();
+      const receivedAmount = toNumber((body as any).receivedAmount);
+      const status = String((body as any).status || "").trim();
+      const managerNotes = String((body as any).managerNotes || "").trim();
+
+      if (!depositId || !["verified", "disputed"].includes(status)) {
+        return NextResponse.json({ error: "Deposit ID and valid verification status are required." }, { status: 400 });
+      }
+      if (receivedAmount < 0) {
+        return NextResponse.json({ error: "Received amount cannot be negative." }, { status: 400 });
+      }
+
+      const { data: deposit, error: depositError } = await supabase
+        .from("bookkeeping_cash_deposits")
+        .select("*")
+        .eq("id", depositId)
+        .maybeSingle();
+
+      if (depositError) throw depositError;
+      if (!deposit) return NextResponse.json({ error: "Deposit record not found." }, { status: 404 });
+
+      const expectedAmount = toNumber(deposit.expected_amount);
+      const variance = receivedAmount - expectedAmount;
+
+      const { data, error } = await supabase
+        .from("bookkeeping_cash_deposits")
+        .update({
+          received_amount: receivedAmount,
+          status,
+          manager_id: requester.id,
+          manager_notes: managerNotes || "Verified by manager.",
+          verified_at: new Date().toISOString(),
+        })
+        .eq("id", depositId)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      await supabase.from("activity_logs").insert({
+        user_id: requester.id,
+        user_name: requester.name,
+        user_role: requester.role,
+        action: "UPDATE",
+        action_category: "FINANCIAL",
+        action_description: `Manager verified deposit for shift ${deposit.shift_id} as ${status}. Received: ${receivedAmount}`,
+        resource_type: "Bookkeeping Cash Deposit",
+        resource_id: depositId,
+        resource_name: deposit.envelope_number,
+        new_value: { receivedAmount, status, variance, managerNotes },
+        severity: status === "verified" && variance === 0 ? "info" : "warning",
+        tags: ["bookkeeping", "manager-review", "deposit", status],
+        is_reversible: false,
+        ip_address: "0.0.0.0",
+        device_info: "Server API",
+        session_id: `verify-deposit-${requester.id}`,
+      });
+
       return NextResponse.json({ success: true, data });
     }
 

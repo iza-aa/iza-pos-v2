@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowPathIcon,
-  CalendarDaysIcon,
   CheckIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
+import StandardTable, {
+  type StandardTableColumn,
+} from "@/app/components/shared/StandardTable";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { getInitials } from "@/lib/utils";
 
@@ -88,27 +90,6 @@ function StaffAvatar({ staff }: { staff: StaffRow }) {
   );
 }
 
-// Skeleton row for loading state
-function SkeletonRow() {
-  return (
-    <tr className="border-b border-gray-100">
-      <td className="sticky left-0 z-10 bg-white px-4 py-3">
-        <div className="h-4 w-28 animate-pulse rounded-md bg-gray-200" />
-        <div className="mt-1.5 h-3 w-20 animate-pulse rounded-md bg-gray-100" />
-      </td>
-      {WEEKDAYS.map((day) => (
-        <td key={day.value} className="px-2 py-3">
-          <div className="h-8 w-full animate-pulse rounded-lg bg-gray-100" />
-        </td>
-      ))}
-      <td className="px-4 py-3">
-        <div className="ml-auto h-8 w-16 animate-pulse rounded-lg bg-gray-100" />
-      </td>
-    </tr>
-  );
-}
-
-// Shift pill badge
 function ShiftPill({
   shift,
   colorIndex,
@@ -150,25 +131,29 @@ function ShiftPill({
   );
 }
 
-// Dropdown for shift selection
 function ShiftDropdown({
   shifts,
   currentShiftId,
   onSelect,
   onClose,
   colorMap,
+  alignRight = false,
 }: {
   shifts: ShiftRow[];
   currentShiftId: string;
   onSelect: (shiftId: string) => void;
   onClose: () => void;
   colorMap: Map<string, number>;
+  alignRight?: boolean;
 }) {
   return (
-    <div className="absolute z-50 mt-1 min-w-[180px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+    <div className={`absolute z-50 mt-1 min-w-45 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ${alignRight ? "right-0" : "left-0"}`}>
       <button
         type="button"
-        onClick={() => { onSelect(""); onClose(); }}
+        onClick={() => {
+          onSelect("");
+          onClose();
+        }}
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs text-gray-500 transition hover:bg-gray-50"
       >
         <span className="h-1.5 w-1.5 rounded-full border border-gray-300" />
@@ -184,14 +169,17 @@ function ShiftDropdown({
           <button
             key={shift.id}
             type="button"
-            onClick={() => { onSelect(shift.id); onClose(); }}
+            onClick={() => {
+              onSelect(shift.id);
+              onClose();
+            }}
             className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs transition hover:bg-gray-50 ${isSelected ? "font-semibold" : ""}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
             <span className="flex-1">
               {shift.shift_name}
               <span className="ml-1 text-gray-400">
-                {formatTime(shift.start_time)}–{formatTime(shift.end_time)}
+                {formatTime(shift.start_time)}-{formatTime(shift.end_time)}
               </span>
             </span>
             {isSelected && <CheckIcon className="h-3.5 w-3.5 text-gray-700" />}
@@ -206,10 +194,9 @@ export default function WeeklyScheduleSection() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [schedule, setSchedule] = useState<Record<string, Record<number, string>>>({});
-  const [savedSchedule, setSavedSchedule] = useState<Record<string, Record<number, string>>>({});
   const [loading, setLoading] = useState(true);
-  const [savingStaffId, setSavingStaffId] = useState("");
-  const [savedStaffId, setSavedStaffId] = useState("");
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [dirtyStaffIds, setDirtyStaffIds] = useState<Set<string>>(new Set());
   const [openDropdown, setOpenDropdown] = useState<{ staffId: string; weekday: number } | null>(null);
 
   const loadSchedule = useCallback(async () => {
@@ -230,10 +217,11 @@ export default function WeeklyScheduleSection() {
         nextSchedule[assignment.staff_id][assignment.weekday] = assignment.shift_id;
       });
 
-      setStaff(result.data?.staff || []);
+      const staffList = result.data?.staff || [];
+      setStaff(staffList.filter((staffMember) => staffMember.role !== "manager" && staffMember.role !== "owner"));
       setShifts(result.data?.shifts || []);
       setSchedule(nextSchedule);
-      setSavedSchedule(structuredClone(nextSchedule));
+      setDirtyStaffIds(new Set());
     } catch (error) {
       showError(
         error instanceof Error ? error.message : "Shift roster could not be loaded.",
@@ -247,7 +235,6 @@ export default function WeeklyScheduleSection() {
     void loadSchedule();
   }, [loadSchedule]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!openDropdown) return;
 
@@ -267,39 +254,33 @@ export default function WeeklyScheduleSection() {
     [shifts],
   );
 
-  // Assign a stable color index per shift id
   const shiftColorMap = useMemo(() => {
     const map = new Map<string, number>();
     shifts.forEach((shift, idx) => map.set(shift.id, idx));
     return map;
   }, [shifts]);
 
-  const updateDay = (staffId: string, weekday: number, shiftId: string) => {
+  const updateDay = useCallback((staffId: string, weekday: number, shiftId: string) => {
     setSchedule((current) => {
-      const next = {
-        ...current,
-        [staffId]: { ...(current[staffId] || {}) },
-      };
+      const nextStaffSchedule = { ...(current[staffId] || {}) };
 
       if (shiftId) {
-        next[staffId][weekday] = shiftId;
+        nextStaffSchedule[weekday] = shiftId;
       } else {
-        delete next[staffId][weekday];
+        delete nextStaffSchedule[weekday];
       }
 
-      return next;
+      return {
+        ...current,
+        [staffId]: nextStaffSchedule,
+      };
     });
-  };
+    setDirtyStaffIds((current) => new Set(current).add(staffId));
+  }, []);
 
-  const isDirty = (staffId: string) =>
-    JSON.stringify(schedule[staffId] || {}) !==
-    JSON.stringify(savedSchedule[staffId] || {});
-
-  const saveStaffSchedule = async (staffId: string) => {
-    setSavingStaffId(staffId);
-
+  const saveStaffSchedule = async (staffId: string, staffSchedule: Record<number, string>) => {
     try {
-      const overrides = Object.entries(schedule[staffId] || {}).map(
+      const overrides = Object.entries(staffSchedule || {}).map(
         ([weekday, shiftId]) => ({
           weekday: Number(weekday),
           shiftId,
@@ -310,229 +291,203 @@ export default function WeeklyScheduleSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ staffId, overrides }),
       });
-      const result = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
 
       if (!response.ok) {
+        const result = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(result.error || "Shift roster could not be saved.");
       }
-
-      setSavedSchedule((current) => ({
-        ...current,
-        [staffId]: { ...(schedule[staffId] || {}) },
-      }));
-      setSavedStaffId(staffId);
-      setTimeout(() => setSavedStaffId(""), 2000);
-      showSuccess("Shift roster saved.");
     } catch (error) {
       showError(
         error instanceof Error ? error.message : "Shift roster could not be saved.",
       );
-    } finally {
-      setSavingStaffId("");
+      throw error;
     }
   };
 
+  const saveDirtySchedules = async () => {
+    const staffIdsToSave = Array.from(dirtyStaffIds);
+
+    if (staffIdsToSave.length === 0) return;
+
+    setSavingSchedule(true);
+
+    try {
+      for (const staffId of staffIdsToSave) {
+        await saveStaffSchedule(staffId, schedule[staffId] || {});
+      }
+
+      setDirtyStaffIds(new Set());
+      showSuccess("Shift roster saved.");
+    } catch {
+      // saveStaffSchedule already shows the detailed error.
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const renderStaffCell = useCallback(
+    (staffMember: StaffRow) => {
+      const isDirty = dirtyStaffIds.has(staffMember.id);
+
+      return (
+        <div className="flex items-center gap-2.5">
+          <StaffAvatar staff={staffMember} />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-semibold text-gray-900">
+                {staffMember.name}
+              </p>
+              {isDirty && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+            </div>
+            <p className="text-[11px] text-gray-400">
+              {staffMember.staff_code} - {getRoleLabel(staffMember.role)}
+            </p>
+          </div>
+        </div>
+      );
+    },
+    [dirtyStaffIds],
+  );
+
+  const renderShiftCell = useCallback(
+    (staffMember: StaffRow, day: (typeof WEEKDAYS)[number]) => {
+      const assignedShiftId = schedule[staffMember.id]?.[day.value] || "";
+      const assignedShift = assignedShiftId
+        ? shiftById.get(assignedShiftId) ?? null
+        : null;
+      const colorIdx = assignedShiftId
+        ? shiftColorMap.get(assignedShiftId) ?? 0
+        : 0;
+      const isOpen =
+        openDropdown?.staffId === staffMember.id &&
+        openDropdown.weekday === day.value;
+
+      return (
+        <div className="relative" data-shift-dropdown>
+          <ShiftPill
+            shift={assignedShift}
+            colorIndex={colorIdx}
+            disabled={loading || shifts.length === 0}
+            onClick={() =>
+              setOpenDropdown(
+                isOpen ? null : { staffId: staffMember.id, weekday: day.value },
+              )
+            }
+          />
+          {isOpen && (
+            <ShiftDropdown
+              shifts={shifts}
+              currentShiftId={assignedShiftId}
+              colorMap={shiftColorMap}
+              alignRight={day.value >= 6}
+              onSelect={(shiftId) =>
+                updateDay(staffMember.id, day.value, shiftId)
+              }
+              onClose={() => setOpenDropdown(null)}
+            />
+          )}
+        </div>
+      );
+    },
+    [
+      loading,
+      openDropdown,
+      schedule,
+      shiftById,
+      shiftColorMap,
+      shifts,
+      updateDay,
+    ],
+  );
+
+  const scheduleColumns = useMemo<Array<StandardTableColumn<StaffRow>>>(() => {
+    const dayColumns: Array<StandardTableColumn<StaffRow>> = WEEKDAYS.map((day) => ({
+      key: `weekday-${day.value}`,
+      header: day.shortLabel,
+      render: (staffMember) => renderShiftCell(staffMember, day),
+      className: day.isWeekend ? "bg-amber-50/20" : "",
+      headerClassName: day.isWeekend ? "text-amber-600" : "",
+      isAction: true,
+    }));
+
+    return [
+      {
+        key: "staff",
+        header: "Staff",
+        render: renderStaffCell,
+        sortValue: (staffMember) => staffMember.name,
+        className: "w-56",
+        headerClassName: "w-56",
+      },
+      ...dayColumns,
+    ];
+  }, [renderShiftCell, renderStaffCell]);
+
+  const mobileScheduleRows = useMemo(
+    () =>
+      WEEKDAYS.map((day) => ({
+        key: `weekday-${day.value}`,
+        label: day.label,
+        render: (staffMember: StaffRow) => renderShiftCell(staffMember, day),
+        initiallyVisible: true,
+      })),
+    [renderShiftCell],
+  );
+
   return (
     <div className="space-y-4">
-      {/* Header card */}
-      <div className="hidden">
-        <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-900 text-white">
-              <CalendarDaysIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Shift Roster</h2>
-              <p className="mt-0.5 max-w-xl text-sm leading-5 text-gray-500">
-                Plan weekly shifts from Monday to Sunday for each staff member.
-                Empty days mean off days and do not block attendance overrides.
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Shift legend */}
-        {shifts.length > 0 && (
-          <div className="border-t border-gray-100 px-5 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-gray-400">Shift:</span>
-              {shifts.map((shift) => {
-                const idx = shiftColorMap.get(shift.id) ?? 0;
-                const color = SHIFT_COLORS[idx % SHIFT_COLORS.length];
-                return (
-                  <span
-                    key={shift.id}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${color.bg} ${color.border} ${color.text}`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
-                    {shift.shift_name} · {formatTime(shift.start_time)}–{formatTime(shift.end_time)}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Calendar table */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 ">
+        <div className="flex flex-col gap-4  sm:flex-row mb-6 sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">Shift Roster</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-5 text-gray-500">
+            <p className="mt-1 max-w-2xl text-sm leading-5 text-gray-500 ">
               Plan weekly shifts for each staff member. Empty days mean off days,
               and attendance can still record the staff who actually comes in.
             </p>
           </div>
-
         </div>
 
-
-        <table className="min-w-[1100px] w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-900">
-              <th className="sticky left-0 z-10 min-w-52 bg-gray-900 px-4 py-3.5 font-semibold text-gray-200">
-                Staff
-              </th>
-              {WEEKDAYS.map((day) => (
-                <th
-                  key={day.value}
-                  className={`min-w-[120px] px-3 py-3.5 text-center ${day.isWeekend ? "text-amber-300" : "text-gray-200"}`}
-                >
-                  <p className="text-sm font-bold">{day.shortLabel}</p>
-                  <p className={`text-[10px] font-normal ${day.isWeekend ? "text-amber-400/70" : "text-gray-500"}`}>
-                    {day.label}
-                  </p>
-                </th>
-              ))}
-              <th className="min-w-[100px] px-4 py-3.5 text-right font-semibold text-gray-200">
-                Save
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading
-              ? Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)
-              : staff.map((staffMember) => {
-                  const dirty = isDirty(staffMember.id);
-                  const isSaving = savingStaffId === staffMember.id;
-                  const justSaved = savedStaffId === staffMember.id && !dirty;
-
-                  return (
-                    <tr
-                      key={staffMember.id}
-                      className={`align-top transition-colors ${justSaved ? "bg-emerald-50/40" : "hover:bg-gray-50/50"}`}
-                    >
-                      {/* Staff name column */}
-                      <td className="sticky left-0 z-10 bg-inherit px-4 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <StaffAvatar staff={staffMember} />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-gray-900">{staffMember.name}</p>
-                            <p className="text-[11px] text-gray-400">
-                              {staffMember.staff_code} · {getRoleLabel(staffMember.role)}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Day columns */}
-                      {WEEKDAYS.map((day) => {
-                        const assignedShiftId = schedule[staffMember.id]?.[day.value] || "";
-                        const assignedShift = assignedShiftId ? shiftById.get(assignedShiftId) ?? null : null;
-                        const colorIdx = assignedShiftId ? shiftColorMap.get(assignedShiftId) ?? 0 : 0;
-                        const isOpen =
-                          openDropdown?.staffId === staffMember.id &&
-                          openDropdown.weekday === day.value;
-
-                        return (
-                          <td
-                            key={day.value}
-                            className={`px-2 py-2.5 ${day.isWeekend ? "bg-amber-50/20" : ""}`}
-                          >
-                            <div className="relative" data-shift-dropdown>
-                              <ShiftPill
-                                shift={assignedShift}
-                                colorIndex={colorIdx}
-                                disabled={loading || shifts.length === 0}
-                                onClick={() =>
-                                  setOpenDropdown(
-                                    isOpen
-                                      ? null
-                                      : { staffId: staffMember.id, weekday: day.value },
-                                  )
-                                }
-                              />
-                              {isOpen && (
-                                <ShiftDropdown
-                                  shifts={shifts}
-                                  currentShiftId={assignedShiftId}
-                                  colorMap={shiftColorMap}
-                                  onSelect={(shiftId) =>
-                                    updateDay(staffMember.id, day.value, shiftId)
-                                  }
-                                  onClose={() => setOpenDropdown(null)}
-                                />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-
-                      {/* Save button column */}
-                      <td className="px-4 py-2.5 text-right">
-                        {justSaved ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-                            <CheckIcon className="h-3.5 w-3.5" />
-                            Saved
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => void saveStaffSchedule(staffMember.id)}
-                            disabled={!dirty || isSaving}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-30"
-                          >
-                            {isSaving ? (
-                              <>
-                                <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
-                                Saving
-                              </>
-                            ) : (
-                              <>
-                                <CheckIcon className="h-3.5 w-3.5" />
-                                Save
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-          </tbody>
-        </table>
-
-        {!loading && staff.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
-              <CalendarDaysIcon className="h-7 w-7 text-gray-400" />
-            </span>
-            <div>
-              <p className="text-sm font-bold text-gray-900">No active staff yet</p>
-              <p className="mt-1 text-xs text-gray-500">
-                Add staff first before arranging the weekly roster.
-              </p>
-            </div>
-          </div>
-        )}
+        <StandardTable
+          columns={scheduleColumns}
+          data={staff}
+          getRowKey={(staffMember) => staffMember.id}
+          emptyLabel="No active staff yet. Add staff first before arranging the weekly roster."
+          loading={loading}
+          skeletonRows={3}
+          pagination={false}
+          preserveDataOrder
+          minWidthClassName="min-w-[1100px]"
+          mobileCard={{
+            title: renderStaffCell,
+            rows: mobileScheduleRows,
+            initiallyVisibleRows: 7,
+            actions: () => <span className="hidden" />,
+            status: (staffMember) =>
+              dirtyStaffIds.has(staffMember.id) ? (
+                <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-700">
+                  Unsaved
+                </span>
+              ) : null,
+          }}
+        />
 
         {!loading && shifts.length === 0 && staff.length > 0 && (
           <div className="border-t border-dashed border-gray-200 px-5 py-4 text-sm text-amber-700">
             <strong>No shifts yet.</strong> Add shifts in Attendance Settings first.
+          </div>
+        )}
+
+        {!loading && staff.length > 0 && shifts.length > 0 && (
+          <div className="flex justify-end border-t border-gray-100 bg-gray-50 px-5 py-4">
+            <button
+              type="button"
+              onClick={saveDirtySchedules}
+              disabled={savingSchedule || dirtyStaffIds.size === 0}
+              className="inline-flex h-10 min-w-28 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingSchedule && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
+              {savingSchedule ? "Saving..." : dirtyStaffIds.size > 0 ? "Save Changes" : "Saved"}
+            </button>
           </div>
         )}
       </div>

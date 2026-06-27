@@ -111,6 +111,8 @@ export const commonTranslations: Record<Language, Record<string, string>> = {
     "role.manager": "Manager",
     "role.staff": "Staff",
     "role.user": "User",
+    "guard.checking": "Checking access...",
+    "guard.pleaseWait": "Please wait a moment.",
   },
   id: {
     "common.close": "Tutup",
@@ -222,5 +224,7 @@ export const commonTranslations: Record<Language, Record<string, string>> = {
     "role.manager": "Manager",
     "role.staff": "Staff",
     "role.user": "Pengguna",
+    "guard.checking": "Memeriksa akses...",
+    "guard.pleaseWait": "Mohon tunggu sebentar.",
   },
 };

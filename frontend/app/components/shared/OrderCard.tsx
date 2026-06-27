@@ -358,6 +358,7 @@ export default function OrderCard({
   const total = getOrderTotal(pricingOrder);
   const hasRewardDiscount = discount > 0;
   const isOrderCompleted = order.status === "completed" || order.status === "served";
+  const taxMultiplier = subtotal > 0 ? (total + discount) / subtotal : 1;
 
   useEffect(() => {
     if (isFlipped && backRef.current) {
@@ -422,23 +423,17 @@ export default function OrderCard({
   };
 
   const renderPaymentMetadata = () => {
-    const paymentMethod = order.paymentMethod ?? order.payment_method;
-    const paymentAmount = order.paymentAmount ?? order.payment_amount;
     const changeAmount = order.changeAmount ?? order.change_amount;
+
+    if (typeof changeAmount !== "number" || changeAmount <= 0) {
+      return null;
+    }
 
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <PaymentMethodBadge method={paymentMethod} />
-        {typeof paymentAmount === "number" ? (
-          <span className="text-xs text-gray-500">
-            Paid {formatCurrency(paymentAmount)}
-          </span>
-        ) : null}
-        {typeof changeAmount === "number" && changeAmount > 0 ? (
-          <span className="text-xs text-gray-500">
-            Change {formatCurrency(changeAmount)}
-          </span>
-        ) : null}
+        <span className="text-xs text-gray-500">
+          Change {formatCurrency(changeAmount)}
+        </span>
       </div>
     );
   };
@@ -446,17 +441,17 @@ export default function OrderCard({
   const renderOrderPaymentSummary = () => {
     if (!hasRewardDiscount) {
       return (
-        <>
+        <div className="text-right">
           <p className="text-xs text-gray-500">Total</p>
           <p className="text-lg sm:text-xl font-bold text-green-700">
             {formatCurrency(total)}
           </p>
-        </>
+        </div>
       );
     }
 
     return (
-      <div className="min-w-45 space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2">
+      <div className="min-w-45 space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-right">
         <div className="flex items-center justify-between gap-3 text-xs text-gray-600">
           <span>Subtotal</span>
           <span className="font-medium">{formatCurrency(subtotal)}</span>
@@ -467,8 +462,8 @@ export default function OrderCard({
           <span className="font-semibold">-{formatCurrency(discount)}</span>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-emerald-100 pt-1.5">
-          <span className="text-xs font-semibold text-gray-600">Total</span>
+        <div className="flex items-center justify-between gap-3 border-t border-emerald-100 pt-1.5 justify-end">
+          <span className="text-xs font-semibold text-gray-600 mr-3">Total</span>
           <span className="text-lg sm:text-xl font-bold text-green-700">
             {formatCurrency(total)}
           </span>
@@ -479,15 +474,17 @@ export default function OrderCard({
 
   const renderOrderFooter = () => {
     return (
-      <div className="pt-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-        <div>
-          {renderOrderPaymentSummary()}
+      <div className="pt-3 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2 border-t border-gray-100 mt-3">
+        <div className="space-y-1 flex-1">
           {renderPaymentMetadata()}
           {renderStaffAuditTrail()}
+          <div className="text-xs text-gray-500">
+            Served: {servedCount}/{totalCount}
+          </div>
         </div>
 
-        <div className="text-sm text-gray-600">
-          Served: {servedCount}/{totalCount}
+        <div className="flex flex-col items-end shrink-0">
+          {renderOrderPaymentSummary()}
         </div>
       </div>
     );
@@ -595,16 +592,14 @@ export default function OrderCard({
         `}</style>
 
         <div
-          className={`relative w-full transition-all duration-500 ${
-            isFlipped ? "rotate-y-180" : ""
-          }`}
+          className={`relative w-full transition-all duration-500 ${isFlipped ? "rotate-y-180" : ""
+            }`}
           style={{ transformStyle: "preserve-3d" }}
         >
           <div
             ref={frontRef}
-            className={`bg-white rounded-xl shadow-md overflow-hidden backface-hidden transition-all duration-300 hover:shadow-xl border border-gray-200 ${
-              isFlipped ? "invisible" : "visible"
-            }`}
+            className={`bg-white rounded-lg  shadow-md overflow-hidden backface-hidden transition-all duration-300 hover:shadow-xl border border-gray-200 ${isFlipped ? "invisible" : "visible"
+              }`}
             style={{ backfaceVisibility: "hidden" }}
           >
             <div className="p-4">
@@ -622,6 +617,7 @@ export default function OrderCard({
                     </p>
 
                     <FulfillmentBadge info={fulfillmentInfo} />
+                    <PaymentMethodBadge method={order.paymentMethod ?? order.payment_method} />
                     {correctionLabel ? <CorrectionBadge label={correctionLabel} /> : null}
                   </div>
                 </div>
@@ -690,7 +686,7 @@ export default function OrderCard({
                           : "text-gray-600"
                       }
                     >
-                      {formatCurrency(item.price)}
+                      {formatCurrency(item.price * taxMultiplier)}
                     </span>
                   </div>
                 ))}
@@ -733,11 +729,10 @@ export default function OrderCard({
                       setFlipMode("serve");
                     }}
                     disabled={!hasReadyToServeItems}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-semibold transition ${
-                      hasReadyToServeItems
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-semibold transition ${hasReadyToServeItems
                         ? "bg-green-600 text-white hover:bg-green-700"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     {hasReadyToServeItems
                       ? serveOrderLabel
@@ -756,9 +751,8 @@ export default function OrderCard({
 
           <div
             ref={backRef}
-            className={`absolute top-0 left-0 w-full bg-white rounded-xl shadow-xl overflow-hidden flex flex-col ${
-              isFlipped ? "visible" : "invisible"
-            }`}
+            className={`absolute top-0 left-0 w-full bg-white rounded-lg shadow-xl overflow-hidden flex flex-col ${isFlipped ? "visible" : "invisible"
+              }`}
             style={{
               backfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
@@ -860,7 +854,7 @@ export default function OrderCard({
                               </p>
                             </div>
                             <span className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(item.price)}
+                              {formatCurrency(item.price * taxMultiplier)}
                             </span>
                           </div>
                         ))}
@@ -921,11 +915,10 @@ export default function OrderCard({
                           return (
                             <label
                               key={item.id}
-                              className={`flex items-start p-2.5 rounded-lg transition-colors ${
-                                isReady
+                              className={`flex items-start p-2.5 rounded-lg transition-colors ${isReady
                                   ? "bg-gray-50 hover:bg-gray-100 cursor-pointer"
                                   : "bg-gray-100 cursor-not-allowed"
-                              }`}
+                                }`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <input
@@ -954,7 +947,7 @@ export default function OrderCard({
                               </div>
 
                               <span className="text-sm font-semibold text-gray-900">
-                                {formatCurrency(item.price)}
+                                {formatCurrency(item.price * taxMultiplier)}
                               </span>
                             </label>
                           );
@@ -1000,7 +993,7 @@ export default function OrderCard({
                             </div>
 
                             <span className="text-sm font-semibold text-gray-700">
-                              {formatCurrency(item.price)}
+                              {formatCurrency(item.price * taxMultiplier)}
                             </span>
                           </div>
                         ))}
@@ -1047,11 +1040,10 @@ export default function OrderCard({
                       handleMarkServedBatch();
                     }}
                     disabled={selectedItems.length === 0}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all ${
-                      selectedItems.length > 0
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all ${selectedItems.length > 0
                         ? "bg-green-600 hover:bg-green-700 shadow-md"
                         : "bg-gray-300 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     Mark as Served
                   </button>
@@ -1066,7 +1058,7 @@ export default function OrderCard({
 
   return (
     <div className="break-inside-avoid">
-      <div className="relative bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200">
+      <div className="relative bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200">
         <div className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
@@ -1079,6 +1071,7 @@ export default function OrderCard({
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-sm text-gray-600">{order.customerName}</p>
                 <FulfillmentBadge info={fulfillmentInfo} />
+                <PaymentMethodBadge method={order.paymentMethod ?? order.payment_method} />
                 {correctionLabel ? <CorrectionBadge label={correctionLabel} /> : null}
               </div>
             </div>
@@ -1172,7 +1165,7 @@ export default function OrderCard({
                         : "text-gray-600"
                     }
                   >
-                    {formatCurrency(item.price)}
+                    {formatCurrency(item.price * taxMultiplier)}
                   </span>
 
                   {showServeButtons && onServeItem && !item.served && (

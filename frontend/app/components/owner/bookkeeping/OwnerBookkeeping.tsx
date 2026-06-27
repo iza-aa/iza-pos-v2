@@ -87,7 +87,7 @@ function BusinessDateFilter({
   const setBusinessDate = (nextDate: string) => onChange(nextDate);
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-gray-200 bg-white px-4 p-2 shadow-sm">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="text-sm font-bold text-gray-950">{t("owner.bookkeeping.businessDate")}</p>
@@ -167,11 +167,8 @@ export default function OwnerBookkeeping() {
   const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [data, setData] = useState<BookkeepingDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
   const [deletingExpenseId, setDeletingExpenseId] = useState("");
-  const [closingDaily, setClosingDaily] = useState(false);
-  const [reopeningDaily, setReopeningDaily] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -261,57 +258,6 @@ export default function OwnerBookkeeping() {
     setNotice("");
     void loadData();
   }, [loadData]);
-
-  const handleCreateAdjustment = async (form: {
-    businessDate: string;
-    category: string;
-    amount: string;
-    direction: "in" | "out" | "neutral";
-    paymentMethod: string;
-    sourceLabel: string;
-    note: string;
-  }) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError(t("owner.bookkeeping.ownerRequired"));
-      return;
-    }
-
-    setSavingAdjustment(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/ledger/adjustment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || t("owner.bookkeeping.adjustmentCreateError"));
-      }
-
-      setNotice(t("owner.bookkeeping.adjustmentSaved"));
-      await loadData({ quiet: true });
-    } catch (adjustmentError) {
-      console.error("Failed to create manual adjustment:", adjustmentError);
-      setError(
-        adjustmentError instanceof Error
-          ? adjustmentError.message
-          : t("owner.bookkeeping.adjustmentCreateError"),
-      );
-    } finally {
-      setSavingAdjustment(false);
-    }
-  };
 
   const handleSaveExpense = async (form: {
     id?: string;
@@ -413,95 +359,6 @@ export default function OwnerBookkeeping() {
     }
   };
 
-  const handleCloseDaily = async (notes: string) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError(t("owner.bookkeeping.ownerRequired"));
-      return;
-    }
-
-    setClosingDaily(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/closings/daily/close", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ dateRange, notes }),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        status?: string;
-        cashDifference?: number | null;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || t("owner.bookkeeping.dailyCloseError"));
-      }
-
-      setNotice(t("owner.bookkeeping.dailySavedStatus", { status: result.status || "-" }));
-      await loadData({ quiet: true });
-    } catch (closeError) {
-      console.error("Failed to close daily:", closeError);
-      setError(
-        closeError instanceof Error
-          ? closeError.message
-          : t("owner.bookkeeping.dailyCloseError"),
-      );
-    } finally {
-      setClosingDaily(false);
-    }
-  };
-
-  const handleReopenDaily = async (businessDate: string, reason: string) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== "owner") {
-      setError(t("owner.bookkeeping.ownerRequired"));
-      return;
-    }
-
-    setReopeningDaily(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/owner/bookkeeping/closings/daily/reopen", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ businessDate, reason }),
-      });
-
-      const result = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        status?: string;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || t("owner.bookkeeping.dailyReopenError"));
-      }
-
-      setNotice(t("owner.bookkeeping.dailySavedStatus", { status: result.status || "-" }));
-      await loadData({ quiet: true });
-    } catch (reopenError) {
-      console.error("Failed to reopen daily closing:", reopenError);
-      setError(
-        reopenError instanceof Error
-          ? reopenError.message
-          : t("owner.bookkeeping.dailyReopenError"),
-      );
-    } finally {
-      setReopeningDaily(false);
-    }
-  };
-
   const setActiveTab = (tab: BookkeepingTab) => {
     router.push(`/owner/bookkeeping?tab=${tab}`);
   };
@@ -514,10 +371,6 @@ export default function OwnerBookkeeping() {
         <ClosingsTab
           data={displayData}
           loading={loading}
-          closingDaily={closingDaily}
-          reopeningDaily={reopeningDaily}
-          onApproveDaily={handleCloseDaily}
-          onReopenDaily={handleReopenDaily}
         />
       );
     }
@@ -526,8 +379,6 @@ export default function OwnerBookkeeping() {
         <AutoLedgerTab
           data={displayData}
           loading={loading}
-          savingAdjustment={savingAdjustment}
-          onCreateAdjustment={handleCreateAdjustment}
         />
       );
     }
@@ -556,10 +407,6 @@ export default function OwnerBookkeeping() {
       <ClosingsTab
         data={displayData}
         loading={loading}
-        closingDaily={closingDaily}
-        reopeningDaily={reopeningDaily}
-        onApproveDaily={handleCloseDaily}
-        onReopenDaily={handleReopenDaily}
       />
     );
   };

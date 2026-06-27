@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/config/supabaseClient";
 import { saveCustomerAccount } from "@/lib/customer/customerAccount";
+import { showError } from "@/lib/services/errorHandling";
 
 interface CustomerSession {
   id: string;
@@ -115,16 +116,15 @@ function CustomerLoginContent() {
     const cleanPassword = password.trim();
 
     if (!cleanIdentifier) {
-      setError("Please enter your email or WhatsApp number.");
+      showError("Please enter your email or WhatsApp number.");
       return;
     }
 
     if (!cleanPassword) {
-      setError("Please enter your password.");
+      showError("Please enter your password.");
       return;
     }
 
-    setError("");
     setLoadingManual(true);
 
     try {
@@ -148,7 +148,7 @@ function CustomerLoginContent() {
       await syncCustomerSession(accessToken);
     } catch (loginError) {
       console.error("Customer manual login error:", loginError);
-      setError(
+      showError(
         loginError instanceof Error
           ? loginError.message
           : "Unable to login. Please try again.",
@@ -159,7 +159,6 @@ function CustomerLoginContent() {
   };
 
   const handleGoogleLogin = async () => {
-    setError("");
     setLoadingGoogle(true);
 
     try {
@@ -177,7 +176,7 @@ function CustomerLoginContent() {
       }
     } catch (googleLoginError) {
       console.error("Customer Google login error:", googleLoginError);
-      setError(
+      showError(
         googleLoginError instanceof Error
           ? googleLoginError.message
           : "Unable to start Google login.",
@@ -241,18 +240,13 @@ function CustomerLoginContent() {
               </p>
             </div>
 
-            {error ? (
-              <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            ) : null}
-
             <button
               type="button"
               onClick={handleGoogleLogin}
               disabled={loadingGoogle || loadingManual}
-              className="mb-4 flex w-full items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-60"
             >
+              <img src="/logo/google.svg" alt="Google" className="h-5 w-5" />
               {loadingGoogle ? "Opening Google..." : "Continue with Google"}
             </button>
 
@@ -262,13 +256,13 @@ function CustomerLoginContent() {
               <div className="h-px flex-1 bg-gray-200" />
             </div>
 
-            <form onSubmit={handleManualLogin} className="space-y-4">
+             <form onSubmit={handleManualLogin} className="space-y-4">
               <div>
                 <label
                   htmlFor="identifier"
                   className="mb-2 block text-sm font-semibold text-gray-700"
                 >
-                  Email or WhatsApp Number
+                  Email or WhatsApp Number <span className="text-red-500 ml-1">*</span>
                 </label>
                 <div className="relative">
                   <EnvelopeIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -288,7 +282,7 @@ function CustomerLoginContent() {
                   htmlFor="password"
                   className="mb-2 block text-sm font-semibold text-gray-700"
                 >
-                  Password
+                  Password <span className="text-red-500 ml-1">*</span>
                 </label>
                 <div className="relative">
                   <KeyIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -300,6 +294,15 @@ function CustomerLoginContent() {
                     placeholder="Your password"
                     className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
                   />
+                </div>
+                <div className="mt-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => router.push("/customer/forgot-password")}
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-900 transition hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
               </div>
 

@@ -223,6 +223,54 @@ export default function POSPage() {
 	useSessionValidation();
 
 	const [activeCategory, setActiveCategory] = useState("all");
+	const [checkingShift, setCheckingShift] = useState(true);
+	const [shiftStatus, setShiftStatus] = useState<string | null>(null);
+	const [isOwner, setIsOwner] = useState(false);
+
+	useEffect(() => {
+		const user = getCurrentUser();
+		setIsOwner(user?.role === "owner");
+	}, []);
+
+	useEffect(() => {
+		let active = true;
+		async function checkActiveShift() {
+			try {
+				const user = getCurrentUser();
+				if (!user) {
+					if (active) setShiftStatus("not_opened");
+					return;
+				}
+
+				const headers: Record<string, string> = {
+					"x-user-id": user.id,
+					"x-user-name": user.name ?? "Staff",
+					"x-user-role": user.role ?? "staff",
+				};
+
+				const response = await fetch("/api/staff/bookkeeping/shift-closing", {
+					headers,
+				});
+				const result = await response.json().catch(() => ({}));
+				if (!active) return;
+				if (result.data) {
+					const status = result.data.closing?.status || "not_opened";
+					setShiftStatus(status);
+				} else {
+					setShiftStatus("not_opened");
+				}
+			} catch (error) {
+				console.error("Failed to check shift status:", error);
+				if (active) setShiftStatus("error");
+			} finally {
+				if (active) setCheckingShift(false);
+			}
+		}
+		void checkActiveShift();
+		return () => {
+			active = false;
+		};
+	}, []);
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [foodItems, setFoodItems] = useState<MenuItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -556,7 +604,7 @@ export default function POSPage() {
 		if (placingOrder) return;
 
 		if (cart.length === 0) {
-			showError("Keranjang masih kosong!");
+			showError("Your cart is empty!");
 			return;
 		}
 
@@ -566,7 +614,7 @@ export default function POSPage() {
 			const staff = getCurrentStaffInfo();
 
 			if (!staff) {
-				showError("Anda belum login, silakan login kembali");
+				showError("You are not logged in, please log in again.");
 				return;
 			}
 
@@ -584,7 +632,7 @@ export default function POSPage() {
 					: null;
 
 			if (fulfillmentMethod === "table_service" && !tableNumber) {
-				showError("Nomor meja wajib diisi untuk order dine in.");
+				showError("Table number is required for dine-in orders.");
 				return;
 			}
 
@@ -796,6 +844,51 @@ export default function POSPage() {
 			setPlacingOrder(false);
 		}
 	};
+
+	if (checkingShift && !isOwner) {
+		return (
+			<div className="flex h-[calc(100vh-55px)] items-center justify-center bg-gray-50">
+				<div className="flex flex-col items-center space-y-4">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+					<p className="text-sm font-semibold text-gray-500">Loading cashier shift status...</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (shiftStatus !== "open" && !isOwner) {
+		return (
+			<div className="flex h-[calc(100vh-55px)] items-center justify-center bg-gray-50 px-4">
+				<div className="max-w-md w-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm text-center space-y-6">
+					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 border border-amber-200">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7 text-amber-700">
+							<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+						</svg>
+					</div>
+
+					<div className="space-y-2">
+						<h2 className="text-xl font-bold text-gray-900">
+							{shiftStatus === "not_opened" ? "Cash Drawer Not Opened" : "Your Shift Has Been Closed"}
+						</h2>
+						<p className="text-sm text-gray-500 leading-relaxed">
+							{shiftStatus === "not_opened" 
+								? "You must open your shift and confirm the opening cash float before accessing the POS sales page." 
+								: "Your cashier shift session for today has been completed and closed. Please switch accounts or contact your manager if this is an error."}
+						</p>
+					</div>
+
+					<div className="pt-2">
+						<a
+							href="/staff/attendance"
+							className="inline-flex w-full h-11 items-center justify-center rounded-xl bg-gray-900 text-sm font-bold text-white transition hover:bg-gray-800 shadow-sm"
+						>
+							Open Shift & Attendance Page
+						</a>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	const paymentSummaryItems = cart.map((item) => ({
 		...item,

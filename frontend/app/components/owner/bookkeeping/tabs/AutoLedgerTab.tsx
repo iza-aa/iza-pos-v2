@@ -74,33 +74,11 @@ const getGroupStatus = (entries: BookkeepingEntry[]): BookkeepingEntry["status"]
 export default function AutoLedgerTab({
   data,
   loading = false,
-  savingAdjustment = false,
-  onCreateAdjustment,
 }: {
   data: BookkeepingDashboardData;
   loading?: boolean;
-  savingAdjustment?: boolean;
-  onCreateAdjustment?: (form: {
-    businessDate: string;
-    category: string;
-    amount: string;
-    direction: "in" | "out" | "neutral";
-    paymentMethod: string;
-    sourceLabel: string;
-    note: string;
-  }) => void;
 }) {
   const { t } = useLanguage();
-  const [adjustmentOpen, setAdjustmentOpen] = useState(false);
-  const [adjustmentForm, setAdjustmentForm] = useState({
-    businessDate: data.dateRange.endDate,
-    category: "Manual Adjustment",
-    amount: "",
-    direction: "neutral" as "in" | "out" | "neutral",
-    paymentMethod: "",
-    sourceLabel: "Owner correction",
-    note: "",
-  });
   const ledgerGroups = useMemo(() => {
     const groups = new Map<string, LedgerGroup>();
 
@@ -215,18 +193,6 @@ export default function AutoLedgerTab({
     <StandardPanel
       title={t("owner.bookkeeping.ledger")}
       description={t("owner.bookkeeping.autoLedgerDescription")}
-      action={
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setAdjustmentOpen(true)}
-            disabled={!onCreateAdjustment || savingAdjustment}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t("owner.bookkeeping.addAdjustment")}
-          </button>
-        </div>
-      }
     >
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-600">
         {entrySummary
@@ -241,139 +207,6 @@ export default function AutoLedgerTab({
         emptyLabel={t("owner.bookkeeping.noLedgerMovement")}
         minWidthClassName="min-w-[1080px]"
       />
-      <StandardModal
-        isOpen={adjustmentOpen}
-        title={t("owner.bookkeeping.manualAdjustment")}
-        description={t("owner.bookkeeping.manualAdjustmentDescription")}
-        maxWidthClassName="max-w-2xl"
-        onClose={() => setAdjustmentOpen(false)}
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setAdjustmentOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              {t("owner.bookkeeping.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onCreateAdjustment?.(adjustmentForm);
-                setAdjustmentOpen(false);
-              }}
-              disabled={
-                !onCreateAdjustment ||
-                savingAdjustment ||
-                !adjustmentForm.businessDate ||
-                !adjustmentForm.category.trim() ||
-                !adjustmentForm.amount ||
-                Number(adjustmentForm.amount) <= 0 ||
-                !adjustmentForm.note.trim()
-              }
-              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {savingAdjustment ? t("owner.bookkeeping.saving") : t("owner.bookkeeping.saveAdjustment")}
-            </button>
-          </>
-        }
-      >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="text-sm font-semibold text-gray-700">
-                {t("owner.bookkeeping.businessDate")}
-                <input
-                  type="date"
-                  value={adjustmentForm.businessDate}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    businessDate: event.target.value,
-                  }))}
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                />
-              </label>
-              <label className="text-sm font-semibold text-gray-700">
-                {t("owner.bookkeeping.direction")}
-                <select
-                  value={adjustmentForm.direction}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    direction: event.target.value as "in" | "out" | "neutral",
-                  }))}
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                >
-                  <option value="neutral">Neutral - review/correction note</option>
-                  <option value="in">In - money/revenue correction</option>
-                  <option value="out">Out - cost/cash shortage correction</option>
-                </select>
-              </label>
-              <label className="text-sm font-semibold text-gray-700">
-                {t("owner.bookkeeping.category")}
-                <input
-                  type="text"
-                  value={adjustmentForm.category}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    category: event.target.value,
-                  }))}
-                  placeholder="Cash Shortage, Refund Correction, etc."
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                />
-              </label>
-              <label className="text-sm font-semibold text-gray-700">
-                {t("owner.bookkeeping.amount")}
-                <input
-                  type="number"
-                  min="0"
-                  value={adjustmentForm.amount}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    amount: event.target.value,
-                  }))}
-                  placeholder="0"
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                />
-              </label>
-              <label className="text-sm font-semibold text-gray-700">
-                {t("owner.bookkeeping.paymentMethod")}
-                <input
-                  type="text"
-                  value={adjustmentForm.paymentMethod}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    paymentMethod: event.target.value,
-                  }))}
-                  placeholder={t("owner.bookkeeping.optional")}
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                />
-              </label>
-              <label className="text-sm font-semibold text-gray-700">
-                {t("owner.bookkeeping.sourceLabel")}
-                <input
-                  type="text"
-                  value={adjustmentForm.sourceLabel}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    sourceLabel: event.target.value,
-                  }))}
-                  placeholder="Owner correction"
-                  className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                />
-              </label>
-              <label className="text-sm font-semibold text-gray-700 md:col-span-2">
-                {t("owner.bookkeeping.auditNote")}
-                <textarea
-                  value={adjustmentForm.note}
-                  onChange={(event) => setAdjustmentForm((current) => ({
-                    ...current,
-                    note: event.target.value,
-                  }))}
-                  placeholder="Required. Explain why this adjustment is needed."
-                  rows={4}
-                  className="mt-2 w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
-                />
-              </label>
-            </div>
-      </StandardModal>
     </StandardPanel>
   );
 }

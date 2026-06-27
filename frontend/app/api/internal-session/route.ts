@@ -22,7 +22,7 @@ const getVerifiedUser = async (request: NextRequest) => {
   const supabase = createClient(url, key, { auth: { persistSession: false } });
   const { data, error } = await supabase
     .from("staff")
-    .select("id,name,role,status,staff_code,staff_type,profile_picture,staff_positions(id,staff_id,position,is_primary,is_active)")
+    .select("id,name,role,status,staff_code,profile_picture,staff_positions(id,staff_id,position,is_primary,is_active)")
     .eq("id", payload.sub)
     .maybeSingle();
 
@@ -34,7 +34,7 @@ const getVerifiedUser = async (request: NextRequest) => {
 
   return {
     ...data,
-    staff_type: primaryPosition ?? data.staff_type,
+    staff_type: primaryPosition,
     staff_positions: staffPositions,
     primary_position: primaryPosition,
   };

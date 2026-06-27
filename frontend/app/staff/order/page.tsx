@@ -5,11 +5,12 @@ import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { POLLING_INTERVALS } from "@/lib/constants";
 import { OrderCard } from "@/app/components/shared";
 import OrderTable from "@/app/components/staff/order/OrderTable";
+import OrderDetailModal from "@/app/components/staff/order/OrderDetailModal";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
-import DateRangeFilter, {
+import CompactDateRangeFilter, {
   getDefaultDateRange,
   type DateRangeValue,
-} from "@/app/components/shared/DateRangeFilter";
+} from "@/app/components/shared/CompactDateRangeFilter";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/config/supabaseClient";
@@ -21,7 +22,6 @@ import {
 } from "@/lib/utils";
 import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
-import TableOrderMapView from "@/app/components/staff/order/TableOrderMapView";
 import { getCurrentUser } from "@/lib/utils/auth";
 import { canUpdateStaffOrders } from "@/lib/utils/staffAccess";
 import { reverseOrderInventoryUsageWithBatches } from "@/lib/services/inventory/inventoryBatchService";
@@ -36,6 +36,10 @@ interface Order {
   orderType: string;
   items: OrderItem[];
   total: number;
+  subtotal?: number;
+  tax?: number;
+  discount?: number;
+  serviceCharge?: number;
   date: string;
   time: string;
   status: "new" | "preparing" | "partially-served" | "served" | "completed";
@@ -51,6 +55,7 @@ interface Order {
   pickupCode?: string | null;
   timeLabel: string;
   paymentMethod?: string | null;
+  payment_method?: string | null;
   paymentAmount?: number;
   changeAmount?: number;
 }
@@ -70,13 +75,7 @@ type OrderCorrectionReview = {
 
 type KanbanColumnKey = "new" | "preparing" | "partially-served" | "completed";
 
-type OrderFilter =
-  | "all"
-  | "dine-in"
-  | "takeaway"
-  | KanbanColumnKey
-  | "pos"
-  | "qr";
+type OrderFilter = "all" | KanbanColumnKey;
 
 type KanbanFilter = "all" | KanbanColumnKey;
 
@@ -89,43 +88,35 @@ const kanbanFilterOptions: { key: KanbanFilter; label: string }[] = [
 ];
 
 const tableFilterOptions: { key: OrderFilter; label: string }[] = [
-  { key: "all", label: "All Items" },
-  { key: "dine-in", label: "Dine In" },
-  { key: "takeaway", label: "Takeaway" },
+  { key: "all", label: "All" },
   { key: "new", label: "New Order" },
   { key: "preparing", label: "On Process" },
   { key: "partially-served", label: "Partially Served" },
   { key: "completed", label: "Completed" },
-  { key: "pos", label: "POS Only" },
-  { key: "qr", label: "QR Only" },
 ];
 
 const kanbanColumns: {
   key: KanbanColumnKey;
   title: string;
-  description: string;
+
 }[] = [
-  {
-    key: "new",
-    title: "New Order",
-    description: "Pesanan baru masuk",
-  },
-  {
-    key: "preparing",
-    title: "On Process",
-    description: "Pesanan sedang diproses",
-  },
-  {
-    key: "partially-served",
-    title: "Partially Served",
-    description: "Sebagian item sudah disajikan",
-  },
-  {
-    key: "completed",
-    title: "Completed",
-    description: "Pesanan selesai",
-  },
-];
+    {
+      key: "new",
+      title: "New Order",
+    },
+    {
+      key: "preparing",
+      title: "On Process",
+    },
+    {
+      key: "partially-served",
+      title: "Partially Served",
+    },
+    {
+      key: "completed",
+      title: "Completed",
+    },
+  ];
 
 const isValidStaffId = (id: unknown): id is string => {
   return typeof id === "string" && id.length > 0;
@@ -155,6 +146,7 @@ export default function StaffOrderPage() {
   const [orderCorrections, setOrderCorrections] = useState<OrderCorrectionReview[]>([]);
   const [availableBaristas, setAvailableBaristas] = useState<AvailableStaffOption[]>([]);
   const [availableWaiters, setAvailableWaiters] = useState<AvailableStaffOption[]>([]);
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -390,7 +382,7 @@ export default function StaffOrderPage() {
       if (allStaffIds.length > 0) {
         const { data: staffData } = await supabase
           .from("staff")
-          .select("id, name, staff_type, role")
+          .select("id, name, role")
           .in("id", allStaffIds);
 
         if (staffData) {
@@ -403,7 +395,7 @@ export default function StaffOrderPage() {
               roleCategory = "Owner";
             } else if (roleLower === "manager") {
               roleCategory = "Manager";
-            } else if (staff.staff_type) {
+            } else {
               roleCategory = "Staff";
             }
 
@@ -421,9 +413,9 @@ export default function StaffOrderPage() {
           products?: {
             name?: string;
             categories?:
-              | { preparation_station?: string | null }
-              | { preparation_station?: string | null }[]
-              | null;
+            | { preparation_station?: string | null }
+            | { preparation_station?: string | null }[]
+            | null;
           };
           base_price?: number;
           kitchen_status?: string;
@@ -538,6 +530,11 @@ export default function StaffOrderPage() {
               : null,
           })),
           total: order.total || 0,
+          subtotal: order.subtotal || 0,
+          tax: order.tax || 0,
+          discount: order.discount || 0,
+          serviceCharge: order.service_charge || 0,
+          payment_method: order.payment_method || null,
           date: operationalTime.date,
           time: operationalTime.time,
           timeLabel: operationalTime.label,
@@ -674,15 +671,15 @@ export default function StaffOrderPage() {
             status: "preparing",
             items: shouldSaveBarAttribution
               ? order.items.map((item) =>
-                  barItemIds.includes(item.id)
-                    ? {
-                        ...item,
-                        assigned_barista_id: selectedBaristaId,
-                        assignedBaristaId: selectedBaristaId,
-                        assignedBaristaName: assignedBaristaName,
-                      }
-                    : item,
-                )
+                barItemIds.includes(item.id)
+                  ? {
+                    ...item,
+                    assigned_barista_id: selectedBaristaId,
+                    assignedBaristaId: selectedBaristaId,
+                    assignedBaristaName: assignedBaristaName,
+                  }
+                  : item,
+              )
               : order.items,
             date: operationalTime.date,
             time: operationalTime.time,
@@ -764,12 +761,12 @@ export default function StaffOrderPage() {
       const nextItems = targetOrder.items.map((item) =>
         validItemIds.includes(item.id)
           ? {
-              ...item,
-              served: true,
-              served_by: servedByStaffId ?? undefined,
-              served_recorded_by: currentUser?.id ?? null,
-              servedAt: formatJakartaTime(parseSupabaseTimestamp(nowIso)),
-            }
+            ...item,
+            served: true,
+            served_by: servedByStaffId ?? undefined,
+            served_recorded_by: currentUser?.id ?? null,
+            servedAt: formatJakartaTime(parseSupabaseTimestamp(nowIso)),
+          }
           : item,
       );
 
@@ -800,7 +797,7 @@ export default function StaffOrderPage() {
           if (order.id !== orderId) return order;
           const servedByDisplayName = servedByStaffId
             ? waiterNameById.get(servedByStaffId) ||
-              (servedByStaffId === currentUser?.id ? currentUser?.name : null)
+            (servedByStaffId === currentUser?.id ? currentUser?.name : null)
             : null;
           const operationalTime = getOrderOperationalTimestamp({
             status: nextStatus,
@@ -981,10 +978,7 @@ export default function StaffOrderPage() {
   const shouldShowOrderFilter = isTableListView;
   const shouldShowKanbanFilter = isKanbanView;
   const shouldApplyOrderFilter = isTableListView;
-  const visibleKanbanColumns =
-    kanbanFilter === "all"
-      ? kanbanColumns
-      : kanbanColumns.filter((column) => column.key === kanbanFilter);
+  const visibleKanbanColumns = kanbanColumns;
 
   const dateRangeOrders = orderList.filter((order) => {
     const orderDateValue = order.createdAt.slice(0, 10);
@@ -1017,11 +1011,7 @@ export default function StaffOrderPage() {
     if (shouldApplyOrderFilter) {
       const effectiveStatus = getOrderEffectiveStatus(order);
 
-      if (orderFilter === "dine-in") {
-        matchesFilter = order.orderType.toLowerCase().includes("dine");
-      } else if (orderFilter === "takeaway") {
-        matchesFilter = order.orderType.toLowerCase().includes("take");
-      } else if (orderFilter === "new") {
+      if (orderFilter === "new") {
         matchesFilter = effectiveStatus === "new";
       } else if (orderFilter === "preparing") {
         matchesFilter = effectiveStatus === "preparing";
@@ -1030,10 +1020,6 @@ export default function StaffOrderPage() {
       } else if (orderFilter === "completed") {
         matchesFilter =
           effectiveStatus === "served" || effectiveStatus === "completed";
-      } else if (orderFilter === "pos") {
-        matchesFilter = order.orderSource === "pos";
-      } else if (orderFilter === "qr") {
-        matchesFilter = order.orderSource === "qr";
       }
     }
 
@@ -1065,10 +1051,11 @@ export default function StaffOrderPage() {
         placeholder="Search orders..."
         width="w-full lg:w-72"
       />
+      <CompactDateRangeFilter value={dateRange} onChange={setDateRange} />
       <button
         type="button"
         onClick={() => setCorrectionModalOpen(true)}
-        className="h-10 rounded-lg border border-gray-900 bg-white px-4 text-sm font-bold text-gray-900 transition hover:bg-gray-50"
+        className="py-2.5 rounded-lg border border-gray-300 shadow-sm bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
       >
         Request Correction
       </button>
@@ -1076,6 +1063,7 @@ export default function StaffOrderPage() {
         <ViewModeToggle
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          showMapView={false}
         />
       </div>
     </div>
@@ -1084,9 +1072,9 @@ export default function StaffOrderPage() {
   const renderOrderLoadingSkeleton = () => {
     if (viewMode === "table") {
       return (
-        <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div className="mt-2 overflow-hidden rounded-md border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-4 py-4">
-            <div className="h-5 w-36 animate-pulse rounded bg-gray-200" />
+            <div className="h-5 w-36 animate-pulse rounded-md bg-gray-200" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-190 table-fixed text-left text-sm">
@@ -1094,7 +1082,7 @@ export default function StaffOrderPage() {
                 <tr>
                   {Array.from({ length: 6 }, (_, index) => (
                     <th key={index} className="border-b border-gray-200 px-4 py-4">
-                      <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+                      <div className="h-4 w-20 animate-pulse rounded-md bg-gray-200" />
                     </th>
                   ))}
                 </tr>
@@ -1105,9 +1093,8 @@ export default function StaffOrderPage() {
                     {Array.from({ length: 6 }, (_, cellIndex) => (
                       <td key={cellIndex} className="px-4 py-5">
                         <div
-                          className={`h-4 animate-pulse rounded bg-gray-200 ${
-                            cellIndex === 0 ? "w-32" : cellIndex % 2 === 0 ? "w-24" : "w-16"
-                          }`}
+                          className={`h-4 animate-pulse rounded-md bg-gray-200 ${cellIndex === 0 ? "w-32" : cellIndex % 2 === 0 ? "w-24" : "w-16"
+                            }`}
                         />
                       </td>
                     ))}
@@ -1119,46 +1106,37 @@ export default function StaffOrderPage() {
         </div>
       );
     }
-
-    if (viewMode === "map") {
-      return (
-        <div className="mt-2 rounded-2xl border border-gray-200 bg-white p-4">
-          <div className="mb-4 flex gap-2">
-            {Array.from({ length: 3 }, (_, index) => (
-              <div key={index} className="h-10 w-28 animate-pulse rounded-lg bg-gray-200" />
-            ))}
-          </div>
-          <div className="h-130 animate-pulse rounded-xl bg-gray-200" />
-        </div>
-      );
-    }
-
     return (
-      <div
-        className={
-          kanbanFilter === "all"
-            ? "mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-            : "mt-2"
-        }
-      >
-        {visibleKanbanColumns.map((column) => (
-          <section key={column.key} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-4 py-3">
-              <div className="h-4 w-28 animate-pulse rounded bg-gray-200" />
-              <div className="mt-2 h-3 w-40 animate-pulse rounded bg-gray-100" />
+      <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kanbanFilter === "all" ? (
+          visibleKanbanColumns.map((column) => (
+            <div key={column.key} className="flex flex-col">
+              <div className="bg-white border border-gray-200 rounded-md px-4 py-3 mb-4 shadow-sm shrink-0">
+                <div className="h-4 w-28 animate-pulse rounded-md bg-gray-200" />
+                <div className="mt-2 h-3 w-40 animate-pulse rounded-md bg-gray-100" />
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div key={index} className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="h-5 w-32 animate-pulse rounded-md bg-gray-200" />
+                    <div className="mt-4 h-3 w-full animate-pulse rounded-md bg-gray-100" />
+                    <div className="mt-2 h-3 w-2/3 animate-pulse rounded-md bg-gray-100" />
+                    <div className="mt-5 h-9 w-full animate-pulse rounded-md bg-gray-200" />
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-3 p-3">
-              {Array.from({ length: kanbanFilter === "all" ? 3 : 6 }, (_, index) => (
-                <div key={index} className="rounded-xl border border-gray-100 p-4">
-                  <div className="h-5 w-32 animate-pulse rounded bg-gray-200" />
-                  <div className="mt-4 h-3 w-full animate-pulse rounded bg-gray-100" />
-                  <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-gray-100" />
-                  <div className="mt-5 h-9 w-full animate-pulse rounded-lg bg-gray-200" />
-                </div>
-              ))}
+          ))
+        ) : (
+          Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="h-5 w-32 animate-pulse rounded-md bg-gray-200" />
+              <div className="mt-4 h-3 w-full animate-pulse rounded-md bg-gray-100" />
+              <div className="mt-2 h-3 w-2/3 animate-pulse rounded-md bg-gray-100" />
+              <div className="mt-5 h-9 w-full animate-pulse rounded-md bg-gray-200" />
             </div>
-          </section>
-        ))}
+          ))
+        )}
       </div>
     );
   };
@@ -1202,45 +1180,44 @@ export default function StaffOrderPage() {
           void fetchOrderCorrections();
         }}
       />
+      <OrderDetailModal
+        isOpen={!!selectedOrderDetail}
+        order={selectedOrderDetail}
+        onClose={() => setSelectedOrderDetail(null)}
+      />
       <div className="bg-gray-100">
-        <div className="bg-gray-100 px-6 pt-6">
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
-        </div>
-
-        <div className="shrink-0 bg-gray-100 px-6 pt-6 pb-4">
+        <div className="shrink-0 bg-gray-100 px-6 pt-6 pb-2">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               {shouldShowKanbanFilter
                 ? kanbanFilterOptions.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => setKanbanFilter(option.key)}
-                      className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                        kanbanFilter === option.key
-                          ? "bg-gray-900 text-white shadow-md"
-                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setKanbanFilter(option.key)}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition ${kanbanFilter === option.key
+                      ? "bg-gray-900 text-white shadow-md"
+                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                       }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))
+                  >
+                    {option.label}
+                  </button>
+                ))
                 : null}
               {shouldShowOrderFilter
                 ? tableFilterOptions.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => setOrderFilter(option.key)}
-                      className={`px-6 py-2 rounded-xl text-sm font-medium transition ${
-                        orderFilter === option.key
-                          ? "bg-gray-900 text-white shadow-md"
-                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setOrderFilter(option.key)}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition ${orderFilter === option.key
+                      ? "bg-gray-900 text-white shadow-md"
+                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                       }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))
+                  >
+                    {option.label}
+                  </button>
+                ))
                 : null}
             </div>
             {renderOrderControls()}
@@ -1251,170 +1228,149 @@ export default function StaffOrderPage() {
           {loading ? (
             renderOrderLoadingSkeleton()
           ) : viewMode === "card" ? (
-            <div
-              className={
-                kanbanFilter === "all"
-                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2"
-                  : "h-full min-h-0 mt-2"
-              }
-            >
-              {visibleKanbanColumns.map((column) => {
-                const columnOrders = getOrdersByKanbanColumn(column.key);
-                const isSingleFilteredColumn = kanbanFilter !== "all";
+            kanbanFilter === "all" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                {visibleKanbanColumns.map((column) => {
+                  const columnOrders = getOrdersByKanbanColumn(column.key);
 
-                return (
-                  <section
-                    key={column.key}
-                    className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${
-                      isSingleFilteredColumn
-                        ? "h-full min-h-0 flex flex-col"
-                        : ""
-                    }`}
-                  >
-                    <div className="bg-white border-b border-gray-200 px-4 py-3 shrink-0">
-                      <div className="flex items-start justify-between gap-3">
+                  return (
+                    <div
+                      key={column.key}
+                      className="flex flex-col"
+                    >
+                      {/* Column Header Card */}
+                      <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4 flex items-center justify-between shadow-sm shrink-0">
                         <div>
                           <h3 className="text-sm font-semibold text-gray-900">
                             {column.title}
                           </h3>
-
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {column.description}
-                          </p>
                         </div>
 
-                        <span className="min-w-7 h-7 px-2 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center">
+                        <span className="min-w-6 h-6 px-2 rounded-md bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center">
                           {columnOrders.length}
                         </span>
                       </div>
-                    </div>
 
-                    <div
-                      className={
-                        isSingleFilteredColumn
-                          ? columnOrders.length > 0
-                            ? "flex-1 min-h-0 p-4 overflow-y-auto"
-                            : "flex-1 min-h-0 p-4"
-                          : "p-3 space-y-3 min-h-122"
-                      }
-                    >
-                      {columnOrders.length > 0 ? (
-                        isSingleFilteredColumn ? (
-                          <div className="columns-1 md:columns-2 xl:columns-4 gap-4 [column-fill:balance]">
-                            {columnOrders.map((order) => (
-                              <div
-                                key={order.id}
-                                className="mb-4 break-inside-avoid"
-                              >
-                                {(() => {
-                                  const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
-
-                                  return (
-                                    <OrderCard
-                                      order={order}
-                                      correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
-                                      showDeleteButton={!pendingCorrection && canDeleteOrders}
-                                      onDelete={handleDeleteOrder}
-                                      enableFlipCard={!pendingCorrection && canUpdateOrders && (canShowServeOrderButton(order) || (order.status === "new" && orderHasBarItems(order)))}
-                                      showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
-                                      serveOrderLabel="Serve Order"
-                                      disabledServeOrderLabel="Waiting for Kitchen"
-                                      onMarkServed={handleMarkServed}
-                                      showHandoffStaffSelector={shouldShowWaiterHandoff(order)}
-                                      handoffStaffOptions={availableWaiters}
-                                      handoffStaffLabel="Handoff to waiter"
-                                      noHandoffStaffLabel="No waiter handoff"
-                                      showProcessAction={!pendingCorrection && canUpdateOrders && order.status === "new"}
-                                      onProcessOrder={handleProcessOrder}
-                                      showBaristaSelector={orderHasBarItems(order)}
-                                      baristaOptions={availableBaristaOptions}
-                                      baristaLabel="Bar handled by"
-                                      noBaristaLabel="No bar attribution"
-                                      defaultBaristaId={defaultBaristaId}
-                                      queueNumber={activeOrderQueueNumberMap.get(order.id)}
-                                      customActions={
-                                        pendingCorrection ? (
-                                          <button
-                                            type="button"
-                                            disabled
-                                            className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
-                                          >
-                                            Waiting for manager review
-                                          </button>
-                                        ) : null
-                                      }
-                                    />
-                                  );
-                                })()}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
+                      <div className="space-y-3">
+                        {columnOrders.length > 0 ? (
                           columnOrders.map((order) => (
-                            (() => {
-                              const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
+                            <div key={order.id} className="mb-3">
+                              {(() => {
+                                const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
 
-                              return (
-                                <OrderCard
-                                  key={order.id}
-                                  order={order}
-                                  correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
-                                  showDeleteButton={!pendingCorrection && canDeleteOrders}
-                                  onDelete={handleDeleteOrder}
-                                  enableFlipCard={!pendingCorrection && canUpdateOrders && (canShowServeOrderButton(order) || (order.status === "new" && orderHasBarItems(order)))}
-                                  showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
-                                  serveOrderLabel="Serve Order"
-                                  disabledServeOrderLabel="Waiting for Kitchen"
-                                  onMarkServed={handleMarkServed}
-                                  showHandoffStaffSelector={shouldShowWaiterHandoff(order)}
-                                  handoffStaffOptions={availableWaiters}
-                                  handoffStaffLabel="Handoff to waiter"
-                                  noHandoffStaffLabel="No waiter handoff"
-                                  showProcessAction={!pendingCorrection && canUpdateOrders && order.status === "new"}
-                                  onProcessOrder={handleProcessOrder}
-                                  showBaristaSelector={orderHasBarItems(order)}
-                                  baristaOptions={availableBaristaOptions}
-                                  baristaLabel="Bar handled by"
-                                  noBaristaLabel="No bar attribution"
-                                  defaultBaristaId={defaultBaristaId}
-                                  queueNumber={activeOrderQueueNumberMap.get(order.id)}
-                                  customActions={
-                                    pendingCorrection ? (
-                                      <button
-                                        type="button"
-                                        disabled
-                                        className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
-                                      >
-                                        Waiting for manager review
-                                      </button>
-                                    ) : null
-                                  }
-                                />
-                              );
-                            })()
+                                return (
+                                  <OrderCard
+                                    order={order}
+                                    correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
+                                    showDeleteButton={!pendingCorrection && canDeleteOrders}
+                                    onDelete={handleDeleteOrder}
+                                    enableFlipCard={!pendingCorrection && canUpdateOrders && (canShowServeOrderButton(order) || (order.status === "new" && orderHasBarItems(order)))}
+                                    showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
+                                    serveOrderLabel="Serve Order"
+                                    disabledServeOrderLabel="Waiting for Kitchen"
+                                    onMarkServed={handleMarkServed}
+                                    showHandoffStaffSelector={shouldShowWaiterHandoff(order)}
+                                    handoffStaffOptions={availableWaiters}
+                                    handoffStaffLabel="Handoff to waiter"
+                                    noHandoffStaffLabel="No waiter handoff"
+                                    showProcessAction={!pendingCorrection && canUpdateOrders && order.status === "new"}
+                                    onProcessOrder={handleProcessOrder}
+                                    showBaristaSelector={orderHasBarItems(order)}
+                                    baristaOptions={availableBaristaOptions}
+                                    baristaLabel="Bar handled by"
+                                    noBaristaLabel="No bar attribution"
+                                    defaultBaristaId={defaultBaristaId}
+                                    queueNumber={activeOrderQueueNumberMap.get(order.id)}
+                                    customActions={
+                                      pendingCorrection ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        >
+                                          Waiting for manager review
+                                        </button>
+                                      ) : null
+                                    }
+                                  />
+                                );
+                              })()}
+                            </div>
                           ))
-                        )
-                      ) : (
-                        <div
-                          className={
-                            isSingleFilteredColumn
-                              ? "h-full min-h-122 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
-                              : "h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-400 text-center px-4"
-                          }
-                        >
-                          No orders in this status
-                        </div>
-                      )}
+                        ) : (
+                          <div className="h-70 rounded-md border border-dashed border-gray-300 flex items-center justify-center bg-white text-sm text-gray-400 text-center px-4 shadow-sm">
+                            No orders in this status
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </section>
+                  );
+                })}
+              </div>
+            ) : (
+              // Filtered view: direct grid of OrderCards starting from the left
+              (() => {
+                const columnOrders = getOrdersByKanbanColumn(kanbanFilter);
+                return columnOrders.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                    {columnOrders.map((order) => {
+                      const pendingCorrection = loggedCorrectionByOrderId.get(order.id);
+
+                      return (
+                        <div
+                          key={order.id}
+                          className="break-inside-avoid"
+                        >
+                          <OrderCard
+                            order={order}
+                            correctionLabel={correctionOrderIds.has(order.id) ? "Cancelled" : undefined}
+                            showDeleteButton={!pendingCorrection && canDeleteOrders}
+                            onDelete={handleDeleteOrder}
+                            enableFlipCard={!pendingCorrection && canUpdateOrders && (canShowServeOrderButton(order) || (order.status === "new" && orderHasBarItems(order)))}
+                            showServeOrderAction={!pendingCorrection && canUpdateOrders && canShowServeOrderButton(order)}
+                            serveOrderLabel="Serve Order"
+                            disabledServeOrderLabel="Waiting for Kitchen"
+                            onMarkServed={handleMarkServed}
+                            showHandoffStaffSelector={shouldShowWaiterHandoff(order)}
+                            handoffStaffOptions={availableWaiters}
+                            handoffStaffLabel="Handoff to waiter"
+                            noHandoffStaffLabel="No waiter handoff"
+                            showProcessAction={!pendingCorrection && canUpdateOrders && order.status === "new"}
+                            onProcessOrder={handleProcessOrder}
+                            showBaristaSelector={orderHasBarItems(order)}
+                            baristaOptions={availableBaristaOptions}
+                            baristaLabel="Bar handled by"
+                            noBaristaLabel="No bar attribution"
+                            defaultBaristaId={defaultBaristaId}
+                            queueNumber={activeOrderQueueNumberMap.get(order.id)}
+                            customActions={
+                              pendingCorrection ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+                                >
+                                  Waiting for manager review
+                                </button>
+                              ) : null
+                            }
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="h-32 rounded-md border border-dashed border-gray-300 flex items-center justify-center bg-white text-sm text-gray-400 text-center px-4 shadow-sm mt-2">
+                    No orders in this status
+                  </div>
                 );
-              })}
-            </div>
-          ) : viewMode === "table" ? (
+              })()
+            )
+          ) : (
             <div className="mt-2">
               <OrderTable
                 orders={filteredOrders}
-                onOrderClick={() => {}}
+                onOrderClick={(order) => setSelectedOrderDetail(order as unknown as Order)}
                 correctionOrderIds={correctionOrderIds}
                 pendingCorrectionByOrderId={new Map(
                   Array.from(loggedCorrectionByOrderId.entries()).map(([orderId, correction]) => [
@@ -1424,8 +1380,6 @@ export default function StaffOrderPage() {
                 )}
               />
             </div>
-          ) : (
-            <TableOrderMapView orders={filteredOrders} />
           )}
         </div>
       </div>

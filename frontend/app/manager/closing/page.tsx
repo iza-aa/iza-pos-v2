@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getCurrentUser } from "@/lib/utils";
 import {
-  DateRangeFilter,
-  getDefaultDateRange,
   StandardModal,
-  type DateRangeValue,
 } from "@/app/components/shared";
 import { useLanguage } from "@/app/components/shared/i18n";
 import StandardTable, {
@@ -90,6 +87,7 @@ type ManagerBookkeepingData = {
   weeklyAssignments: WeeklyAssignmentRow[];
   shiftClosings: ClosingRow[];
   expenses: ExpenseRow[];
+  deposits: any[];
 };
 
 const getToday = () => {
@@ -99,6 +97,14 @@ const getToday = () => {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+};
+
+const getYesterday = () => {
+  const todayStr = getToday();
+  const [year, month, day] = todayStr.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 };
 
 const formatCurrency = (value: unknown) => {
@@ -154,23 +160,28 @@ const getCashDifference = (closing?: ClosingRow) => {
 };
 
 const renderStatusBadge = (label: string, className: string) => (
-  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${className}`}>
     {label}
   </span>
 );
 
 export default function ManagerClosingPage() {
   const { t } = useLanguage();
-  const [dateRange, setDateRange] =
-    useState<DateRangeValue>(getDefaultDateRange);
-  const businessDate = dateRange.endDate || getToday();
+  const [businessDate, setBusinessDate] = useState<string>(getToday());
   const [data, setData] = useState<ManagerBookkeepingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [openingCashModalOpen, setOpeningCashModalOpen] = useState(false);
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [verifyDepositModalOpen, setVerifyDepositModalOpen] = useState(false);
+  const [selectedDeposit, setSelectedDeposit] = useState<any | null>(null);
+  const [verifyForm, setVerifyForm] = useState({ receivedAmount: "", status: "verified", managerNotes: "" });
   const [cashForm, setCashForm] = useState({ shiftId: "", openingCash: "", closingFloat: "", note: "" });
   const [expenseForm, setExpenseForm] = useState({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", note: "" });
+  const [recheckModalOpen, setRecheckModalOpen] = useState(false);
+  const [recheckShiftId, setRecheckShiftId] = useState("");
+  const [recheckNote, setRecheckNote] = useState("");
 
   const currentUser = useMemo(() => getCurrentUser(), []);
 
@@ -290,6 +301,7 @@ export default function ManagerClosingPage() {
       {
         key: "shift",
         header: t("manager.closing.shift"),
+        headerClassName: "w-[9%]",
         render: (row) => (
           <div>
             <p className="font-bold text-gray-950">
@@ -305,6 +317,7 @@ export default function ManagerClosingPage() {
       {
         key: "closingPic",
         header: t("manager.closing.closingPic"),
+        headerClassName: "w-[12%]",
         render: (row) =>
           row.scheduledStaff.length > 0
             ? row.scheduledStaff.map((staff) => staff.name).join(", ")
@@ -315,6 +328,7 @@ export default function ManagerClosingPage() {
       {
         key: "opening",
         header: t("manager.closing.opening"),
+        headerClassName: "w-[9%]",
         render: (row) =>
           row.closing ? formatCurrency(row.closing.opening_cash) : "-",
         sortValue: (row) => Number(row.closing?.opening_cash ?? 0),
@@ -322,6 +336,7 @@ export default function ManagerClosingPage() {
       {
         key: "cashSales",
         header: t("manager.closing.cashSales"),
+        headerClassName: "w-[9%]",
         render: (row) =>
           row.closing ? formatCurrency(row.closing.cash_expected) : "-",
         sortValue: (row) => Number(row.closing?.cash_expected ?? 0),
@@ -329,6 +344,7 @@ export default function ManagerClosingPage() {
       {
         key: "expected",
         header: t("manager.closing.expected"),
+        headerClassName: "w-[10%]",
         render: (row) => (
           <span className="font-bold text-gray-950">
             {row.closing ? formatCurrency(row.closing.expected_drawer_cash) : "-"}
@@ -339,6 +355,7 @@ export default function ManagerClosingPage() {
       {
         key: "counted",
         header: t("manager.closing.counted"),
+        headerClassName: "w-[10%]",
         render: (row) =>
           row.closing?.cash_counted === null ||
           row.closing?.cash_counted === undefined
@@ -349,6 +366,7 @@ export default function ManagerClosingPage() {
       {
         key: "difference",
         header: t("manager.closing.difference"),
+        headerClassName: "w-[10%]",
         render: (row) => (
           <span className="font-bold text-gray-950">
             {row.closing?.cash_difference === null ||
@@ -362,6 +380,7 @@ export default function ManagerClosingPage() {
       {
         key: "status",
         header: t("manager.closing.status"),
+        headerClassName: "w-[15%]",
         render: (row) =>
           renderStatusBadge(
             formatClosingStatus(row.closing?.status, t),
@@ -373,6 +392,7 @@ export default function ManagerClosingPage() {
         key: "actions",
         header: t("manager.closing.actions"),
         isAction: true,
+        headerClassName: "w-[13%]",
         render: (row) => {
           if (!row.closing || !hasCashCount(row.closing)) {
             return <span className="text-xs font-semibold text-gray-400">{t("manager.closing.waitingStaff")}</span>;
@@ -409,18 +429,11 @@ export default function ManagerClosingPage() {
               <button
                 type="button"
                 disabled={saving}
-                onClick={() =>
-                  postAction(
-                    {
-                      action: "review_shift_closing",
-                      businessDate,
-                      shiftId: row.shift.id,
-                      reviewAction: "recheck",
-                    note: t("manager.closing.recheckNote"),
-                    },
-                    t("manager.closing.recheckSaved"),
-                  )
-                }
+                onClick={() => {
+                  setRecheckShiftId(row.shift.id);
+                  setRecheckNote("");
+                  setRecheckModalOpen(true);
+                }}
                 className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t("manager.closing.recheck")}
@@ -471,7 +484,45 @@ export default function ManagerClosingPage() {
     <main className="min-h-[calc(100vh-56px)] bg-gray-50">
 
       <section className="mx-auto space-y-4 px-4 py-4 md:px-6">
-        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-sm font-bold text-gray-950">{t("owner.bookkeeping.businessDate")}</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {t("owner.bookkeeping.businessDateDescription")}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "today", label: t("owner.bookkeeping.today"), value: getToday() },
+                  { id: "yesterday", label: t("owner.bookkeeping.yesterday"), value: getYesterday() },
+                ].map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setBusinessDate(preset.value)}
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                      businessDate === preset.value
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="date"
+                value={businessDate}
+                onChange={(event) => setBusinessDate(event.target.value)}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none transition focus:border-gray-900"
+                aria-label={t("owner.bookkeeping.businessDate")}
+              />
+            </div>
+          </div>
+        </section>
 
         {error ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div> : null}
         {currentUser && currentUser.role !== "manager" && currentUser.role !== "owner" ? (
@@ -534,58 +585,102 @@ export default function ManagerClosingPage() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm text-left">
                 <div>
-                  <h2 className="text-base font-bold text-gray-950">{t("manager.closing.managerExpense")}</h2>
-                  <p className="mt-1 text-sm leading-6 text-gray-500">
-                    {t("manager.closing.managerExpenseDescription")}
+                  <h2 className="text-base font-bold text-gray-950">{t("manager.closing.depositTitle")}</h2>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {t("manager.closing.depositDescription")}
                   </p>
                 </div>
+
                 <div className="mt-4 space-y-3">
-                  <select
-                    value={expenseForm.category}
-                    onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))}
-                    className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
-                  >
-                    {expenseCategories.map((category) => (
-                      <option key={category.value} value={category.value}>{t(category.labelKey)}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    value={expenseForm.amount}
-                    onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))}
-                    placeholder={t("manager.closing.amountPaid")}
-                    className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
-                  />
-                  <input
-                    value={expenseForm.vendor}
-                    onChange={(event) => setExpenseForm((current) => ({ ...current, vendor: event.target.value }))}
-                    placeholder={t("manager.closing.vendorPlaceholder")}
-                    className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition focus:border-gray-900"
-                  />
-                  <button
-                    type="button"
-                    disabled={saving || !expenseForm.category || !expenseForm.amount}
-                    onClick={() => postAction({ action: "create_expense", expenseDate: businessDate, ...expenseForm }, t("manager.closing.expenseSaved"))}
-                    className="h-11 w-full rounded-lg bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-                  >
-                    {t("manager.closing.saveExpense")}
-                  </button>
-                  <p className="text-xs leading-5 text-gray-500">
-                    {t("manager.closing.expenseExamples")}
-                  </p>
+                  {!data.deposits || data.deposits.length === 0 ? (
+                    <p className="text-xs text-gray-500 py-3 text-center">{t("manager.closing.noDeposits")}</p>
+                  ) : (
+                    data.deposits.map((deposit: any) => {
+                      const isPending = deposit.status === "submitted";
+                      return (
+                        <div key={deposit.id} className="rounded-xl border border-gray-300 p-3 bg-gray-50/50 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-xs font-bold text-gray-950">{t("manager.closing.envelopeNumber")} {deposit.envelope_number}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">{t("manager.closing.cashier")}: {deposit.staff?.name}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] font-semibold text-gray-600 space-y-0.5">
+                            <div className="flex justify-between">
+                              <span>{t("manager.closing.expectedAmount")}:</span>
+                              <span className="text-gray-900">{formatCurrency(deposit.expected_amount)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>{t("manager.closing.submittedAmount")}:</span>
+                              <span className="text-gray-900">{formatCurrency(deposit.submitted_amount)}</span>
+                            </div>
+                            {deposit.status !== "submitted" && (
+                              <div className="flex justify-between border-t border-gray-100 pt-1 mt-1 font-bold">
+                                <span>{t("manager.closing.receivedAmount")}:</span>
+                                <span className="text-blue-700 font-extrabold">{formatCurrency(deposit.received_amount)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex justify-between items-center pt-4">
+                            <span className="text-[11px] font-semibold text-gray-500">Status:</span>
+                            {renderStatusBadge(
+                              deposit.status === "submitted"
+                                ? t("manager.closing.statusNeedsApproval")
+                                : deposit.status === "verified"
+                                ? t("manager.closing.statusApproved")
+                                : t("manager.closing.statusNeedsReview"),
+                              deposit.status === "submitted"
+                                ? "bg-amber-50 border-amber-200 text-amber-800"
+                                : deposit.status === "verified"
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                : "bg-rose-50 border-rose-200 text-rose-800"
+                            )}
+                          </div>
+
+                          {isPending && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDeposit(deposit);
+                                setVerifyForm({
+                                  receivedAmount: String(deposit.submitted_amount),
+                                  status: "verified",
+                                  managerNotes: "",
+                                });
+                                setVerifyDepositModalOpen(true);
+                              }}
+                              className="w-full flex h-8 items-center justify-center rounded-lg bg-gray-900 text-xs font-bold text-white transition hover:bg-gray-800 mt-4"
+                            >
+                              {t("manager.closing.verifyEnvelope")}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </section>
             </div>
 
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div>
-                <h2 className="text-base font-bold text-gray-950">{t("manager.closing.shiftStatusTitle")}</h2>
-                <p className="mt-1 text-sm leading-6 text-gray-500">
-                  {t("manager.closing.shiftStatusDescription")}
-                </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-950">{t("manager.closing.shiftStatusTitle")}</h2>
+                  <p className="mt-1 text-sm leading-6 text-gray-500">
+                    {t("manager.closing.shiftStatusDescription")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpenseModalOpen(true)}
+                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 shrink-0"
+                >
+                  {t("manager.closing.addExpense")}
+                </button>
               </div>
               <div className={`mt-4 rounded-lg border p-3 text-sm leading-6 ${OWNER_SEMANTIC_TONES.info.badgeClass}`}>
                 {t("manager.closing.shiftStatusNote")}
@@ -710,6 +805,249 @@ export default function ManagerClosingPage() {
               rows={3}
               placeholder={t("manager.closing.openingCashNotePlaceholder")}
               className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+            />
+          </label>
+        </div>
+      </StandardModal>
+
+      <StandardModal
+        isOpen={expenseModalOpen}
+        title={t("manager.closing.managerExpense")}
+        description={t("manager.closing.managerExpenseDescription")}
+        maxWidthClassName="max-w-xl"
+        onClose={() => setExpenseModalOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setExpenseModalOpen(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              disabled={saving || !expenseForm.category || !expenseForm.amount}
+              onClick={async () => {
+                const saved = await postAction(
+                  {
+                    action: "create_expense",
+                    expenseDate: businessDate,
+                    ...expenseForm,
+                  },
+                  t("manager.closing.expenseSaved"),
+                );
+
+                if (saved) {
+                  setExpenseForm({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", note: "" });
+                  setExpenseModalOpen(false);
+                }
+              }}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? t("common.saving") : t("manager.closing.saveExpense")}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-semibold text-gray-700">
+            {t("manager.menu.modal.category")}
+            <select
+              value={expenseForm.category}
+              onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))}
+              className="mt-2 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+            >
+              {expenseCategories.map((category) => (
+                <option key={category.value} value={category.value}>{t(category.labelKey)}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-semibold text-gray-700">
+              {t("manager.closing.amountPaid")}
+              <input
+                type="number"
+                min="0"
+                value={expenseForm.amount}
+                onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))}
+                placeholder={t("manager.closing.amountPaid")}
+                className="mt-2 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+              />
+            </label>
+
+            <label className="block text-sm font-semibold text-gray-700">
+              {t("manager.closing.vendorPlaceholder")}
+              <input
+                value={expenseForm.vendor}
+                onChange={(event) => setExpenseForm((current) => ({ ...current, vendor: event.target.value }))}
+                placeholder={t("manager.closing.vendorPlaceholder")}
+                className="mt-2 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+              />
+            </label>
+          </div>
+
+          <label className="block text-sm font-semibold text-gray-700">
+            {t("manager.closing.note")}
+            <textarea
+              value={expenseForm.note}
+              onChange={(event) => setExpenseForm((current) => ({ ...current, note: event.target.value }))}
+              rows={3}
+              placeholder={t("manager.closing.expenseExamples")}
+              className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+            />
+          </label>
+        </div>
+      </StandardModal>
+
+      <StandardModal
+        isOpen={verifyDepositModalOpen}
+        title={t("manager.closing.verifyModalTitle")}
+        description={t("manager.closing.verifyModalDesc")}
+        maxWidthClassName="max-w-md"
+        onClose={() => setVerifyDepositModalOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setVerifyDepositModalOpen(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              disabled={saving || !verifyForm.receivedAmount}
+              onClick={async () => {
+                const isDisputed = Number(verifyForm.receivedAmount) !== Number(selectedDeposit?.submitted_amount);
+                const finalStatus = isDisputed ? "disputed" : "verified";
+                const saved = await postAction(
+                  {
+                    action: "verify_cash_deposit",
+                    depositId: selectedDeposit?.id,
+                    receivedAmount: verifyForm.receivedAmount,
+                    status: finalStatus,
+                    managerNotes: verifyForm.managerNotes || (isDisputed ? "Mismatch flagged by manager" : "Verified match by manager"),
+                  },
+                  t("manager.closing.depositVerified"),
+                );
+
+                if (saved) setVerifyDepositModalOpen(false);
+              }}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? t("common.saving") : t("manager.closing.saveVerification")}
+            </button>
+          </>
+        }
+      >
+        {selectedDeposit && (
+          <div className="space-y-4 text-left">
+            <div className="rounded-xl bg-gray-50 p-4 border border-gray-200 text-xs font-semibold text-gray-700 space-y-1.5">
+              <div className="flex justify-between">
+                <span>{t("manager.closing.envelopeNumber")}:</span>
+                <span className="text-gray-900 font-bold">{selectedDeposit.envelope_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t("manager.closing.cashier")}:</span>
+                <span className="text-gray-900 font-bold">{selectedDeposit.staff?.name}</span>
+              </div>
+              <div className="flex justify-between border-t border-gray-200 pt-1.5 mt-1.5">
+                <span>{t("manager.closing.expectedAmount")}:</span>
+                <span className="text-gray-900">{formatCurrency(selectedDeposit.expected_amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t("manager.closing.submittedAmount")}:</span>
+                <span className="text-gray-900">{formatCurrency(selectedDeposit.submitted_amount)}</span>
+              </div>
+            </div>
+
+            <label className="block text-sm font-semibold text-gray-700">
+              {t("manager.closing.receivedAmount")} (IDR)
+              <input
+                type="number"
+                min="0"
+                value={verifyForm.receivedAmount}
+                onChange={(event) =>
+                  setVerifyForm((current) => ({
+                    ...current,
+                    receivedAmount: event.target.value,
+                  }))
+                }
+                placeholder="Enter physical cash counted"
+                className="mt-2 h-11 w-full rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+              />
+            </label>
+
+            <label className="block text-sm font-semibold text-gray-700">
+              {t("manager.closing.managerNotes")}
+              <textarea
+                value={verifyForm.managerNotes}
+                onChange={(event) =>
+                  setVerifyForm((current) => ({
+                    ...current,
+                    managerNotes: event.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder="Add verification notes (required if amount mismatches)"
+                className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
+              />
+            </label>
+          </div>
+        )}
+      </StandardModal>
+
+      <StandardModal
+        isOpen={recheckModalOpen}
+        title={t("manager.closing.recheckModalTitle")}
+        description={t("manager.closing.recheckModalDesc")}
+        maxWidthClassName="max-w-md"
+        onClose={() => setRecheckModalOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setRecheckModalOpen(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={async () => {
+                const noteToSubmit = recheckNote.trim() || t("manager.closing.recheckNote");
+                const saved = await postAction(
+                  {
+                    action: "review_shift_closing",
+                    businessDate,
+                    shiftId: recheckShiftId,
+                    reviewAction: "recheck",
+                    note: noteToSubmit,
+                  },
+                  t("manager.closing.recheckSaved"),
+                );
+
+                if (saved) setRecheckModalOpen(false);
+              }}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? t("common.saving") : t("manager.closing.submitRecheck")}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-semibold text-gray-700">
+            {t("manager.closing.note")}
+            <textarea
+              value={recheckNote}
+              onChange={(event) => setRecheckNote(event.target.value)}
+              rows={3}
+              placeholder={t("manager.closing.recheckNote")}
+              className="mt-2 w-full resize-none border border-gray-300 rounded-lg px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:border-gray-900"
             />
           </label>
         </div>

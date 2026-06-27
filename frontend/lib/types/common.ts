@@ -195,6 +195,10 @@ export interface Order {
   orderSource?: OrderSource; // Alias for compatibility
   total_amount?: number;
   total?: number; // Alias for compatibility
+  subtotal?: number;
+  tax?: number;
+  discount?: number;
+  service_charge?: number;
   date?: string;
   time?: string;
   timeLabel?: string;

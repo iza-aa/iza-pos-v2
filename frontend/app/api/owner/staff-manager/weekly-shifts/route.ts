@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBookkeepingSupabaseClient } from "@/lib/services/bookkeeping/bookkeepingServer";
+import {
+  INTERNAL_SESSION_COOKIE,
+  verifyInternalSessionToken,
+} from "@/lib/auth/internalSession";
 
 type WeeklyShiftPayload = {
   staffId?: string;
@@ -9,16 +13,45 @@ type WeeklyShiftPayload = {
   }>;
 };
 
-const getRequester = (request: NextRequest) => ({
-  id: request.headers.get("x-user-id") ?? "",
-  name: request.headers.get("x-user-name") ?? "Owner",
-  role: request.headers.get("x-user-role") ?? "",
-});
+const getAuthorizedRequester = async (request: NextRequest) => {
+  const session = await verifyInternalSessionToken(
+    request.cookies.get(INTERNAL_SESSION_COOKIE)?.value,
+  ).catch(() => null);
+
+  if (!session || (session.role !== "owner" && session.role !== "manager")) {
+    return null;
+  }
+
+  const supabase = createBookkeepingSupabaseClient();
+  const { data, error } = await supabase
+    .from("staff")
+    .select("id, name, role, status")
+    .eq("id", session.sub)
+    .maybeSingle();
+
+  if (
+    error ||
+    !data ||
+    data.status !== "active" ||
+    data.role !== session.role
+  ) {
+    return null;
+  }
+
+  return {
+    requester: {
+      id: data.id,
+      name: data.name ?? session.name,
+      role: data.role,
+    },
+    supabase,
+  };
+};
 
 export async function POST(request: NextRequest) {
-  const requester = getRequester(request);
+  const authorized = await getAuthorizedRequester(request);
 
-  if (!requester.id || (requester.role !== "owner" && requester.role !== "manager")) {
+  if (!authorized) {
     return NextResponse.json({ error: "Owner or manager access required." }, { status: 403 });
   }
 
@@ -48,7 +81,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const supabase = createBookkeepingSupabaseClient();
+    const { requester, supabase } = authorized;
 
     const { error: deleteError } = await supabase
       .from("staff_shift_weekly_assignments")
@@ -86,16 +119,16 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const requester = getRequester(request);
+  const authorized = await getAuthorizedRequester(request);
 
-  if (!requester.id || (requester.role !== "owner" && requester.role !== "manager")) {
+  if (!authorized) {
     return NextResponse.json({ error: "Owner or manager access required." }, { status: 403 });
   }
 
   const staffId = String(request.nextUrl.searchParams.get("staffId") || "").trim();
 
   try {
-    const supabase = createBookkeepingSupabaseClient();
+    const { supabase } = authorized;
 
     if (!staffId) {
       const [assignmentsResult, staffResult, shiftsResult] = await Promise.all([

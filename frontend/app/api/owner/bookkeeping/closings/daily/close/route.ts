@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createBookkeepingSupabaseClient();
     const data = await loadBookkeepingDashboardDataFromClient(supabase, dateRange);
-    const [storedExceptionsResult, storedShiftClosingsResult] = await Promise.all([
+    const [storedExceptionsResult, storedShiftClosingsResult, cashMovementsResult] = await Promise.all([
       supabase
         .from("bookkeeping_exceptions")
         .select("id")
@@ -52,13 +52,21 @@ export async function POST(request: NextRequest) {
         .eq("status", "open"),
       supabase
         .from("bookkeeping_shift_closings")
-        .select("id, business_date, shift_id, status, opening_cash, cash_expected, expected_drawer_cash, cash_counted, cash_difference, cash_to_deposit, closing_float")
+        .select("id, business_date, shift_id, status, opened_at, closed_at, opening_cash, cash_expected, expected_drawer_cash, cash_counted, cash_difference, cash_to_deposit, closing_float, actual_closing_float")
         .gte("business_date", dateRange.startDate)
         .lte("business_date", dateRange.endDate),
+      supabase
+        .from("bookkeeping_cash_movements")
+        .select("shift_id, type, amount")
+        .gte("shift_id", `${dateRange.startDate}`)
+        .lte("shift_id", `${dateRange.endDate}~`),
     ]);
 
     if (storedExceptionsResult.error) throw storedExceptionsResult.error;
     if (storedShiftClosingsResult.error) throw storedShiftClosingsResult.error;
+    if (cashMovementsResult.error) throw cashMovementsResult.error;
+
+    const cashMovements = cashMovementsResult.data || [];
 
     const liveExceptionCount = data.exceptions.filter(
       (exception) => exception.status === "open",
@@ -70,6 +78,8 @@ export async function POST(request: NextRequest) {
       business_date?: string | null;
       shift_id?: string | null;
       status?: string | null;
+      opened_at?: string | null;
+      closed_at?: string | null;
       opening_cash?: number | string | null;
       cash_expected?: number | string | null;
       expected_drawer_cash?: number | string | null;
@@ -77,6 +87,7 @@ export async function POST(request: NextRequest) {
       cash_difference?: number | string | null;
       cash_to_deposit?: number | string | null;
       closing_float?: number | string | null;
+      actual_closing_float?: number | string | null;
     }>;
     const toNumber = (value: unknown) => {
       const parsed = Number(value ?? 0);
@@ -112,15 +123,36 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    const sortedMergedShiftClosings = [...mergedShiftClosings].sort((a, b) =>
+      (a.opened_at ?? `${a.business_date}T00:00:00`).localeCompare(b.opened_at ?? `${b.business_date}T00:00:00`)
+    );
+    const firstShiftOpeningCash = sortedMergedShiftClosings.length > 0 ? sortedMergedShiftClosings[0].openingCash : 0;
     const shiftOpeningCashTotal = mergedShiftClosings.reduce((sum, row) => sum + row.openingCash, 0);
     const shiftCashSalesTotal = mergedShiftClosings.reduce((sum, row) => sum + row.cashExpected, 0);
-    const shiftExpectedDrawerCash = mergedShiftClosings.reduce((sum, row) => {
-      const drawer = row.expectedDrawerCash;
 
-      return sum + drawer;
-    }, 0);
+    // Aggregate cash movements
+    let totalCashIn = 0;
+    let totalCashOut = 0;
+    for (const m of cashMovements) {
+      if (m.type === "cash_in") totalCashIn += toNumber(m.amount);
+      else if (m.type === "cash_out") totalCashOut += toNumber(m.amount);
+    }
+
+    const shiftExpectedDrawerCash = firstShiftOpeningCash + shiftCashSalesTotal + totalCashIn - totalCashOut;
     const shiftCashToDeposit = mergedShiftClosings.reduce((sum, row) => sum + row.cashToDeposit, 0);
-    const shiftClosingFloatTotal = mergedShiftClosings.reduce((sum, row) => sum + row.closingFloat, 0);
+    // Closing float retained = physical cash left in the drawer at end of day. Earlier
+    // shifts pass their float on as the next shift's opening cash, so only the LAST
+    // shift's closing float actually remains. Summing every shift double-counts.
+    const endDateShiftClosings = mergedShiftClosings.filter(
+      (row) => (row.business_date || "") === dateRange.endDate,
+    );
+    const sortedEndDateShiftClosings = [...endDateShiftClosings].sort((a, b) =>
+      (a.closed_at ?? a.opened_at ?? "").localeCompare(b.closed_at ?? b.opened_at ?? ""),
+    );
+    const lastEndDateShift = sortedEndDateShiftClosings[sortedEndDateShiftClosings.length - 1];
+    const shiftClosingFloatTotal = lastEndDateShift
+      ? Math.max(0, toNumber(lastEndDateShift.actual_closing_float ?? lastEndDateShift.closing_float))
+      : 0;
     const shiftCashCountedTotal = mergedShiftClosings.reduce((sum, row) => sum + (row.cashCounted ?? 0), 0);
     const cashSalesTotal = mergedShiftClosings.length > 0 ? shiftCashSalesTotal : data.summary.cashExpected;
     const expectedDrawerCash = mergedShiftClosings.length > 0 ? shiftExpectedDrawerCash : data.summary.expectedDrawerCash;

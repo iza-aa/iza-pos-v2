@@ -16,6 +16,7 @@ import {
   type DateRangeValue,
 } from "@/app/components/shared";
 import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection";
+import WeeklyScheduleSection from "@/app/components/owner/staffmanager/WeeklyScheduleSection";
 import { EditStaffModal } from "@/app/components/owner/staffmanager";
 import { useLanguage } from "@/app/components/shared/i18n";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
@@ -24,6 +25,7 @@ import {
   ClockIcon,
   MapPinIcon,
   UsersIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import {
   getPrimaryStaffPosition,
@@ -36,7 +38,7 @@ import {
 
 type StaffViewMode = "card" | "table";
 type StaffManagerTab = "staff" | "attendance";
-type AttendanceTab = "monitor" | "settings";
+type AttendanceTab = "monitor" | "roster" | "settings";
 type StaffRole = "staff" | "manager" | "owner";
 type StaffStatus = "active" | "inactive" | "on-leave" | "terminated";
 
@@ -212,7 +214,6 @@ export default function ManagerStaffPage() {
         staff.email,
         staff.phone,
         staff.status,
-        staff.shift?.shift_name,
       ];
 
       return searchableValues.some((value) =>
@@ -251,6 +252,11 @@ export default function ManagerStaffPage() {
           id: "monitor" as const,
           label: t("owner.staff.attendanceMonitor"),
           icon: ClockIcon,
+        },
+        {
+          id: "roster" as const,
+          label: t("owner.staff.weeklyRoster"),
+          icon: CalendarDaysIcon,
         },
         {
           id: "settings" as const,
@@ -354,7 +360,7 @@ export default function ManagerStaffPage() {
         email: staffToUpdate.email || null,
         phone: staffToUpdate.phone || null,
         role: selectedRole,
-        staff_type: selectedPrimaryPosition,
+        // staff_type column was dropped (migration 202606240007) — updated via persistStaffPositions below
         status: selectedStatus,
       })
       .eq("id", staffToUpdate.id);
@@ -488,12 +494,12 @@ export default function ManagerStaffPage() {
           </>
         )}
 
-        {activeTab === "attendance" && (
+        {activeTab === "attendance" && activeAttendanceTab !== "roster" && (
           <AttendanceSection
             dateRangeMode={attendanceDateRangeProps.dateRangeMode}
             customStartDate={attendanceDateRangeProps.customStartDate}
             customEndDate={attendanceDateRangeProps.customEndDate}
-            section={activeAttendanceTab}
+            section={activeAttendanceTab === "monitor" ? "monitor" : "settings"}
             requester={
               currentUser
                 ? {
@@ -504,6 +510,10 @@ export default function ManagerStaffPage() {
                 : null
             }
           />
+        )}
+
+        {activeTab === "attendance" && activeAttendanceTab === "roster" && (
+          <WeeklyScheduleSection />
         )}
         </section>
       </div>

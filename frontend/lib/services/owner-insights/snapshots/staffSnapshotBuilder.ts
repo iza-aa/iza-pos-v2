@@ -22,6 +22,7 @@ type StaffRow = {
   name?: string | null;
   role?: string | null;
   status?: string | null;
+  staff_positions?: Array<{ position: string; is_primary: boolean }> | null;
 };
 
 type AttendanceRow = {
@@ -219,10 +220,14 @@ const buildStaffRows = ({
         (speedScore ?? 0) * 0.15,
     );
 
+    const staffRoleStr = Array.isArray(staff.staff_positions) && staff.staff_positions.length > 0
+      ? staff.staff_positions.map((p) => p.position.replace(/_/g, " ")).join(", ")
+      : staff.role || "Staff";
+
     return {
       id: staff.id,
       name: staff.name || "Staff",
-      role: staff.role || "Staff",
+      role: staffRoleStr,
       ordersHandled: handledOrderIds.size,
       averageServiceMinutes,
       serviceSampleSize: serviceMinutes.length,
@@ -464,7 +469,7 @@ export async function buildStaffRecommendationSnapshot(
     orderCorrectionsResult,
   ] =
     await Promise.all([
-      supabase.from("staff").select("id,name,role,status").order("name", { ascending: true }),
+      supabase.from("staff").select("id,name,role,status,staff_positions(position,is_primary)").order("name", { ascending: true }),
       supabase
         .from("attendance")
         .select(

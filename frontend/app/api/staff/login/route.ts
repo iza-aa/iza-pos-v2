@@ -27,7 +27,7 @@ type StaffRecord = {
   staff_code: string;
   name: string;
   role: string;
-  staff_type: string | null;
+  staff_type?: string | null;
   staff_positions?: StaffPositionAssignment[] | null;
   status: string;
   login_code: string | null;
@@ -142,7 +142,7 @@ const verifyPin = (pin: string, storedHash: string | null | undefined) => {
 };
 
 const selectStaffFields =
-  "id, staff_code, name, role, staff_type, status, login_code, login_code_expires_at, pin_hash, password_hash, must_change_pin, staff_positions(id, staff_id, position, is_primary, is_active)";
+  "id, staff_code, name, role, status, login_code, login_code_expires_at, pin_hash, password_hash, must_change_pin, staff_positions(id, staff_id, position, is_primary, is_active)";
 
 const getStaffLoginByCode = async (staffCode: string) => {
   const { data, error } = await supabase
@@ -179,7 +179,7 @@ const buildLoginResponse = async (staff: StaffRecord, rememberMe = false) => {
     user_id: staff.id,
     user_name: staff.name,
     user_role: staff.role,
-    staff_type: primaryPosition ?? staff.staff_type,
+    staff_type: primaryPosition,
     staff_positions: staffPositions,
     primary_position: primaryPosition,
     staff_code: staff.staff_code,
@@ -189,7 +189,7 @@ const buildLoginResponse = async (staff: StaffRecord, rememberMe = false) => {
     name: staff.name,
     role: staff.role as "staff" | "manager" | "owner",
     staffCode: staff.staff_code,
-    staffType: primaryPosition ?? staff.staff_type,
+    staffType: primaryPosition,
     staffPositions,
   }, rememberMe);
   return response;
@@ -231,7 +231,7 @@ const handleLogin = async (body: Record<string, unknown>) => {
       user_id: staff.id,
       user_name: staff.name,
       user_role: staff.role,
-      staff_type: primaryPosition ?? staff.staff_type,
+      staff_type: primaryPosition,
       staff_positions: staffPositions,
       primary_position: primaryPosition,
       staff_code: staff.staff_code,

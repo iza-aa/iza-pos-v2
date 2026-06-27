@@ -74,6 +74,8 @@ function shouldHideCustomerNavigation(pathname: string): boolean {
     pathname.startsWith("/customer/table/") ||
     pathname === "/customer/login" ||
     pathname === "/customer/register" ||
+    pathname === "/customer/forgot-password" ||
+    pathname === "/customer/reset-password" ||
     pathname === "/customer/menu/checkout"
   );
 }
@@ -138,7 +140,6 @@ export default function CustomerLayout({
       </>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 lg:pb-0 lg:pt-16">

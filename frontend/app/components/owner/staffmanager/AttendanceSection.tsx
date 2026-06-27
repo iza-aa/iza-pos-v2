@@ -23,6 +23,10 @@ import {
   UserGroupIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import {
+  getPrimaryStaffPosition,
+  type StaffPositionAssignment,
+} from "@/lib/staff/positions";
 
 type ViewMode = "card" | "table";
 type DateRangeMode = "all" | "today" | "week" | "month" | "custom";
@@ -138,6 +142,7 @@ interface AttendanceSectionProps {
   customEndDate?: string;
   onShiftChanged?: () => void | Promise<void>;
   section?: AttendanceSectionView;
+  requester?: any;
 }
 
 const EMPTY_SHIFT_FORM: ShiftFormData = {
@@ -258,11 +263,16 @@ const normalizeStaff = (value: unknown): AttendanceStaff | null => {
 
   if (!id || !name || !staffCode) return null;
 
+  const staffPositions = (staff.staff_positions ?? null) as StaffPositionAssignment[] | null;
+  const primaryPos = getPrimaryStaffPosition({
+    staff_positions: staffPositions,
+  });
+
   return {
     id,
     name,
     staff_code: staffCode,
-    staff_type: toNullableString(staff.staff_type),
+    staff_type: primaryPos,
     role: toNullableString(staff.role),
   };
 };
@@ -277,11 +287,16 @@ const normalizeActiveStaff = (value: unknown): ActiveStaffRecord | null => {
 
   if (!id || !name || !staffCode) return null;
 
+  const staffPositions = (staff.staff_positions ?? null) as StaffPositionAssignment[] | null;
+  const primaryPos = getPrimaryStaffPosition({
+    staff_positions: staffPositions,
+  });
+
   return {
     id,
     name,
     staff_code: staffCode,
-    staff_type: toNullableString(staff.staff_type),
+    staff_type: primaryPos,
     role: toNullableString(staff.role),
     shift_id: toNullableString(staff.shift_id),
   };
@@ -627,12 +642,12 @@ const buildStoreSettingsFormData = (
     store_name: storeSettingsData?.store_name ?? "Coffee Shop",
     store_latitude:
       storeSettingsData?.store_latitude === null ||
-      storeSettingsData?.store_latitude === undefined
+        storeSettingsData?.store_latitude === undefined
         ? ""
         : String(storeSettingsData.store_latitude),
     store_longitude:
       storeSettingsData?.store_longitude === null ||
-      storeSettingsData?.store_longitude === undefined
+        storeSettingsData?.store_longitude === undefined
         ? ""
         : String(storeSettingsData.store_longitude),
     attendance_radius_meters: String(
@@ -723,15 +738,15 @@ const buildAttendanceListWithAbsentStaff = ({
         },
         shift: staffShift
           ? {
-              id: staffShift.id,
-              shift_name: staffShift.shift_name,
-              check_in_window_start: staffShift.check_in_window_start,
-              start_time: staffShift.start_time,
-              check_in_grace_until: staffShift.check_in_grace_until,
-              end_time: staffShift.end_time,
-              check_out_grace_until: staffShift.check_out_grace_until,
-              check_out_window_end: staffShift.check_out_window_end,
-            }
+            id: staffShift.id,
+            shift_name: staffShift.shift_name,
+            check_in_window_start: staffShift.check_in_window_start,
+            start_time: staffShift.start_time,
+            check_in_grace_until: staffShift.check_in_grace_until,
+            end_time: staffShift.end_time,
+            check_out_grace_until: staffShift.check_out_grace_until,
+            check_out_window_end: staffShift.check_out_window_end,
+          }
           : null,
       } as AttendanceRecord;
     })
@@ -791,7 +806,22 @@ const loadAttendanceSnapshot = async ({
 
     const staffPromise = supabase
       .from("staff")
-      .select("id, name, staff_code, staff_type, role, shift_id")
+      .select(
+        `
+          id,
+          name,
+          staff_code,
+          role,
+          shift_id,
+          staff_positions (
+            id,
+            staff_id,
+            position,
+            is_primary,
+            is_active
+          )
+        `,
+      )
       .eq("status", "active")
       .order("name", { ascending: true });
 
@@ -827,8 +857,14 @@ const loadAttendanceSnapshot = async ({
             id,
             name,
             staff_code,
-            staff_type,
-            role
+            role,
+            staff_positions (
+              id,
+              staff_id,
+              position,
+              is_primary,
+              is_active
+            )
           ),
           shift:shift_id (
             id,
@@ -849,8 +885,8 @@ const loadAttendanceSnapshot = async ({
         .lte("attendance_date", endDate);
     }
 
-    let dailyAssignmentsPromise: Promise<{ data: unknown; error: unknown }> = Promise.resolve({ data: [], error: null });
-    let weeklyAssignmentsPromise: Promise<{ data: unknown; error: unknown }> = Promise.resolve({ data: [], error: null });
+    let dailyAssignmentsPromise: any = Promise.resolve({ data: [], error: null });
+    let weeklyAssignmentsPromise: any = Promise.resolve({ data: [], error: null });
 
     if (startDate && endDate && startDate === endDate) {
       dailyAssignmentsPromise = supabase
@@ -1159,9 +1195,9 @@ export default function AttendanceSection({
 
       const { error } = storeSettings?.id
         ? await supabase
-            .from("store_settings")
-            .update(payload)
-            .eq("id", storeSettings.id)
+          .from("store_settings")
+          .update(payload)
+          .eq("id", storeSettings.id)
         : await supabase.from("store_settings").insert([payload]);
 
       if (error) {
@@ -1208,11 +1244,11 @@ export default function AttendanceSection({
 
       const { error } = editingShift
         ? await supabase
-            .from("shifts")
-            .update(payload)
-            .eq("id", editingShift.id)
-            .select("id")
-            .single()
+          .from("shifts")
+          .update(payload)
+          .eq("id", editingShift.id)
+          .select("id")
+          .single()
         : await supabase.from("shifts").insert([payload]).select("id").single();
 
       if (error) {
@@ -1340,11 +1376,10 @@ export default function AttendanceSection({
           </div>
 
           <div
-            className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-              hasLocation
+            className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${hasLocation
                 ? OWNER_SEMANTIC_TONES.success.badgeClass
                 : OWNER_SEMANTIC_TONES.warning.badgeClass
-            }`}
+              }`}
           >
             <MapPinIcon className="h-4 w-4" />
             {hasLocation ? "Location Set" : "Location Not Set"}
@@ -1484,11 +1519,10 @@ export default function AttendanceSection({
         {shiftList.map((shift) => (
           <div
             key={shift.id}
-            className={`rounded-2xl border p-4 ${
-              shift.is_active === false
+            className={`rounded-2xl border p-4 ${shift.is_active === false
                 ? "border-gray-200 bg-gray-50 opacity-75"
                 : "border-gray-200 bg-white"
-            }`}
+              }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1580,8 +1614,8 @@ export default function AttendanceSection({
     const shiftName = attendance.shift?.shift_name ?? t("owner.staff.noShift");
     const shiftTime = attendance.shift
       ? `${formatTime(attendance.shift.start_time)} - ${formatTime(
-          attendance.shift.end_time,
-        )}`
+        attendance.shift.end_time,
+      )}`
       : "--:-- - --:--";
 
     return (
@@ -1651,46 +1685,46 @@ export default function AttendanceSection({
           attendance.early_leave_reason ||
           attendance.overtime_reason ||
           attendance.notes) && (
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Notes
-            </p>
-
-            {attendance.late_reason && (
-              <p className="mt-2 text-sm text-gray-700">
-                Late: {attendance.late_reason}
+            <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Notes
               </p>
-            )}
 
-            {attendance.early_leave_reason && (
-              <p className="mt-2 text-sm text-gray-700">
-                Early leave: {attendance.early_leave_reason}
-              </p>
-            )}
+              {attendance.late_reason && (
+                <p className="mt-2 text-sm text-gray-700">
+                  Late: {attendance.late_reason}
+                </p>
+              )}
 
-            {attendance.overtime_reason && (
-              <p className="mt-2 text-sm text-gray-700">
-                Overtime: {attendance.overtime_reason}
-              </p>
-            )}
+              {attendance.early_leave_reason && (
+                <p className="mt-2 text-sm text-gray-700">
+                  Early leave: {attendance.early_leave_reason}
+                </p>
+              )}
 
-            {attendance.notes && (
-              <p className="mt-2 text-sm text-gray-700">
-                Notes: {attendance.notes}
-              </p>
-            )}
-          </div>
-        )}
+              {attendance.overtime_reason && (
+                <p className="mt-2 text-sm text-gray-700">
+                  Overtime: {attendance.overtime_reason}
+                </p>
+              )}
+
+              {attendance.notes && (
+                <p className="mt-2 text-sm text-gray-700">
+                  Notes: {attendance.notes}
+                </p>
+              )}
+            </div>
+          )}
       </div>
     );
   };
 
   const renderAttendanceTable = () => (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-5 ">
-        <h2 className="text-base font-bold text-gray-900">{t("owner.staff.attendanceTable")}</h2>
-        <p className="mt-1 text-sm text-gray-500 mb-4 ">
-          Concrete attendance records for clock-in, clock-out, status, and location distance.
-        </p>
+      <h2 className="text-base font-bold text-gray-900">{t("owner.staff.attendanceTable")}</h2>
+      <p className="mt-1 text-sm text-gray-500 mb-4 ">
+        Concrete attendance records for clock-in, clock-out, status, and location distance.
+      </p>
 
       <StandardTable
         columns={[
@@ -1846,135 +1880,135 @@ export default function AttendanceSection({
 
       {section === "monitor" ? (
         <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-7">
-        {renderSummaryCard(
-          t("owner.staff.totalStaff"),
-          summary.total,
-          <CalendarDaysIcon className="h-5 w-5" />,
-          "Active users with shifts"
-        )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-7">
+            {renderSummaryCard(
+              t("owner.staff.totalStaff"),
+              summary.total,
+              <CalendarDaysIcon className="h-5 w-5" />,
+              "Active users with shifts"
+            )}
 
-        {renderSummaryCard(
-          "Not Clocked In",
-          summary.notClockedIn,
-          <ExclamationTriangleIcon className="h-5 w-5" />,
-          t("owner.staff.notClockedIn"),
-          "waiting",
-        )}
+            {renderSummaryCard(
+              "Not Clocked In",
+              summary.notClockedIn,
+              <ExclamationTriangleIcon className="h-5 w-5" />,
+              t("owner.staff.notClockedIn"),
+              "waiting",
+            )}
 
-        {renderSummaryCard(
-          "Clock In",
-          summary.clockedIn,
-          <ClockIcon className="h-5 w-5" />,
-          t("owner.staff.clockedInSentence"),
-          "info",
-        )}
+            {renderSummaryCard(
+              "Clock In",
+              summary.clockedIn,
+              <ClockIcon className="h-5 w-5" />,
+              t("owner.staff.clockedInSentence"),
+              "info",
+            )}
 
-        {renderSummaryCard(
-          "Clock Out",
-          summary.clockedOut,
-          <CheckCircleIcon className="h-5 w-5" />,
-          t("owner.staff.clockedOutSentence"),
-          "success",
-        )}
+            {renderSummaryCard(
+              "Clock Out",
+              summary.clockedOut,
+              <CheckCircleIcon className="h-5 w-5" />,
+              t("owner.staff.clockedOutSentence"),
+              "success",
+            )}
 
-        {renderSummaryCard(
-          "Late",
-          summary.late,
-          <ExclamationTriangleIcon className="h-5 w-5" />,
-          "Users clock in late.",
-          "danger",
-        )}
+            {renderSummaryCard(
+              "Late",
+              summary.late,
+              <ExclamationTriangleIcon className="h-5 w-5" />,
+              "Users clock in late.",
+              "danger",
+            )}
 
-        {renderSummaryCard(
-          "Early Leave",
-          summary.earlyLeave,
-          <FunnelIcon className="h-5 w-5" />,
-          "Users clock out early.",
-          "warning",
-        )}
+            {renderSummaryCard(
+              "Early Leave",
+              summary.earlyLeave,
+              <FunnelIcon className="h-5 w-5" />,
+              "Users clock out early.",
+              "warning",
+            )}
 
-        {renderSummaryCard(
-          "Overtime",
-          summary.overtime,
-          <UserGroupIcon className="h-5 w-5" />,
-          "Users clock out late.",
-          "premium",
-        )}
-      </div>
-
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">
-              {t("owner.staff.attendanceMonitorTitle")}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Monitor clock in and clock out for active users with assigned shifts.
-            </p>
+            {renderSummaryCard(
+              "Overtime",
+              summary.overtime,
+              <UserGroupIcon className="h-5 w-5" />,
+              "Users clock out late.",
+              "premium",
+            )}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <select
-              value={selectedStaffId}
-              onChange={(event) => setSelectedStaffId(event.target.value)}
-              className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-            >
-              <option value="all">{t("owner.staff.allStaff")}</option>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  {t("owner.staff.attendanceMonitorTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Monitor clock in and clock out for active users with assigned shifts.
+                </p>
+              </div>
 
-              {staffList.map((staff) => (
-                <option key={staff.id} value={staff.id}>
-                  {staff.name} ({staff.staff_code})
-                </option>
-              ))}
-            </select>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  value={selectedStaffId}
+                  onChange={(event) => setSelectedStaffId(event.target.value)}
+                  className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                >
+                  <option value="all">{t("owner.staff.allStaff")}</option>
 
-            <select
-              value={selectedShiftId}
-              onChange={(event) => setSelectedShiftId(event.target.value)}
-              className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-            >
-              <option value="all">{t("owner.staff.allShifts")}</option>
+                  {staffList.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.name} ({staff.staff_code})
+                    </option>
+                  ))}
+                </select>
 
-              {shiftList.map((shift) => (
-                <option key={shift.id} value={shift.id}>
-                  {shift.shift_name} ({formatTime(shift.start_time)} -{" "}
-                  {formatTime(shift.end_time)})
-                </option>
-              ))}
-            </select>
+                <select
+                  value={selectedShiftId}
+                  onChange={(event) => setSelectedShiftId(event.target.value)}
+                  className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                >
+                  <option value="all">{t("owner.staff.allShifts")}</option>
 
-            <button
-              type="button"
-              onClick={() => fetchAttendanceData(true)}
-              className="h-10 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-            >
-              Refresh
-            </button>
+                  {shiftList.map((shift) => (
+                    <option key={shift.id} value={shift.id}>
+                      {shift.shift_name} ({formatTime(shift.start_time)} -{" "}
+                      {formatTime(shift.end_time)})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => fetchAttendanceData(true)}
+                  className="h-10 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {filteredAttendanceList.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-          <CalendarDaysIcon className="mx-auto h-10 w-10 text-gray-400" />
-          <h3 className="mt-4 text-base font-bold text-gray-900">
-            No attendance data yet
-          </h3>
-          <p className="mt-2 text-sm text-gray-500">
-            Data will appear after staff clock in or clock out from the
-            attendance page.
-          </p>
-        </div>
-      ) : viewMode === "table" ? (
-        renderAttendanceTable()
-      ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {filteredAttendanceList.map((attendance) =>
-            renderAttendanceCard(attendance),
+          {filteredAttendanceList.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+              <CalendarDaysIcon className="mx-auto h-10 w-10 text-gray-400" />
+              <h3 className="mt-4 text-base font-bold text-gray-900">
+                No attendance data yet
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Data will appear after staff clock in or clock out from the
+                attendance page.
+              </p>
+            </div>
+          ) : viewMode === "table" ? (
+            renderAttendanceTable()
+          ) : (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {filteredAttendanceList.map((attendance) =>
+                renderAttendanceCard(attendance),
+              )}
+            </div>
           )}
-        </div>
-      )}
         </>
       ) : null}
 

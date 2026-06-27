@@ -42,6 +42,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!isPasswordValid) {
+    return NextResponse.json(
+      { success: false, error: "Email atau password tidak valid." },
+      { status: 401 }
+    );
+  }
+
   // Login sukses
   const response = NextResponse.json({
     success: true,
@@ -49,14 +56,13 @@ export async function POST(req: NextRequest) {
     user_name: staff.name,
     user_role: staff.role,
     staff_code: staff.staff_code,
-    staff_type: staff.staff_type || "",
   });
   await setInternalSessionCookie(response, {
     id: staff.id,
     name: staff.name,
     role: "manager",
     staffCode: staff.staff_code ?? "",
-    staffType: staff.staff_type ?? null,
+    staffType: null,
   }, rememberMe);
   return response;
 }

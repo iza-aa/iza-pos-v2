@@ -44,7 +44,7 @@ export function SemanticBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-bold leading-5 ${OWNER_SEMANTIC_TONES[tone].badgeClass} ${className}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${OWNER_SEMANTIC_TONES[tone].badgeClass} ${className}`}
     >
       {children}
     </span>

@@ -12,12 +12,14 @@ import {
   StaffTable,
   type DateRangeValue,
 } from "@/app/components/shared";
+
 import {
   StaffManagerHeader,
   EditStaffModal,
   AddStaffModal,
 } from "@/app/components/owner/staffmanager";
 import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection";
+import WeeklyScheduleSection from "@/app/components/owner/staffmanager/WeeklyScheduleSection";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { NewStaffData } from "@/app/components/owner/staffmanager/AddStaffModal";
 import bcrypt from "bcryptjs";
@@ -29,6 +31,7 @@ import {
   ClockIcon,
   MapPinIcon,
   UsersIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import { useLanguage } from "@/app/components/shared/i18n";
 import {
@@ -42,7 +45,7 @@ import {
 
 type StaffRole = "staff" | "manager" | "owner";
 type StaffManagerTab = "staff" | "attendance";
-type AttendanceTab = "monitor" | "settings";
+type AttendanceTab = "monitor" | "roster" | "settings";
 type StaffViewMode = "card" | "table";
 type StaffType = StaffPosition;
 type StaffStatus = "active" | "inactive" | "on-leave" | "terminated";
@@ -87,7 +90,7 @@ type StaffInsert = {
   email: string | null;
   phone: string | null;
   role: StaffRole;
-  staff_type: StaffType | null;
+  // staff_type column was dropped (migration 202606240007); positions are managed via staff_positions table
   status: "active";
   hired_date: string;
   password_hash?: string;
@@ -708,6 +711,11 @@ export default function StaffManagerPage() {
           icon: ClockIcon,
         },
         {
+          id: "roster" as const,
+          label: t("owner.staff.weeklyRoster"),
+          icon: CalendarDaysIcon,
+        },
+        {
           id: "settings" as const,
           label: t("owner.staff.attendanceSettings"),
           icon: MapPinIcon,
@@ -856,7 +864,7 @@ export default function StaffManagerPage() {
       .from("staff")
       .update({
         status: "terminated",
-        staff_type: null,
+        // staff_type column was dropped (migration 202606240007)
         login_code: null,
         login_code_expires_at: null,
         login_code_created_at: null,
@@ -938,7 +946,7 @@ export default function StaffManagerPage() {
         email: staffToUpdate.email || null,
         phone: staffToUpdate.phone || null,
         role: selectedRole,
-        staff_type: selectedStaffType,
+        // staff_type column was dropped (migration 202606240007) — updated via set_staff_positions RPC below
         status: selectedStatus,
       })
       .eq("id", staffToUpdate.id);
@@ -1064,7 +1072,7 @@ export default function StaffManagerPage() {
         email: staffData.email || null,
         phone: staffData.phone || null,
         role: selectedRole,
-        staff_type: selectedStaffType,
+        // staff_type column was dropped; positions set via persistStaffPositions below
         status: "active",
         hired_date: new Date().toISOString().split("T")[0],
       };
@@ -1229,13 +1237,13 @@ export default function StaffManagerPage() {
           </>
         )}
 
-        {activeTab === "attendance" && (
+        {activeTab === "attendance" && activeAttendanceTab !== "roster" && (
           <AttendanceSection
             viewMode="table"
             dateRangeMode={attendanceDateRangeProps.dateRangeMode}
             customStartDate={attendanceDateRangeProps.customStartDate}
             customEndDate={attendanceDateRangeProps.customEndDate}
-            section={activeAttendanceTab}
+            section={activeAttendanceTab === "monitor" ? "monitor" : "settings"}
             requester={
               currentStaffIdentity.id
                 ? currentStaffIdentity
@@ -1243,6 +1251,10 @@ export default function StaffManagerPage() {
             }
             onShiftChanged={refreshStaffAndShifts}
           />
+        )}
+
+        {activeTab === "attendance" && activeAttendanceTab === "roster" && (
+          <WeeklyScheduleSection />
         )}
       </section>
       </div>

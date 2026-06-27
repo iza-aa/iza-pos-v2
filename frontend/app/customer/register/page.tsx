@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/config/supabaseClient";
 import { saveCustomerAccount } from "@/lib/customer/customerAccount";
+import { showError, showSuccess, showInfo } from "@/lib/services/errorHandling";
 
 interface CustomerSession {
   id: string;
@@ -121,39 +122,38 @@ function CustomerRegisterContent() {
     const cleanConfirmPassword = confirmPassword.trim();
 
     if (!cleanName) {
-      setError("Please enter your name.");
+      showError("Please enter your name.");
       return;
     }
 
     if (!cleanPhone) {
-      setError("Please enter your WhatsApp number.");
+      showError("Please enter your WhatsApp number.");
       return;
     }
 
     if (!cleanEmail) {
-      setError("Please enter your email.");
+      showError("Please enter your email.");
       return;
     }
 
     if (cleanPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+      showError("Password must be at least 6 characters.");
       return;
     }
 
     if (cleanPassword !== cleanConfirmPassword) {
-      setError("Password confirmation does not match.");
+      showError("Password confirmation does not match.");
       return;
     }
 
-    setError("");
-    setInfo("");
     setLoading(true);
 
     try {
       const availabilityError = await checkAccountAvailability(cleanPhone, cleanEmail);
 
       if (availabilityError) {
-        setError(availabilityError);
+        showError(availabilityError);
+        setLoading(false);
         return;
       }
 
@@ -176,7 +176,7 @@ function CustomerRegisterContent() {
       const accessToken = data.session?.access_token;
 
       if (!accessToken) {
-        setInfo("Account created. Please check your email to confirm your account, then login.");
+        showSuccess("Account created successfully. Please check your email to confirm your account.");
         return;
       }
 
@@ -200,10 +200,11 @@ function CustomerRegisterContent() {
       }
 
       saveCustomerAccount(result.customer);
+      showSuccess("Account created successfully!");
       router.replace(redirectPath);
     } catch (registerError) {
       console.error("Customer register error:", registerError);
-      setError(
+      showError(
         registerError instanceof Error
           ? registerError.message
           : "Unable to register. Please try again.",
@@ -286,7 +287,7 @@ function CustomerRegisterContent() {
               <img
                 src="/logo/IZALogo2.png"
                 alt="IZA Coffee"
-                className="mx-auto h-16 w-auto object-contain"
+                className="mx-auto h-10 w-auto object-contain"
               />
               <h1 className="mt-5 text-2xl font-bold text-gray-900">
                 Create account
@@ -296,24 +297,13 @@ function CustomerRegisterContent() {
               </p>
             </div>
 
-            {error ? (
-              <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            ) : null}
-
-            {info ? (
-              <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
-                <p className="text-sm text-blue-700">{info}</p>
-              </div>
-            ) : null}
-
             <button
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="mb-4 flex w-full items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950 disabled:cursor-not-allowed disabled:opacity-60"
             >
+              <img src="/logo/google.svg" alt="Google" className="h-5 w-5" />
               Continue with Google
             </button>
 
@@ -324,43 +314,45 @@ function CustomerRegisterContent() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="name" className="mb-2 block text-sm font-semibold text-gray-700">
-                  Name
-                </label>
-                <div className="relative">
-                  <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                  <input
-                    id="name"
-                    type="text"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Your name"
-                    className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="name" className="mb-2 block text-sm font-semibold text-gray-700">
+                    Name <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="relative">
+                    <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Name"
+                      className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-gray-700">
-                  WhatsApp Number
-                </label>
-                <div className="relative">
-                  <PhoneIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                  <input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="08123456789"
-                    className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
-                  />
+                <div>
+                  <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-gray-700">
+                    WhatsApp <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="relative">
+                    <PhoneIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="08123456789"
+                      className="w-full rounded-2xl border border-gray-300 py-3 pl-12 pr-4 text-gray-900 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label htmlFor="email" className="mb-2 block text-sm font-semibold text-gray-700">
-                  Email
+                  Email <span className="text-red-500 ml-1">*</span>
                 </label>
                 <div className="relative">
                   <EnvelopeIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -377,7 +369,7 @@ function CustomerRegisterContent() {
 
               <div>
                 <label htmlFor="password" className="mb-2 block text-sm font-semibold text-gray-700">
-                  Password
+                  Password <span className="text-red-500 ml-1">*</span>
                 </label>
                 <div className="relative">
                   <KeyIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -394,7 +386,7 @@ function CustomerRegisterContent() {
 
               <div>
                 <label htmlFor="confirmPassword" className="mb-2 block text-sm font-semibold text-gray-700">
-                  Confirm Password
+                  Confirm Password <span className="text-red-500 ml-1">*</span>
                 </label>
                 <div className="relative">
                   <KeyIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -416,23 +408,19 @@ function CustomerRegisterContent() {
               >
                 {loading ? "Creating account..." : "Create Account"}
               </button>
-            </form>
 
-            <div className="mt-5 rounded-2xl bg-gray-50 p-4">
-              <p className="text-sm font-semibold text-gray-900">
-                Already a member?
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(`/customer/login?redirect=${encodeURIComponent(redirectPath)}`)
-                }
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:text-gray-950"
-              >
-                Login
-                <ArrowRightIcon className="h-4 w-4" />
-              </button>
-            </div>
+              <div className="mt-4 text-right">
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(`/customer/login?redirect=${encodeURIComponent(redirectPath)}`)
+                  }
+                  className="text-xs font-semibold text-gray-500 hover:text-gray-900 transition hover:underline"
+                >
+                  Already a member?
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </main>

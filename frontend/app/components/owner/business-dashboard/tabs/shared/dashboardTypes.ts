@@ -103,6 +103,7 @@ export type StaffRow = {
   name: string | null;
   role: string | null;
   status: string | null;
+  staff_positions?: Array<{ position: string; is_primary: boolean }> | null;
 };
 
 export type RewardRow = {

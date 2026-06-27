@@ -103,16 +103,35 @@ export type ShiftClosingRow = {
   discountTotal: number;
   netSales: number;
   openingCash: number;
+  openingCashActual?: number | null;
+  openingVariance?: number | null;
+  openingVarianceNote?: string | null;
+  cashIn: number;
+  cashOut: number;
   cashExpected: number;
   expectedDrawerCash: number;
   cashCounted?: number | null;
   cashDifference?: number | null;
   cashToDeposit: number;
   closingFloat: number;
+  actualClosingFloat?: number | null;
   floatPolicy: "carry_float" | "new_float" | "deposit_all";
   nonCashSales: number;
   cancelledCount: number;
   status: "open" | "draft" | "needs_review" | "submitted" | "closed" | "reopened";
+  snapshotJson?: Record<string, unknown> | null;
+  deposit?: {
+    id: string;
+    envelopeNumber: string;
+    expectedAmount: number;
+    submittedAmount: number;
+    receivedAmount: number | null;
+    status: "submitted" | "received" | "verified" | "disputed";
+    managerId?: string | null;
+    managerName?: string | null;
+    managerNotes?: string | null;
+    verifiedAt?: string | null;
+  } | null;
 };
 
 export type DailyClosingRow = {

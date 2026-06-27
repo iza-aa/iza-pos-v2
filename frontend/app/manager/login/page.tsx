@@ -178,6 +178,12 @@ export default function ManagerLoginPage() {
                 />
                 <span className="ml-2 text-sm text-gray-400">Remember me</span>
               </label>
+              <a
+                href="/manager/forgot-password"
+                className="text-sm text-gray-600 hover:text-black hover:underline"
+              >
+                Forgot Password?
+              </a>
             </div>
             <button
               type="submit"

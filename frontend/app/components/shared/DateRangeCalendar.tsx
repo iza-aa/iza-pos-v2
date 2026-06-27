@@ -95,7 +95,11 @@ export default function DateRangeCalendar({
     if (!open) return;
 
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!document.body.contains(target)) {
+        return;
+      }
+      if (!containerRef.current?.contains(target)) {
         setOpen(false);
       }
     };
@@ -191,7 +195,7 @@ export default function DateRangeCalendar({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3 text-left transition sm:w-auto ${
+        className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border px-3 text-left transition sm:w-auto ${
           active
             ? "border-gray-900 bg-gray-900 text-white"
             : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"

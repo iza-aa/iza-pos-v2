@@ -339,7 +339,7 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
 
       const { data, error: fetchError } = await supabase
         .from("staff")
-        .select("id, staff_code, name, email, phone, role, staff_type, status, profile_picture, staff_positions(id, staff_id, position, is_primary, is_active)")
+        .select("id, staff_code, name, email, phone, role, status, profile_picture, staff_positions(id, staff_id, position, is_primary, is_active)")
         .eq("id", userId)
         .maybeSingle();
 
@@ -409,24 +409,29 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       const trimmedEmail = email.trim();
       const trimmedPhone = sanitizePhoneNumber(phone);
 
+
       if (!trimmedName) {
         const message = t("profile.nameRequired");
         showError(message);
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from("staff")
-        .update({
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: trimmedName,
           email: trimmedEmail || null,
           phone: trimmedPhone || null,
           profile_picture: profilePicture || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profile.id);
+        }),
+      });
 
-      if (updateError) throw updateError;
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || t("profile.saveError"));
+      }
 
       setProfile({
         ...profile,
@@ -515,6 +520,12 @@ export default function ProfileSection({ roleScope }: ProfileSectionProps) {
       }
 
       const newPinError = validateNewPin(newPin, t);
+
+      if (newPinError) {
+        setError(newPinError);
+        return;
+      }
+
 
       if (newPinError) {
         setError(newPinError);

@@ -52,49 +52,15 @@ const getStatusBadgeClass = (status: string) => {
   if (status === "preparing") return OWNER_SEMANTIC_TONES.progress.badgeClass;
   if (status === "partially-served") return OWNER_SEMANTIC_TONES.warning.badgeClass;
   if (status === "served") return OWNER_SEMANTIC_TONES.success.badgeClass;
-  if (status === "completed") return OWNER_SEMANTIC_TONES.dark.badgeClass;
+  if (status === "completed") return "border-black bg-white text-black font-semibold";
   if (status === "cancelled" || status === "canceled") return OWNER_SEMANTIC_TONES.danger.badgeClass;
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
-const getFulfillmentInfo = (order: OrderWithFulfillment) => {
-  const fulfillmentMethod =
-    order.fulfillmentMethod ?? order.fulfillment_method ?? null;
-  const pickupCode = order.pickupCode ?? order.pickup_code ?? null;
 
-  if (fulfillmentMethod === "table_service") {
-    return {
-      label: order.table || order.tableNumber || "Table",
-      description: "Table Service",
-      badgeClass: OWNER_SEMANTIC_TONES.info.badgeClass,
-    };
-  }
-
-  if (fulfillmentMethod === "counter_pickup") {
-    return {
-      label: pickupCode ? `Pickup ${pickupCode}` : "Pickup",
-      description: "Counter Pickup",
-      badgeClass: OWNER_SEMANTIC_TONES.waiting.badgeClass,
-    };
-  }
-
-  if (order.table || order.tableNumber) {
-    return {
-      label: order.table || order.tableNumber,
-      description: "Table Service",
-      badgeClass: OWNER_SEMANTIC_TONES.info.badgeClass,
-    };
-  }
-
-  return {
-    label: order.orderType || "Order",
-    description: "No fulfillment data",
-    badgeClass: OWNER_SEMANTIC_TONES.neutral.badgeClass,
-  };
-};
 
 const renderBadge = (label: string | number | null | undefined, className: string) => (
-  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${className}`}>
     {label ?? "-"}
   </span>
 );
@@ -113,12 +79,23 @@ export default function OrderTable({
       {
         key: "order",
         header: "Order",
-        render: (order) => (
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-gray-900">{order.orderNumber}</p>
-            <p className="mt-1 text-xs text-gray-500">{order.orderType || "Order"}</p>
-          </div>
-        ),
+        render: (order) => {
+          const ord = order as OrderWithFulfillment;
+          const tableNum = ord.tableNumber || ord.table;
+          const isTableService = ord.fulfillmentMethod === "table_service" || ord.fulfillment_method === "table_service" || !!tableNum;
+
+          return (
+            <div className="min-w-0">
+              {isTableService && tableNum ? (
+                <div className="mb-1.5">
+                  {renderBadge(`Table ${tableNum}`, OWNER_SEMANTIC_TONES.info.badgeClass)}
+                </div>
+              ) : null}
+              <p className="truncate font-semibold text-gray-900">{order.orderNumber}</p>
+              <p className="mt-1 text-xs text-gray-500">{order.orderType || "Order"}</p>
+            </div>
+          );
+        },
         sortValue: (order) => order.orderNumber,
         className: "align-top",
       },
@@ -128,7 +105,6 @@ export default function OrderTable({
         render: (order) => (
           <div className="min-w-0">
             <p className="truncate font-semibold text-gray-900">{order.customerName}</p>
-            <p className="mt-1 text-xs text-gray-500">{order.tableNumber || "-"}</p>
           </div>
         ),
         sortValue: (order) => order.customerName,
@@ -148,22 +124,7 @@ export default function OrderTable({
         sortValue: (order) => `${order.date} ${order.time}`,
         className: "align-top",
       },
-      {
-        key: "fulfillment",
-        header: "Fulfillment",
-        render: (order) => {
-          const fulfillmentInfo = getFulfillmentInfo(order as OrderWithFulfillment);
 
-          return (
-            <div>
-              {renderBadge(fulfillmentInfo.label, fulfillmentInfo.badgeClass)}
-              <p className="mt-1 text-xs text-gray-500">{fulfillmentInfo.description}</p>
-            </div>
-          );
-        },
-        sortValue: (order) => getFulfillmentInfo(order as OrderWithFulfillment).description,
-        className: "align-top",
-      },
       {
         key: "source",
         header: "Source",
@@ -215,24 +176,27 @@ export default function OrderTable({
       {
         key: "payment",
         header: "Payment",
-        render: (order) => (
-          <div className="space-y-1.5">
-            <PaymentMethodBadge
-              method={order.paymentMethod ?? order.payment_method}
-            />
-            {typeof (order.paymentAmount ?? order.payment_amount) === "number" ? (
-              <p className="text-xs text-gray-500">
-                Paid {formatRupiah(order.paymentAmount ?? order.payment_amount ?? 0)}
-              </p>
-            ) : null}
-            {typeof (order.changeAmount ?? order.change_amount) === "number" &&
-            (order.changeAmount ?? order.change_amount ?? 0) > 0 ? (
-              <p className="text-xs text-gray-500">
-                Change {formatRupiah(order.changeAmount ?? order.change_amount ?? 0)}
-              </p>
-            ) : null}
-          </div>
-        ),
+        render: (order) => {
+          const method = order.paymentMethod ?? order.payment_method;
+          const isCash = String(method ?? "").toLowerCase() === "cash";
+          const changeAmt = order.changeAmount ?? order.change_amount ?? 0;
+
+          return (
+            <div className="space-y-1.5">
+              <PaymentMethodBadge method={method} />
+              {isCash && typeof (order.paymentAmount ?? order.payment_amount) === "number" ? (
+                <p className="text-xs text-gray-500">
+                  Paid {formatRupiah(order.paymentAmount ?? order.payment_amount ?? 0)}
+                </p>
+              ) : null}
+              {changeAmt > 0 && typeof (order.changeAmount ?? order.change_amount) === "number" ? (
+                <p className="text-xs text-gray-500">
+                  Change {formatRupiah(order.changeAmount ?? order.change_amount ?? 0)}
+                </p>
+              ) : null}
+            </div>
+          );
+        },
         sortValue: (order) =>
           String(order.paymentMethod ?? order.payment_method ?? ""),
         className: "align-top",

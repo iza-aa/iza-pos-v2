@@ -322,7 +322,7 @@ export default function useManagerNotifications(enabled: boolean) {
           severity: activeOrders.length >= 10 ? "critical" : "warning",
           source: "Order",
           createdAt: now,
-          actionHref: "/manager/order",
+          actionHref: "/staff/order",
         });
       }
 
@@ -334,7 +334,7 @@ export default function useManagerNotifications(enabled: boolean) {
           severity: "warning",
           source: "Order",
           createdAt: now,
-          actionHref: "/manager/order",
+          actionHref: "/staff/order",
         });
       }
 
@@ -346,7 +346,7 @@ export default function useManagerNotifications(enabled: boolean) {
           severity: "warning",
           source: "Order",
           createdAt: corrections[0].created_at || now,
-          actionHref: "/manager/order",
+          actionHref: "/staff/order",
         });
       }
 

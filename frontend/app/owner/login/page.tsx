@@ -183,6 +183,12 @@ export default function OwnerLoginPage() {
 									Remember me
 								</span>
 							</label>
+							<a
+								href="/owner/forgot-password"
+								className="text-sm text-gray-600 hover:text-black hover:underline"
+							>
+								Lupa Password?
+							</a>
 						</div>
 						<button
 							type="submit"
