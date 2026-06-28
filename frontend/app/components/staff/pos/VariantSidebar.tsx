@@ -16,6 +16,7 @@ interface VariantSidebarProps {
 		category: string;
 		price: number;
 		image: string;
+		is_available?: boolean;
 	};
 	onAddToOrder: (item: MenuItem, selectedVariants: SelectedVariant[], totalPrice: number, quantity: number) => void;
 	isInline?: boolean; // New prop for inline mode
@@ -78,10 +79,10 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 							name: group.name,
 							type: group.type as 'single' | 'multiple',
 							required: group.is_required,
-							options: (options || []).map((opt: any) => ({
+							options: (options || []).map((opt: { id: string; name: string; price_modifier: number }) => ({
 								id: opt.id,
 								name: opt.name,
-								priceModifier: opt.price_modifier
+								price_adjustment: opt.price_modifier
 							}))
 						};
 					})
@@ -146,9 +147,9 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 		variantGroups.forEach(group => {
 			const selected = selectedVariantIds[group.id] || [];
 			selected.forEach(optionId => {
-				const option = group.options.find(opt => opt.id === optionId);
-				if (option) {
-					total += option.priceModifier;
+				const option = (group.options || []).find(opt => opt.id === optionId);
+				if (option && option.price_adjustment !== undefined) {
+					total += option.price_adjustment;
 				}
 			});
 		});
@@ -171,20 +172,20 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 		variantGroups.forEach(group => {
 			const selectedIds = selectedVariantIds[group.id] || [];
 			selectedIds.forEach(optionId => {
-				const option = group.options.find(opt => opt.id === optionId);
+				const option = (group.options || []).find(opt => opt.id === optionId);
 				if (option) {
 					variantsArray.push({
 						group_id: group.id,
 						group_name: group.name,
 						option_id: option.id,
 						option_name: option.name,
-						price_adjustment: option.priceModifier
+						price_adjustment: option.price_adjustment || 0
 					});
 				}
 			});
 		});
 		
-		onAddToOrder(item, variantsArray, calculateTotalPrice(), quantity);
+		onAddToOrder(item as MenuItem, variantsArray, calculateTotalPrice(), quantity);
 		onClose();
 	};
 
@@ -246,7 +247,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 				{/* Base Price */}
 				<div className="flex justify-between items-center">
 					<span className="text-gray-600 font-medium">Base Price</span>
-				<span className="text-xl font-bold" style={{ color: '#8FCC4A' }}>{formatCurrency(item.price)}</span>
+				<span className="text-xl font-bold text-success-green">{formatCurrency(item.price)}</span>
 				</div>					{loading ? (
 						<div className="text-center py-8 text-gray-500">Loading variants...</div>
 					) : variantGroups.length === 0 ? (
@@ -259,12 +260,12 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 									{group.required && <span className="text-red-500 ml-1">*</span>}
 								</h3>
 								<div className="space-y-2">
-									{group.options.map(option => {
+									{(group.options || []).map(option => {
 										const isSelected = selectedVariantIds[group.id]?.includes(option.id);
 										return (
 											<button
 												key={option.id}
-												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
+												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type as 'single' | 'multiple')}
 												className={`w-full flex items-center justify-between p-4 rounded-2xl transition cursor-pointer ${
 													isSelected
 														? 'border-[1.5px] border-gray-700 bg-gray-50'
@@ -283,9 +284,9 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 													</div>
 											<span className="font-medium text-gray-800">{option.name}</span>
 										</div>
-										{option.priceModifier !== 0 && (
-											<span className="text-xs font-semibold ml-auto" style={{ color: option.priceModifier > 0 ? '#8FCC4A' : '#FF6859' }}>
-												{option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier)}
+										{option.price_adjustment !== 0 && option.price_adjustment !== undefined && (
+											<span className={`text-xs font-semibold ml-auto ${option.price_adjustment > 0 ? 'text-success-green' : 'text-danger-red'}`}>
+												{option.price_adjustment > 0 ? '+' : ''}{formatCurrency(option.price_adjustment)}
 											</span>
 										)}
 									</button>
@@ -369,7 +370,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 					{/* Base Price */}
 					<div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
 					<span className="text-sm font-medium text-gray-700">Base Price</span>
-					<span className="text-lg font-bold" style={{ color: '#8FCC4A' }}>{formatCurrency(item.price)}</span>
+					<span className="text-lg font-bold text-success-green">{formatCurrency(item.price)}</span>
 					</div>					{/* Loading State */}
 					{loading && (
 						<div className="text-center py-8">
@@ -395,13 +396,13 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 								</div>
 
 								<div className="space-y-2">
-									{group.options.map(option => {
+									{(group.options || []).map(option => {
 										const isSelected = selectedVariantIds[group.id]?.includes(option.id);
 										
 										return (
 											<button
 												key={option.id}
-												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type)}
+												onClick={() => handleVariantSelect(group.id, group.name, option.id, option.name, group.type as 'single' | 'multiple')}
 												className={`w-full flex items-center justify-between p-4 rounded-2xl transition cursor-pointer ${
 													isSelected 
 														? 'border-[1.5px] border-gray-700 bg-gray-50' 
@@ -420,9 +421,9 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 													</div>
 													<span className="font-medium text-gray-800">{option.name}</span>
 												</div>
-											{option.priceModifier !== 0 && (
-												<span className="text-xs font-semibold ml-auto" style={{ color: option.priceModifier > 0 ? '#8FCC4A' : '#FF6859' }}>
-													{option.priceModifier > 0 ? '+' : ''}{formatCurrency(option.priceModifier)}
+											{option.price_adjustment !== 0 && option.price_adjustment !== undefined && (
+												<span className={`text-xs font-semibold ml-auto ${option.price_adjustment > 0 ? 'text-success-green' : 'text-danger-red'}`}>
+													{option.price_adjustment > 0 ? '+' : ''}{formatCurrency(option.price_adjustment)}
 												</span>
 											)}
 											</button>

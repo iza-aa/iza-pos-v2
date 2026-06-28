@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #171717;
   --color-primary: #37353E; 
   --color-secondary: #44444E;
   --color-accent: #715A5A;
   --color-muted: #D3DAD9;
+  --color-success-green: #8FCC4A;
+  --color-danger-red: #FF6859;
 }
 
 /* Hide scrollbar globally for all elements */

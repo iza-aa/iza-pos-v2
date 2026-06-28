@@ -9,7 +9,7 @@ interface OrderItem {
 	name: string;
 	quantity: number;
 	price: number;
-	variants?: any; // Variant selections for variant items
+	variants?: Record<string, string[]>; // Variant selections for variant items
 	productId?: string; // For variant items
 }
 
@@ -60,7 +60,7 @@ export default function OrderSummary({
 											{/* Show variant details if available */}
 											{item.variants && Object.keys(item.variants).length > 0 && (
 												<div className="mt-1 space-y-0.5">
-													{Object.entries(item.variants).map(([groupId, optionIds]: [string, any]) => {
+													{Object.entries(item.variants as Record<string, string[]>).map(([groupId, optionIds]) => {
 														if (!Array.isArray(optionIds) || optionIds.length === 0) return null
 														
 														return (
@@ -93,7 +93,7 @@ export default function OrderSummary({
 									</button>
 							</div>
 						)}
-								<span className="font-semibold min-w-[90px] text-right" style={{ color: COLORS.PRIMARY }}>
+								<span className="font-semibold min-w-[90px] text-right text-primary">
 									{formatCurrency(item.price * item.quantity)}
 								</span>
 								</div>

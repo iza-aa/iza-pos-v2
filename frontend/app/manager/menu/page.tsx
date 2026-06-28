@@ -925,8 +925,7 @@ export default function MenuPage() {
                     {/* Has Variants Indicator */}
                     {menu.hasVariants && (
                       <div
-                        className="mb-3 text-[10px] md:text-xs font-medium"
-                        style={{ color: "#FF6859" }}
+                        className="mb-3 text-[10px] md:text-xs font-medium text-danger-red"
                       >
                         {t("manager.menu.hasVariants")}
                       </div>
@@ -949,13 +948,7 @@ export default function MenuPage() {
                       </button>
                       <button
                         onClick={() => handleDeleteMenu(menu)}
-                        className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium rounded-xl hover:bg-red-50 transition"
-                        style={{
-                          color: "#FF6859",
-                          borderColor: "#FF6859",
-                          borderWidth: "1px",
-                          borderStyle: "solid",
-                        }}
+                        className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium rounded-xl border border-danger-red text-danger-red hover:bg-red-50 transition"
                       >
                         {t("common.delete")}
                       </button>

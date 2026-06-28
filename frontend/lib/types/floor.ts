@@ -15,9 +15,10 @@ export interface Floor {
 
 // Floor with table count
 export interface FloorWithTables extends Floor {
-  table_count: number;
-  active_tables: number;
+  total_tables: number;
+  available_tables: number;
   occupied_tables: number;
+  reserved_tables: number;
 }
 
 // Floor Create Input

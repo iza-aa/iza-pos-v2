@@ -109,7 +109,8 @@ export default function useOwnerDashboardData() {
             .from("orders")
             .select(select)
             .order("created_at", { ascending: true })
-            .range(from, to),
+            .range(from, to)
+            .returns<OrderRow[]>()
         );
       const queryOrderItems = (select: string) =>
         loadAllDashboardRows<OrderItemRow>((from, to) =>
@@ -117,7 +118,8 @@ export default function useOwnerDashboardData() {
             .from("order_items")
             .select(select)
             .order("id", { ascending: true })
-            .range(from, to),
+            .range(from, to)
+            .returns<OrderItemRow[]>()
         );
       const [orders, orderItems, products, inventoryItems, inventoryBatches, staff, attendance, usageTransactions, usageTransactionDetails, stockReports, orderCorrections] =
         await Promise.all([

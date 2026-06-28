@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/config/supabaseClient";
-import { showError, showSuccess } from "@/lib/services/errorHandling";
+import {
+  showError,
+  showSuccess,
+  showConfirmation,
+} from "@/lib/services/errorHandling";
 import { useLanguage } from "@/app/components/shared/i18n";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { ChartCard } from "../shared/DashboardPrimitives";
 import type { RewardRow } from "../shared/dashboardTypes";
+import LoyaltySettingsCard from "./LoyaltySettingsCard";
 import {
   formatCurrency,
   formatNumber,
@@ -115,20 +120,27 @@ function CustomerDiscountDashboard() {
   const bundlePriceNumber = toNumber(bundleForm.bundlePrice);
   const discountNameInvalid = !form.name.trim();
   const discountValueInvalid =
-    discountValueNumber <= 0 || (form.discountType === "percentage" && discountValueNumber > 100);
+    discountValueNumber <= 0 ||
+    (form.discountType === "percentage" && discountValueNumber > 100);
   const bundleNameInvalid = !bundleForm.name.trim();
   const bundlePriceInvalid = bundlePriceNumber <= 0;
   const bundleItemsInvalid = bundleForm.productIds.length < 2;
   const discountInvalidClass = (invalid: boolean) =>
-    attemptedDiscountSubmit && invalid ? invalidRequiredClass : requiredInputClass;
+    attemptedDiscountSubmit && invalid
+      ? invalidRequiredClass
+      : requiredInputClass;
   const bundleInvalidClass = (invalid: boolean) =>
-    attemptedBundleSubmit && invalid ? invalidRequiredClass : requiredInputClass;
+    attemptedBundleSubmit && invalid
+      ? invalidRequiredClass
+      : requiredInputClass;
 
   const loadRewards = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("rewards")
-      .select("id,name,description,discount_type,discount_value,max_discount_amount,points_required,minimum_order_amount,valid_days,usage_limit,used_count,is_active,starts_at,ends_at")
+      .select(
+        "id,name,description,discount_type,discount_value,max_discount_amount,points_required,minimum_order_amount,valid_days,usage_limit,used_count,is_active,starts_at,ends_at",
+      )
       .order("created_at", { ascending: false })
       .limit(8);
 
@@ -152,7 +164,9 @@ function CustomerDiscountDashboard() {
         .order("name", { ascending: true }),
       supabase
         .from("menu_bundles")
-        .select("id,name,description,bundle_price,is_active,starts_at,ends_at,display_order")
+        .select(
+          "id,name,description,bundle_price,is_active,starts_at,ends_at,display_order",
+        )
         .order("display_order", { ascending: true })
         .order("created_at", { ascending: false }),
       supabase
@@ -178,7 +192,9 @@ function CustomerDiscountDashboard() {
     if (bundleError) {
       const message = bundleError.message.toLowerCase();
       setBundleFeedback(
-        message.includes("menu_bundles") || message.includes("menu_bundle_items") || message.includes("schema cache")
+        message.includes("menu_bundles") ||
+          message.includes("menu_bundle_items") ||
+          message.includes("schema cache")
           ? t("owner.bundle.tablesMissing")
           : bundleError.message,
       );
@@ -263,7 +279,9 @@ function CustomerDiscountDashboard() {
       pointsRequired: String(toNumber(reward.points_required)),
       minimumOrderAmount: String(toNumber(reward.minimum_order_amount)),
       validDays: reward.valid_days ? String(toNumber(reward.valid_days)) : "7",
-      usageLimit: reward.usage_limit ? String(toNumber(reward.usage_limit)) : "",
+      usageLimit: reward.usage_limit
+        ? String(toNumber(reward.usage_limit))
+        : "",
       startsAt: reward.starts_at ? String(reward.starts_at).slice(0, 10) : "",
       endsAt: reward.ends_at ? String(reward.ends_at).slice(0, 10) : "",
       isActive: Boolean(reward.is_active),
@@ -273,11 +291,15 @@ function CustomerDiscountDashboard() {
   const getBundleItems = (bundleId: string) =>
     bundleItems
       .filter((item) => item.bundle_id === bundleId)
-      .sort((left, right) => toNumber(left.sort_order) - toNumber(right.sort_order));
+      .sort(
+        (left, right) => toNumber(left.sort_order) - toNumber(right.sort_order),
+      );
 
   const getBundleNormalPrice = (bundleId: string) =>
     getBundleItems(bundleId).reduce((sum, item) => {
-      const product = products.find((productOption) => productOption.id === item.product_id);
+      const product = products.find(
+        (productOption) => productOption.id === item.product_id,
+      );
       return sum + (product?.price ?? 0) * toNumber(item.quantity || 1);
     }, 0);
 
@@ -294,7 +316,9 @@ function CustomerDiscountDashboard() {
       endsAt: bundle.ends_at ? String(bundle.ends_at).slice(0, 10) : "",
       isActive: Boolean(bundle.is_active),
       displayOrder: String(toNumber(bundle.display_order)),
-      productIds: items.map((item) => item.product_id).filter((id): id is string => Boolean(id)),
+      productIds: items
+        .map((item) => item.product_id)
+        .filter((id): id is string => Boolean(id)),
       quantities: items.reduce<Record<string, string>>((map, item) => {
         if (item.product_id) {
           map[item.product_id] = String(toNumber(item.quantity || 1));
@@ -305,13 +329,20 @@ function CustomerDiscountDashboard() {
   };
 
   const deleteDiscount = async (reward: RewardRow) => {
-    const confirmed = window.confirm(t("owner.discount.deleteConfirm", { name: reward.name ?? "this discount" }));
+    const confirmed = await showConfirmation(
+      t("owner.discount.deleteConfirm", {
+        name: reward.name ?? "this discount",
+      }),
+    );
     if (!confirmed) return;
 
     setSaving(true);
     setFeedback("");
 
-    const { error } = await supabase.from("rewards").delete().eq("id", reward.id);
+    const { error } = await supabase
+      .from("rewards")
+      .delete()
+      .eq("id", reward.id);
 
     if (error) {
       setFeedback(error.message);
@@ -329,13 +360,18 @@ function CustomerDiscountDashboard() {
   };
 
   const deleteBundle = async (bundle: MenuBundleRow) => {
-    const confirmed = window.confirm(t("owner.bundle.deleteConfirm", { name: bundle.name ?? "this bundle" }));
+    const confirmed = await showConfirmation(
+      t("owner.bundle.deleteConfirm", { name: bundle.name ?? "this bundle" }),
+    );
     if (!confirmed) return;
 
     setSavingBundle(true);
     setBundleFeedback("");
 
-    const { error } = await supabase.from("menu_bundles").delete().eq("id", bundle.id);
+    const { error } = await supabase
+      .from("menu_bundles")
+      .delete()
+      .eq("id", bundle.id);
 
     if (error) {
       setBundleFeedback(error.message);
@@ -413,8 +449,16 @@ function CustomerDiscountDashboard() {
       setFeedback(error.message);
       showError(error.message);
     } else {
-      setFeedback(editingRewardId ? t("owner.discount.updated") : t("owner.discount.created"));
-      showSuccess(editingRewardId ? t("owner.discount.updated") : t("owner.discount.created"));
+      setFeedback(
+        editingRewardId
+          ? t("owner.discount.updated")
+          : t("owner.discount.created"),
+      );
+      showSuccess(
+        editingRewardId
+          ? t("owner.discount.updated")
+          : t("owner.discount.created"),
+      );
       resetForm();
       await loadRewards();
     }
@@ -456,7 +500,10 @@ function CustomerDiscountDashboard() {
 
     const normalizedItems = selectedProductIds.map((productId, index) => ({
       product_id: productId,
-      quantity: Math.max(1, Math.floor(toNumber(bundleForm.quantities[productId] || 1))),
+      quantity: Math.max(
+        1,
+        Math.floor(toNumber(bundleForm.quantities[productId] || 1)),
+      ),
       sort_order: index,
     }));
 
@@ -471,18 +518,32 @@ function CustomerDiscountDashboard() {
     };
 
     const bundleResult = editingBundleId
-      ? await supabase.from("menu_bundles").update(payload).eq("id", editingBundleId).select("id").single()
-      : await supabase.from("menu_bundles").insert(payload).select("id").single();
+      ? await supabase
+          .from("menu_bundles")
+          .update(payload)
+          .eq("id", editingBundleId)
+          .select("id")
+          .single()
+      : await supabase
+          .from("menu_bundles")
+          .insert(payload)
+          .select("id")
+          .single();
 
     if (bundleResult.error || !bundleResult.data?.id) {
-      setBundleFeedback(bundleResult.error?.message || t("owner.bundle.saveError"));
+      setBundleFeedback(
+        bundleResult.error?.message || t("owner.bundle.saveError"),
+      );
       showError(bundleResult.error?.message || t("owner.bundle.saveError"));
       setSavingBundle(false);
       return;
     }
 
     const bundleId = bundleResult.data.id as string;
-    const deleteItems = await supabase.from("menu_bundle_items").delete().eq("bundle_id", bundleId);
+    const deleteItems = await supabase
+      .from("menu_bundle_items")
+      .delete()
+      .eq("bundle_id", bundleId);
 
     if (deleteItems.error) {
       setBundleFeedback(deleteItems.error.message);
@@ -502,8 +563,12 @@ function CustomerDiscountDashboard() {
       setBundleFeedback(insertItems.error.message);
       showError(insertItems.error.message);
     } else {
-      setBundleFeedback(editingBundleId ? t("owner.bundle.updated") : t("owner.bundle.created"));
-      showSuccess(editingBundleId ? t("owner.bundle.updated") : t("owner.bundle.created"));
+      setBundleFeedback(
+        editingBundleId ? t("owner.bundle.updated") : t("owner.bundle.created"),
+      );
+      showSuccess(
+        editingBundleId ? t("owner.bundle.updated") : t("owner.bundle.created"),
+      );
       resetBundleForm();
       await loadBundles();
     }
@@ -513,15 +578,23 @@ function CustomerDiscountDashboard() {
 
   return (
     <div className="space-y-4">
+      <LoyaltySettingsCard />
       <ChartCard
-        title={editingRewardId ? t("owner.discount.edit") : t("owner.discount.create")}
+        title={
+          editingRewardId
+            ? t("owner.discount.edit")
+            : t("owner.discount.create")
+        }
         subtitle={t("owner.discount.subtitle")}
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.name")} <span className="text-red-500">*</span></span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.name")}{" "}
+                  <span className="text-red-500">*</span>
+                </span>
                 <input
                   ref={discountNameRef}
                   value={form.name}
@@ -531,10 +604,14 @@ function CustomerDiscountDashboard() {
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.type")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.type")}
+                </span>
                 <select
                   value={form.discountType}
-                  onChange={(event) => updateForm("discountType", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("discountType", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 >
                   <option value="percentage">Percentage</option>
@@ -544,10 +621,14 @@ function CustomerDiscountDashboard() {
             </div>
 
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-gray-700">{t("owner.discount.description")}</span>
+              <span className="text-sm font-semibold text-gray-700">
+                {t("owner.discount.description")}
+              </span>
               <textarea
                 value={form.description}
-                onChange={(event) => updateForm("description", event.target.value)}
+                onChange={(event) =>
+                  updateForm("description", event.target.value)
+                }
                 className="min-h-24 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 placeholder="Short explanation shown to customers."
               />
@@ -555,34 +636,47 @@ function CustomerDiscountDashboard() {
 
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.value")} <span className="text-red-500">*</span></span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.value")}{" "}
+                  <span className="text-red-500">*</span>
+                </span>
                 <input
                   ref={discountValueRef}
                   type="number"
                   min="0"
                   value={form.discountValue}
-                  onChange={(event) => updateForm("discountValue", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("discountValue", event.target.value)
+                  }
                   className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-gray-900 ${discountInvalidClass(discountValueInvalid)}`}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.maxDiscount")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.maxDiscount")}
+                </span>
                 <input
                   type="number"
                   min="0"
                   value={form.maxDiscountAmount}
-                  onChange={(event) => updateForm("maxDiscountAmount", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("maxDiscountAmount", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                   placeholder="Optional"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.pointsRequired")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.pointsRequired")}
+                </span>
                 <input
                   type="number"
                   min="0"
                   value={form.pointsRequired}
-                  onChange={(event) => updateForm("pointsRequired", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("pointsRequired", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
               </label>
@@ -590,32 +684,44 @@ function CustomerDiscountDashboard() {
 
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.minOrder")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.minOrder")}
+                </span>
                 <input
                   type="number"
                   min="0"
                   value={form.minimumOrderAmount}
-                  onChange={(event) => updateForm("minimumOrderAmount", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("minimumOrderAmount", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.validDays")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.validDays")}
+                </span>
                 <input
                   type="number"
                   min="1"
                   value={form.validDays}
-                  onChange={(event) => updateForm("validDays", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("validDays", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.usageLimit")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.usageLimit")}
+                </span>
                 <input
                   type="number"
                   min="0"
                   value={form.usageLimit}
-                  onChange={(event) => updateForm("usageLimit", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("usageLimit", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                   placeholder="Optional"
                 />
@@ -624,16 +730,22 @@ function CustomerDiscountDashboard() {
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.startDate")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.startDate")}
+                </span>
                 <input
                   type="date"
                   value={form.startsAt}
-                  onChange={(event) => updateForm("startsAt", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("startsAt", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.endDate")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.endDate")}
+                </span>
                 <input
                   type="date"
                   value={form.endsAt}
@@ -647,14 +759,15 @@ function CustomerDiscountDashboard() {
               <input
                 type="checkbox"
                 checked={form.isActive}
-                onChange={(event) => updateForm("isActive", event.target.checked)}
+                onChange={(event) =>
+                  updateForm("isActive", event.target.checked)
+                }
                 className="h-4 w-4"
               />
               <span className="text-sm font-semibold text-gray-700">
                 Activate this discount immediately
               </span>
             </label>
-
 
             <button
               type="button"
@@ -683,16 +796,25 @@ function CustomerDiscountDashboard() {
           </div>
 
           <aside className="self-start rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-bold text-gray-950">{t("owner.discount.recent")}</p>
+            <p className="text-sm font-bold text-gray-950">
+              {t("owner.discount.recent")}
+            </p>
             <div className="mt-3 space-y-3">
               {loading ? (
-                <p className="text-sm text-gray-500">{t("owner.discount.loading")}</p>
+                <p className="text-sm text-gray-500">
+                  {t("owner.discount.loading")}
+                </p>
               ) : rewards.length ? (
                 rewards.map((reward) => (
-                  <div key={reward.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                  <div
+                    key={reward.id}
+                    className="rounded-xl border border-gray-200 bg-white p-3"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-gray-900">{reward.name}</p>
+                        <p className="font-semibold text-gray-900">
+                          {reward.name}
+                        </p>
                         <p className="mt-1 text-xs text-gray-500">
                           {reward.discount_type === "percentage"
                             ? `${toNumber(reward.discount_value)}% off`
@@ -706,7 +828,9 @@ function CustomerDiscountDashboard() {
                             : OWNER_SEMANTIC_TONES.neutral.badgeClass
                         }`}
                       >
-                {reward.is_active ? t("owner.discount.active") : t("owner.discount.inactive")}
+                        {reward.is_active
+                          ? t("owner.discount.active")
+                          : t("owner.discount.inactive")}
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
@@ -731,37 +855,51 @@ function CustomerDiscountDashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-500">No discounts created yet.</p>
+                <p className="text-sm text-gray-500">
+                  No discounts created yet.
+                </p>
               )}
             </div>
           </aside>
         </div>
       </ChartCard>
       <ChartCard
-        title={editingBundleId ? t("owner.bundle.edit") : t("owner.bundle.create")}
+        title={
+          editingBundleId ? t("owner.bundle.edit") : t("owner.bundle.create")
+        }
         subtitle={t("owner.bundle.subtitle")}
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.bundle.name")} <span className="text-red-500">*</span></span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.bundle.name")}{" "}
+                  <span className="text-red-500">*</span>
+                </span>
                 <input
                   ref={bundleNameRef}
                   value={bundleForm.name}
-                  onChange={(event) => updateBundleForm("name", event.target.value)}
+                  onChange={(event) =>
+                    updateBundleForm("name", event.target.value)
+                  }
                   className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-gray-900 ${bundleInvalidClass(bundleNameInvalid)}`}
                   placeholder="Morning Coffee Set"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.bundle.price")} <span className="text-red-500">*</span></span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.bundle.price")}{" "}
+                  <span className="text-red-500">*</span>
+                </span>
                 <input
                   ref={bundlePriceRef}
                   type="number"
                   min="0"
                   value={bundleForm.bundlePrice}
-                  onChange={(event) => updateBundleForm("bundlePrice", event.target.value)}
+                  onChange={(event) =>
+                    updateBundleForm("bundlePrice", event.target.value)
+                  }
                   className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-gray-900 ${bundleInvalidClass(bundlePriceInvalid)}`}
                   placeholder="45000"
                 />
@@ -769,10 +907,14 @@ function CustomerDiscountDashboard() {
             </div>
 
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-gray-700">{t("owner.discount.description")}</span>
+              <span className="text-sm font-semibold text-gray-700">
+                {t("owner.discount.description")}
+              </span>
               <textarea
                 value={bundleForm.description}
-                onChange={(event) => updateBundleForm("description", event.target.value)}
+                onChange={(event) =>
+                  updateBundleForm("description", event.target.value)
+                }
                 className="min-h-20 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 placeholder="Short customer-facing bundle description."
               />
@@ -780,32 +922,46 @@ function CustomerDiscountDashboard() {
 
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.startDate")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.startDate")}
+                </span>
                 <input
                   type="date"
                   value={bundleForm.startsAt}
-                  onChange={(event) => updateBundleForm("startsAt", event.target.value)}
+                  onChange={(event) =>
+                    updateBundleForm("startsAt", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.discount.endDate")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.discount.endDate")}
+                </span>
                 <input
                   type="date"
                   value={bundleForm.endsAt}
-                  onChange={(event) => updateBundleForm("endsAt", event.target.value)}
+                  onChange={(event) =>
+                    updateBundleForm("endsAt", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-gray-700">{t("owner.bundle.menuPosition")}</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {t("owner.bundle.menuPosition")}
+                </span>
                 <input
                   type="number"
                   value={bundleForm.displayOrder}
-                  onChange={(event) => updateBundleForm("displayOrder", event.target.value)}
+                  onChange={(event) =>
+                    updateBundleForm("displayOrder", event.target.value)
+                  }
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-900"
                 />
-                <p className="mt-1 text-xs text-gray-500">{t("owner.bundle.positionHelper")}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {t("owner.bundle.positionHelper")}
+                </p>
               </label>
             </div>
 
@@ -815,9 +971,13 @@ function CustomerDiscountDashboard() {
               className={`rounded-xl border bg-gray-50 p-3 outline-none ${bundleInvalidClass(bundleItemsInvalid)}`}
             >
               <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-sm font-bold text-gray-950">{t("owner.bundle.items")}</p>
+                <p className="text-sm font-bold text-gray-950">
+                  {t("owner.bundle.items")}
+                </p>
                 <p className="text-xs font-semibold text-gray-500">
-                  {t("owner.bundle.selected", { count: bundleForm.productIds.length })}
+                  {t("owner.bundle.selected", {
+                    count: bundleForm.productIds.length,
+                  })}
                 </p>
               </div>
               <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
@@ -849,12 +1009,19 @@ function CustomerDiscountDashboard() {
                       </label>
                       {selected ? (
                         <label className="mt-2 block">
-                          <span className="text-xs font-semibold text-gray-500">Qty</span>
+                          <span className="text-xs font-semibold text-gray-500">
+                            Qty
+                          </span>
                           <input
                             type="number"
                             min="1"
                             value={bundleForm.quantities[product.id] ?? "1"}
-                            onChange={(event) => updateBundleQuantity(product.id, event.target.value)}
+                            onChange={(event) =>
+                              updateBundleQuantity(
+                                product.id,
+                                event.target.value,
+                              )
+                            }
                             className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-gray-900"
                           />
                         </label>
@@ -869,15 +1036,15 @@ function CustomerDiscountDashboard() {
               <input
                 type="checkbox"
                 checked={bundleForm.isActive}
-                onChange={(event) => updateBundleForm("isActive", event.target.checked)}
+                onChange={(event) =>
+                  updateBundleForm("isActive", event.target.checked)
+                }
                 className="h-4 w-4"
               />
               <span className="text-sm font-semibold text-gray-700">
                 {t("owner.bundle.showInMenu")}
               </span>
             </label>
-
-
 
             <button
               type="button"
@@ -906,24 +1073,35 @@ function CustomerDiscountDashboard() {
           </div>
 
           <aside className="self-start rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-bold text-gray-950">{t("owner.bundle.active")}</p>
+            <p className="text-sm font-bold text-gray-950">
+              {t("owner.bundle.active")}
+            </p>
             <div className="mt-3 space-y-3">
               {loadingBundles ? (
-                <p className="text-sm text-gray-500">{t("owner.bundle.loading")}</p>
+                <p className="text-sm text-gray-500">
+                  {t("owner.bundle.loading")}
+                </p>
               ) : bundles.length ? (
                 bundles.map((bundle) => {
                   const items = getBundleItems(bundle.id);
                   const normalPrice = getBundleNormalPrice(bundle.id);
                   const bundlePrice = toNumber(bundle.bundle_price);
                   return (
-                    <div key={bundle.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                    <div
+                      key={bundle.id}
+                      className="rounded-xl border border-gray-200 bg-white p-3"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-semibold text-gray-900">{bundle.name}</p>
+                          <p className="font-semibold text-gray-900">
+                            {bundle.name}
+                          </p>
                           <p className="mt-1 text-xs text-gray-500">
                             {items
                               .map((item) => {
-                                const product = products.find((option) => option.id === item.product_id);
+                                const product = products.find(
+                                  (option) => option.id === item.product_id,
+                                );
                                 return `${toNumber(item.quantity || 1)}x ${product?.name ?? "Menu item"}`;
                               })
                               .join(", ")}
@@ -936,7 +1114,9 @@ function CustomerDiscountDashboard() {
                               : OWNER_SEMANTIC_TONES.neutral.badgeClass
                           }`}
                         >
-                          {bundle.is_active ? t("owner.discount.active") : t("owner.discount.inactive")}
+                          {bundle.is_active
+                            ? t("owner.discount.active")
+                            : t("owner.discount.inactive")}
                         </span>
                       </div>
                       <p className="mt-2 text-sm font-bold text-gray-950">
@@ -968,7 +1148,9 @@ function CustomerDiscountDashboard() {
                   );
                 })
               ) : (
-                <p className="text-sm text-gray-500">No menu bundles created yet.</p>
+                <p className="text-sm text-gray-500">
+                  No menu bundles created yet.
+                </p>
               )}
             </div>
           </aside>
@@ -979,4 +1161,3 @@ function CustomerDiscountDashboard() {
 }
 
 export default CustomerDiscountDashboard;
-

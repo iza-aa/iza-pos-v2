@@ -134,7 +134,7 @@ export function subscribeToTableStatus(
  */
 export function subscribeToFloorTables(
   floorId: string,
-  callback: (table: any) => void
+  callback: (table: Record<string, unknown>) => void
 ): RealtimeChannel {
   const supabase = createClient();
   
@@ -161,7 +161,7 @@ export function subscribeToFloorTables(
  * Subscribe to all table changes
  */
 export function subscribeToAllTables(
-  callback: (payload: any) => void
+  callback: (payload: Record<string, unknown>) => void
 ): RealtimeChannel {
   const supabase = createClient();
   
@@ -261,16 +261,16 @@ export async function getTableOccupancyStats() {
     throw new Error(`Failed to fetch table stats: ${error.message}`);
   }
   
-  const activeTables = data?.filter((t: any) => t.is_active) || [];
+  const activeTables = data?.filter((t: { is_active: boolean; status: string }) => t.is_active) || [];
   
   return {
     total: activeTables.length,
-    free: activeTables.filter((t: any) => t.status === 'free').length,
-    occupied: activeTables.filter((t: any) => t.status === 'occupied').length,
-    reserved: activeTables.filter((t: any) => t.status === 'reserved').length,
-    cleaning: activeTables.filter((t: any) => t.status === 'cleaning').length,
+    free: activeTables.filter((t: { status: string }) => t.status === 'free').length,
+    occupied: activeTables.filter((t: { status: string }) => t.status === 'occupied').length,
+    reserved: activeTables.filter((t: { status: string }) => t.status === 'reserved').length,
+    cleaning: activeTables.filter((t: { status: string }) => t.status === 'cleaning').length,
     occupancy_rate: activeTables.length > 0 
-      ? Math.round((activeTables.filter((t: any) => t.status === 'occupied').length / activeTables.length) * 100)
+      ? Math.round((activeTables.filter((t: { status: string }) => t.status === 'occupied').length / activeTables.length) * 100)
       : 0,
   };
 }
@@ -291,16 +291,16 @@ export async function getFloorOccupancyStats(floorId: string) {
     throw new Error(`Failed to fetch floor stats: ${error.message}`);
   }
   
-  const activeTables = data?.filter((t: any) => t.is_active) || [];
+  const activeTables = data?.filter((t: { is_active: boolean; status: string }) => t.is_active) || [];
   
   return {
     total: activeTables.length,
-    free: activeTables.filter((t: any) => t.status === 'free').length,
-    occupied: activeTables.filter((t: any) => t.status === 'occupied').length,
-    reserved: activeTables.filter((t: any) => t.status === 'reserved').length,
-    cleaning: activeTables.filter((t: any) => t.status === 'cleaning').length,
+    free: activeTables.filter((t: { status: string }) => t.status === 'free').length,
+    occupied: activeTables.filter((t: { status: string }) => t.status === 'occupied').length,
+    reserved: activeTables.filter((t: { status: string }) => t.status === 'reserved').length,
+    cleaning: activeTables.filter((t: { status: string }) => t.status === 'cleaning').length,
     occupancy_rate: activeTables.length > 0 
-      ? Math.round((activeTables.filter((t: any) => t.status === 'occupied').length / activeTables.length) * 100)
+      ? Math.round((activeTables.filter((t: { status: string }) => t.status === 'occupied').length / activeTables.length) * 100)
       : 0,
   };
 }

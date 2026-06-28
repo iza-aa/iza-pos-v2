@@ -10,7 +10,7 @@ import { useLanguage } from "@/app/components/shared/i18n";
 import StandardTable, {
   type StandardTableColumn,
 } from "@/app/components/shared/StandardTable";
-import { showError } from "@/lib/services/errorHandling";
+import { showError, showConfirmation } from "@/lib/services/errorHandling";
 import QRCodeModal from "./QRCodeModal";
 
 interface Table {
@@ -114,7 +114,7 @@ export default function TableList({
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await showConfirmation(
       t("manager.table.deleteConfirm", { table: table.table_number }),
     );
 

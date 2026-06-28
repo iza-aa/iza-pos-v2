@@ -437,9 +437,8 @@ export default function VariantsTab() {
                         <button
                           type="button"
                           onClick={() => handleDeleteGroup(group)}
-                          className="rounded-lg p-1.5 transition hover:bg-red-50"
+                          className="rounded-lg p-1.5 transition text-danger-red hover:bg-red-50"
                           title="Delete"
-                          style={{ color: '#FF6859' }}
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -449,12 +448,7 @@ export default function VariantsTab() {
                     <div className="mb-2 flex items-center gap-2">
                       {required && (
                         <span
-                          className="rounded-full border px-2 py-0.5 text-xs font-semibold"
-                          style={{
-                            backgroundColor: '#FFE1E1',
-                            borderColor: '#FFC7C7',
-                            color: '#C00000',
-                          }}
+                          className="rounded-full border px-2 py-0.5 text-xs font-semibold bg-red-100 border-red-200 text-red-700"
                         >
                           {t('manager.inventory.variants.required')}
                         </span>
@@ -485,11 +479,7 @@ export default function VariantsTab() {
                           </span>
                           {priceModifier !== 0 && (
                             <span
-                              className="text-xs font-semibold"
-                              style={{
-                                color:
-                                  priceModifier > 0 ? '#008236' : '#C00000',
-                              }}
+                              className={`text-xs font-semibold ${priceModifier > 0 ? 'text-green-700' : 'text-red-700'}`}
                             >
                               {formatPriceModifier(priceModifier)}
                             </span>

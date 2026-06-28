@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import {
   CalendarDaysIcon,
   EnvelopeIcon,
@@ -161,11 +163,12 @@ export default function StaffCard({
           <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-900 text-xl font-bold text-white shadow-lg">
             {getInitials(staff.name)}
             {profilePicture ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={profilePicture}
                 alt={staff.name || t("owner.staff.staff")}
-                className="absolute inset-0 h-full w-full object-cover"
+                fill
+                unoptimized
+                className="object-cover"
                 onError={(event) => {
                   event.currentTarget.style.display = "none";
                 }}

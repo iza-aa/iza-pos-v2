@@ -28,48 +28,74 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.notifications.reviewStaff": "Review staff",
     "owner.notifications.openActivityLog": "Open activity log",
     "owner.notifications.dailySummaryTitle": "Daily business summary is ready",
-    "owner.notifications.dailySummaryMessage": "{orders} orders recorded today. Gross sales {grossSales}.",
-    "owner.notifications.dailySummaryMessageWithMargin": "{orders} orders recorded today. Gross sales {grossSales}, gross margin {margin}%.",
+    "owner.notifications.dailySummaryMessage":
+      "{orders} orders recorded today. Gross sales {grossSales}.",
+    "owner.notifications.dailySummaryMessageWithMargin":
+      "{orders} orders recorded today. Gross sales {grossSales}, gross margin {margin}%.",
     "owner.notifications.marginLowTitle": "Gross margin is below target",
-    "owner.notifications.marginLowMessage": "Today's gross margin is {margin}%. Review menu cost, waste, and stock usage before closing the day.",
-    "owner.notifications.highBookkeepingExceptionsTitle": "High bookkeeping exceptions need review",
-    "owner.notifications.bookkeepingExceptionsTitle": "Bookkeeping exceptions need review",
-    "owner.notifications.bookkeepingExceptionsMessage": "{count} unresolved exception(s) found today.",
-    "owner.notifications.bookkeepingExceptionsHighMessage": "{count} unresolved exception(s) found today, including {high} high severity issue(s).",
+    "owner.notifications.marginLowMessage":
+      "Today's gross margin is {margin}%. Review menu cost, waste, and stock usage before closing the day.",
+    "owner.notifications.highBookkeepingExceptionsTitle":
+      "High bookkeeping exceptions need review",
+    "owner.notifications.bookkeepingExceptionsTitle":
+      "Bookkeeping exceptions need review",
+    "owner.notifications.bookkeepingExceptionsMessage":
+      "{count} unresolved exception(s) found today.",
+    "owner.notifications.bookkeepingExceptionsHighMessage":
+      "{count} unresolved exception(s) found today, including {high} high severity issue(s).",
     "owner.notifications.dailyClosingTitle": "Daily closing is not clean yet",
-    "owner.notifications.dailyClosingStatusMessage": "Today's closing status is {status}. Review it before ending the business day.",
-    "owner.notifications.dailyClosingMissingMessage": "Sales exist today, but daily closing has not been completed yet.",
-    "owner.notifications.criticalStockTitle": "Critical inventory is out of stock",
-    "owner.notifications.criticalStockMessage": "{items} need immediate restock or menu review.",
+    "owner.notifications.dailyClosingStatusMessage":
+      "Today's closing status is {status}. Review it before ending the business day.",
+    "owner.notifications.dailyClosingMissingMessage":
+      "Sales exist today, but daily closing has not been completed yet.",
+    "owner.notifications.criticalStockTitle":
+      "Critical inventory is out of stock",
+    "owner.notifications.criticalStockMessage":
+      "{items} need immediate restock or menu review.",
     "owner.notifications.lowStockTitle": "Inventory is below reorder level",
-    "owner.notifications.stockReportsTitle": "Staff reports need manager follow-up",
-    "owner.notifications.stockReportsMessage": "{count} important pending report(s). Latest: {item} {type}.",
+    "owner.notifications.stockReportsTitle":
+      "Staff reports need manager follow-up",
+    "owner.notifications.stockReportsMessage":
+      "{count} important pending report(s). Latest: {item} {type}.",
     "owner.notifications.kitchenWasteTitle": "Kitchen waste was recorded today",
-    "owner.notifications.kitchenWasteMessage": "{count} waste movement(s) recorded. Latest: {item} {quantity}.",
-    "owner.notifications.kitchenWasteMessageWithValue": "{count} waste movement(s) recorded, estimated value {value}. Latest: {item} {quantity}.",
+    "owner.notifications.kitchenWasteMessage":
+      "{count} waste movement(s) recorded. Latest: {item} {quantity}.",
+    "owner.notifications.kitchenWasteMessageWithValue":
+      "{count} waste movement(s) recorded, estimated value {value}. Latest: {item} {quantity}.",
     "owner.notifications.menuRiskTitle": "Menu availability risk",
-    "owner.notifications.menuRiskMessage": "{count} menu item(s) are unavailable. Check whether critical ingredients or kitchen ready stock caused it.",
-    "owner.notifications.unpaidOrdersTitle": "Unpaid orders need reconciliation",
-    "owner.notifications.unpaidOrdersMessage": "{count} order(s) still have unpaid payment status today.",
+    "owner.notifications.menuRiskMessage":
+      "{count} menu item(s) are unavailable. Check whether critical ingredients or kitchen ready stock caused it.",
+    "owner.notifications.unpaidOrdersTitle":
+      "Unpaid orders need reconciliation",
+    "owner.notifications.unpaidOrdersMessage":
+      "{count} order(s) still have unpaid payment status today.",
     "owner.notifications.orderBacklogTitle": "Active order backlog is building",
-    "owner.notifications.orderBacklogMessage": "{count} order(s) are still active in the service flow.",
-    "owner.notifications.cancelledOrdersTitle": "Cancelled or refunded orders recorded",
-    "owner.notifications.cancelledOrdersMessage": "{count} cancelled, void, or refunded order(s) were detected today.",
+    "owner.notifications.orderBacklogMessage":
+      "{count} order(s) are still active in the service flow.",
+    "owner.notifications.cancelledOrdersTitle":
+      "Cancelled or refunded orders recorded",
+    "owner.notifications.cancelledOrdersMessage":
+      "{count} cancelled, void, or refunded order(s) were detected today.",
     "owner.notifications.attendanceRiskTitle": "Staff attendance needs review",
-    "owner.notifications.attendanceRiskMessage": "{late} late check-in(s), {missing} active shift(s) without clock-out.",
-    "owner.notifications.activityRiskFallback": "{critical} critical and {warning} warning activity log event(s) detected today.",
+    "owner.notifications.attendanceRiskMessage":
+      "{late} late check-in(s), {missing} active shift(s) without clock-out.",
+    "owner.notifications.activityRiskFallback":
+      "{critical} critical and {warning} warning activity log event(s) detected today.",
     "owner.notifications.criticalActivityTitle": "Critical activity log event",
-    "owner.notifications.warningActivityTitle": "Multiple warning activity events",
+    "owner.notifications.warningActivityTitle":
+      "Multiple warning activity events",
     "owner.ai.refreshAdvice": "Refresh Owner Advice",
     "owner.ai.generateAdvice": "Generate Owner Advice",
-    "owner.ai.emptyAdvice": "No owner advice has been generated yet. Generate one from the active tab context and selected date range.",
+    "owner.ai.emptyAdvice":
+      "No owner advice has been generated yet. Generate one from the active tab context and selected date range.",
     "owner.ai.showInsight": "Show AI insight {index}",
     "owner.ai.adviceDetail": "Owner Advice Detail",
     "owner.ai.closeDetail": "Close recommendation detail",
     "owner.ai.generated": "Generated",
     "owner.ai.dailyAttempts": "Daily attempts",
     "owner.ai.attemptsCount": "{count} of {max}",
-    "owner.ai.detailDescription": "Review the issue, supporting data, and the next action in one place.",
+    "owner.ai.detailDescription":
+      "Review the issue, supporting data, and the next action in one place.",
     "owner.ai.whatHappened": "What Happened",
     "owner.ai.supportingData": "Supporting Data",
     "owner.ai.whatToCheck": "What To Check",
@@ -78,7 +104,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.ai.priority": "Priority",
     "owner.ai.confidence": "Confidence",
     "owner.ai.ownerRead": "Owner Read",
-    "owner.ai.ownerReadDescription": "Start with the recommended check, then use the supporting figures to confirm whether action is needed.",
+    "owner.ai.ownerReadDescription":
+      "Start with the recommended check, then use the supporting figures to confirm whether action is needed.",
     "owner.dashboard.title": "Business Command",
     "owner.dashboard.description": "Analytics, decisions, and AI insights.",
     "owner.dashboard.mobileOpen": "Open owner dashboard menu",
@@ -111,15 +138,20 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.sales.downloadExcel": "Download Sales Excel",
     "owner.sales.exportSuccess": "Sales report exported.",
     "owner.sales.exportError": "Failed to export sales report.",
-    "owner.sales.dataLoadWarning": "Some sales data could not be loaded. Available widgets will still render.",
-    "owner.sales.financialLoadWarning": "Sales financial summary could not be loaded. Product performance widgets will still render.",
+    "owner.sales.dataLoadWarning":
+      "Some sales data could not be loaded. Available widgets will still render.",
+    "owner.sales.financialLoadWarning":
+      "Sales financial summary could not be loaded. Product performance widgets will still render.",
     "owner.sales.netProfitEstimate": "Estimated Profit",
-    "owner.sales.netProfitShortHelper": "Profit after food and operating costs.",
-    "owner.sales.netProfitFormula": "Net Sales - Food Cost - Operating Expenses",
+    "owner.sales.netProfitShortHelper":
+      "Profit after food and operating costs.",
+    "owner.sales.netProfitFormula":
+      "Net Sales - Food Cost - Operating Expenses",
     "owner.sales.calculation": "Calculation",
     "owner.sales.revenue": "Revenue",
     "owner.sales.grossSales": "Gross Sales",
-    "owner.sales.netSalesHelper": "Sales after discounts, excluding collected tax.",
+    "owner.sales.netSalesHelper":
+      "Sales after discounts, excluding collected tax.",
     "owner.sales.totalOrders": "Total Orders",
     "owner.sales.totalOrdersHelper": "Valid paid orders in this period.",
     "owner.sales.averageOrderValue": "Average Order Value",
@@ -127,18 +159,25 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.sales.discounts": "Discounts",
     "owner.sales.serviceChargeAdjustments": "Additional Charges",
     "owner.sales.foodCost": "Food Cost",
-    "owner.sales.foodCostShortHelper": "Estimated ingredient cost for sold menus.",
+    "owner.sales.foodCostShortHelper":
+      "Estimated ingredient cost for sold menus.",
     "owner.sales.operatingExpenses": "Operating Expenses",
-    "owner.sales.operatingExpensesHelper": "Recorded operational expenses in this period.",
+    "owner.sales.operatingExpensesHelper":
+      "Recorded operational expenses in this period.",
     "owner.sales.taxCollected": "Tax Collected",
-    "owner.sales.incompleteCostTitle": "Some menu cost data is still incomplete",
-    "owner.sales.incompleteCostShortMessage": "{count} sold menus still need recipe or ingredient cost data.",
+    "owner.sales.incompleteCostTitle":
+      "Some menu cost data is still incomplete",
+    "owner.sales.incompleteCostShortMessage":
+      "{count} sold menus still need recipe or ingredient cost data.",
     "owner.sales.paymentBreakdown": "Payment Method Breakdown",
-    "owner.sales.paymentBreakdownSubtitle": "Automatic split from valid paid orders in the selected period.",
+    "owner.sales.paymentBreakdownSubtitle":
+      "Automatic split from valid paid orders in the selected period.",
     "owner.sales.revenueTrend": "Sales Trend",
-    "owner.sales.revenueTrendSubtitle": "Net sales movement across the selected period.",
+    "owner.sales.revenueTrendSubtitle":
+      "Net sales movement across the selected period.",
     "owner.sales.aovTrend": "Average Order Value Trend",
-    "owner.sales.aovTrendSubtitle": "Compares transaction value with the previous period.",
+    "owner.sales.aovTrendSubtitle":
+      "Compares transaction value with the previous period.",
     "owner.sales.selectedPeriodAov": "Selected Period AOV",
     "owner.sales.previousPeriodAov": "Previous Period AOV",
     "owner.sales.paymentMethod": "Payment Method",
@@ -152,17 +191,20 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.sales.loadingPayment": "Loading payment data...",
     "owner.sales.noPayment": "No payment data in this period.",
     "owner.sales.menuQuadrant": "Menu Quadrant",
-    "owner.sales.menuQuadrantSubtitle": "Sales volume compared with revenue contribution.",
+    "owner.sales.menuQuadrantSubtitle":
+      "Sales volume compared with revenue contribution.",
     "owner.sales.sold": "Sold",
     "owner.sales.noMenuSalesData": "No menu sales data yet",
     "owner.sales.topSellingMenu": "Top Selling Menu",
     "owner.sales.topSellingMenuSubtitle": "Best selling items by quantity.",
     "owner.sales.noTopMenu": "No top menu data yet",
     "owner.sales.revenueByCategory": "Revenue by Category",
-    "owner.sales.revenueByCategorySubtitle": "Menu revenue grouped by manager menu categories.",
+    "owner.sales.revenueByCategorySubtitle":
+      "Menu revenue grouped by manager menu categories.",
     "owner.sales.noCategoryRevenue": "No category revenue data yet",
     "owner.sales.profitabilityTable": "Profitability Table",
-    "owner.sales.profitabilitySubtitle": "COGS estimate uses the same bookkeeping source as Food Cost.",
+    "owner.sales.profitabilitySubtitle":
+      "COGS estimate uses the same bookkeeping source as Food Cost.",
     "owner.sales.menuName": "Menu Name",
     "owner.sales.category": "Category",
     "owner.sales.uncategorized": "Uncategorized",
@@ -177,7 +219,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.customer.downloadExcel": "Download Customer Excel",
     "owner.customer.exportSuccess": "Customer report exported.",
     "owner.customer.exportError": "Failed to export customer report.",
-    "owner.customer.dataLoadWarning": "Some customer and loyalty data could not be loaded. Available widgets will still render.",
+    "owner.customer.dataLoadWarning":
+      "Some customer and loyalty data could not be loaded. Available widgets will still render.",
     "owner.customer.member": "Member",
     "owner.customer.guest": "Guest",
     "owner.customer.memberOrders": "Member Orders",
@@ -197,9 +240,11 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.customer.customerMixSubtitle": "Member and guest order composition.",
     "owner.customer.noOrderData": "No customer order data yet",
     "owner.customer.memberVsGuestAov": "Member vs Guest AOV",
-    "owner.customer.memberVsGuestAovSubtitle": "Compares spend quality instead of only revenue share.",
+    "owner.customer.memberVsGuestAovSubtitle":
+      "Compares spend quality instead of only revenue share.",
     "owner.customer.newReturningTrend": "New vs Returning Customer Trend",
-    "owner.customer.newReturningTrendSubtitle": "Tracks whether customer activity is driven by acquisition or retention.",
+    "owner.customer.newReturningTrendSubtitle":
+      "Tracks whether customer activity is driven by acquisition or retention.",
     "owner.customer.sheet.summary": "Customer Summary",
     "owner.customer.sheet.newReturningTrend": "New Returning Trend",
     "owner.customer.sheet.customerOrders": "Customer Orders",
@@ -208,20 +253,26 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.customer.status.healthy": "Healthy",
     "owner.customer.status.watch": "Watch",
     "owner.customer.status.needsAttention": "Needs Attention",
-    "owner.customer.insight.needsData": "No valid customer orders are available for the selected period.",
-    "owner.customer.insight.healthy": "Member orders are meaningfully contributing to revenue and reward usage is visible.",
-    "owner.customer.insight.watch": "Member behavior exists, but repeat or reward usage needs more consistency.",
-    "owner.customer.insight.needsAttention": "Most customer sales are still anonymous or loyalty value is not visible yet.",
+    "owner.customer.insight.needsData":
+      "No valid customer orders are available for the selected period.",
+    "owner.customer.insight.healthy":
+      "Member orders are meaningfully contributing to revenue and reward usage is visible.",
+    "owner.customer.insight.watch":
+      "Member behavior exists, but repeat or reward usage needs more consistency.",
+    "owner.customer.insight.needsAttention":
+      "Most customer sales are still anonymous or loyalty value is not visible yet.",
     "owner.customer.newCustomers": "New Customers",
     "owner.customer.returningCustomers": "Returning Customers",
     "owner.customer.noReturningTrend": "No returning customer trend yet",
     "owner.customer.loyaltyInsight": "Loyalty Insight Summary",
-    "owner.customer.loyaltyInsightSubtitle": "Business signal for retention and reward effectiveness.",
+    "owner.customer.loyaltyInsightSubtitle":
+      "Business signal for retention and reward effectiveness.",
     "owner.customer.memberShare": "Member Share",
     "owner.customer.discountRatio": "Discount Ratio",
     "owner.discount.create": "Create Discount",
     "owner.discount.edit": "Edit Discount",
-    "owner.discount.subtitle": "Create customer rewards or member discounts that can be redeemed from the customer rewards page.",
+    "owner.discount.subtitle":
+      "Create customer rewards or member discounts that can be redeemed from the customer rewards page.",
     "owner.discount.name": "Discount Name",
     "owner.discount.type": "Discount Type",
     "owner.discount.value": "Discount Value",
@@ -245,18 +296,21 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.discount.deleteAction": "Delete",
     "owner.discount.nameRequired": "Discount name is required.",
     "owner.discount.valueRequired": "Discount value must be greater than 0.",
-    "owner.discount.percentageTooHigh": "Percentage discount cannot be greater than 100%.",
+    "owner.discount.percentageTooHigh":
+      "Percentage discount cannot be greater than 100%.",
     "owner.discount.deleted": "Discount deleted successfully.",
     "owner.discount.updated": "Discount updated successfully.",
     "owner.discount.created": "Discount created successfully.",
-    "owner.discount.deleteConfirm": "Delete discount \"{name}\"?",
+    "owner.discount.deleteConfirm": 'Delete discount "{name}"?',
     "owner.bundle.create": "Create Menu Bundle",
     "owner.bundle.edit": "Edit Menu Bundle",
-    "owner.bundle.subtitle": "Create fixed-price menu bundles that appear at the top of the customer menu.",
+    "owner.bundle.subtitle":
+      "Create fixed-price menu bundles that appear at the top of the customer menu.",
     "owner.bundle.name": "Bundle Name",
     "owner.bundle.price": "Bundle Price",
     "owner.bundle.menuPosition": "Menu Position",
-    "owner.bundle.positionHelper": "Lower numbers appear first in the customer menu.",
+    "owner.bundle.positionHelper":
+      "Lower numbers appear first in the customer menu.",
     "owner.bundle.items": "Bundle Items",
     "owner.bundle.selected": "{count} selected",
     "owner.bundle.showInMenu": "Show this bundle in customer menu",
@@ -265,15 +319,43 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bundle.creating": "Creating...",
     "owner.bundle.active": "Active Bundles",
     "owner.bundle.loading": "Loading bundles...",
-    "owner.bundle.tablesMissing": "Menu bundle tables are not ready yet. Run frontend/supabase-menu-bundles.sql first.",
+    "owner.bundle.tablesMissing":
+      "Menu bundle tables are not ready yet. Run frontend/supabase-menu-bundles.sql first.",
     "owner.bundle.nameRequired": "Bundle name is required.",
-    "owner.bundle.itemsRequired": "Select at least two menu items for a bundle.",
+    "owner.bundle.itemsRequired":
+      "Select at least two menu items for a bundle.",
     "owner.bundle.priceRequired": "Bundle price must be greater than 0.",
     "owner.bundle.saveError": "Bundle could not be saved.",
     "owner.bundle.deleted": "Bundle deleted successfully.",
     "owner.bundle.updated": "Bundle updated successfully.",
     "owner.bundle.created": "Bundle created successfully.",
-    "owner.bundle.deleteConfirm": "Delete bundle \"{name}\"?",
+    "owner.bundle.deleteConfirm": 'Delete bundle "{name}"?',
+    "owner.loyalty.title": "Loyalty Point Configuration",
+    "owner.loyalty.subtitle":
+      "Set how many points customers earn from each purchase.",
+    "owner.loyalty.active": "Points program active",
+    "owner.loyalty.activeDescription":
+      "If disabled, no points will be awarded even if a customer makes a purchase.",
+    "owner.loyalty.activeStatus": "Active",
+    "owner.loyalty.inactiveStatus": "Inactive",
+    "owner.loyalty.pointsPerAmount": "Points earned",
+    "owner.loyalty.pointsPerAmountHelper": "Number of points per transaction",
+    "owner.loyalty.amountPerPoints": "Per purchase amount (Rp)",
+    "owner.loyalty.amountPerPointsHelper": "Amount multiple (e.g. 10000)",
+    "owner.loyalty.minimumOrder": "Minimum order (Rp)",
+    "owner.loyalty.minimumOrderHelper": "0 means no minimum",
+    "owner.loyalty.preview": "Preview",
+    "owner.loyalty.previewText":
+      "For every {amount} spent, customers earn {points} point(s).",
+    "owner.loyalty.previewMinOrder": " Applies from purchases of {minOrder}.",
+    "owner.loyalty.previewEmpty": "Fill in the values above to see a preview.",
+    "owner.loyalty.lastUpdated": "Last updated:",
+    "owner.loyalty.save": "Save Settings",
+    "owner.loyalty.saving": "Saving...",
+    "owner.loyalty.loading": "Loading settings...",
+    "owner.loyalty.saved": "Loyalty point settings saved successfully.",
+    "owner.loyalty.loadError": "Failed to load point settings.",
+    "owner.loyalty.saveError": "Failed to save settings.",
     "owner.inventory.export": "Export Inventory",
     "owner.inventory.downloadExcel": "Download Inventory Excel",
     "owner.inventory.exportSuccess": "Inventory report exported.",
@@ -289,27 +371,35 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.restockCost": "Restock Cost",
     "owner.inventory.restockCostHelper": "Estimated cost to restore buffer",
     "owner.inventory.dataIssues": "Data Issues",
-    "owner.inventory.dataIssuesHelper": "Negative stock, missing unit, or missing threshold",
+    "owner.inventory.dataIssuesHelper":
+      "Negative stock, missing unit, or missing threshold",
     "owner.inventory.pendingReports": "Pending Reports",
     "owner.inventory.pendingReportsHelper": "Staff stock issues this month",
     "owner.inventory.highestUsage": "Highest Usage",
     "owner.inventory.highestUsageHelper": "Largest all-time stock-out value",
-    "owner.inventory.followUpTitle": "Staff stock reports need operational follow-up",
-    "owner.inventory.pendingReportCount": "{count} pending report(s) this month.",
-    "owner.inventory.mostRepeatedIssue": " Most repeated issue: {item} ({count} report(s)).",
+    "owner.inventory.followUpTitle":
+      "Staff stock reports need operational follow-up",
+    "owner.inventory.pendingReportCount":
+      "{count} pending report(s) this month.",
+    "owner.inventory.mostRepeatedIssue":
+      " Most repeated issue: {item} ({count} report(s)).",
     "owner.inventory.batchRisk": "Batch Risk",
-    "owner.inventory.batchRiskSubtitle": "Expiry posture for active batch stock.",
+    "owner.inventory.batchRiskSubtitle":
+      "Expiry posture for active batch stock.",
     "owner.inventory.noBatchRisk": "No active batch risk data yet",
     "owner.inventory.batchValueByCategory": "Batch Value by Category",
-    "owner.inventory.batchValueByCategorySubtitle": "Remaining batch value grouped by inventory category.",
+    "owner.inventory.batchValueByCategorySubtitle":
+      "Remaining batch value grouped by inventory category.",
     "owner.inventory.batchValue": "Batch Value",
     "owner.inventory.noBatchValuation": "No batch valuation data yet",
     "owner.inventory.lowStockAlert": "Low Stock Alert",
-    "owner.inventory.lowStockAlertSubtitle": "Items that need owner attention before they run out.",
+    "owner.inventory.lowStockAlertSubtitle":
+      "Items that need owner attention before they run out.",
     "owner.inventory.noInventoryItem": "No inventory item detected.",
     "owner.inventory.usageTrend": "Usage Trend",
     "owner.inventory.usageTrendSubtitle": "All-time stock movement events.",
-    "owner.inventory.usageCurrencyNote": "All items are converted into Rupiah value.",
+    "owner.inventory.usageCurrencyNote":
+      "All items are converted into Rupiah value.",
     "owner.inventory.usageQuantityNote": "Showing quantity movement{unit}.",
     "owner.inventory.inUnit": " in {unit}",
     "owner.inventory.selectUsageItem": "Select inventory item for usage trend",
@@ -318,10 +408,12 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.adjustments": "Adjustments",
     "owner.inventory.noStockMovementEvents": "No stock movement events yet",
     "owner.inventory.stockMovement": "Stock Movement",
-    "owner.inventory.stockMovementSubtitle": "Recent stock-in, stock-out, and adjustment records.",
+    "owner.inventory.stockMovementSubtitle":
+      "Recent stock-in, stock-out, and adjustment records.",
     "owner.inventory.noStockMovementRecords": "No stock movement records yet.",
     "owner.inventory.staffStockReports": "Staff Stock Reports",
-    "owner.inventory.staffStockReportsSubtitle": "Stock issues reported by barista and kitchen staff this month.",
+    "owner.inventory.staffStockReportsSubtitle":
+      "Stock issues reported by barista and kitchen staff this month.",
     "owner.inventory.pending": "Pending",
     "owner.inventory.resolved": "Resolved",
     "owner.inventory.rejected": "Rejected",
@@ -333,7 +425,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.noLatestReport": "No latest report this month.",
     "owner.inventory.noStaffStockReports": "No staff stock reports this month",
     "owner.inventory.stockStatus": "Stock Status",
-    "owner.inventory.stockStatusSubtitle": "Same status definition as manager Raw Materials table.",
+    "owner.inventory.stockStatusSubtitle":
+      "Same status definition as manager Raw Materials table.",
     "owner.inventory.inStock": "In Stock",
     "owner.inventory.lowStock": "Low Stock",
     "owner.inventory.critical": "Critical",
@@ -344,7 +437,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.batches": "Batches",
     "owner.inventory.stockMovementDetail": "Stock Movement Detail",
     "owner.inventory.closeStockMovementDetail": "Close stock movement detail",
-    "owner.inventory.viewStockMovementDetail": "View stock movement detail for {item}",
+    "owner.inventory.viewStockMovementDetail":
+      "View stock movement detail for {item}",
     "owner.inventory.item": "Item",
     "owner.inventory.category": "Category",
     "owner.inventory.currentStock": "Current Stock",
@@ -419,20 +513,25 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.overtimeCount": "Overtime Count",
     "owner.staff.overtimeHelper": "Premium labor signal",
     "owner.staff.performanceRadar": "Staff Performance Radar",
-    "owner.staff.performanceRadarSubtitle": "Attendance, handled orders, speed, consistency, overtime control, and reliability.",
+    "owner.staff.performanceRadarSubtitle":
+      "Attendance, handled orders, speed, consistency, overtime control, and reliability.",
     "owner.staff.viewRadarDetails": "View staff performance radar details",
     "owner.staff.clickRadar": "Click the radar to view score details.",
     "owner.staff.productivity": "Productivity",
-    "owner.staff.productivitySubtitle": "Orders created or served by each staff member in the selected period.",
-    "owner.staff.noOrderAttribution": "No staff order attribution in this period",
+    "owner.staff.productivitySubtitle":
+      "Orders created or served by each staff member in the selected period.",
+    "owner.staff.noOrderAttribution":
+      "No staff order attribution in this period",
     "owner.staff.attendanceTrend": "Attendance Trend",
     "owner.staff.hourlyAttendanceSubtitle": "Hourly clock-in and late records.",
     "owner.staff.dailyAttendanceSubtitle": "Daily clock-in and late records.",
     "owner.staff.performanceTable": "Staff Performance Table",
-    "owner.staff.performanceTableSubtitle": "Concrete numbers for fair staff evaluation.",
+    "owner.staff.performanceTableSubtitle":
+      "Concrete numbers for fair staff evaluation.",
     "owner.staff.noPerformanceData": "No staff performance data yet.",
     "owner.staff.radarDetails": "Staff Performance Radar Details",
-    "owner.staff.radarDetailsDescription": "How each radar score is calculated for the selected period.",
+    "owner.staff.radarDetailsDescription":
+      "How each radar score is calculated for the selected period.",
     "owner.staff.attendanceRecords": "Attendance Records",
     "owner.staff.overtimeRecords": "Overtime Records",
     "owner.staff.lateEarlyLeave": "Late / Early Leave",
@@ -452,20 +551,29 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.consistency": "Consistency",
     "owner.staff.overtimeControl": "Overtime Control",
     "owner.staff.reliability": "Reliability",
-    "owner.staff.attendanceBasis": "{clockedIn} clock-in record(s) across {days} day(s)",
+    "owner.staff.attendanceBasis":
+      "{clockedIn} clock-in record(s) across {days} day(s)",
     "owner.staff.attendanceFormula": "Average staff attendance rate.",
-    "owner.staff.ordersBasis": "{orders} valid order(s), max {max} handled by one staff member",
-    "owner.staff.ordersFormula": "Average handled orders compared with the highest staff workload.",
+    "owner.staff.ordersBasis":
+      "{orders} valid order(s), max {max} handled by one staff member",
+    "owner.staff.ordersFormula":
+      "Average handled orders compared with the highest staff workload.",
     "owner.staff.speedBasisReady": "Based on ready-to-served timestamps.",
-    "owner.staff.speedBasisEmpty": "No ready-to-served timestamp data in this range.",
+    "owner.staff.speedBasisEmpty":
+      "No ready-to-served timestamp data in this range.",
     "owner.staff.speedFormula": "Faster than 30 minutes scores higher.",
     "owner.staff.consistencyBasis": "{count} active staff row(s) included",
-    "owner.staff.consistencyFormula": "Average staff score from attendance, lateness, early leave, overtime, and speed.",
-    "owner.staff.overtimeBasis": "{overtime} overtime record(s) from {attendance} attendance record(s)",
+    "owner.staff.consistencyFormula":
+      "Average staff score from attendance, lateness, early leave, overtime, and speed.",
+    "owner.staff.overtimeBasis":
+      "{overtime} overtime record(s) from {attendance} attendance record(s)",
     "owner.staff.noAttendanceBasis": "No attendance records in this range.",
-    "owner.staff.overtimeFormula": "100 minus overtime ratio. No attendance data is shown as 0, not 100.",
-    "owner.staff.reliabilityBasis": "{late} late and {earlyLeave} early-leave record(s) from {attendance} attendance record(s)",
-    "owner.staff.reliabilityFormula": "100 minus late/early-leave ratio. No attendance data is shown as 0, not 100.",
+    "owner.staff.overtimeFormula":
+      "100 minus overtime ratio. No attendance data is shown as 0, not 100.",
+    "owner.staff.reliabilityBasis":
+      "{late} late and {earlyLeave} early-leave record(s) from {attendance} attendance record(s)",
+    "owner.staff.reliabilityFormula":
+      "100 minus late/early-leave ratio. No attendance data is shown as 0, not 100.",
     "owner.staff.sheet.summary": "Staff Summary",
     "owner.staff.sheet.performance": "Staff Performance",
     "owner.staff.sheet.attendanceTrend": "Attendance Trend",
@@ -484,28 +592,35 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.operation.totalOrders": "Total Orders",
     "owner.operation.totalOrdersHelper": "All operational orders",
     "owner.operation.activeOrders": "Active Orders",
-    "owner.operation.activeOrdersHelper": "New, on process, or partially served",
+    "owner.operation.activeOrdersHelper":
+      "New, on process, or partially served",
     "owner.operation.completedOrders": "Completed Orders",
     "owner.operation.cancelledOrders": "Cancelled Orders",
     "owner.operation.completionRate": "Completion Rate",
     "owner.operation.completionRateHelper": "Completed from selected orders",
     "owner.operation.cancellationRate": "Cancellation Rate",
-    "owner.operation.cancelledOrdersHelper": "Cancelled, void, or refunded orders",
+    "owner.operation.cancelledOrdersHelper":
+      "Cancelled, void, or refunded orders",
     "owner.operation.newOrder": "New Order",
     "owner.operation.onProcess": "On Process",
     "owner.operation.partiallyServed": "Partially Served",
     "owner.operation.completed": "Completed",
     "owner.operation.cancelled": "Cancelled",
     "owner.operation.orderDensity": "Order Density Heatmap",
-    "owner.operation.orderDensitySubtitle": "Operating-hour slots; stronger color means higher order pressure.",
+    "owner.operation.orderDensitySubtitle":
+      "Operating-hour slots; stronger color means higher order pressure.",
     "owner.operation.orderFlow": "Order Flow Funnel",
-    "owner.operation.orderFlowSubtitle": "Order count across operational stages.",
+    "owner.operation.orderFlowSubtitle":
+      "Order count across operational stages.",
     "owner.operation.averageServiceTime": "Average Service Time",
-    "owner.operation.averageServiceTimeSubtitle": "Created-to-completed duration for completed orders.",
+    "owner.operation.averageServiceTimeSubtitle":
+      "Created-to-completed duration for completed orders.",
     "owner.operation.avgMinutes": "Avg. Minutes",
-    "owner.operation.noTimestampData": "Completed timestamp data is not available yet",
+    "owner.operation.noTimestampData":
+      "Completed timestamp data is not available yet",
     "owner.operation.orderOutcomeTrend": "Order Outcome Trend",
-    "owner.operation.orderOutcomeTrendSubtitle": "Created, completed, cancelled, and active backlog over the selected period.",
+    "owner.operation.orderOutcomeTrendSubtitle":
+      "Created, completed, cancelled, and active backlog over the selected period.",
     "owner.operation.created": "Created",
     "owner.operation.activeBacklog": "Active Backlog",
     "owner.operation.noOperationFlow": "No operation flow data in this period",
@@ -521,7 +636,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.downloadExcel": "Download Overview Excel",
     "owner.overview.exportSuccess": "Overview report exported.",
     "owner.overview.exportError": "Failed to export overview report.",
-    "owner.overview.loadWarning": "Some dashboard data could not be loaded. Available widgets will still render.",
+    "owner.overview.loadWarning":
+      "Some dashboard data could not be loaded. Available widgets will still render.",
     "owner.overview.salesHelper": "Net sales in this period",
     "owner.overview.customerHelper": "Repeat customer rate",
     "owner.overview.inventoryHelper": "Critical stock items",
@@ -529,13 +645,19 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.operationsHelper": "Order completion rate",
     "owner.overview.businessAreaTrends": "Business Area Trends",
     "owner.overview.insightSummary": "Overview Insight Summary",
-    "owner.overview.businessAreaTrendsSubtitle": "Compact 0-100 movement view for the five owner areas.",
+    "owner.overview.businessAreaTrendsSubtitle":
+      "Compact 0-100 movement view for the five owner areas.",
     "owner.overview.selectTrendArea": "Select business area trend",
-    "owner.overview.salesTrendHelper": "Valid sales movement normalized to the strongest point in the selected period.",
-    "owner.overview.customerTrendHelper": "Repeat customer rate across the selected period.",
-    "owner.overview.inventoryTrendHelper": "Stock report health; higher means fewer unresolved stock risk reports.",
-    "owner.overview.staffTrendHelper": "Staff attendance rate across recorded operating days.",
-    "owner.overview.operationsTrendHelper": "Order completion rate across the selected period.",
+    "owner.overview.salesTrendHelper":
+      "Valid sales movement normalized to the strongest point in the selected period.",
+    "owner.overview.customerTrendHelper":
+      "Repeat customer rate across the selected period.",
+    "owner.overview.inventoryTrendHelper":
+      "Stock report health; higher means fewer unresolved stock risk reports.",
+    "owner.overview.staffTrendHelper":
+      "Staff attendance rate across recorded operating days.",
+    "owner.overview.operationsTrendHelper":
+      "Order completion rate across the selected period.",
     "owner.overview.totalRevenue": "Total Revenue",
     "owner.overview.totalRevenueHelper": "Total valid revenue",
     "owner.overview.totalOrdersHelper": "Paid or valid orders in range",
@@ -546,13 +668,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.topPaymentMethod": "Top Payment Method",
     "owner.overview.topPaymentMethodHelper": "Dominant method in range",
     "owner.overview.revenueTrend": "Revenue Trend",
-    "owner.overview.revenueTrendSubtitle": "Revenue and order movement for the selected period.",
+    "owner.overview.revenueTrendSubtitle":
+      "Revenue and order movement for the selected period.",
     "owner.overview.aovTrend": "Average Order Value Trend",
     "owner.overview.aovTrendSubtitle": "Measures transaction quality.",
     "owner.overview.selectedPeriodAov": "Selected Period AOV",
     "owner.overview.previousPeriodAov": "Previous Period AOV",
     "owner.overview.businessHealth": "Business Health Summary",
-    "owner.overview.businessHealthSubtitle": "Overall health from Sales, Customer, Inventory, Staff, and Operation.",
+    "owner.overview.businessHealthSubtitle":
+      "Overall health from Sales, Customer, Inventory, Staff, and Operation.",
     "owner.overview.sheet.summary": "Overview Summary",
     "owner.overview.sheet.businessAreas": "Business Areas",
     "owner.overview.sheet.businessTrends": "Business Trends",
@@ -589,7 +713,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.sheet.material": "Material",
     "owner.overview.sheet.reportedBy": "Reported By",
     "owner.health.details": "Business Health Details",
-    "owner.health.detailsDescription": "Diagnose which driver is moving the store health score.",
+    "owner.health.detailsDescription":
+      "Diagnose which driver is moving the store health score.",
     "owner.health.selectedDriver": "Selected Driver",
     "owner.health.read": "Read",
     "owner.health.businessAreas": "Business Areas",
@@ -625,14 +750,22 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.health.inventory": "Inventory",
     "owner.health.staff": "Staff",
     "owner.health.operations": "Operation",
-    "owner.health.salesSummary": "Checks whether sales volume, net sales, and discount pressure are healthy.",
-    "owner.health.customerSummary": "Checks whether customer loyalty and member contribution are healthy.",
-    "owner.health.inventorySummary": "Checks whether stock risk, data quality, and pending stock reports need attention.",
-    "owner.health.staffSummary": "Checks whether staff attendance and timing discipline support operations.",
-    "owner.health.demandSummary": "Checks whether today is gaining enough revenue and order volume versus the comparison period.",
-    "owner.health.transactionSummary": "Checks whether each valid order carries enough value through basket size and AOV movement.",
-    "owner.health.profitSummary": "Checks whether sales still convert into estimated profit after food cost, discount, and operating cost.",
-    "owner.health.operationsSummary": "Checks whether orders are completed cleanly and service timing has enough usable timestamps.",
+    "owner.health.salesSummary":
+      "Checks whether sales volume, net sales, and discount pressure are healthy.",
+    "owner.health.customerSummary":
+      "Checks whether customer loyalty and member contribution are healthy.",
+    "owner.health.inventorySummary":
+      "Checks whether stock risk, data quality, and pending stock reports need attention.",
+    "owner.health.staffSummary":
+      "Checks whether staff attendance and timing discipline support operations.",
+    "owner.health.demandSummary":
+      "Checks whether today is gaining enough revenue and order volume versus the comparison period.",
+    "owner.health.transactionSummary":
+      "Checks whether each valid order carries enough value through basket size and AOV movement.",
+    "owner.health.profitSummary":
+      "Checks whether sales still convert into estimated profit after food cost, discount, and operating cost.",
+    "owner.health.operationsSummary":
+      "Checks whether orders are completed cleanly and service timing has enough usable timestamps.",
     "owner.health.revenueGrowth": "Revenue Growth",
     "owner.health.orderGrowth": "Order Growth",
     "owner.health.aovGrowth": "AOV Growth",
@@ -650,7 +783,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.health.inventoryCriticalRead": "Items at or below reorder level",
     "owner.health.inventoryDataRead": "Inventory records needing cleanup",
     "owner.health.inventoryReportRead": "Stock reports still open",
-    "owner.health.staffAttendanceRead": "Clock-ins against recorded operating days",
+    "owner.health.staffAttendanceRead":
+      "Clock-ins against recorded operating days",
     "owner.health.noSamples": "No samples",
     "owner.health.noTimestampSamples": "No timestamp samples",
     "owner.health.timedOrders": "{count} timed order(s)",
@@ -668,11 +802,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.health.weakestDriver": "Main Concern",
     "owner.health.dataConfidence": "Data Confidence",
     "owner.health.scoreOutOf100": "{score} / 100",
-    "owner.health.validOrders": "{valid} valid orders from {total} total orders",
-    "owner.health.areaCoverage": "{available} of 5 business areas have usable data",
-    "owner.health.scoreExplanation": "The score combines Sales, Customer, Inventory, Staff, and Operation. Open an area below to see the supporting figures.",
+    "owner.health.validOrders":
+      "{valid} valid orders from {total} total orders",
+    "owner.health.areaCoverage":
+      "{available} of 5 business areas have usable data",
+    "owner.health.scoreExplanation":
+      "The score combines Sales, Customer, Inventory, Staff, and Operation. Open an area below to see the supporting figures.",
     "owner.bookkeeping.title": "Bookkeeping",
-    "owner.bookkeeping.description": "Daily closing, ledger, COGS, and review queue.",
+    "owner.bookkeeping.description":
+      "Daily closing, ledger, COGS, and review queue.",
     "owner.bookkeeping.mobileOpen": "Open bookkeeping menu",
     "owner.bookkeeping.mobileClose": "Close bookkeeping menu",
     "owner.bookkeeping.closings": "Closings",
@@ -686,18 +824,25 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.exceptions": "Review Queue",
     "owner.bookkeeping.exceptionsDescription": "Exceptions",
     "owner.bookkeeping.businessDate": "Business Date",
-    "owner.bookkeeping.businessDateDescription": "Approve one operational day at a time.",
+    "owner.bookkeeping.businessDateDescription":
+      "Approve one operational day at a time.",
     "owner.bookkeeping.ownerRequired": "Owner access required.",
-    "owner.bookkeeping.loadError": "Bookkeeping data could not be loaded. Available widgets will render again after the data source is available.",
+    "owner.bookkeeping.loadError":
+      "Bookkeeping data could not be loaded. Available widgets will render again after the data source is available.",
     "owner.bookkeeping.adjustmentSaved": "Manual adjustment saved.",
-    "owner.bookkeeping.adjustmentCreateError": "Manual adjustment could not be created.",
+    "owner.bookkeeping.adjustmentCreateError":
+      "Manual adjustment could not be created.",
     "owner.bookkeeping.expenseSaved": "Expense saved.",
     "owner.bookkeeping.expenseUpdated": "Expense updated.",
-    "owner.bookkeeping.expenseSaveError": "Bookkeeping expense could not be saved.",
+    "owner.bookkeeping.expenseSaveError":
+      "Bookkeeping expense could not be saved.",
     "owner.bookkeeping.expenseDeleted": "Expense deleted.",
-    "owner.bookkeeping.expenseDeleteError": "Bookkeeping expense could not be deleted.",
-    "owner.bookkeeping.dailyCloseError": "Daily closing could not be completed.",
-    "owner.bookkeeping.dailyReopenError": "Daily closing could not be reopened.",
+    "owner.bookkeeping.expenseDeleteError":
+      "Bookkeeping expense could not be deleted.",
+    "owner.bookkeeping.dailyCloseError":
+      "Daily closing could not be completed.",
+    "owner.bookkeeping.dailyReopenError":
+      "Daily closing could not be reopened.",
     "owner.bookkeeping.dailySavedStatus": "Daily closing saved as {status}.",
     "owner.bookkeeping.today": "Today",
     "owner.bookkeeping.yesterday": "Yesterday",
@@ -722,10 +867,13 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.difference": "Difference",
     "owner.bookkeeping.exportDaily": "Export Daily",
     "owner.bookkeeping.dailyWorkbook": "Daily Closing Workbook",
-    "owner.bookkeeping.dailyWorkbookExported": "Daily closing workbook exported.",
-    "owner.bookkeeping.dailyWorkbookExportError": "Failed to export daily closing workbook.",
+    "owner.bookkeeping.dailyWorkbookExported":
+      "Daily closing workbook exported.",
+    "owner.bookkeeping.dailyWorkbookExportError":
+      "Failed to export daily closing workbook.",
     "owner.bookkeeping.dailyShiftClosing": "Daily Shift Closing",
-    "owner.bookkeeping.dailyShiftClosingDescription": "Staff submits cash count per shift, manager reviews each shift, then owner gives the final daily approval.",
+    "owner.bookkeeping.dailyShiftClosingDescription":
+      "Staff submits cash count per shift, manager reviews each shift, then owner gives the final daily approval.",
     "owner.bookkeeping.approveDaily": "Approve Daily Report",
     "owner.bookkeeping.approving": "Approving...",
     "owner.bookkeeping.reopenDaily": "Reopen Daily Report",
@@ -753,19 +901,27 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.missingCostRows": "Missing Cost Rows",
     "owner.bookkeeping.operatingExpenses": "Operating Expenses",
     "owner.bookkeeping.menuProfitability": "Menu Profitability Table",
-    "owner.bookkeeping.menuProfitabilityDescription": "Revenue and margin by menu. Profit is hidden when recipe or item cost data is incomplete.",
+    "owner.bookkeeping.menuProfitabilityDescription":
+      "Revenue and margin by menu. Profit is hidden when recipe or item cost data is incomplete.",
     "owner.bookkeeping.noMenuSales": "No menu sales in this period.",
-    "owner.bookkeeping.actualUsageOrRecipe": "Uses actual inventory usage when available, otherwise recipe cost.",
+    "owner.bookkeeping.actualUsageOrRecipe":
+      "Uses actual inventory usage when available, otherwise recipe cost.",
     "owner.bookkeeping.netSalesMinusCogs": "Net sales minus estimated COGS.",
-    "owner.bookkeeping.missingCostRowsDescription": "Menu rows that still need recipe or item cost data.",
-    "owner.bookkeeping.operatingCostPeriod": "Operating cost included in this period.",
+    "owner.bookkeeping.missingCostRowsDescription":
+      "Menu rows that still need recipe or item cost data.",
+    "owner.bookkeeping.operatingCostPeriod":
+      "Operating cost included in this period.",
     "owner.bookkeeping.addAdjustment": "Add Adjustment",
     "owner.bookkeeping.manualAdjustment": "Manual Adjustment",
-    "owner.bookkeeping.manualAdjustmentDescription": "Use this for owner-approved corrections that need an audit trail.",
-    "owner.bookkeeping.transactionSummary": "Showing {count} transaction group(s). Included movements: {summary}.",
-    "owner.bookkeeping.noFinancialMovement": "No financial movement is available yet. Paid orders, operating cost, and owner-approved adjustments will appear here automatically.",
+    "owner.bookkeeping.manualAdjustmentDescription":
+      "Use this for owner-approved corrections that need an audit trail.",
+    "owner.bookkeeping.transactionSummary":
+      "Showing {count} transaction group(s). Included movements: {summary}.",
+    "owner.bookkeeping.noFinancialMovement":
+      "No financial movement is available yet. Paid orders, operating cost, and owner-approved adjustments will appear here automatically.",
     "owner.bookkeeping.noLedgerMovement": "No ledger movement in this period.",
-    "owner.bookkeeping.autoLedgerDescription": "Automatic financial view from paid orders, inventory cost, operating cost, and adjustments.",
+    "owner.bookkeeping.autoLedgerDescription":
+      "Automatic financial view from paid orders, inventory cost, operating cost, and adjustments.",
     "owner.bookkeeping.cancel": "Cancel",
     "owner.bookkeeping.saveAdjustment": "Save Adjustment",
     "owner.bookkeeping.saving": "Saving...",
@@ -782,11 +938,14 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.addExpense": "Add Expense",
     "owner.bookkeeping.editExpense": "Edit Expense",
     "owner.bookkeeping.saveExpense": "Save Expense",
-    "owner.bookkeeping.expensesPanelDescription": "Manual operating costs that are not generated from POS orders or inventory usage.",
-    "owner.bookkeeping.expenseSummary": "Showing {count} expense record(s), total {total}.",
+    "owner.bookkeeping.expensesPanelDescription":
+      "Manual operating costs that are not generated from POS orders or inventory usage.",
+    "owner.bookkeeping.expenseSummary":
+      "Showing {count} expense record(s), total {total}.",
     "owner.bookkeeping.noManualExpenses": "No manual expenses in this period.",
     "owner.bookkeeping.noExpenses": "No expenses in this period.",
-    "owner.bookkeeping.expenseModalDescription": "Use this only for real operating expenses outside automatic POS and inventory calculations.",
+    "owner.bookkeeping.expenseModalDescription":
+      "Use this only for real operating expenses outside automatic POS and inventory calculations.",
     "owner.bookkeeping.severity": "Severity",
     "owner.bookkeeping.type": "Type",
     "owner.bookkeeping.descriptionColumn": "Description",
@@ -795,10 +954,13 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.waitingReview": "Waiting Review",
     "owner.bookkeeping.reviewed": "Reviewed",
     "owner.bookkeeping.by": "by",
-    "owner.bookkeeping.reviewQueueDescription": "Read-only audit list for correction and bookkeeping issues in the selected period.",
-    "owner.bookkeeping.noExceptions": "No bookkeeping exceptions in this period.",
+    "owner.bookkeeping.reviewQueueDescription":
+      "Read-only audit list for correction and bookkeeping issues in the selected period.",
+    "owner.bookkeeping.noExceptions":
+      "No bookkeeping exceptions in this period.",
     "owner.bookkeeping.taxSettings": "Tax & Charge Settings",
-    "owner.bookkeeping.taxSettingsDescription": "Rules used by POS orders and bookkeeping reports. Tax is tracked separately from sales and expenses.",
+    "owner.bookkeeping.taxSettingsDescription":
+      "Rules used by POS orders and bookkeeping reports. Tax is tracked separately from sales and expenses.",
     "owner.bookkeeping.editSettings": "Edit Settings",
     "owner.bookkeeping.customerTax": "Customer Tax",
     "owner.bookkeeping.serviceCharge": "Service Charge",
@@ -808,16 +970,21 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.serviceFeeNote": "Optional store service fee.",
     "owner.bookkeeping.latestSettingChange": "Latest financial setting change.",
     "owner.bookkeeping.editTaxSettings": "Edit Tax & Charge Settings",
-    "owner.bookkeeping.editTaxSettingsDescription": "Adjust POS tax and service charge rules used by bookkeeping reports.",
+    "owner.bookkeeping.editTaxSettingsDescription":
+      "Adjust POS tax and service charge rules used by bookkeeping reports.",
     "owner.bookkeeping.saveSettings": "Save Settings",
-    "owner.bookkeeping.customerTaxDescription": "Collected from customers and reported as tax payable.",
+    "owner.bookkeeping.customerTaxDescription":
+      "Collected from customers and reported as tax payable.",
     "owner.bookkeeping.enabled": "Enabled",
     "owner.bookkeeping.taxLabel": "Tax Label",
     "owner.bookkeeping.taxRate": "Tax Rate",
     "owner.bookkeeping.preview": "Preview",
-    "owner.bookkeeping.taxPreview": "On Rp 100.000 sales, {label} collected is {amount}.",
-    "owner.bookkeeping.netSalesExcludesTax": "Report net sales excludes this tax so owner profit is not overstated.",
-    "owner.bookkeeping.serviceChargeDescription": "Applied to dine-in orders only. Takeaway does not receive this charge.",
+    "owner.bookkeeping.taxPreview":
+      "On Rp 100.000 sales, {label} collected is {amount}.",
+    "owner.bookkeeping.netSalesExcludesTax":
+      "Report net sales excludes this tax so owner profit is not overstated.",
+    "owner.bookkeeping.serviceChargeDescription":
+      "Applied to dine-in orders only. Takeaway does not receive this charge.",
     "owner.bookkeeping.rate": "Rate",
     "owner.bookkeeping.settingsSaved": "Financial settings saved.",
     "owner.bookkeeping.settingsLoadError": "Settings could not be loaded.",
@@ -826,7 +993,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.clearSearch": "Clear search",
     "owner.staff.addStaff": "Add Staff",
     "owner.staff.managerTitle": "Staff Manager",
-    "owner.staff.managerDescription": "Manage staff data and attendance records.",
+    "owner.staff.managerDescription":
+      "Manage staff data and attendance records.",
     "owner.staff.mobileOpen": "Open staff manager menu",
     "owner.staff.mobileClose": "Close staff manager menu",
     "owner.staff.data": "Staff Data",
@@ -838,7 +1006,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.attendanceSettings": "Attendance Settings",
     "owner.staff.loginCode": "Staff Login Code",
     "owner.staff.deleteStaff": "Delete Staff",
-    "owner.staff.deleteDescription": "Deleted staff cannot be restored. Are you sure?",
+    "owner.staff.deleteDescription":
+      "Deleted staff cannot be restored. Are you sure?",
     "owner.staff.delete": "Delete",
     "owner.staff.fetchError": "Failed to fetch staff data: {message}",
     "owner.staff.fetchShiftError": "Failed to fetch shift data: {message}",
@@ -846,27 +1015,34 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.loginCodeCreateError": "Failed to create login code.",
     "owner.staff.deleteLogsError": "Failed to delete staff logs: {message}",
     "owner.staff.deleteError": "Failed to delete staff: {message}",
-    "owner.staff.deleteNotAllowed": "Owner accounts and the currently used account cannot be deleted.",
+    "owner.staff.deleteNotAllowed":
+      "Owner accounts and the currently used account cannot be deleted.",
     "owner.staff.deleted": "Staff deleted.",
-    "owner.staff.weeklyScheduleLoadError": "Failed to load weekly shift schedule: {message}",
+    "owner.staff.weeklyScheduleLoadError":
+      "Failed to load weekly shift schedule: {message}",
     "owner.staff.updateError": "Failed to update staff: {message}",
-    "owner.staff.weeklyScheduleUpdateError": "Failed to update weekly shift schedule: {message}",
+    "owner.staff.weeklyScheduleUpdateError":
+      "Failed to update weekly shift schedule: {message}",
     "owner.staff.updated": "Staff data updated.",
     "owner.staff.codesFetchError": "Failed to fetch staff codes: {message}",
-    "owner.staff.codeUsed": "Staff code is already used. Please try saving again.",
+    "owner.staff.codeUsed":
+      "Staff code is already used. Please try saving again.",
     "owner.staff.addError": "Failed to add staff: {message}",
     "owner.staff.added": "Staff added.",
     "owner.staff.unknownError": "An unknown error occurred",
     "owner.staff.unknown": "Unknown error",
     "owner.staff.staffId": "Staff ID: {code}",
     "owner.staff.addTitle": "Add Staff",
-    "owner.staff.addDescription": "Create an operational staff or manager account.",
+    "owner.staff.addDescription":
+      "Create an operational staff or manager account.",
     "owner.staff.editTitle": "Edit Staff",
     "owner.staff.nameRequired": "Staff name is required.",
     "owner.staff.emailRequiredManager": "Email is required for Manager.",
-    "owner.staff.passwordManagerMin": "Manager password must be at least 6 characters.",
+    "owner.staff.passwordManagerMin":
+      "Manager password must be at least 6 characters.",
     "owner.staff.staffTypeRequiredGeneric": "Staff type is required.",
-    "owner.staff.shiftRequired": "Shift is required for staff or manager roles.",
+    "owner.staff.shiftRequired":
+      "Shift is required for staff or manager roles.",
     "owner.staff.saveFailed": "Failed to save staff changes.",
     "owner.staff.staffTypeRequired": "Staff type is required for Staff role.",
     "owner.staff.staffType": "Staff Type",
@@ -888,13 +1064,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.deleteStaffName": "Delete {name}",
     "owner.staff.noStaffData": "No staff data yet.",
     "owner.staff.dataList": "Staff Data List",
-    "owner.staff.dataListDescription": "Structured staff profile, role, shift, and access status records.",
+    "owner.staff.dataListDescription":
+      "Structured staff profile, role, shift, and access status records.",
     "owner.staff.startWork": "Start Work: {date}",
     "owner.staff.inactive": "Inactive",
     "owner.staff.onLeave": "On Leave",
     "owner.staff.terminated": "Terminated",
     "owner.staff.weeklyOverride": "Weekly Shift Override",
-    "owner.staff.weeklyOverrideHelper": "Optional. Add only weekdays that differ from the default Work Shift.",
+    "owner.staff.weeklyOverrideHelper":
+      "Optional. Add only weekdays that differ from the default Work Shift.",
     "owner.staff.addWeeklyOverride": "Add Weekly Override",
     "owner.staff.access": "Staff Access",
     "owner.staff.cancel": "Cancel",
@@ -909,11 +1087,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.attendanceRadius": "Attendance Radius (meters)",
     "owner.staff.saveLocation": "Save Location",
     "owner.staff.locationSaved": "Cafe location saved.",
-    "owner.staff.locationUnsupported": "Browser does not support location features.",
-    "owner.staff.locationFailed": "Failed to get location. Make sure GPS is active and try again.",
-    "owner.staff.locationPermissionDenied": "Location permission was denied. Enable browser location permission first.",
+    "owner.staff.locationUnsupported":
+      "Browser does not support location features.",
+    "owner.staff.locationFailed":
+      "Failed to get location. Make sure GPS is active and try again.",
+    "owner.staff.locationPermissionDenied":
+      "Location permission was denied. Enable browser location permission first.",
     "owner.staff.locationSaveError": "Failed to save cafe location.",
-    "owner.staff.locationSettingsInvalid": "Location settings are not valid. Make sure cafe name, latitude, longitude, and radius are correct.",
+    "owner.staff.locationSettingsInvalid":
+      "Location settings are not valid. Make sure cafe name, latitude, longitude, and radius are correct.",
     "owner.staff.shiftManagement": "Shift Management",
     "owner.staff.addShift": "Add Shift",
     "owner.staff.editShift": "Edit Shift",
@@ -933,20 +1115,26 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.shiftName": "Shift Name",
     "owner.staff.shiftNamePlaceholder": "Example: Morning Shift",
     "owner.staff.shiftAvailable": "Shift is available for staff data selection",
-    "owner.staff.shiftFormDescription": "Shift defines start time, lateness tolerance, end time, and clock-out tolerance.",
+    "owner.staff.shiftFormDescription":
+      "Shift defines start time, lateness tolerance, end time, and clock-out tolerance.",
     "owner.staff.saveShift": "Save Shift",
-    "owner.staff.shiftDataInvalid": "Shift data is not valid. Make sure the shift name is filled, the clock-in grace time is not earlier than the start time, and the clock-out grace time is not earlier than the end time.",
+    "owner.staff.shiftDataInvalid":
+      "Shift data is not valid. Make sure the shift name is filled, the clock-in grace time is not earlier than the start time, and the clock-out grace time is not earlier than the end time.",
     "owner.staff.shiftSaveError": "Failed to save shift.",
     "owner.staff.shiftStatusError": "Failed to update shift status.",
     "owner.staff.shiftDeleteError": "Failed to delete shift.",
     "owner.staff.fetchAttendanceError": "Failed to fetch attendance data.",
-    "owner.staff.confirmShiftStatus": "Are you sure you want to {action} {name}?",
-    "owner.staff.confirmShiftDelete": "Are you sure you want to delete {name}? Deleted shifts will no longer appear in staff options. Existing attendance history remains stored, but the shift name in that history can become \"No Shift\".",
+    "owner.staff.confirmShiftStatus":
+      "Are you sure you want to {action} {name}?",
+    "owner.staff.confirmShiftDelete":
+      'Are you sure you want to delete {name}? Deleted shifts will no longer appear in staff options. Existing attendance history remains stored, but the shift name in that history can become "No Shift".',
     "owner.staff.activate": "activate",
     "owner.staff.deactivate": "deactivate",
     "owner.activity.emptyTitle": "No activity logs found",
-    "owner.activity.emptyWithFilters": "No logs match the current search or filter criteria.",
-    "owner.activity.emptyNoData": "Activity logs will appear here after users start performing actions.",
+    "owner.activity.emptyWithFilters":
+      "No logs match the current search or filter criteria.",
+    "owner.activity.emptyNoData":
+      "Activity logs will appear here after users start performing actions.",
     "owner.activity.clearFilters": "Clear Filters",
     "owner.activity.totalLogs": "Total Logs",
     "owner.activity.totalLogsDetail": "Loaded activity rows",
@@ -1007,8 +1195,10 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.activity.logout": "Logout",
     "owner.activity.void": "Void",
     "owner.activity.table": "Activity Log Table",
-    "owner.activity.tableSubtitle": "Chronological audit trail for system and user actions.",
-    "owner.activity.emptyFiltered": "No activity logs match the current filters.",
+    "owner.activity.tableSubtitle":
+      "Chronological audit trail for system and user actions.",
+    "owner.activity.emptyFiltered":
+      "No activity logs match the current filters.",
     "owner.activity.date": "Date",
     "owner.activity.unknown": "Unknown",
     "owner.activity.more": "+{count} more",
@@ -1054,49 +1244,75 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.notifications.openOperations": "Buka operations",
     "owner.notifications.reviewStaff": "Review staff",
     "owner.notifications.openActivityLog": "Buka activity log",
-    "owner.notifications.dailySummaryTitle": "Ringkasan bisnis harian sudah siap",
-    "owner.notifications.dailySummaryMessage": "{orders} order tercatat hari ini. Gross sales {grossSales}.",
-    "owner.notifications.dailySummaryMessageWithMargin": "{orders} order tercatat hari ini. Gross sales {grossSales}, gross margin {margin}%.",
+    "owner.notifications.dailySummaryTitle":
+      "Ringkasan bisnis harian sudah siap",
+    "owner.notifications.dailySummaryMessage":
+      "{orders} order tercatat hari ini. Gross sales {grossSales}.",
+    "owner.notifications.dailySummaryMessageWithMargin":
+      "{orders} order tercatat hari ini. Gross sales {grossSales}, gross margin {margin}%.",
     "owner.notifications.marginLowTitle": "Gross margin di bawah target",
-    "owner.notifications.marginLowMessage": "Gross margin hari ini {margin}%. Review cost menu, waste, dan pemakaian stok sebelum closing harian.",
-    "owner.notifications.highBookkeepingExceptionsTitle": "Exception bookkeeping tinggi perlu direview",
-    "owner.notifications.bookkeepingExceptionsTitle": "Exception bookkeeping perlu direview",
-    "owner.notifications.bookkeepingExceptionsMessage": "{count} exception belum selesai ditemukan hari ini.",
-    "owner.notifications.bookkeepingExceptionsHighMessage": "{count} exception belum selesai ditemukan hari ini, termasuk {high} issue high severity.",
+    "owner.notifications.marginLowMessage":
+      "Gross margin hari ini {margin}%. Review cost menu, waste, dan pemakaian stok sebelum closing harian.",
+    "owner.notifications.highBookkeepingExceptionsTitle":
+      "Exception bookkeeping tinggi perlu direview",
+    "owner.notifications.bookkeepingExceptionsTitle":
+      "Exception bookkeeping perlu direview",
+    "owner.notifications.bookkeepingExceptionsMessage":
+      "{count} exception belum selesai ditemukan hari ini.",
+    "owner.notifications.bookkeepingExceptionsHighMessage":
+      "{count} exception belum selesai ditemukan hari ini, termasuk {high} issue high severity.",
     "owner.notifications.dailyClosingTitle": "Daily closing belum bersih",
-    "owner.notifications.dailyClosingStatusMessage": "Status closing hari ini {status}. Review sebelum mengakhiri hari bisnis.",
-    "owner.notifications.dailyClosingMissingMessage": "Ada sales hari ini, tetapi daily closing belum selesai.",
+    "owner.notifications.dailyClosingStatusMessage":
+      "Status closing hari ini {status}. Review sebelum mengakhiri hari bisnis.",
+    "owner.notifications.dailyClosingMissingMessage":
+      "Ada sales hari ini, tetapi daily closing belum selesai.",
     "owner.notifications.criticalStockTitle": "Inventory critical sedang habis",
-    "owner.notifications.criticalStockMessage": "{items} perlu restock segera atau review menu.",
+    "owner.notifications.criticalStockMessage":
+      "{items} perlu restock segera atau review menu.",
     "owner.notifications.lowStockTitle": "Inventory di bawah reorder level",
-    "owner.notifications.stockReportsTitle": "Laporan staff perlu follow-up manager",
-    "owner.notifications.stockReportsMessage": "{count} laporan penting masih pending. Terbaru: {item} {type}.",
+    "owner.notifications.stockReportsTitle":
+      "Laporan staff perlu follow-up manager",
+    "owner.notifications.stockReportsMessage":
+      "{count} laporan penting masih pending. Terbaru: {item} {type}.",
     "owner.notifications.kitchenWasteTitle": "Kitchen waste tercatat hari ini",
-    "owner.notifications.kitchenWasteMessage": "{count} movement waste tercatat. Terbaru: {item} {quantity}.",
-    "owner.notifications.kitchenWasteMessageWithValue": "{count} movement waste tercatat, estimasi nilai {value}. Terbaru: {item} {quantity}.",
+    "owner.notifications.kitchenWasteMessage":
+      "{count} movement waste tercatat. Terbaru: {item} {quantity}.",
+    "owner.notifications.kitchenWasteMessageWithValue":
+      "{count} movement waste tercatat, estimasi nilai {value}. Terbaru: {item} {quantity}.",
     "owner.notifications.menuRiskTitle": "Risiko ketersediaan menu",
-    "owner.notifications.menuRiskMessage": "{count} menu sedang unavailable. Cek apakah penyebabnya bahan critical atau ready stock kitchen.",
+    "owner.notifications.menuRiskMessage":
+      "{count} menu sedang unavailable. Cek apakah penyebabnya bahan critical atau ready stock kitchen.",
     "owner.notifications.unpaidOrdersTitle": "Order unpaid perlu rekonsiliasi",
-    "owner.notifications.unpaidOrdersMessage": "{count} order masih berstatus unpaid hari ini.",
-    "owner.notifications.orderBacklogTitle": "Backlog order aktif mulai menumpuk",
-    "owner.notifications.orderBacklogMessage": "{count} order masih aktif di alur pelayanan.",
-    "owner.notifications.cancelledOrdersTitle": "Order cancelled atau refunded tercatat",
-    "owner.notifications.cancelledOrdersMessage": "{count} order cancelled, void, atau refunded terdeteksi hari ini.",
+    "owner.notifications.unpaidOrdersMessage":
+      "{count} order masih berstatus unpaid hari ini.",
+    "owner.notifications.orderBacklogTitle":
+      "Backlog order aktif mulai menumpuk",
+    "owner.notifications.orderBacklogMessage":
+      "{count} order masih aktif di alur pelayanan.",
+    "owner.notifications.cancelledOrdersTitle":
+      "Order cancelled atau refunded tercatat",
+    "owner.notifications.cancelledOrdersMessage":
+      "{count} order cancelled, void, atau refunded terdeteksi hari ini.",
     "owner.notifications.attendanceRiskTitle": "Absensi staff perlu direview",
-    "owner.notifications.attendanceRiskMessage": "{late} clock-in terlambat, {missing} shift aktif belum clock-out.",
-    "owner.notifications.activityRiskFallback": "{critical} critical dan {warning} warning event activity log terdeteksi hari ini.",
+    "owner.notifications.attendanceRiskMessage":
+      "{late} clock-in terlambat, {missing} shift aktif belum clock-out.",
+    "owner.notifications.activityRiskFallback":
+      "{critical} critical dan {warning} warning event activity log terdeteksi hari ini.",
     "owner.notifications.criticalActivityTitle": "Event activity log critical",
-    "owner.notifications.warningActivityTitle": "Beberapa activity warning tercatat",
+    "owner.notifications.warningActivityTitle":
+      "Beberapa activity warning tercatat",
     "owner.ai.refreshAdvice": "Refresh Saran Owner",
     "owner.ai.generateAdvice": "Buat Saran Owner",
-    "owner.ai.emptyAdvice": "Belum ada saran owner yang dibuat. Buat dari konteks tab aktif dan rentang tanggal yang dipilih.",
+    "owner.ai.emptyAdvice":
+      "Belum ada saran owner yang dibuat. Buat dari konteks tab aktif dan rentang tanggal yang dipilih.",
     "owner.ai.showInsight": "Tampilkan AI insight {index}",
     "owner.ai.adviceDetail": "Detail Saran Owner",
     "owner.ai.closeDetail": "Tutup detail rekomendasi",
     "owner.ai.generated": "Dibuat",
     "owner.ai.dailyAttempts": "Percobaan harian",
     "owner.ai.attemptsCount": "{count} dari {max}",
-    "owner.ai.detailDescription": "Tinjau masalah, data pendukung, dan tindakan berikutnya dalam satu tampilan.",
+    "owner.ai.detailDescription":
+      "Tinjau masalah, data pendukung, dan tindakan berikutnya dalam satu tampilan.",
     "owner.ai.whatHappened": "Apa yang Terjadi",
     "owner.ai.supportingData": "Data Pendukung",
     "owner.ai.whatToCheck": "Yang Perlu Dicek",
@@ -1105,7 +1321,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.ai.priority": "Prioritas",
     "owner.ai.confidence": "Keyakinan",
     "owner.ai.ownerRead": "Bacaan Owner",
-    "owner.ai.ownerReadDescription": "Mulai dari pemeriksaan yang direkomendasikan, lalu gunakan angka pendukung untuk memastikan apakah tindakan diperlukan.",
+    "owner.ai.ownerReadDescription":
+      "Mulai dari pemeriksaan yang direkomendasikan, lalu gunakan angka pendukung untuk memastikan apakah tindakan diperlukan.",
     "owner.dashboard.title": "Komando Bisnis",
     "owner.dashboard.description": "Analitik, keputusan, dan insight AI.",
     "owner.dashboard.mobileOpen": "Buka menu dasbor owner",
@@ -1138,34 +1355,47 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.sales.downloadExcel": "Download Excel Sales",
     "owner.sales.exportSuccess": "Laporan sales berhasil diexport.",
     "owner.sales.exportError": "Laporan sales gagal diexport.",
-    "owner.sales.dataLoadWarning": "Sebagian data sales belum bisa dimuat. Widget yang tersedia tetap ditampilkan.",
-    "owner.sales.financialLoadWarning": "Ringkasan finansial sales belum bisa dimuat. Widget performa produk tetap ditampilkan.",
+    "owner.sales.dataLoadWarning":
+      "Sebagian data sales belum bisa dimuat. Widget yang tersedia tetap ditampilkan.",
+    "owner.sales.financialLoadWarning":
+      "Ringkasan finansial sales belum bisa dimuat. Widget performa produk tetap ditampilkan.",
     "owner.sales.netProfitEstimate": "Estimasi Profit",
-    "owner.sales.netProfitShortHelper": "Profit setelah food cost dan biaya operasional.",
-    "owner.sales.netProfitFormula": "Penjualan Bersih - Food Cost - Biaya Operasional",
+    "owner.sales.netProfitShortHelper":
+      "Profit setelah food cost dan biaya operasional.",
+    "owner.sales.netProfitFormula":
+      "Penjualan Bersih - Food Cost - Biaya Operasional",
     "owner.sales.calculation": "Perhitungan",
     "owner.sales.revenue": "Revenue",
     "owner.sales.grossSales": "Penjualan Kotor",
-    "owner.sales.netSalesHelper": "Penjualan setelah diskon, tanpa pajak yang dipungut.",
+    "owner.sales.netSalesHelper":
+      "Penjualan setelah diskon, tanpa pajak yang dipungut.",
     "owner.sales.totalOrders": "Total Pesanan",
-    "owner.sales.totalOrdersHelper": "Pesanan valid dan sudah dibayar pada periode ini.",
+    "owner.sales.totalOrdersHelper":
+      "Pesanan valid dan sudah dibayar pada periode ini.",
     "owner.sales.averageOrderValue": "Rata-rata Nilai Pesanan",
-    "owner.sales.averageOrderValueHelper": "Rata-rata net sales per pesanan valid.",
+    "owner.sales.averageOrderValueHelper":
+      "Rata-rata net sales per pesanan valid.",
     "owner.sales.discounts": "Diskon",
     "owner.sales.serviceChargeAdjustments": "Biaya Tambahan",
     "owner.sales.foodCost": "Food Cost",
-    "owner.sales.foodCostShortHelper": "Estimasi biaya bahan untuk menu yang terjual.",
+    "owner.sales.foodCostShortHelper":
+      "Estimasi biaya bahan untuk menu yang terjual.",
     "owner.sales.operatingExpenses": "Biaya Operasional",
-    "owner.sales.operatingExpensesHelper": "Biaya operasional yang tercatat pada periode ini.",
+    "owner.sales.operatingExpensesHelper":
+      "Biaya operasional yang tercatat pada periode ini.",
     "owner.sales.taxCollected": "Pajak Dipungut",
     "owner.sales.incompleteCostTitle": "Sebagian data cost menu belum lengkap",
-    "owner.sales.incompleteCostShortMessage": "{count} menu terjual masih membutuhkan data resep atau biaya bahan.",
+    "owner.sales.incompleteCostShortMessage":
+      "{count} menu terjual masih membutuhkan data resep atau biaya bahan.",
     "owner.sales.paymentBreakdown": "Breakdown Metode Pembayaran",
-    "owner.sales.paymentBreakdownSubtitle": "Split otomatis dari valid paid orders pada periode terpilih.",
+    "owner.sales.paymentBreakdownSubtitle":
+      "Split otomatis dari valid paid orders pada periode terpilih.",
     "owner.sales.revenueTrend": "Tren Sales",
-    "owner.sales.revenueTrendSubtitle": "Pergerakan net sales sepanjang periode terpilih.",
+    "owner.sales.revenueTrendSubtitle":
+      "Pergerakan net sales sepanjang periode terpilih.",
     "owner.sales.aovTrend": "Tren Average Order Value",
-    "owner.sales.aovTrendSubtitle": "Membandingkan nilai transaksi dengan periode sebelumnya.",
+    "owner.sales.aovTrendSubtitle":
+      "Membandingkan nilai transaksi dengan periode sebelumnya.",
     "owner.sales.selectedPeriodAov": "AOV Periode Terpilih",
     "owner.sales.previousPeriodAov": "AOV Periode Sebelumnya",
     "owner.sales.paymentMethod": "Metode Pembayaran",
@@ -1179,17 +1409,21 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.sales.loadingPayment": "Memuat data pembayaran...",
     "owner.sales.noPayment": "Tidak ada data pembayaran di periode ini.",
     "owner.sales.menuQuadrant": "Kuadran Menu",
-    "owner.sales.menuQuadrantSubtitle": "Volume sales dibanding kontribusi revenue.",
+    "owner.sales.menuQuadrantSubtitle":
+      "Volume sales dibanding kontribusi revenue.",
     "owner.sales.sold": "Terjual",
     "owner.sales.noMenuSalesData": "Belum ada data sales menu",
     "owner.sales.topSellingMenu": "Menu Terlaris",
-    "owner.sales.topSellingMenuSubtitle": "Item paling laku berdasarkan quantity.",
+    "owner.sales.topSellingMenuSubtitle":
+      "Item paling laku berdasarkan quantity.",
     "owner.sales.noTopMenu": "Belum ada data top menu",
     "owner.sales.revenueByCategory": "Revenue per Kategori",
-    "owner.sales.revenueByCategorySubtitle": "Revenue menu dikelompokkan berdasarkan kategori dari manager.",
+    "owner.sales.revenueByCategorySubtitle":
+      "Revenue menu dikelompokkan berdasarkan kategori dari manager.",
     "owner.sales.noCategoryRevenue": "Belum ada data revenue kategori",
     "owner.sales.profitabilityTable": "Tabel Profitabilitas",
-    "owner.sales.profitabilitySubtitle": "Estimasi COGS memakai sumber bookkeeping yang sama dengan Food Cost.",
+    "owner.sales.profitabilitySubtitle":
+      "Estimasi COGS memakai sumber bookkeeping yang sama dengan Food Cost.",
     "owner.sales.menuName": "Nama Menu",
     "owner.sales.category": "Kategori",
     "owner.sales.uncategorized": "Belum berkategori",
@@ -1204,7 +1438,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.customer.downloadExcel": "Download Excel Customer",
     "owner.customer.exportSuccess": "Laporan customer berhasil diexport.",
     "owner.customer.exportError": "Laporan customer gagal diexport.",
-    "owner.customer.dataLoadWarning": "Sebagian data customer dan loyalty belum bisa dimuat. Widget yang tersedia tetap ditampilkan.",
+    "owner.customer.dataLoadWarning":
+      "Sebagian data customer dan loyalty belum bisa dimuat. Widget yang tersedia tetap ditampilkan.",
     "owner.customer.member": "Member",
     "owner.customer.guest": "Guest",
     "owner.customer.memberOrders": "Order Member",
@@ -1224,9 +1459,11 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.customer.customerMixSubtitle": "Komposisi order member dan guest.",
     "owner.customer.noOrderData": "Belum ada data order customer",
     "owner.customer.memberVsGuestAov": "AOV Member vs Guest",
-    "owner.customer.memberVsGuestAovSubtitle": "Membandingkan kualitas spend, bukan hanya share revenue.",
+    "owner.customer.memberVsGuestAovSubtitle":
+      "Membandingkan kualitas spend, bukan hanya share revenue.",
     "owner.customer.newReturningTrend": "Trend Customer Baru vs Returning",
-    "owner.customer.newReturningTrendSubtitle": "Melacak aktivitas customer dari acquisition atau retention.",
+    "owner.customer.newReturningTrendSubtitle":
+      "Melacak aktivitas customer dari acquisition atau retention.",
     "owner.customer.sheet.summary": "Ringkasan Customer",
     "owner.customer.sheet.newReturningTrend": "Tren Customer Baru Returning",
     "owner.customer.sheet.customerOrders": "Order Customer",
@@ -1235,20 +1472,26 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.customer.status.healthy": "Sehat",
     "owner.customer.status.watch": "Perlu Dipantau",
     "owner.customer.status.needsAttention": "Perlu Perhatian",
-    "owner.customer.insight.needsData": "Belum ada order customer valid untuk periode terpilih.",
-    "owner.customer.insight.healthy": "Order member berkontribusi jelas ke revenue dan penggunaan reward sudah terlihat.",
-    "owner.customer.insight.watch": "Perilaku member sudah ada, tapi repeat atau penggunaan reward perlu lebih konsisten.",
-    "owner.customer.insight.needsAttention": "Mayoritas sales customer masih anonymous atau value loyalty belum terlihat.",
+    "owner.customer.insight.needsData":
+      "Belum ada order customer valid untuk periode terpilih.",
+    "owner.customer.insight.healthy":
+      "Order member berkontribusi jelas ke revenue dan penggunaan reward sudah terlihat.",
+    "owner.customer.insight.watch":
+      "Perilaku member sudah ada, tapi repeat atau penggunaan reward perlu lebih konsisten.",
+    "owner.customer.insight.needsAttention":
+      "Mayoritas sales customer masih anonymous atau value loyalty belum terlihat.",
     "owner.customer.newCustomers": "Customer Baru",
     "owner.customer.returningCustomers": "Returning Customer",
     "owner.customer.noReturningTrend": "Belum ada trend returning customer",
     "owner.customer.loyaltyInsight": "Ringkasan Insight Loyalty",
-    "owner.customer.loyaltyInsightSubtitle": "Sinyal bisnis untuk retention dan efektivitas reward.",
+    "owner.customer.loyaltyInsightSubtitle":
+      "Sinyal bisnis untuk retention dan efektivitas reward.",
     "owner.customer.memberShare": "Share Member",
     "owner.customer.discountRatio": "Rasio Diskon",
     "owner.discount.create": "Buat Diskon",
     "owner.discount.edit": "Edit Diskon",
-    "owner.discount.subtitle": "Buat reward customer atau diskon member yang bisa digunakan dari halaman customer rewards.",
+    "owner.discount.subtitle":
+      "Buat reward customer atau diskon member yang bisa digunakan dari halaman customer rewards.",
     "owner.discount.name": "Nama Diskon",
     "owner.discount.type": "Tipe Diskon",
     "owner.discount.value": "Nilai Diskon",
@@ -1272,18 +1515,21 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.discount.deleteAction": "Hapus",
     "owner.discount.nameRequired": "Nama diskon wajib diisi.",
     "owner.discount.valueRequired": "Nilai diskon harus lebih dari 0.",
-    "owner.discount.percentageTooHigh": "Discount percentage tidak boleh lebih dari 100%.",
+    "owner.discount.percentageTooHigh":
+      "Discount percentage tidak boleh lebih dari 100%.",
     "owner.discount.deleted": "Diskon berhasil dihapus.",
     "owner.discount.updated": "Diskon berhasil diperbarui.",
     "owner.discount.created": "Diskon berhasil dibuat.",
-    "owner.discount.deleteConfirm": "Hapus diskon \"{name}\"?",
+    "owner.discount.deleteConfirm": 'Hapus diskon "{name}"?',
     "owner.bundle.create": "Buat Bundle Menu",
     "owner.bundle.edit": "Edit Bundle Menu",
-    "owner.bundle.subtitle": "Buat bundle menu harga tetap yang tampil di bagian atas customer menu.",
+    "owner.bundle.subtitle":
+      "Buat bundle menu harga tetap yang tampil di bagian atas customer menu.",
     "owner.bundle.name": "Nama Bundle",
     "owner.bundle.price": "Harga Bundle",
     "owner.bundle.menuPosition": "Posisi Menu",
-    "owner.bundle.positionHelper": "Angka lebih kecil tampil lebih dulu di customer menu.",
+    "owner.bundle.positionHelper":
+      "Angka lebih kecil tampil lebih dulu di customer menu.",
     "owner.bundle.items": "Item Bundle",
     "owner.bundle.selected": "{count} dipilih",
     "owner.bundle.showInMenu": "Tampilkan bundle ini di customer menu",
@@ -1292,7 +1538,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bundle.creating": "Membuat...",
     "owner.bundle.active": "Bundle Aktif",
     "owner.bundle.loading": "Memuat bundle...",
-    "owner.bundle.tablesMissing": "Tabel menu bundle belum siap. Jalankan frontend/supabase-menu-bundles.sql dulu.",
+    "owner.bundle.tablesMissing":
+      "Tabel menu bundle belum siap. Jalankan frontend/supabase-menu-bundles.sql dulu.",
     "owner.bundle.nameRequired": "Nama bundle wajib diisi.",
     "owner.bundle.itemsRequired": "Pilih minimal dua menu untuk bundle.",
     "owner.bundle.priceRequired": "Harga bundle harus lebih dari 0.",
@@ -1300,7 +1547,33 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bundle.deleted": "Bundle berhasil dihapus.",
     "owner.bundle.updated": "Bundle berhasil diperbarui.",
     "owner.bundle.created": "Bundle berhasil dibuat.",
-    "owner.bundle.deleteConfirm": "Hapus bundle \"{name}\"?",
+    "owner.bundle.deleteConfirm": 'Hapus bundle "{name}"?',
+    "owner.loyalty.title": "Konfigurasi Poin Loyalty",
+    "owner.loyalty.subtitle":
+      "Atur berapa poin yang didapat customer dari setiap pembelian.",
+    "owner.loyalty.active": "Program poin aktif",
+    "owner.loyalty.activeDescription":
+      "Jika dinonaktifkan, tidak ada poin yang diberikan meski customer berbelanja.",
+    "owner.loyalty.activeStatus": "Aktif",
+    "owner.loyalty.inactiveStatus": "Nonaktif",
+    "owner.loyalty.pointsPerAmount": "Poin yang didapat",
+    "owner.loyalty.pointsPerAmountHelper": "Jumlah poin per transaksi",
+    "owner.loyalty.amountPerPoints": "Per nominal belanja (Rp)",
+    "owner.loyalty.amountPerPointsHelper": "Kelipatan nominal (mis. 10000)",
+    "owner.loyalty.minimumOrder": "Minimum order (Rp)",
+    "owner.loyalty.minimumOrderHelper": "0 berarti tidak ada minimum",
+    "owner.loyalty.preview": "Preview",
+    "owner.loyalty.previewText":
+      "Setiap {amount} yang dibelanjakan, customer mendapat {points} poin.",
+    "owner.loyalty.previewMinOrder": " Berlaku mulai pembelian {minOrder}.",
+    "owner.loyalty.previewEmpty": "Isi nominal di atas untuk melihat preview.",
+    "owner.loyalty.lastUpdated": "Terakhir diperbarui:",
+    "owner.loyalty.save": "Simpan Pengaturan",
+    "owner.loyalty.saving": "Menyimpan...",
+    "owner.loyalty.loading": "Memuat pengaturan...",
+    "owner.loyalty.saved": "Pengaturan poin berhasil disimpan.",
+    "owner.loyalty.loadError": "Gagal memuat pengaturan poin.",
+    "owner.loyalty.saveError": "Gagal menyimpan pengaturan.",
     "owner.inventory.export": "Export Inventory",
     "owner.inventory.downloadExcel": "Download Excel Inventory",
     "owner.inventory.exportSuccess": "Laporan inventory berhasil diexport.",
@@ -1314,41 +1587,55 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.criticalItems": "Item Kritis",
     "owner.inventory.criticalItemsHelper": "Item yang stoknya habis",
     "owner.inventory.restockCost": "Biaya Restock",
-    "owner.inventory.restockCostHelper": "Estimasi biaya untuk mengembalikan buffer",
+    "owner.inventory.restockCostHelper":
+      "Estimasi biaya untuk mengembalikan buffer",
     "owner.inventory.dataIssues": "Masalah Data",
-    "owner.inventory.dataIssuesHelper": "Stok negatif, unit kosong, atau batas stok kosong",
+    "owner.inventory.dataIssuesHelper":
+      "Stok negatif, unit kosong, atau batas stok kosong",
     "owner.inventory.pendingReports": "Report Pending",
     "owner.inventory.pendingReportsHelper": "Issue stok dari staff bulan ini",
     "owner.inventory.highestUsage": "Pemakaian Tertinggi",
-    "owner.inventory.highestUsageHelper": "Nilai stock-out terbesar sepanjang waktu",
+    "owner.inventory.highestUsageHelper":
+      "Nilai stock-out terbesar sepanjang waktu",
     "owner.inventory.followUpTitle": "Report stok staff perlu ditindaklanjuti",
     "owner.inventory.pendingReportCount": "{count} report pending bulan ini.",
-    "owner.inventory.mostRepeatedIssue": " Issue paling sering: {item} ({count} report).",
+    "owner.inventory.mostRepeatedIssue":
+      " Issue paling sering: {item} ({count} report).",
     "owner.inventory.batchRisk": "Risiko Batch",
-    "owner.inventory.batchRiskSubtitle": "Kondisi expiry untuk stok batch aktif.",
+    "owner.inventory.batchRiskSubtitle":
+      "Kondisi expiry untuk stok batch aktif.",
     "owner.inventory.noBatchRisk": "Belum ada data risiko batch aktif",
     "owner.inventory.batchValueByCategory": "Nilai Batch per Kategori",
-    "owner.inventory.batchValueByCategorySubtitle": "Nilai sisa batch berdasarkan kategori inventory.",
+    "owner.inventory.batchValueByCategorySubtitle":
+      "Nilai sisa batch berdasarkan kategori inventory.",
     "owner.inventory.batchValue": "Nilai Batch",
     "owner.inventory.noBatchValuation": "Belum ada data valuasi batch",
     "owner.inventory.lowStockAlert": "Alert Stok Menipis",
-    "owner.inventory.lowStockAlertSubtitle": "Item yang perlu perhatian owner sebelum habis.",
+    "owner.inventory.lowStockAlertSubtitle":
+      "Item yang perlu perhatian owner sebelum habis.",
     "owner.inventory.noInventoryItem": "Belum ada item inventory terdeteksi.",
     "owner.inventory.usageTrend": "Tren Pemakaian",
-    "owner.inventory.usageTrendSubtitle": "Event pergerakan stok sepanjang waktu.",
-    "owner.inventory.usageCurrencyNote": "Semua item dikonversi menjadi nilai Rupiah.",
-    "owner.inventory.usageQuantityNote": "Menampilkan pergerakan quantity{unit}.",
+    "owner.inventory.usageTrendSubtitle":
+      "Event pergerakan stok sepanjang waktu.",
+    "owner.inventory.usageCurrencyNote":
+      "Semua item dikonversi menjadi nilai Rupiah.",
+    "owner.inventory.usageQuantityNote":
+      "Menampilkan pergerakan quantity{unit}.",
     "owner.inventory.inUnit": " dalam {unit}",
-    "owner.inventory.selectUsageItem": "Pilih item inventory untuk tren pemakaian",
+    "owner.inventory.selectUsageItem":
+      "Pilih item inventory untuk tren pemakaian",
     "owner.inventory.stockIn": "Stok Masuk",
     "owner.inventory.stockOut": "Stok Keluar",
     "owner.inventory.adjustments": "Adjustment",
     "owner.inventory.noStockMovementEvents": "Belum ada event pergerakan stok",
     "owner.inventory.stockMovement": "Pergerakan Stok",
-    "owner.inventory.stockMovementSubtitle": "Catatan stok masuk, stok keluar, dan adjustment terbaru.",
-    "owner.inventory.noStockMovementRecords": "Belum ada catatan pergerakan stok.",
+    "owner.inventory.stockMovementSubtitle":
+      "Catatan stok masuk, stok keluar, dan adjustment terbaru.",
+    "owner.inventory.noStockMovementRecords":
+      "Belum ada catatan pergerakan stok.",
     "owner.inventory.staffStockReports": "Report Stok Staff",
-    "owner.inventory.staffStockReportsSubtitle": "Issue stok yang dilaporkan barista dan kitchen staff bulan ini.",
+    "owner.inventory.staffStockReportsSubtitle":
+      "Issue stok yang dilaporkan barista dan kitchen staff bulan ini.",
     "owner.inventory.pending": "Pending",
     "owner.inventory.resolved": "Resolved",
     "owner.inventory.rejected": "Rejected",
@@ -1358,9 +1645,11 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.latestReport": "Report Terbaru",
     "owner.inventory.reportedBy": " oleh {role}",
     "owner.inventory.noLatestReport": "Belum ada report terbaru bulan ini.",
-    "owner.inventory.noStaffStockReports": "Belum ada report stok staff bulan ini",
+    "owner.inventory.noStaffStockReports":
+      "Belum ada report stok staff bulan ini",
     "owner.inventory.stockStatus": "Status Stok",
-    "owner.inventory.stockStatusSubtitle": "Definisi status yang sama dengan tabel Raw Materials manager.",
+    "owner.inventory.stockStatusSubtitle":
+      "Definisi status yang sama dengan tabel Raw Materials manager.",
     "owner.inventory.inStock": "Stok Aman",
     "owner.inventory.lowStock": "Stok Menipis",
     "owner.inventory.critical": "Kritis",
@@ -1371,7 +1660,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.inventory.batches": "Batch",
     "owner.inventory.stockMovementDetail": "Detail Pergerakan Stok",
     "owner.inventory.closeStockMovementDetail": "Tutup detail pergerakan stok",
-    "owner.inventory.viewStockMovementDetail": "Lihat detail pergerakan stok untuk {item}",
+    "owner.inventory.viewStockMovementDetail":
+      "Lihat detail pergerakan stok untuk {item}",
     "owner.inventory.item": "Item",
     "owner.inventory.category": "Kategori",
     "owner.inventory.currentStock": "Stok Saat Ini",
@@ -1446,20 +1736,27 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.overtimeCount": "Jumlah Overtime",
     "owner.staff.overtimeHelper": "Sinyal biaya tenaga kerja ekstra",
     "owner.staff.performanceRadar": "Radar Performa Staff",
-    "owner.staff.performanceRadarSubtitle": "Attendance, order ditangani, speed, konsistensi, kontrol overtime, dan reliability.",
+    "owner.staff.performanceRadarSubtitle":
+      "Attendance, order ditangani, speed, konsistensi, kontrol overtime, dan reliability.",
     "owner.staff.viewRadarDetails": "Lihat detail radar performa staff",
     "owner.staff.clickRadar": "Klik radar untuk melihat detail score.",
     "owner.staff.productivity": "Produktivitas",
-    "owner.staff.productivitySubtitle": "Order yang dibuat atau disajikan oleh setiap staff dalam periode terpilih.",
-    "owner.staff.noOrderAttribution": "Belum ada atribusi order staff dalam periode ini",
+    "owner.staff.productivitySubtitle":
+      "Order yang dibuat atau disajikan oleh setiap staff dalam periode terpilih.",
+    "owner.staff.noOrderAttribution":
+      "Belum ada atribusi order staff dalam periode ini",
     "owner.staff.attendanceTrend": "Tren Attendance",
-    "owner.staff.hourlyAttendanceSubtitle": "Catatan clock-in dan keterlambatan per jam.",
-    "owner.staff.dailyAttendanceSubtitle": "Catatan clock-in dan keterlambatan per hari.",
+    "owner.staff.hourlyAttendanceSubtitle":
+      "Catatan clock-in dan keterlambatan per jam.",
+    "owner.staff.dailyAttendanceSubtitle":
+      "Catatan clock-in dan keterlambatan per hari.",
     "owner.staff.performanceTable": "Tabel Performa Staff",
-    "owner.staff.performanceTableSubtitle": "Angka konkret untuk evaluasi staff yang adil.",
+    "owner.staff.performanceTableSubtitle":
+      "Angka konkret untuk evaluasi staff yang adil.",
     "owner.staff.noPerformanceData": "Belum ada data performa staff.",
     "owner.staff.radarDetails": "Detail Radar Performa Staff",
-    "owner.staff.radarDetailsDescription": "Cara setiap score radar dihitung untuk periode terpilih.",
+    "owner.staff.radarDetailsDescription":
+      "Cara setiap score radar dihitung untuk periode terpilih.",
     "owner.staff.attendanceRecords": "Catatan Attendance",
     "owner.staff.overtimeRecords": "Catatan Overtime",
     "owner.staff.lateEarlyLeave": "Terlambat / Pulang Cepat",
@@ -1479,20 +1776,31 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.consistency": "Konsistensi",
     "owner.staff.overtimeControl": "Kontrol Overtime",
     "owner.staff.reliability": "Reliability",
-    "owner.staff.attendanceBasis": "{clockedIn} catatan clock-in dalam {days} hari",
+    "owner.staff.attendanceBasis":
+      "{clockedIn} catatan clock-in dalam {days} hari",
     "owner.staff.attendanceFormula": "Rata-rata tingkat kehadiran staff.",
-    "owner.staff.ordersBasis": "{orders} order valid, maksimal {max} ditangani oleh satu staff",
-    "owner.staff.ordersFormula": "Rata-rata order yang ditangani dibanding workload staff tertinggi.",
+    "owner.staff.ordersBasis":
+      "{orders} order valid, maksimal {max} ditangani oleh satu staff",
+    "owner.staff.ordersFormula":
+      "Rata-rata order yang ditangani dibanding workload staff tertinggi.",
     "owner.staff.speedBasisReady": "Berdasarkan timestamp ready-to-served.",
-    "owner.staff.speedBasisEmpty": "Belum ada data timestamp ready-to-served di periode ini.",
-    "owner.staff.speedFormula": "Lebih cepat dari 30 menit mendapat score lebih tinggi.",
+    "owner.staff.speedBasisEmpty":
+      "Belum ada data timestamp ready-to-served di periode ini.",
+    "owner.staff.speedFormula":
+      "Lebih cepat dari 30 menit mendapat score lebih tinggi.",
     "owner.staff.consistencyBasis": "{count} row staff aktif dihitung",
-    "owner.staff.consistencyFormula": "Rata-rata score staff dari attendance, keterlambatan, pulang cepat, overtime, dan speed.",
-    "owner.staff.overtimeBasis": "{overtime} catatan overtime dari {attendance} catatan attendance",
-    "owner.staff.noAttendanceBasis": "Belum ada catatan attendance dalam periode ini.",
-    "owner.staff.overtimeFormula": "100 dikurangi rasio overtime. Jika tidak ada attendance, ditampilkan 0, bukan 100.",
-    "owner.staff.reliabilityBasis": "{late} terlambat dan {earlyLeave} pulang cepat dari {attendance} catatan attendance",
-    "owner.staff.reliabilityFormula": "100 dikurangi rasio terlambat/pulang cepat. Jika tidak ada attendance, ditampilkan 0, bukan 100.",
+    "owner.staff.consistencyFormula":
+      "Rata-rata score staff dari attendance, keterlambatan, pulang cepat, overtime, dan speed.",
+    "owner.staff.overtimeBasis":
+      "{overtime} catatan overtime dari {attendance} catatan attendance",
+    "owner.staff.noAttendanceBasis":
+      "Belum ada catatan attendance dalam periode ini.",
+    "owner.staff.overtimeFormula":
+      "100 dikurangi rasio overtime. Jika tidak ada attendance, ditampilkan 0, bukan 100.",
+    "owner.staff.reliabilityBasis":
+      "{late} terlambat dan {earlyLeave} pulang cepat dari {attendance} catatan attendance",
+    "owner.staff.reliabilityFormula":
+      "100 dikurangi rasio terlambat/pulang cepat. Jika tidak ada attendance, ditampilkan 0, bukan 100.",
     "owner.staff.sheet.summary": "Ringkasan Staff",
     "owner.staff.sheet.performance": "Performa Staff",
     "owner.staff.sheet.attendanceTrend": "Tren Attendance",
@@ -1511,31 +1819,39 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.operation.totalOrders": "Total Order",
     "owner.operation.totalOrdersHelper": "Semua order operasional",
     "owner.operation.activeOrders": "Order Aktif",
-    "owner.operation.activeOrdersHelper": "New, on process, atau partially served",
+    "owner.operation.activeOrdersHelper":
+      "New, on process, atau partially served",
     "owner.operation.completedOrders": "Order Selesai",
     "owner.operation.cancelledOrders": "Order Cancelled",
     "owner.operation.completionRate": "Completion Rate",
     "owner.operation.completionRateHelper": "Order selesai dari order terpilih",
     "owner.operation.cancellationRate": "Cancellation Rate",
-    "owner.operation.cancelledOrdersHelper": "Order cancelled, void, atau refunded",
+    "owner.operation.cancelledOrdersHelper":
+      "Order cancelled, void, atau refunded",
     "owner.operation.newOrder": "Order Baru",
     "owner.operation.onProcess": "On Process",
     "owner.operation.partiallyServed": "Partially Served",
     "owner.operation.completed": "Completed",
     "owner.operation.cancelled": "Cancelled",
     "owner.operation.orderDensity": "Heatmap Kepadatan Order",
-    "owner.operation.orderDensitySubtitle": "Slot jam operasional; warna lebih kuat berarti tekanan order lebih tinggi.",
+    "owner.operation.orderDensitySubtitle":
+      "Slot jam operasional; warna lebih kuat berarti tekanan order lebih tinggi.",
     "owner.operation.orderFlow": "Funnel Alur Order",
-    "owner.operation.orderFlowSubtitle": "Jumlah order di setiap tahap operasional.",
+    "owner.operation.orderFlowSubtitle":
+      "Jumlah order di setiap tahap operasional.",
     "owner.operation.averageServiceTime": "Rata-rata Waktu Service",
-    "owner.operation.averageServiceTimeSubtitle": "Durasi created-to-completed untuk order selesai.",
+    "owner.operation.averageServiceTimeSubtitle":
+      "Durasi created-to-completed untuk order selesai.",
     "owner.operation.avgMinutes": "Rata-rata Menit",
-    "owner.operation.noTimestampData": "Data timestamp completed belum tersedia",
+    "owner.operation.noTimestampData":
+      "Data timestamp completed belum tersedia",
     "owner.operation.orderOutcomeTrend": "Tren Outcome Order",
-    "owner.operation.orderOutcomeTrendSubtitle": "Created, completed, cancelled, dan backlog aktif dalam periode terpilih.",
+    "owner.operation.orderOutcomeTrendSubtitle":
+      "Created, completed, cancelled, dan backlog aktif dalam periode terpilih.",
     "owner.operation.created": "Created",
     "owner.operation.activeBacklog": "Backlog Aktif",
-    "owner.operation.noOperationFlow": "Belum ada data alur operation di periode ini",
+    "owner.operation.noOperationFlow":
+      "Belum ada data alur operation di periode ini",
     "owner.operation.sheet.summary": "Ringkasan Operation",
     "owner.operation.sheet.orderFlow": "Alur Order",
     "owner.operation.sheet.orderDensity": "Kepadatan Order",
@@ -1548,7 +1864,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.downloadExcel": "Download Excel Overview",
     "owner.overview.exportSuccess": "Laporan overview berhasil diexport.",
     "owner.overview.exportError": "Gagal export laporan overview.",
-    "owner.overview.loadWarning": "Sebagian data dashboard belum bisa dimuat. Widget yang tersedia tetap ditampilkan.",
+    "owner.overview.loadWarning":
+      "Sebagian data dashboard belum bisa dimuat. Widget yang tersedia tetap ditampilkan.",
     "owner.overview.salesHelper": "Net sales periode ini",
     "owner.overview.customerHelper": "Rasio pelanggan repeat",
     "owner.overview.inventoryHelper": "Item stok kritis",
@@ -1556,13 +1873,19 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.operationsHelper": "Rasio order selesai",
     "owner.overview.businessAreaTrends": "Tren Area Bisnis",
     "owner.overview.insightSummary": "Ringkasan Insight Overview",
-    "owner.overview.businessAreaTrendsSubtitle": "Ringkasan pergerakan 0-100 untuk lima area owner.",
+    "owner.overview.businessAreaTrendsSubtitle":
+      "Ringkasan pergerakan 0-100 untuk lima area owner.",
     "owner.overview.selectTrendArea": "Pilih tren area bisnis",
-    "owner.overview.salesTrendHelper": "Pergerakan sales valid yang dinormalisasi terhadap titik tertinggi pada periode terpilih.",
-    "owner.overview.customerTrendHelper": "Rasio customer repeat sepanjang periode terpilih.",
-    "owner.overview.inventoryTrendHelper": "Kesehatan laporan stok; nilai tinggi berarti lebih sedikit laporan risiko stok yang belum selesai.",
-    "owner.overview.staffTrendHelper": "Rasio kehadiran staff berdasarkan hari operasional yang tercatat.",
-    "owner.overview.operationsTrendHelper": "Rasio penyelesaian order sepanjang periode terpilih.",
+    "owner.overview.salesTrendHelper":
+      "Pergerakan sales valid yang dinormalisasi terhadap titik tertinggi pada periode terpilih.",
+    "owner.overview.customerTrendHelper":
+      "Rasio customer repeat sepanjang periode terpilih.",
+    "owner.overview.inventoryTrendHelper":
+      "Kesehatan laporan stok; nilai tinggi berarti lebih sedikit laporan risiko stok yang belum selesai.",
+    "owner.overview.staffTrendHelper":
+      "Rasio kehadiran staff berdasarkan hari operasional yang tercatat.",
+    "owner.overview.operationsTrendHelper":
+      "Rasio penyelesaian order sepanjang periode terpilih.",
     "owner.overview.totalRevenue": "Total Revenue",
     "owner.overview.totalRevenueHelper": "Total revenue valid",
     "owner.overview.totalOrdersHelper": "Order paid atau valid dalam periode",
@@ -1573,13 +1896,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.topPaymentMethod": "Metode Payment Teratas",
     "owner.overview.topPaymentMethodHelper": "Metode dominan dalam periode",
     "owner.overview.revenueTrend": "Tren Revenue",
-    "owner.overview.revenueTrendSubtitle": "Pergerakan revenue dan order dalam periode terpilih.",
+    "owner.overview.revenueTrendSubtitle":
+      "Pergerakan revenue dan order dalam periode terpilih.",
     "owner.overview.aovTrend": "Tren Average Order Value",
     "owner.overview.aovTrendSubtitle": "Mengukur kualitas transaksi.",
     "owner.overview.selectedPeriodAov": "AOV Periode Terpilih",
     "owner.overview.previousPeriodAov": "AOV Periode Sebelumnya",
     "owner.overview.businessHealth": "Ringkasan Business Health",
-    "owner.overview.businessHealthSubtitle": "Kesehatan gabungan dari Sales, Customer, Inventory, Staff, dan Operation.",
+    "owner.overview.businessHealthSubtitle":
+      "Kesehatan gabungan dari Sales, Customer, Inventory, Staff, dan Operation.",
     "owner.overview.sheet.summary": "Ringkasan Overview",
     "owner.overview.sheet.businessAreas": "Area Bisnis",
     "owner.overview.sheet.businessTrends": "Tren Bisnis",
@@ -1616,7 +1941,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.overview.sheet.material": "Bahan",
     "owner.overview.sheet.reportedBy": "Dilaporkan Oleh",
     "owner.health.details": "Detail Business Health",
-    "owner.health.detailsDescription": "Diagnosa driver yang menggerakkan score kesehatan bisnis.",
+    "owner.health.detailsDescription":
+      "Diagnosa driver yang menggerakkan score kesehatan bisnis.",
     "owner.health.selectedDriver": "Driver Terpilih",
     "owner.health.read": "Bacaan",
     "owner.health.businessAreas": "Area Bisnis",
@@ -1652,14 +1978,22 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.health.inventory": "Inventory",
     "owner.health.staff": "Staff",
     "owner.health.operations": "Operation",
-    "owner.health.salesSummary": "Mengecek apakah volume sales, net sales, dan tekanan diskon masih sehat.",
-    "owner.health.customerSummary": "Mengecek apakah loyalitas customer dan kontribusi member masih sehat.",
-    "owner.health.inventorySummary": "Mengecek apakah risiko stok, kualitas data, dan laporan stok pending perlu perhatian.",
-    "owner.health.staffSummary": "Mengecek apakah kehadiran dan disiplin waktu staff mendukung operasional.",
-    "owner.health.demandSummary": "Mengecek apakah revenue dan volume order cukup naik dibanding periode pembanding.",
-    "owner.health.transactionSummary": "Mengecek apakah setiap order valid membawa value yang cukup lewat basket size dan pergerakan AOV.",
-    "owner.health.profitSummary": "Mengecek apakah sales masih menjadi estimasi profit setelah food cost, discount, dan operating cost.",
-    "owner.health.operationsSummary": "Mengecek apakah order selesai dengan bersih dan timing service punya timestamp yang cukup.",
+    "owner.health.salesSummary":
+      "Mengecek apakah volume sales, net sales, dan tekanan diskon masih sehat.",
+    "owner.health.customerSummary":
+      "Mengecek apakah loyalitas customer dan kontribusi member masih sehat.",
+    "owner.health.inventorySummary":
+      "Mengecek apakah risiko stok, kualitas data, dan laporan stok pending perlu perhatian.",
+    "owner.health.staffSummary":
+      "Mengecek apakah kehadiran dan disiplin waktu staff mendukung operasional.",
+    "owner.health.demandSummary":
+      "Mengecek apakah revenue dan volume order cukup naik dibanding periode pembanding.",
+    "owner.health.transactionSummary":
+      "Mengecek apakah setiap order valid membawa value yang cukup lewat basket size dan pergerakan AOV.",
+    "owner.health.profitSummary":
+      "Mengecek apakah sales masih menjadi estimasi profit setelah food cost, discount, dan operating cost.",
+    "owner.health.operationsSummary":
+      "Mengecek apakah order selesai dengan bersih dan timing service punya timestamp yang cukup.",
     "owner.health.revenueGrowth": "Pertumbuhan Revenue",
     "owner.health.orderGrowth": "Pertumbuhan Order",
     "owner.health.aovGrowth": "Pertumbuhan AOV",
@@ -1677,7 +2011,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.health.inventoryCriticalRead": "Item di atau bawah reorder level",
     "owner.health.inventoryDataRead": "Data inventory yang perlu dirapikan",
     "owner.health.inventoryReportRead": "Laporan stok yang masih terbuka",
-    "owner.health.staffAttendanceRead": "Clock-in dibanding hari operasional tercatat",
+    "owner.health.staffAttendanceRead":
+      "Clock-in dibanding hari operasional tercatat",
     "owner.health.noSamples": "Tidak ada sample",
     "owner.health.noTimestampSamples": "Tidak ada sample timestamp",
     "owner.health.timedOrders": "{count} order bertimestamp",
@@ -1696,10 +2031,13 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.health.dataConfidence": "Keandalan Data",
     "owner.health.scoreOutOf100": "{score} / 100",
     "owner.health.validOrders": "{valid} order valid dari {total} total order",
-    "owner.health.areaCoverage": "{available} dari 5 area bisnis memiliki data yang dapat digunakan",
-    "owner.health.scoreExplanation": "Skor menggabungkan Sales, Customer, Inventory, Staff, dan Operation. Buka area di bawah untuk melihat angka pendukungnya.",
+    "owner.health.areaCoverage":
+      "{available} dari 5 area bisnis memiliki data yang dapat digunakan",
+    "owner.health.scoreExplanation":
+      "Skor menggabungkan Sales, Customer, Inventory, Staff, dan Operation. Buka area di bawah untuk melihat angka pendukungnya.",
     "owner.bookkeeping.title": "Pembukuan",
-    "owner.bookkeeping.description": "Closing harian, ledger, COGS, dan antrean review.",
+    "owner.bookkeeping.description":
+      "Closing harian, ledger, COGS, dan antrean review.",
     "owner.bookkeeping.mobileOpen": "Buka menu pembukuan",
     "owner.bookkeeping.mobileClose": "Tutup menu pembukuan",
     "owner.bookkeeping.closings": "Closing",
@@ -1713,19 +2051,27 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.exceptions": "Antrean Review",
     "owner.bookkeeping.exceptionsDescription": "Pengecualian",
     "owner.bookkeeping.businessDate": "Tanggal Bisnis",
-    "owner.bookkeeping.businessDateDescription": "Approve satu hari operasional dalam satu waktu.",
+    "owner.bookkeeping.businessDateDescription":
+      "Approve satu hari operasional dalam satu waktu.",
     "owner.bookkeeping.ownerRequired": "Akses owner diperlukan.",
-    "owner.bookkeeping.loadError": "Data pembukuan belum bisa dimuat. Widget akan tampil lagi setelah sumber data tersedia.",
+    "owner.bookkeeping.loadError":
+      "Data pembukuan belum bisa dimuat. Widget akan tampil lagi setelah sumber data tersedia.",
     "owner.bookkeeping.adjustmentSaved": "Adjustment manual tersimpan.",
-    "owner.bookkeeping.adjustmentCreateError": "Adjustment manual belum bisa dibuat.",
+    "owner.bookkeeping.adjustmentCreateError":
+      "Adjustment manual belum bisa dibuat.",
     "owner.bookkeeping.expenseSaved": "Biaya tersimpan.",
     "owner.bookkeeping.expenseUpdated": "Biaya diperbarui.",
-    "owner.bookkeeping.expenseSaveError": "Biaya pembukuan belum bisa disimpan.",
+    "owner.bookkeeping.expenseSaveError":
+      "Biaya pembukuan belum bisa disimpan.",
     "owner.bookkeeping.expenseDeleted": "Biaya dihapus.",
-    "owner.bookkeeping.expenseDeleteError": "Biaya pembukuan belum bisa dihapus.",
-    "owner.bookkeeping.dailyCloseError": "Closing harian belum bisa diselesaikan.",
-    "owner.bookkeeping.dailyReopenError": "Closing harian belum bisa dibuka ulang.",
-    "owner.bookkeeping.dailySavedStatus": "Closing harian tersimpan sebagai {status}.",
+    "owner.bookkeeping.expenseDeleteError":
+      "Biaya pembukuan belum bisa dihapus.",
+    "owner.bookkeeping.dailyCloseError":
+      "Closing harian belum bisa diselesaikan.",
+    "owner.bookkeeping.dailyReopenError":
+      "Closing harian belum bisa dibuka ulang.",
+    "owner.bookkeeping.dailySavedStatus":
+      "Closing harian tersimpan sebagai {status}.",
     "owner.bookkeeping.today": "Hari Ini",
     "owner.bookkeeping.yesterday": "Kemarin",
     "owner.bookkeeping.dateTime": "Tanggal/Waktu",
@@ -1749,10 +2095,13 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.difference": "Selisih",
     "owner.bookkeeping.exportDaily": "Export Harian",
     "owner.bookkeeping.dailyWorkbook": "Workbook Closing Harian",
-    "owner.bookkeeping.dailyWorkbookExported": "Workbook closing harian berhasil diexport.",
-    "owner.bookkeeping.dailyWorkbookExportError": "Gagal export workbook closing harian.",
+    "owner.bookkeeping.dailyWorkbookExported":
+      "Workbook closing harian berhasil diexport.",
+    "owner.bookkeeping.dailyWorkbookExportError":
+      "Gagal export workbook closing harian.",
     "owner.bookkeeping.dailyShiftClosing": "Closing Shift Harian",
-    "owner.bookkeeping.dailyShiftClosingDescription": "Staff mengirim hitungan kas per shift, manager review tiap shift, lalu owner memberi approval harian final.",
+    "owner.bookkeeping.dailyShiftClosingDescription":
+      "Staff mengirim hitungan kas per shift, manager review tiap shift, lalu owner memberi approval harian final.",
     "owner.bookkeeping.approveDaily": "Approve Laporan Harian",
     "owner.bookkeeping.approving": "Approving...",
     "owner.bookkeeping.reopenDaily": "Buka Ulang Laporan Harian",
@@ -1767,7 +2116,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.needsManagerReview": "Perlu review manager.",
     "owner.bookkeeping.afterDiscounts": "Total penjualan setelah diskon.",
     "owner.bookkeeping.cashPaymentOrders": "Pembayaran tunai dari pesanan.",
-    "owner.bookkeeping.openingPlusCashSales": "Kas awal ditambah penjualan tunai.",
+    "owner.bookkeeping.openingPlusCashSales":
+      "Kas awal ditambah penjualan tunai.",
     "owner.bookkeeping.submittedByStaff": "Dikirim staff saat akhir shift.",
     "owner.bookkeeping.menuName": "Nama Menu",
     "owner.bookkeeping.quantitySold": "Qty Terjual",
@@ -1780,19 +2130,29 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.missingCostRows": "Cost Belum Lengkap",
     "owner.bookkeeping.operatingExpenses": "Biaya Operasional",
     "owner.bookkeeping.menuProfitability": "Tabel Profitabilitas Menu",
-    "owner.bookkeeping.menuProfitabilityDescription": "Pendapatan dan margin per menu. Profit disembunyikan saat resep atau data cost item belum lengkap.",
+    "owner.bookkeeping.menuProfitabilityDescription":
+      "Pendapatan dan margin per menu. Profit disembunyikan saat resep atau data cost item belum lengkap.",
     "owner.bookkeeping.noMenuSales": "Tidak ada penjualan menu di periode ini.",
-    "owner.bookkeeping.actualUsageOrRecipe": "Menggunakan pemakaian inventaris aktual jika ada, selain itu memakai cost resep.",
-    "owner.bookkeeping.netSalesMinusCogs": "Penjualan bersih dikurangi estimasi COGS.",
-    "owner.bookkeeping.missingCostRowsDescription": "Baris menu yang masih butuh resep atau data cost item.",
-    "owner.bookkeeping.operatingCostPeriod": "Biaya operasional dalam periode ini.",
+    "owner.bookkeeping.actualUsageOrRecipe":
+      "Menggunakan pemakaian inventaris aktual jika ada, selain itu memakai cost resep.",
+    "owner.bookkeeping.netSalesMinusCogs":
+      "Penjualan bersih dikurangi estimasi COGS.",
+    "owner.bookkeeping.missingCostRowsDescription":
+      "Baris menu yang masih butuh resep atau data cost item.",
+    "owner.bookkeeping.operatingCostPeriod":
+      "Biaya operasional dalam periode ini.",
     "owner.bookkeeping.addAdjustment": "Tambah Adjustment",
     "owner.bookkeeping.manualAdjustment": "Adjustment Manual",
-    "owner.bookkeeping.manualAdjustmentDescription": "Gunakan untuk koreksi yang disetujui owner dan butuh audit trail.",
-    "owner.bookkeeping.transactionSummary": "Menampilkan {count} grup transaksi. Pergerakan termasuk: {summary}.",
-    "owner.bookkeeping.noFinancialMovement": "Belum ada pergerakan finansial. Pesanan paid, biaya operasional, dan adjustment owner akan tampil otomatis di sini.",
-    "owner.bookkeeping.noLedgerMovement": "Tidak ada pergerakan ledger di periode ini.",
-    "owner.bookkeeping.autoLedgerDescription": "Tampilan finansial otomatis dari pesanan paid, cost inventaris, biaya operasional, dan adjustment.",
+    "owner.bookkeeping.manualAdjustmentDescription":
+      "Gunakan untuk koreksi yang disetujui owner dan butuh audit trail.",
+    "owner.bookkeeping.transactionSummary":
+      "Menampilkan {count} grup transaksi. Pergerakan termasuk: {summary}.",
+    "owner.bookkeeping.noFinancialMovement":
+      "Belum ada pergerakan finansial. Pesanan paid, biaya operasional, dan adjustment owner akan tampil otomatis di sini.",
+    "owner.bookkeeping.noLedgerMovement":
+      "Tidak ada pergerakan ledger di periode ini.",
+    "owner.bookkeeping.autoLedgerDescription":
+      "Tampilan finansial otomatis dari pesanan paid, cost inventaris, biaya operasional, dan adjustment.",
     "owner.bookkeeping.cancel": "Batal",
     "owner.bookkeeping.saveAdjustment": "Simpan Adjustment",
     "owner.bookkeeping.saving": "Menyimpan...",
@@ -1809,11 +2169,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.addExpense": "Tambah Biaya",
     "owner.bookkeeping.editExpense": "Edit Biaya",
     "owner.bookkeeping.saveExpense": "Simpan Biaya",
-    "owner.bookkeeping.expensesPanelDescription": "Biaya operasional manual yang tidak dibuat dari POS atau pemakaian inventaris otomatis.",
-    "owner.bookkeeping.expenseSummary": "Menampilkan {count} catatan biaya, total {total}.",
-    "owner.bookkeeping.noManualExpenses": "Tidak ada biaya manual di periode ini.",
+    "owner.bookkeeping.expensesPanelDescription":
+      "Biaya operasional manual yang tidak dibuat dari POS atau pemakaian inventaris otomatis.",
+    "owner.bookkeeping.expenseSummary":
+      "Menampilkan {count} catatan biaya, total {total}.",
+    "owner.bookkeeping.noManualExpenses":
+      "Tidak ada biaya manual di periode ini.",
     "owner.bookkeeping.noExpenses": "Tidak ada biaya di periode ini.",
-    "owner.bookkeeping.expenseModalDescription": "Gunakan hanya untuk biaya operasional nyata di luar perhitungan POS dan inventaris otomatis.",
+    "owner.bookkeeping.expenseModalDescription":
+      "Gunakan hanya untuk biaya operasional nyata di luar perhitungan POS dan inventaris otomatis.",
     "owner.bookkeeping.severity": "Severity",
     "owner.bookkeeping.type": "Tipe",
     "owner.bookkeeping.descriptionColumn": "Deskripsi",
@@ -1822,29 +2186,39 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.waitingReview": "Menunggu Review",
     "owner.bookkeeping.reviewed": "Sudah Direview",
     "owner.bookkeeping.by": "oleh",
-    "owner.bookkeeping.reviewQueueDescription": "Daftar audit read-only untuk koreksi dan masalah pembukuan di periode terpilih.",
-    "owner.bookkeeping.noExceptions": "Tidak ada exception pembukuan di periode ini.",
+    "owner.bookkeeping.reviewQueueDescription":
+      "Daftar audit read-only untuk koreksi dan masalah pembukuan di periode terpilih.",
+    "owner.bookkeeping.noExceptions":
+      "Tidak ada exception pembukuan di periode ini.",
     "owner.bookkeeping.taxSettings": "Pengaturan Pajak & Charge",
-    "owner.bookkeeping.taxSettingsDescription": "Aturan yang dipakai POS dan laporan pembukuan. Pajak dicatat terpisah dari sales dan expenses.",
+    "owner.bookkeeping.taxSettingsDescription":
+      "Aturan yang dipakai POS dan laporan pembukuan. Pajak dicatat terpisah dari sales dan expenses.",
     "owner.bookkeeping.editSettings": "Edit Pengaturan",
     "owner.bookkeeping.customerTax": "Pajak Customer",
     "owner.bookkeeping.serviceCharge": "Service Charge",
     "owner.bookkeeping.lastUpdated": "Terakhir Diubah",
     "owner.bookkeeping.disabled": "Nonaktif",
-    "owner.bookkeeping.taxPayableNote": "Pajak terutang, bukan biaya operasional.",
+    "owner.bookkeeping.taxPayableNote":
+      "Pajak terutang, bukan biaya operasional.",
     "owner.bookkeeping.serviceFeeNote": "Biaya layanan toko opsional.",
-    "owner.bookkeeping.latestSettingChange": "Perubahan pengaturan finansial terbaru.",
+    "owner.bookkeeping.latestSettingChange":
+      "Perubahan pengaturan finansial terbaru.",
     "owner.bookkeeping.editTaxSettings": "Edit Pengaturan Pajak & Charge",
-    "owner.bookkeeping.editTaxSettingsDescription": "Ubah aturan pajak POS dan service charge yang dipakai laporan pembukuan.",
+    "owner.bookkeeping.editTaxSettingsDescription":
+      "Ubah aturan pajak POS dan service charge yang dipakai laporan pembukuan.",
     "owner.bookkeeping.saveSettings": "Simpan Pengaturan",
-    "owner.bookkeeping.customerTaxDescription": "Dipungut dari customer dan dilaporkan sebagai pajak terutang.",
+    "owner.bookkeeping.customerTaxDescription":
+      "Dipungut dari customer dan dilaporkan sebagai pajak terutang.",
     "owner.bookkeeping.enabled": "Aktif",
     "owner.bookkeeping.taxLabel": "Label Pajak",
     "owner.bookkeeping.taxRate": "Rate Pajak",
     "owner.bookkeeping.preview": "Preview",
-    "owner.bookkeeping.taxPreview": "Pada sales Rp 100.000, {label} yang dipungut adalah {amount}.",
-    "owner.bookkeeping.netSalesExcludesTax": "Laporan net sales tidak memasukkan pajak ini supaya profit owner tidak terlihat lebih besar.",
-    "owner.bookkeeping.serviceChargeDescription": "Diterapkan hanya untuk dine-in. Takeaway tidak mendapat charge ini.",
+    "owner.bookkeeping.taxPreview":
+      "Pada sales Rp 100.000, {label} yang dipungut adalah {amount}.",
+    "owner.bookkeeping.netSalesExcludesTax":
+      "Laporan net sales tidak memasukkan pajak ini supaya profit owner tidak terlihat lebih besar.",
+    "owner.bookkeeping.serviceChargeDescription":
+      "Diterapkan hanya untuk dine-in. Takeaway tidak mendapat charge ini.",
     "owner.bookkeeping.rate": "Rate",
     "owner.bookkeeping.settingsSaved": "Pengaturan finansial tersimpan.",
     "owner.bookkeeping.settingsLoadError": "Pengaturan belum bisa dimuat.",
@@ -1865,7 +2239,8 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.attendanceSettings": "Pengaturan Absensi",
     "owner.staff.loginCode": "Kode Login Staff",
     "owner.staff.deleteStaff": "Hapus Staff",
-    "owner.staff.deleteDescription": "Staff yang dihapus tidak bisa dikembalikan. Anda yakin?",
+    "owner.staff.deleteDescription":
+      "Staff yang dihapus tidak bisa dikembalikan. Anda yakin?",
     "owner.staff.delete": "Hapus",
     "owner.staff.fetchError": "Gagal mengambil data staff: {message}",
     "owner.staff.fetchShiftError": "Gagal mengambil data shift: {message}",
@@ -1873,11 +2248,14 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.loginCodeCreateError": "Gagal membuat kode login.",
     "owner.staff.deleteLogsError": "Gagal menghapus log staff: {message}",
     "owner.staff.deleteError": "Gagal menghapus staff: {message}",
-    "owner.staff.deleteNotAllowed": "Akun owner dan akun yang sedang digunakan tidak bisa dihapus.",
+    "owner.staff.deleteNotAllowed":
+      "Akun owner dan akun yang sedang digunakan tidak bisa dihapus.",
     "owner.staff.deleted": "Staff dihapus.",
-    "owner.staff.weeklyScheduleLoadError": "Gagal memuat jadwal shift mingguan: {message}",
+    "owner.staff.weeklyScheduleLoadError":
+      "Gagal memuat jadwal shift mingguan: {message}",
     "owner.staff.updateError": "Gagal memperbarui staff: {message}",
-    "owner.staff.weeklyScheduleUpdateError": "Gagal memperbarui jadwal shift mingguan: {message}",
+    "owner.staff.weeklyScheduleUpdateError":
+      "Gagal memperbarui jadwal shift mingguan: {message}",
     "owner.staff.updated": "Data staff diperbarui.",
     "owner.staff.codesFetchError": "Gagal mengambil kode staff: {message}",
     "owner.staff.codeUsed": "Kode staff sudah digunakan. Coba simpan lagi.",
@@ -1893,11 +2271,14 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.emailRequiredManager": "Email wajib diisi untuk Manager.",
     "owner.staff.passwordManagerMin": "Password manager minimal 6 karakter.",
     "owner.staff.staffTypeRequiredGeneric": "Tipe staff wajib dipilih.",
-    "owner.staff.shiftRequired": "Shift wajib dipilih untuk role staff atau manager.",
+    "owner.staff.shiftRequired":
+      "Shift wajib dipilih untuk role staff atau manager.",
     "owner.staff.saveFailed": "Gagal menyimpan perubahan staff.",
-    "owner.staff.staffTypeRequired": "Tipe staff wajib dipilih untuk role Staff.",
+    "owner.staff.staffTypeRequired":
+      "Tipe staff wajib dipilih untuk role Staff.",
     "owner.staff.staffType": "Tipe Staff",
-    "owner.staff.staffTypeHelper": "Tipe staff hanya digunakan untuk role Staff.",
+    "owner.staff.staffTypeHelper":
+      "Tipe staff hanya digunakan untuk role Staff.",
     "owner.staff.workShift": "Shift Kerja",
     "owner.staff.noActiveShift": "Belum ada shift aktif",
     "owner.staff.fullName": "Nama Lengkap",
@@ -1915,13 +2296,15 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.deleteStaffName": "Hapus {name}",
     "owner.staff.noStaffData": "Belum ada data staff.",
     "owner.staff.dataList": "Daftar Data Staff",
-    "owner.staff.dataListDescription": "Data profil, role, shift, dan status akses staff yang terstruktur.",
+    "owner.staff.dataListDescription":
+      "Data profil, role, shift, dan status akses staff yang terstruktur.",
     "owner.staff.startWork": "Mulai Kerja: {date}",
     "owner.staff.inactive": "Tidak Aktif",
     "owner.staff.onLeave": "Cuti",
     "owner.staff.terminated": "Diberhentikan",
     "owner.staff.weeklyOverride": "Override Shift Mingguan",
-    "owner.staff.weeklyOverrideHelper": "Opsional. Tambahkan hanya hari yang berbeda dari Shift Kerja default.",
+    "owner.staff.weeklyOverrideHelper":
+      "Opsional. Tambahkan hanya hari yang berbeda dari Shift Kerja default.",
     "owner.staff.addWeeklyOverride": "Tambah Override Mingguan",
     "owner.staff.access": "Akses Staff",
     "owner.staff.cancel": "Batal",
@@ -1937,10 +2320,13 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.saveLocation": "Simpan Lokasi",
     "owner.staff.locationSaved": "Lokasi cafe tersimpan.",
     "owner.staff.locationUnsupported": "Browser tidak mendukung fitur lokasi.",
-    "owner.staff.locationFailed": "Gagal mengambil lokasi. Pastikan GPS aktif dan coba lagi.",
-    "owner.staff.locationPermissionDenied": "Izin lokasi ditolak. Aktifkan izin lokasi browser terlebih dahulu.",
+    "owner.staff.locationFailed":
+      "Gagal mengambil lokasi. Pastikan GPS aktif dan coba lagi.",
+    "owner.staff.locationPermissionDenied":
+      "Izin lokasi ditolak. Aktifkan izin lokasi browser terlebih dahulu.",
     "owner.staff.locationSaveError": "Gagal menyimpan lokasi cafe.",
-    "owner.staff.locationSettingsInvalid": "Pengaturan lokasi belum valid. Pastikan nama cafe, latitude, longitude, dan radius sudah benar.",
+    "owner.staff.locationSettingsInvalid":
+      "Pengaturan lokasi belum valid. Pastikan nama cafe, latitude, longitude, dan radius sudah benar.",
     "owner.staff.shiftManagement": "Kelola Shift",
     "owner.staff.addShift": "Tambah Shift",
     "owner.staff.editShift": "Edit Shift",
@@ -1960,20 +2346,25 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.staff.shiftName": "Nama Shift",
     "owner.staff.shiftNamePlaceholder": "Contoh: Shift Pagi",
     "owner.staff.shiftAvailable": "Shift tersedia untuk pilihan data staff",
-    "owner.staff.shiftFormDescription": "Shift menentukan jam mulai, toleransi terlambat, jam selesai, dan toleransi clock-out.",
+    "owner.staff.shiftFormDescription":
+      "Shift menentukan jam mulai, toleransi terlambat, jam selesai, dan toleransi clock-out.",
     "owner.staff.saveShift": "Simpan Shift",
-    "owner.staff.shiftDataInvalid": "Data shift tidak valid. Pastikan nama shift terisi, toleransi clock-in tidak lebih awal dari jam mulai, dan toleransi clock-out tidak lebih awal dari jam selesai.",
+    "owner.staff.shiftDataInvalid":
+      "Data shift tidak valid. Pastikan nama shift terisi, toleransi clock-in tidak lebih awal dari jam mulai, dan toleransi clock-out tidak lebih awal dari jam selesai.",
     "owner.staff.shiftSaveError": "Gagal menyimpan shift.",
     "owner.staff.shiftStatusError": "Gagal memperbarui status shift.",
     "owner.staff.shiftDeleteError": "Gagal menghapus shift.",
     "owner.staff.fetchAttendanceError": "Gagal mengambil data absensi.",
     "owner.staff.confirmShiftStatus": "Yakin ingin {action} {name}?",
-    "owner.staff.confirmShiftDelete": "Yakin ingin menghapus {name}? Shift yang dihapus tidak akan muncul lagi di pilihan staff. Riwayat absensi tetap tersimpan, tetapi nama shift di riwayat tersebut bisa menjadi \"Tanpa Shift\".",
+    "owner.staff.confirmShiftDelete":
+      'Yakin ingin menghapus {name}? Shift yang dihapus tidak akan muncul lagi di pilihan staff. Riwayat absensi tetap tersimpan, tetapi nama shift di riwayat tersebut bisa menjadi "Tanpa Shift".',
     "owner.staff.activate": "mengaktifkan",
     "owner.staff.deactivate": "menonaktifkan",
     "owner.activity.emptyTitle": "Tidak ada activity log",
-    "owner.activity.emptyWithFilters": "Tidak ada log yang cocok dengan pencarian atau filter saat ini.",
-    "owner.activity.emptyNoData": "Activity log akan muncul setelah user mulai melakukan aksi.",
+    "owner.activity.emptyWithFilters":
+      "Tidak ada log yang cocok dengan pencarian atau filter saat ini.",
+    "owner.activity.emptyNoData":
+      "Activity log akan muncul setelah user mulai melakukan aksi.",
     "owner.activity.clearFilters": "Hapus Filter",
     "owner.activity.totalLogs": "Total Log",
     "owner.activity.totalLogsDetail": "Baris aktivitas yang dimuat",
@@ -2034,20 +2425,25 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.activity.logout": "Logout",
     "owner.activity.void": "Void",
     "owner.activity.table": "Tabel Riwayat Aktivitas",
-    "owner.activity.tableSubtitle": "Jejak audit kronologis untuk aksi sistem dan user.",
-    "owner.activity.emptyFiltered": "Tidak ada activity log yang cocok dengan filter saat ini.",
+    "owner.activity.tableSubtitle":
+      "Jejak audit kronologis untuk aksi sistem dan user.",
+    "owner.activity.emptyFiltered":
+      "Tidak ada activity log yang cocok dengan filter saat ini.",
     "owner.activity.date": "Tanggal",
     "owner.activity.unknown": "Tidak diketahui",
     "owner.activity.more": "+{count} lagi",
     "owner.activity.showDetails": "Lihat detail aktivitas",
-    "owner.activity.exportExcelSuccess": "Riwayat aktivitas berhasil diexport sebagai Excel.",
+    "owner.activity.exportExcelSuccess":
+      "Riwayat aktivitas berhasil diexport sebagai Excel.",
     "owner.activity.exportExcelError": "Gagal export Excel.",
-    "owner.activity.exportPdfSuccess": "Riwayat aktivitas berhasil diexport sebagai PDF.",
+    "owner.activity.exportPdfSuccess":
+      "Riwayat aktivitas berhasil diexport sebagai PDF.",
     "owner.activity.exportPdfError": "Gagal export PDF.",
     "owner.activity.reportTitle": "Laporan Riwayat Aktivitas",
     "owner.activity.generated": "Dibuat: {value}",
     "owner.activity.criticalWarning": "Aktivitas Kritis: {user} - {action}",
-    "owner.login.welcome": "Selamat datang, Owner. Login untuk masuk ke dashboard.",
+    "owner.login.welcome":
+      "Selamat datang, Owner. Login untuk masuk ke dashboard.",
     "owner.login.email": "Email",
     "owner.login.password": "Password",
     "owner.login.loading": "Memuat...",

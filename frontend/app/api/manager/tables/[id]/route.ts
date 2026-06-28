@@ -13,10 +13,11 @@ import type { TableUpdateInput } from '@/lib/types/table';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const table = await getTableById(params.id);
+    const { id } = await params;
+    const table = await getTableById(id);
 
     if (!table) {
       return NextResponse.json(
@@ -50,9 +51,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const input: TableUpdateInput = {};
 
@@ -67,7 +69,7 @@ export async function PATCH(
     if (body.is_active !== undefined) input.is_active = body.is_active;
     if (body.notes !== undefined) input.notes = body.notes;
 
-    const table = await updateTable(params.id, input);
+    const table = await updateTable(id, input);
 
     return NextResponse.json({
       success: true,
@@ -92,10 +94,11 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await deleteTable(params.id);
+    const { id } = await params;
+    await deleteTable(id);
 
     return NextResponse.json({
       success: true,

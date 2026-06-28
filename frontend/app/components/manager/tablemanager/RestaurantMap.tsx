@@ -2,13 +2,17 @@
  * Restaurant Map Component
  * Drag-and-drop visual layout editor for tables
  */
+/**
+ * Restaurant Map Component
+ * Drag-and-drop visual layout editor for tables
+ */
 
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { useLanguage } from '@/app/components/shared/i18n';
-import { showError } from '@/lib/services/errorHandling';
+import { showError, showConfirmation } from '@/lib/services/errorHandling';
 import TableCard from './TableCard';
 import QRCodeModal from './QRCodeModal';
 
@@ -243,7 +247,7 @@ export default function RestaurantMap({
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await showConfirmation(
       t('manager.table.deleteConfirm', { table: table.table_number })
     );
 

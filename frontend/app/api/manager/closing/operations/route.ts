@@ -324,10 +324,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "verify_cash_deposit") {
-      const depositId = String((body as any).depositId || "").trim();
-      const receivedAmount = toNumber((body as any).receivedAmount);
-      const status = String((body as any).status || "").trim();
-      const managerNotes = String((body as any).managerNotes || "").trim();
+      const depositId = String((body as Record<string, unknown>).depositId || "").trim();
+      const receivedAmount = toNumber((body as Record<string, unknown>).receivedAmount);
+      const status = String((body as Record<string, unknown>).status || "").trim();
+      const managerNotes = String((body as Record<string, unknown>).managerNotes || "").trim();
 
       if (!depositId || !["verified", "disputed"].includes(status)) {
         return NextResponse.json({ error: "Deposit ID and valid verification status are required." }, { status: 400 });

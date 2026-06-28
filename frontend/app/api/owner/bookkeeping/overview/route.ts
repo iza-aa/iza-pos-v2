@@ -473,7 +473,7 @@ async function loadStoredBookkeepingRows({
           expectedAmount: toNumber(deposit.expected_amount),
           submittedAmount: toNumber(deposit.submitted_amount),
           receivedAmount: deposit.received_amount !== null && deposit.received_amount !== undefined ? toNumber(deposit.received_amount) : null,
-          status: deposit.status,
+          status: deposit.status as "verified" | "submitted" | "received" | "disputed",
           managerId: deposit.manager_id || null,
           managerName: deposit.manager?.name || null,
           managerNotes: deposit.manager_notes || null,

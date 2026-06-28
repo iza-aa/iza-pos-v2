@@ -51,7 +51,7 @@ export async function getTables(filters?: TableFilters): Promise<TableWithFloor[
   }
   
   // Transform data to include floor_name
-  return (data || []).map((table: any) => ({
+  return (data || []).map((table: Table & { floor?: { name?: string } }) => ({
     ...table,
     floor_name: table.floor?.name || 'Unknown'
   }));

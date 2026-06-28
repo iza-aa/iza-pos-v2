@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowPathIcon,
@@ -76,11 +78,12 @@ function StaffAvatar({ staff }: { staff: StaffRow }) {
     <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-900 text-[11px] font-bold text-white">
       {getInitials(staff.name)}
       {profilePicture ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={profilePicture}
           alt={staff.name}
-          className="absolute inset-0 h-full w-full object-cover"
+          fill
+          unoptimized
+          className="object-cover"
           onError={(event) => {
             event.currentTarget.style.display = "none";
           }}

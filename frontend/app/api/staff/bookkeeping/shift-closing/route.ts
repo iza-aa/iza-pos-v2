@@ -3,6 +3,7 @@ import {
   assertBookkeepingDatesAreOpen,
   createBookkeepingSupabaseClient,
 } from "@/lib/services/bookkeeping/bookkeepingServer";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type StaffRow = {
   id: string;
@@ -566,7 +567,7 @@ const getPreviousShiftClosing = async ({
   supabase,
   businessDate,
 }: {
-  supabase: any;
+  supabase: SupabaseClient;
   businessDate: string;
 }) => {
   const { data, error } = await supabase
@@ -1083,7 +1084,7 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error 
       ? error.message 
       : (error && typeof error === "object" && "message" in error)
-        ? String((error as any).message)
+        ? String((error as Record<string, unknown>).message)
         : "Shift closing could not be submitted.";
     return NextResponse.json(
       {

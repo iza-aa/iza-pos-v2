@@ -14,7 +14,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/config/supabaseClient';
-import { showError, showSuccess } from '@/lib/services/errorHandling';
+import { showError, showSuccess, showConfirmation } from '@/lib/services/errorHandling';
 import {
   FloorSelector,
   RestaurantMap,
@@ -99,7 +99,7 @@ export default function TableManagementPage() {
   const handleDeleteFloor = async () => {
     if (!selectedFloor || isDeletingFloor) return;
 
-    const confirmed = window.confirm(
+    const confirmed = await showConfirmation(
       t('manager.table.deleteFloorConfirm')
     );
 

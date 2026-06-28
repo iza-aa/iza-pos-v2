@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono} from "next/font/google";
 import { LanguageProvider } from "./components/shared/i18n";
+import { GlobalConfirmDialog } from "./components/shared";
 import "../app/globals.css";
 
 const geistSans = Geist({
@@ -67,6 +68,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <LanguageProvider>{children}</LanguageProvider>
+        <GlobalConfirmDialog />
       </body>
     </html>
   );

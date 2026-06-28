@@ -13,9 +13,16 @@ import { StandardModal } from '@/app/components/shared';
 import { formatCurrency } from '@/lib/constants';
 import { showError } from '@/lib/services/errorHandling';
 import CashPaymentInput from './CashPaymentInput';
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
 type FulfillmentMethod = 'table_service' | 'counter_pickup';
 type PaymentMethod = 'cash' | 'qris' | 'card';
+
+interface CustomerInfo {
+  id: string;
+  name: string;
+  loyalty_points: number;
+}
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -24,6 +31,7 @@ interface PaymentModalProps {
     paymentMethod: string;
     customerName?: string;
     customerPhone?: string;
+    customerId?: string;
     notes?: string;
     cashAmount?: number;
     fulfillmentMethod: FulfillmentMethod;
@@ -51,6 +59,9 @@ export default function PaymentModal({
   const [notes, setNotes] = useState('');
   const [cashReceived, setCashReceived] = useState('');
 
+  const [lookupStatus, setLookupStatus] = useState<'idle' | 'searching' | 'found' | 'not_found'>('idle');
+  const [foundCustomer, setFoundCustomer] = useState<CustomerInfo | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -61,7 +72,42 @@ export default function PaymentModal({
     setCustomerPhone('');
     setNotes('');
     setCashReceived('');
+    setLookupStatus('idle');
+    setFoundCustomer(null);
   }, [isOpen]);
+
+  useEffect(() => {
+    const phone = customerPhone.trim();
+    if (phone.length < 8) {
+      setLookupStatus('idle');
+      setFoundCustomer(null);
+      return;
+    }
+
+    setLookupStatus('searching');
+    setFoundCustomer(null);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/staff/pos/lookup-customer?phone=${encodeURIComponent(phone)}`);
+        const result = await response.json();
+
+        if (result.found && result.customer) {
+          setLookupStatus('found');
+          setFoundCustomer(result.customer);
+          setCustomerName(result.customer.name);
+        } else {
+          setLookupStatus('not_found');
+          setFoundCustomer(null);
+        }
+      } catch (error) {
+        console.error('Customer lookup error:', error);
+        setLookupStatus('idle');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [customerPhone, isOpen]);
 
   if (!isOpen) {
     return null;
@@ -91,6 +137,7 @@ export default function PaymentModal({
       paymentMethod,
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
+      customerId: foundCustomer?.id,
       notes: notes.trim() || undefined,
       cashAmount: paymentMethod === 'cash' ? received : undefined,
       fulfillmentMethod,
@@ -248,10 +295,9 @@ export default function PaymentModal({
               </p>
             </section>
           ) : (
-            <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <section className="">
               <p className="text-sm text-amber-900">
-                Counter Pickup uses the order number as the pickup code. This is
-                suitable when customers wait near the counter.
+
               </p>
             </section>
           )}
@@ -293,9 +339,34 @@ export default function PaymentModal({
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-900 outline-none transition focus:ring-1 ${
+                  lookupStatus === 'found'
+                    ? 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500 bg-emerald-50'
+                    : 'border-gray-300 focus:border-gray-900 focus:ring-gray-900'
+                }`}
                 placeholder="Optional"
               />
+
+              {lookupStatus === 'searching' && (
+                <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                  Mencari customer...
+                </p>
+              )}
+
+              {lookupStatus === 'found' && foundCustomer && (
+                <p className="mt-1 text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                  <CheckCircleIcon className="h-4 w-4" />
+                  {foundCustomer.name} — {foundCustomer.loyalty_points} poin
+                </p>
+              )}
+
+              {lookupStatus === 'not_found' && (
+                <p className="mt-1 text-xs text-gray-400 flex items-center gap-1">
+                  <XCircleIcon className="h-4 w-4" />
+                  Belum terdaftar
+                </p>
+              )}
             </div>
           </section>
 

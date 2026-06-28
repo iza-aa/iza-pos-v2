@@ -21,6 +21,7 @@ import {
   getStoredCustomerAccount,
   saveCustomerAccount,
 } from "@/lib/customer/customerAccount";
+import { showConfirmation } from "@/lib/services/errorHandling";
 
 interface CustomerProfileRow {
   id: string;
@@ -480,7 +481,7 @@ export default function CustomerRewardsPage() {
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await showConfirmation(
       `Redeem ${reward.points_required} points for ${reward.name}?`,
     );
 

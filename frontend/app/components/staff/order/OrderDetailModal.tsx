@@ -58,7 +58,7 @@ const getStatusBadgeClass = (status: string) => {
   return OWNER_SEMANTIC_TONES.neutral.badgeClass;
 };
 
-const normalizeVariants = (variants: any): any[] => {
+const normalizeVariants = (variants: unknown): Array<Record<string, unknown>> => {
   if (!variants) return [];
   if (typeof variants === "string") {
     try {
@@ -69,10 +69,10 @@ const normalizeVariants = (variants: any): any[] => {
     }
   }
   if (Array.isArray(variants)) {
-    return variants;
+    return variants as Array<Record<string, unknown>>;
   }
   if (typeof variants === "object") {
-    return Object.entries(variants).map(([key, value]) => ({
+    return Object.entries(variants as Record<string, unknown>).map(([key, value]) => ({
       optionName: key,
       value,
     }));
@@ -80,9 +80,9 @@ const normalizeVariants = (variants: any): any[] => {
   return [];
 };
 
-const getVariantText = (variants: any): string => {
+const getVariantText = (variants: unknown): string => {
   return normalizeVariants(variants)
-    .map((v: any) => v.optionName ?? v.name ?? v.label ?? v.value)
+    .map((v) => v.optionName ?? v.name ?? v.label ?? v.value)
     .filter(Boolean)
     .join(", ");
 };

@@ -65,14 +65,14 @@ export async function getFloorsWithTables(): Promise<FloorWithTables[]> {
   }
   
   // Transform data to include counts
-  return (data || []).map((floor: any) => {
+  return (data || []).map((floor: Floor & { tables?: { status: string }[] }) => {
     const tables = floor.tables || [];
     return {
       ...floor,
       total_tables: tables.length,
-      available_tables: tables.filter((t: any) => t.status === 'free').length,
-      occupied_tables: tables.filter((t: any) => t.status === 'occupied').length,
-      reserved_tables: tables.filter((t: any) => t.status === 'reserved').length,
+      available_tables: tables.filter((t: { status: string }) => t.status === 'free').length,
+      occupied_tables: tables.filter((t: { status: string }) => t.status === 'occupied').length,
+      reserved_tables: tables.filter((t: { status: string }) => t.status === 'reserved').length,
     };
   });
 }

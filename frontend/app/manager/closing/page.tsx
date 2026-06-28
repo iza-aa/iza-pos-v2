@@ -79,6 +79,16 @@ const expenseCategories = [
   { value: "Lainnya", labelKey: "manager.closing.expenseCategory.other" },
 ];
 
+type DepositRow = {
+  id: string;
+  envelope_number: string;
+  expected_amount: number;
+  submitted_amount: number;
+  received_amount: number | null;
+  status: string;
+  staff?: { name: string } | null;
+};
+
 type ManagerBookkeepingData = {
   businessDate: string;
   staff: StaffRow[];
@@ -87,7 +97,7 @@ type ManagerBookkeepingData = {
   weeklyAssignments: WeeklyAssignmentRow[];
   shiftClosings: ClosingRow[];
   expenses: ExpenseRow[];
-  deposits: any[];
+  deposits: DepositRow[];
 };
 
 const getToday = () => {
@@ -175,7 +185,7 @@ export default function ManagerClosingPage() {
   const [openingCashModalOpen, setOpeningCashModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [verifyDepositModalOpen, setVerifyDepositModalOpen] = useState(false);
-  const [selectedDeposit, setSelectedDeposit] = useState<any | null>(null);
+  const [selectedDeposit, setSelectedDeposit] = useState<DepositRow | null>(null);
   const [verifyForm, setVerifyForm] = useState({ receivedAmount: "", status: "verified", managerNotes: "" });
   const [cashForm, setCashForm] = useState({ shiftId: "", openingCash: "", closingFloat: "", note: "" });
   const [expenseForm, setExpenseForm] = useState({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", note: "" });
@@ -597,7 +607,7 @@ export default function ManagerClosingPage() {
                   {!data.deposits || data.deposits.length === 0 ? (
                     <p className="text-xs text-gray-500 py-3 text-center">{t("manager.closing.noDeposits")}</p>
                   ) : (
-                    data.deposits.map((deposit: any) => {
+                    data.deposits.map((deposit) => {
                       const isPending = deposit.status === "submitted";
                       return (
                         <div key={deposit.id} className="rounded-xl border border-gray-300 p-3 bg-gray-50/50 space-y-2">

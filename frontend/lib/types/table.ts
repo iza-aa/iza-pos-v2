@@ -42,7 +42,7 @@ export interface Table {
   
   // Relations (optional, populated with joins)
   floor?: Floor;
-  current_order?: any; // Import Order type if needed
+  current_order?: unknown; // Import Order type if needed
 }
 
 // Table with Floor Name (for display)

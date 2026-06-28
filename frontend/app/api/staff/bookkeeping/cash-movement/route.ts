@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assertBookkeepingDatesAreOpen,
   createBookkeepingSupabaseClient,
@@ -41,7 +42,7 @@ const loadAssignedShiftId = async ({
 }: {
   businessDate: string;
   staffId: string;
-  supabase: any;
+  supabase: SupabaseClient;
 }) => {
   const weekday = new Date(businessDate).getDay();
   const isoWeekday = weekday === 0 ? 7 : weekday;

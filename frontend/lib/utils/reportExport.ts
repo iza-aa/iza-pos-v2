@@ -193,7 +193,7 @@ async function exportXlsx(options: ReportExportOptions) {
           if (
             typeof cell.value === "number" &&
             sheet.rows[0]?.length === 2 &&
-            cell.col === 2
+            Number(cell.col) === 2
           ) {
             cell.numFmt = getReportNumberFormat(
               asText(sheet.rows[rowIndex - 6]?.[0]),
@@ -344,14 +344,14 @@ async function exportPdf(options: ReportExportOptions) {
         halign: "center",
       },
       alternateRowStyles: { fillColor: [248, 250, 252] },
-      didDrawPage: () => {
+      didDrawPage: (data) => {
         const pageHeight = document.internal.pageSize.getHeight();
         document.setFont("helvetica", "normal");
         document.setFontSize(8);
         document.setTextColor(107, 114, 128);
         document.text("IZA POS", 12, pageHeight - 6);
         document.text(
-          `Page ${document.internal.getCurrentPageInfo().pageNumber}`,
+          `Page ${data.pageNumber}`,
           pageWidth - 12,
           pageHeight - 6,
           { align: "right" },

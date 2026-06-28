@@ -52,8 +52,8 @@ export default function PaymentSummary({
 						<span>{formatCurrency(tax)}</span>
 					</div>
 					<div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
-						<span style={{ color: COLORS.PRIMARY }}>Total Payable</span>
-						<span style={{ color: COLORS.PRIMARY }}>{formatCurrency(totalPayable)}</span>
+						<span className="text-primary">Total Payable</span>
+						<span className="text-primary">{formatCurrency(totalPayable)}</span>
 					</div>
 				</div>
 			</div>

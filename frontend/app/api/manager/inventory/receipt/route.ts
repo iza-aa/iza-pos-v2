@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    await ensureInvoiceBucket(supabaseAdmin);
+    await ensureInvoiceBucket(supabaseAdmin as any);
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const filePath = `inventory/${itemId}/${Date.now()}-${sanitizeFileName(file.name)}`;

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTables, createTable, getTablesWithoutQR } from '@/lib/services/table';
-import type { TableCreateInput } from '@/lib/types/table';
+import type { TableCreateInput, TableStatus } from '@/lib/types/table';
 
 /**
  * GET /api/manager/tables
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const floor_id = searchParams.get('floor_id') || undefined;
-    const status = searchParams.get('status') as any;
+    const status = (searchParams.get('status') as TableStatus) || undefined;
     const is_active = searchParams.get('is_active');
     const without_qr = searchParams.get('without_qr') === 'true';
 

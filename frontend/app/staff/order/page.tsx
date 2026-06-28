@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { POLLING_INTERVALS } from "@/lib/constants";
 import { OrderCard } from "@/app/components/shared";
@@ -148,11 +148,18 @@ export default function StaffOrderPage() {
   const [availableWaiters, setAvailableWaiters] = useState<AvailableStaffOption[]>([]);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
 
+  const fetchRefs = useRef({
+    fetchOrders: () => {},
+    fetchOrderCorrections: () => {},
+    fetchAvailableBaristas: () => {},
+    fetchAvailableWaiters: () => {}
+  });
+
   useEffect(() => {
-    fetchOrders();
-    fetchOrderCorrections();
-    fetchAvailableBaristas();
-    fetchAvailableWaiters();
+    fetchRefs.current.fetchOrders();
+    fetchRefs.current.fetchOrderCorrections();
+    fetchRefs.current.fetchAvailableBaristas();
+    fetchRefs.current.fetchAvailableWaiters();
 
     const channel = supabase
       .channel("manager-orders-changes")
@@ -160,37 +167,33 @@ export default function StaffOrderPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
         () => {
-          fetchOrders();
+          fetchRefs.current.fetchOrders();
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
         () => {
-          fetchOrders();
+          fetchRefs.current.fetchOrders();
         },
       )
       .subscribe();
 
     const interval = setInterval(() => {
-      fetchOrders();
-      fetchOrderCorrections();
-      fetchAvailableBaristas();
-      fetchAvailableWaiters();
+      fetchRefs.current.fetchOrders();
+      fetchRefs.current.fetchOrderCorrections();
+      fetchRefs.current.fetchAvailableBaristas();
+      fetchRefs.current.fetchAvailableWaiters();
     }, POLLING_INTERVALS.SLOW);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-    // Existing polling bootstrap intentionally runs once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    void fetchOrderCorrections();
-    // Date filter refresh only; fetchOrderCorrections reads the latest date range.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void fetchRefs.current.fetchOrderCorrections();
   }, [dateRange]);
 
   async function fetchAvailableStaffByPosition(position: "barista" | "waiter") {
@@ -198,7 +201,7 @@ export default function StaffOrderPage() {
       const user = getCurrentUser();
       if (!user) return [];
 
-      const response = await fetch(`/api/staff/available?position=${position}`, {
+      const response = await fetch(`/api/staff/available?position=${position}&includeUnavailable=true`, {
         headers: {
           "x-user-id": user.id,
           "x-user-name": user.name,
@@ -260,6 +263,8 @@ export default function StaffOrderPage() {
       console.warn("Failed to load order corrections:", error);
     }
   }
+
+  fetchRefs.current.fetchOrderCorrections = fetchOrderCorrections;
 
   async function fetchOrders() {
     setLoading(true);
@@ -571,6 +576,10 @@ export default function StaffOrderPage() {
       setLoading(false);
     }
   }
+
+  fetchRefs.current.fetchOrders = fetchOrders;
+  fetchRefs.current.fetchAvailableBaristas = fetchAvailableBaristas;
+  fetchRefs.current.fetchAvailableWaiters = fetchAvailableWaiters;
 
   const waiterNameById = new Map(
     availableWaiters.map((waiter) => [waiter.id, waiter.name]),

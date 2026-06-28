@@ -1006,18 +1006,18 @@ export async function recordOrderInventoryUsageWithBatches(input: RecordOrderInv
         usageLines: existing.lines.length,
         batchEnabled: true,
         batchMovements: 0,
-        usageSummary: buildUsageSummary(existing.lines),
+        usageSummary: buildUsageSummary(existing.lines as any),
       };
     }
 
-    const batchResult = await consumeBatches(existing.lines, notes, input.performedByName);
+    const batchResult = await consumeBatches(existing.lines as any, notes, input.performedByName);
     return {
       source: "existing",
       usageLines: existing.lines.length,
       batchEnabled: batchResult.enabled,
       batchMovements: batchResult.movements,
       batchShortage: batchResult.shortage,
-      usageSummary: buildUsageSummary(existing.lines),
+      usageSummary: buildUsageSummary(existing.lines as any),
     };
   }
 

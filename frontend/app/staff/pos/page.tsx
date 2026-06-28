@@ -92,6 +92,7 @@ type PaymentConfirmData = {
 	paymentMethod: string;
 	customerName?: string;
 	customerPhone?: string;
+	customerId?: string;
 	notes?: string;
 	cashAmount?: number;
 	fulfillmentMethod?: FulfillmentMethod;
@@ -662,6 +663,7 @@ export default function POSPage() {
 				.insert([
 					{
 						order_number: orderNumber,
+						customer_id: paymentData.customerId || null,
 						customer_name: customerName,
 						table_number: tableNumber,
 						table_id: null,
@@ -831,6 +833,19 @@ export default function POSPage() {
 				fulfillmentMethod === "table_service"
 					? `Table ${tableNumber}`
 					: `Pickup ${orderNumber}`;
+
+			// Award Points
+			if (paymentData.customerId) {
+				fetch("/api/staff/pos/award-points", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						orderId: orderData.id,
+						customerId: paymentData.customerId,
+						orderTotal: orderFinancialTotals.total,
+					}),
+				}).catch((err) => console.warn("Failed to award points:", err));
+			}
 
 			showSuccess(`Order ${orderNumber} placed successfully. ${fulfillmentLabel}.`);
 			setCart([]);
@@ -1087,7 +1102,7 @@ export default function POSPage() {
 										name: item.name,
 										quantity: item.quantity,
 										price: item.price,
-										variants: item.variants,
+										variants: normalizeVariantRecord(item.variants as SelectedVariant[]),
 										productId: item.productId,
 									}))}
 									onEditTable={() => {}}

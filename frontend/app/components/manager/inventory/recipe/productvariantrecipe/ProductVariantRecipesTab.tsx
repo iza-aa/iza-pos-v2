@@ -8,6 +8,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { supabase } from '@/lib/config/supabaseClient'
+import { showConfirmation, showError } from '@/lib/services/errorHandling'
 
 type ProductRow = {
   id: string
@@ -319,7 +320,7 @@ export default function ProductVariantRecipesTab() {
   }
 
   const handleDeleteAdjustment = async (adjustmentId: string) => {
-    const confirmed = window.confirm('Delete this product variant recipe adjustment?')
+    const confirmed = await showConfirmation('Delete this product variant recipe adjustment?')
     if (!confirmed) return
 
     try {

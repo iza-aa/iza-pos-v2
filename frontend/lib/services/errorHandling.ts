@@ -370,14 +370,18 @@ export async function handleApiFetch<T>(
 
 // ==================== Confirmation Dialogs ====================
 
+import { confirmDialog } from './confirmService'
+
 /**
  * Show confirmation dialog
  * Returns true if confirmed, false if cancelled
  */
 export async function showConfirmation(message: string, title?: string): Promise<boolean> {
-  // For now, use native confirm
-  // TODO: Replace with custom modal in future
-  return window.confirm(title ? `${title}\n\n${message}` : message)
+  return confirmDialog({
+    message,
+    title,
+    type: 'warning'
+  })
 }
 
 /**

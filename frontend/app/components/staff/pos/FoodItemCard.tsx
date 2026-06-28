@@ -67,7 +67,7 @@ export default function FoodItemCard({ item, onItemClick }: FoodItemCardProps) {
 						{item.unavailableReason}
 					</div>
 				) : null}
-				<div className="font-bold text-sm" style={{ color: COLORS.PRIMARY }}>
+				<div className="font-bold text-sm text-primary">
 					{formatCurrency(item.price)}
 				</div>
 			</div>
