@@ -123,7 +123,6 @@ export default function AttendancePage() {
     handleShiftClosingSubmit,
     handleShiftOpeningSubmit,
     handleCashMovementSubmit,
-    renderMobileTabset,
     renderMetricCard,
     renderStatusBadge
   } = useAttendanceData();
@@ -862,7 +861,6 @@ export default function AttendancePage() {
 
           <section className="flex min-w-0 flex-1 flex-col bg-gray-50">
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 sm:p-4 md:p-5">
-              {renderMobileTabset()}
               {activeAttendanceTab === "absence" ? (
                 renderAbsencePanel()
               ) : (

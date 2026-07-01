@@ -7,18 +7,16 @@ import { supabase } from "@/lib/config/supabaseClient";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { SearchBar, ViewModeToggle } from "@/app/components/ui";
 import {
-  DateRangeFilter,
-  getDefaultDateRange,
-  getLast7DateRange,
+  BusinessDateFilter,
   SidebarTabset,
   StaffCard,
   StaffTable,
-  type DateRangeValue,
 } from "@/app/components/shared";
 import AttendanceSection from "@/app/components/owner/staffmanager/AttendanceSection";
 import WeeklyScheduleSection from "@/app/components/owner/staffmanager/WeeklyScheduleSection";
 import { EditStaffModal } from "@/app/components/owner/staffmanager";
 import { useLanguage } from "@/app/components/shared/i18n";
+import { getJakartaTodayDate } from "@/lib/services/bookkeeping/bookkeepingDate";
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { Staff } from "@/lib/types";
 import {
@@ -108,8 +106,8 @@ export default function ManagerStaffPage() {
   const [showEditModal, setShowEditModal] = useState(false);
 
   const isFetchingStaffRef = useRef(false);
-  const [attendanceDateRange, setAttendanceDateRange] =
-    useState<DateRangeValue>(getDefaultDateRange);
+  const [attendanceBusinessDate, setAttendanceBusinessDate] =
+    useState(getJakartaTodayDate());
 
   const handleViewModeChange = (mode: ViewMode) => {
     if (mode === "card" || mode === "table") {
@@ -267,37 +265,11 @@ export default function ManagerStaffPage() {
     },
   ];
 
-  const getAttendanceDateRangeProps = (range: DateRangeValue) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const last7 = getLast7DateRange();
-    const last30Date = new Date();
-    last30Date.setDate(last30Date.getDate() - 29);
-    const last30 = {
-      startDate: last30Date.toISOString().slice(0, 10),
-      endDate: today,
-    };
-
-    if (range.startDate === today && range.endDate === today) {
-      return { dateRangeMode: "today" as const, customStartDate: "", customEndDate: "" };
-    }
-
-    if (range.startDate === last7.startDate && range.endDate === last7.endDate) {
-      return { dateRangeMode: "week" as const, customStartDate: "", customEndDate: "" };
-    }
-
-    if (range.startDate === last30.startDate && range.endDate === last30.endDate) {
-      return { dateRangeMode: "month" as const, customStartDate: "", customEndDate: "" };
-    }
-
-    return {
-      dateRangeMode: "custom" as const,
-      customStartDate: range.startDate,
-      customEndDate: range.endDate,
-    };
+  const attendanceDateRangeProps = {
+    dateRangeMode: "custom" as const,
+    customStartDate: attendanceBusinessDate,
+    customEndDate: attendanceBusinessDate,
   };
-
-  const attendanceDateRangeProps =
-    getAttendanceDateRangeProps(attendanceDateRange);
 
   const handleEdit = (id: string) => {
     const staff = staffList.find((item) => item.id === id);
@@ -425,9 +397,14 @@ export default function ManagerStaffPage() {
         <section className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
         {activeTab === "attendance" && activeAttendanceTab === "monitor" && (
           <div className="mb-4">
-            <DateRangeFilter
-              value={attendanceDateRange}
-              onChange={setAttendanceDateRange}
+            <BusinessDateFilter
+              value={attendanceBusinessDate}
+              onChange={setAttendanceBusinessDate}
+              title={t("owner.bookkeeping.businessDate")}
+              description={t("owner.bookkeeping.businessDateDescription")}
+              todayLabel={t("owner.bookkeeping.today")}
+              yesterdayLabel={t("owner.bookkeeping.yesterday")}
+              ariaLabel={t("owner.bookkeeping.businessDate")}
             />
           </div>
         )}

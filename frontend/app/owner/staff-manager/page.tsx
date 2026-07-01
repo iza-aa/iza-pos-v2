@@ -4,13 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ViewModeToggle, DeleteModal } from "@/app/components/ui";
 import {
-  DateRangeFilter,
-  getDefaultDateRange,
-  getLast7DateRange,
+  BusinessDateFilter,
   SidebarTabset,
   StaffCard,
   StaffTable,
-  type DateRangeValue,
 } from "@/app/components/shared";
 
 import {
@@ -34,6 +31,7 @@ import {
   CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import { useLanguage } from "@/app/components/shared/i18n";
+import { getJakartaTodayDate } from "@/lib/services/bookkeeping/bookkeepingDate";
 import {
   getPrimaryStaffPosition,
   getStaffPositionLabel,
@@ -403,8 +401,8 @@ export default function StaffManagerPage() {
   const [activeTab, setActiveTab] = useState<StaffManagerTab>("staff");
   const [activeAttendanceTab, setActiveAttendanceTab] =
     useState<AttendanceTab>("monitor");
-  const [attendanceDateRange, setAttendanceDateRange] =
-    useState<DateRangeValue>(getDefaultDateRange);
+  const [attendanceBusinessDate, setAttendanceBusinessDate] =
+    useState(getJakartaTodayDate());
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -724,40 +722,11 @@ export default function StaffManagerPage() {
     },
   ], [t]);
 
-  const getAttendanceDateRangeProps = (range: DateRangeValue) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().slice(0, 10);
-    const last7 = getLast7DateRange();
-    const last30Date = new Date();
-    last30Date.setDate(last30Date.getDate() - 29);
-    const last30 = {
-      startDate: last30Date.toISOString().slice(0, 10),
-      endDate: today,
-    };
-
-    if (range.startDate === today && range.endDate === today) {
-      return { dateRangeMode: "today" as const, customStartDate: "", customEndDate: "" };
-    }
-
-    if (range.startDate === last7.startDate && range.endDate === last7.endDate) {
-      return { dateRangeMode: "week" as const, customStartDate: "", customEndDate: "" };
-    }
-
-    if (range.startDate === last30.startDate && range.endDate === last30.endDate) {
-      return { dateRangeMode: "month" as const, customStartDate: "", customEndDate: "" };
-    }
-
-    return {
-      dateRangeMode: "custom" as const,
-      customStartDate: range.startDate || yesterday,
-      customEndDate: range.endDate || yesterday,
-    };
+  const attendanceDateRangeProps = {
+    dateRangeMode: "custom" as const,
+    customStartDate: attendanceBusinessDate,
+    customEndDate: attendanceBusinessDate,
   };
-
-  const attendanceDateRangeProps =
-    getAttendanceDateRangeProps(attendanceDateRange);
 
   const canDeleteStaff = (staff: StaffRecord) => {
     const isCurrentUser = isCurrentLoggedInStaff(staff);
@@ -1189,9 +1158,14 @@ export default function StaffManagerPage() {
       <section className="flex-1 overflow-y-auto bg-gray-100 px-4 md:px-4 py-4 md:py-4 mb-4">
         {activeTab === "attendance" && activeAttendanceTab === "monitor" && (
           <div className="mb-4">
-            <DateRangeFilter
-              value={attendanceDateRange}
-              onChange={setAttendanceDateRange}
+            <BusinessDateFilter
+              value={attendanceBusinessDate}
+              onChange={setAttendanceBusinessDate}
+              title={t("owner.bookkeeping.businessDate")}
+              description={t("owner.bookkeeping.businessDateDescription")}
+              todayLabel={t("owner.bookkeeping.today")}
+              yesterdayLabel={t("owner.bookkeeping.yesterday")}
+              ariaLabel={t("owner.bookkeeping.businessDate")}
             />
           </div>
         )}

@@ -946,32 +946,6 @@ useSessionValidation();
     }
   };
 
-  const renderMobileTabset = () => (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:hidden">
-      {visibleAttendanceTabs.map((tab) => {
-        const isActive = activeAttendanceTab === tab.id;
-
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveAttendanceTab(tab.id)}
-            className={`rounded-lg border px-3 py-2.5 text-left transition ${
-              isActive
-                ? "border-gray-900 bg-gray-900 text-white"
-                : "border-gray-200 bg-white text-gray-600"
-            }`}
-          >
-            <p className="text-sm font-bold">{tab.label}</p>
-            <p className={`mt-0.5 text-xs ${isActive ? "text-gray-200" : "text-gray-400"}`}>
-              {tab.description}
-            </p>
-          </button>
-        );
-      })}
-    </div>
-  );
-
   const renderMetricCard = (
     label: string,
     value: string,
@@ -1091,7 +1065,6 @@ useSessionValidation();
     handleShiftClosingSubmit,
     handleShiftOpeningSubmit,
     handleCashMovementSubmit,
-    renderMobileTabset,
     renderMetricCard,
     renderStatusBadge
   };
