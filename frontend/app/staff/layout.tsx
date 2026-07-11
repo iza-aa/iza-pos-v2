@@ -44,6 +44,29 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     }
   }, [isLogin, pathname, router]);
 
+  // Override manifest so iOS "Add to Home Screen" opens /staff instead of /
+  useEffect(() => {
+    const existingLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+    const previousHref = existingLink?.href ?? null;
+
+    if (existingLink) {
+      existingLink.href = "/staff-manifest.json";
+    } else {
+      const link = document.createElement("link");
+      link.rel = "manifest";
+      link.href = "/staff-manifest.json";
+      document.head.appendChild(link);
+    }
+
+    return () => {
+      // Restore original manifest when leaving staff pages
+      const link = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+      if (link && previousHref) {
+        link.href = previousHref;
+      }
+    };
+  }, []);
+
   return (
     <RoleGuard allowedRole="staff" loginPath="/staff/login">
       <div>

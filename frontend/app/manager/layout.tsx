@@ -29,6 +29,29 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
     }
   }, []);
 
+  // Override manifest so iOS "Add to Home Screen" opens /manager/menu instead of /
+  useEffect(() => {
+    const existingLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+    const previousHref = existingLink?.href ?? null;
+
+    if (existingLink) {
+      existingLink.href = "/manager-manifest.json";
+    } else {
+      const link = document.createElement("link");
+      link.rel = "manifest";
+      link.href = "/manager-manifest.json";
+      document.head.appendChild(link);
+    }
+
+    return () => {
+      // Restore original manifest when leaving manager pages
+      const link = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+      if (link && previousHref) {
+        link.href = previousHref;
+      }
+    };
+  }, []);
+
   if (!mounted) {
     return null;
   }
