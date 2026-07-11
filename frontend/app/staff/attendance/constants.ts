@@ -13,8 +13,8 @@ export const staffAttendanceTabs = [
   },
   {
     id: "end-shift",
-    label: "End Shift",
-    description: "Submit cash count",
+    label: "Cashier Shift",
+    description: "Open & close shift",
     icon: BanknotesIcon,
   },
 ] satisfies Array<{
