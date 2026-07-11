@@ -98,8 +98,8 @@ export default function OwnerLoginPage() {
 	return (
 		<div className="flex min-h-screen">
 			{/* Kiri: Slider */}
-			<div className="flex w-[70%] md:block bg-white items-center justify-center py-8 pl-8">
-				<div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl bg-black/70 flex items-end">
+			<div className="hidden md:flex md:w-[60%] lg:w-[70%] bg-white items-center justify-center py-8 pl-8">
+				<div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden shadow-xl bg-black/70 flex items-end">
 					<img
 						src={slides[current].img}
 						alt="Banner"
@@ -130,7 +130,7 @@ export default function OwnerLoginPage() {
 			</div>
 
 			{/* Kanan: Owner Form */}
-			<div className="w-full md:w-[30%] flex flex-col justify-center items-center bg-white p-8 mb-8">
+			<div className="w-full md:w-[40%] lg:w-[30%] flex flex-col justify-center items-center bg-white p-8">
 				<div className="w-full max-w-sm">
 					<div className="flex items-center mb-6 justify-center">
 						<img
