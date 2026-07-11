@@ -6,6 +6,7 @@ import { supabase } from "@/lib/config/supabaseClient";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import QRISPayment from "@/app/components/customer/menu/checkout/QRISPayment";
 import CheckoutCartItem from "@/app/components/customer/menu/checkout/CheckoutCartItem";
+import { sendOrderNotification } from "@/app/actions/notifyAction";
 import OrderSummary from "@/app/components/customer/menu/checkout/OrderSummary";
 import LoadingScreen from "@/app/components/customer/LoadingScreen";
 import {
@@ -499,6 +500,9 @@ export default function CustomerCheckoutPage() {
 
       await updateTableSessionStats(createdOrder.id, financialTotals.total);
 
+      // Trigger Web Push to Cashiers
+      await sendOrderNotification(createdOrder.id, createdOrder.order_number, ["cashier"]);
+
       setPendingOrderNumber(createdOrder.order_number);
       setPendingOrderId(createdOrder.id);
       setPendingPickupCode(createdOrder.pickup_code);
@@ -509,6 +513,7 @@ export default function CustomerCheckoutPage() {
       showError("Failed to create order. Please try again.");
       setIsSubmitting(false);
     }
+  };
   };
 
   const handlePaymentConfirmed = async () => {
@@ -521,6 +526,9 @@ export default function CustomerCheckoutPage() {
       if (error) {
         throw error;
       }
+
+      // Trigger Web Push to Kitchen
+      await sendOrderNotification(pendingOrderId, pendingOrderNumber, ["kitchen"]);
 
       try {
         const inventoryUsageResult = await recordOrderInventoryUsageWithBatches({

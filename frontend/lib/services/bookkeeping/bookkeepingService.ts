@@ -716,12 +716,14 @@ const buildMenuMargins = ({
         ? row.estimatedCogs
         : cogsByProduct.get(row.id) ?? null;
       if (!cogs || cogs <= 0) {
+        let fallbackStatus = recipeStatusByProduct.get(row.id) ?? ("cost_data_needed" as const);
+        if (fallbackStatus === "ready") fallbackStatus = "cost_data_needed";
         return {
           ...row,
           estimatedCogs: null,
           grossProfit: null,
           marginPct: null,
-          status: recipeStatusByProduct.get(row.id) ?? ("cost_data_needed" as const),
+          status: fallbackStatus,
         };
       }
 

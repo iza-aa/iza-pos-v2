@@ -6,6 +6,7 @@ import { BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { AppNotification, NotificationSeverity } from "./types";
 import { useLanguage } from "../i18n";
 import type { TranslationKey } from "../i18n";
+import PushNotificationManager from "./PushNotificationManager";
 
 const severityColor: Record<NotificationSeverity, string> = {
   critical: "bg-red-500",
@@ -190,7 +191,7 @@ export default function NotificationModal({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center border-t border-gray-200 bg-white px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-t border-gray-200 bg-white px-5 py-4">
           <button
             type="button"
             onClick={onMarkAllRead}
@@ -198,6 +199,8 @@ export default function NotificationModal({
           >
             {t("notifications.markAllRead")}
           </button>
+          
+          <PushNotificationManager />
         </div>
       </div>
     </div>

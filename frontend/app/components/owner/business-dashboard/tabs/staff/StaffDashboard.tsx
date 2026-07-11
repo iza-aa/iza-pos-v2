@@ -448,7 +448,7 @@ function StaffDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label={t("owner.staff.activeStaff")} value={formatNumber(activeStaff.length)} helper={t("owner.staff.activeStaffHelper")} tone="coffee" />
+        <MetricCard label={t("owner.staff.activeStaff")} value={formatNumber(activeStaff.length)} helper={t("owner.staff.activeStaffHelper")} tone="coffee" isRealtime />
         <MetricCard label={t("owner.staff.clockedIn")} value={formatNumber(attendanceInRange.filter((row) => row.clock_in_at).length)} helper={t("owner.staff.clockedInHelper")} tone="success" />
         <MetricCard label={t("owner.staff.lateCount")} value={formatNumber(attendanceInRange.filter((row) => row.check_in_status === "late").length)} helper={t("owner.staff.needsAttention")} tone="danger" />
         <MetricCard label={t("owner.staff.overtimeCount")} value={formatNumber(attendanceInRange.filter((row) => row.check_out_status === "overtime").length)} helper={t("owner.staff.overtimeHelper")} tone="warning" />

@@ -316,6 +316,7 @@ export default function OverviewDashboard() {
           value={data.loading ? t("owner.dashboard.loading") : formatNumber(areaSummary.inventory.criticalItems)}
           helper={t("owner.overview.inventoryHelper")}
           tone={areaSummary.inventory.criticalItems > 0 ? "warning" : "success"}
+          isRealtime
         />
         <MetricCard
           label={t("owner.dashboard.staff")}

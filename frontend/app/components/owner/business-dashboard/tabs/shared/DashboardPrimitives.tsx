@@ -21,16 +21,21 @@ export function MetricCard({
   value,
   helper,
   tone = "info",
+  isRealtime = false,
 }: {
   label: string;
   value: string;
   helper: string;
   tone?: OwnerSemanticTone;
+  isRealtime?: boolean;
 }) {
   return (
     <section className={`rounded-2xl border p-4 shadow-sm ${OWNER_SEMANTIC_TONES[tone].cardClass}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-        {label}
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+        <span className="truncate">{label}</span>
+        {isRealtime ? (
+          <span className="shrink-0 normal-case font-medium text-gray-400">(Realtime)</span>
+        ) : null}
       </p>
       <p className="mt-3 text-2xl font-bold text-gray-950">{value}</p>
       <p className="mt-2 truncate text-sm leading-5 text-gray-600" title={helper}>
@@ -44,18 +49,25 @@ export function ChartCard({
   title,
   subtitle,
   actions,
+  isRealtime = false,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  isRealtime?: boolean;
   children: ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-950">{title}</h2>
+          <h2 className="flex items-center gap-2 text-base font-bold text-gray-950">
+            <span>{title}</span>
+            {isRealtime ? (
+              <span className="shrink-0 text-xs font-semibold text-gray-400">(Realtime)</span>
+            ) : null}
+          </h2>
           {subtitle ? (
             <p className="mt-1 text-sm leading-6 text-gray-500">{subtitle}</p>
           ) : null}

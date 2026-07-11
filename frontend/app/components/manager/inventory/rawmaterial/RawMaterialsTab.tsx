@@ -908,13 +908,26 @@ export default function RawMaterialsTab({ view = "raw-materials" }: RawMaterials
       const fullUserName = `${userName} - ${roleLabel}`;
 
       // Update inventory stock
+      type UpdatePayload = {
+        current_stock: number;
+        last_restocked: string;
+        supplier?: string;
+        cost_per_unit?: number;
+      };
+
+      const updatePayload: UpdatePayload = {
+        current_stock: newStock,
+        last_restocked: new Date().toISOString(),
+        supplier: purchaseSupplier,
+      };
+
+      if (costPerUnit && costPerUnit > 0) {
+        updatePayload.cost_per_unit = costPerUnit;
+      }
+
       const { error: updateError } = await supabase
         .from("inventory_items")
-        .update({
-          current_stock: newStock,
-          last_restocked: new Date().toISOString(),
-          supplier: purchaseSupplier,
-        })
+        .update(updatePayload)
         .eq("id", itemId);
 
       if (updateError) {

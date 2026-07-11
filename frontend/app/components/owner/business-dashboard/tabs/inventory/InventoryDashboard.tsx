@@ -30,7 +30,7 @@ import {
   type ReportExportFormat,
 } from "@/lib/utils/reportExport";
 import GenerateRecommendationPanel from "../../ai/GenerateRecommendationPanel";
-import { getDefaultDateRange, type DateRangeValue } from "../DateRangeFilter";
+import DateRangeFilter, { getDefaultDateRange, type DateRangeValue } from "../DateRangeFilter";
 import {
   ChartCard,
   EmptyState,
@@ -262,8 +262,7 @@ function buildInventoryHealthSummary(data: DashboardData, range: DateRangeValue)
 function InventoryDashboard() {
   const { language, t } = useLanguage();
   const data = useOwnerDashboardData();
-  const dateRange = getInventorySnapshotRange(data);
-  const stockReportRange = getCurrentStockReportMonthRange();
+  const [dateRange, setDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState("all");
   const inventoryRowsBase = data.inventoryItems
     .map((item) => {
@@ -464,8 +463,8 @@ function InventoryDashboard() {
     const createdAt = getBusinessDateFromTimestamp(report.created_at);
     return Boolean(
       createdAt &&
-        createdAt >= stockReportRange.startDate &&
-        createdAt <= stockReportRange.endDate,
+        createdAt >= dateRange.startDate &&
+        createdAt <= dateRange.endDate,
     );
   });
   const pendingStockReports = reportsInRange.filter(
@@ -794,6 +793,7 @@ function InventoryDashboard() {
   return (
     <div className="space-y-4">
       <GenerateRecommendationPanel category="inventory" period={dateRange} />
+      <DateRangeFilter value={dateRange} onChange={setDateRange} />
       <div className="flex justify-end">
         <ExportButton
           label={t("owner.inventory.export")}
@@ -805,12 +805,12 @@ function InventoryDashboard() {
       </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <MetricCard label={t("owner.inventory.totalSkus")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(healthSummary.totalItems)} helper={t("owner.inventory.totalSkusHelper")} tone="info" />
-          <MetricCard label={t("owner.inventory.criticalItems")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(criticalItemCount)} helper={t("owner.inventory.criticalItemsHelper")} tone={criticalItemCount > 0 ? "danger" : "success"} />
-          <MetricCard label={t("owner.inventory.restockCost")} value={data.loading ? t("owner.dashboard.loading") : formatCurrency(healthSummary.estimatedRestockCost)} helper={t("owner.inventory.restockCostHelper")} tone="waiting" />
-          <MetricCard label={t("owner.inventory.dataIssues")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(healthSummary.dataIssues)} helper={t("owner.inventory.dataIssuesHelper")} tone={healthSummary.dataIssues > 0 ? "danger" : "success"} />
-          <MetricCard label={t("owner.inventory.pendingReports")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(pendingStockReports.length)} helper={t("owner.inventory.pendingReportsHelper")} tone={pendingStockReports.length > 0 ? "warning" : "success"} />
           <MetricCard label={t("owner.inventory.highestUsage")} value={data.loading ? t("owner.dashboard.loading") : healthSummary.mostUsedName} helper={t("owner.inventory.highestUsageHelper")} tone="premium" />
+          <MetricCard label={t("owner.inventory.pendingReports")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(pendingStockReports.length)} helper={t("owner.inventory.pendingReportsHelper")} tone={pendingStockReports.length > 0 ? "warning" : "success"} />
+          <MetricCard label={t("owner.inventory.criticalItems")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(criticalItemCount)} helper={t("owner.inventory.criticalItemsHelper")} tone={criticalItemCount > 0 ? "danger" : "success"} isRealtime />
+          <MetricCard label={t("owner.inventory.restockCost")} value={data.loading ? t("owner.dashboard.loading") : formatCurrency(healthSummary.estimatedRestockCost)} helper={t("owner.inventory.restockCostHelper")} tone="waiting" isRealtime />
+          <MetricCard label={t("owner.inventory.dataIssues")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(healthSummary.dataIssues)} helper={t("owner.inventory.dataIssuesHelper")} tone={healthSummary.dataIssues > 0 ? "danger" : "success"} isRealtime />
+          <MetricCard label={t("owner.inventory.totalSkus")} value={data.loading ? t("owner.dashboard.loading") : formatNumber(healthSummary.totalItems)} helper={t("owner.inventory.totalSkusHelper")} tone="info" isRealtime />
         </div>
 
       {pendingStockReports.length ? (
@@ -825,9 +825,8 @@ function InventoryDashboard() {
         </div>
       ) : null}
 
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)]">
-        <ChartCard title={t("owner.inventory.batchRisk")} subtitle={t("owner.inventory.batchRiskSubtitle")}>
+        <ChartCard title={t("owner.inventory.batchRisk")} subtitle={t("owner.inventory.batchRiskSubtitle")} isRealtime>
           {batchRiskData.some((item) => item.value > 0) ? (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -849,7 +848,7 @@ function InventoryDashboard() {
           )}
         </ChartCard>
 
-        <ChartCard title={t("owner.inventory.batchValueByCategory")} subtitle={t("owner.inventory.batchValueByCategorySubtitle")}>
+        <ChartCard title={t("owner.inventory.batchValueByCategory")} subtitle={t("owner.inventory.batchValueByCategorySubtitle")} isRealtime>
           {batchValueByCategory.length ? (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -869,10 +868,11 @@ function InventoryDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <ChartCard
-        title={t("owner.inventory.lowStockAlert")}
-        subtitle={t("owner.inventory.lowStockAlertSubtitle")}
-      >
+        <ChartCard
+          title={t("owner.inventory.lowStockAlert")}
+          subtitle={t("owner.inventory.lowStockAlertSubtitle")}
+          isRealtime
+        >
           <StandardTable
             columns={lowStockColumns}
             data={lowStockRows}
@@ -938,13 +938,13 @@ function InventoryDashboard() {
           title={t("owner.inventory.stockMovement")}
           subtitle={t("owner.inventory.stockMovementSubtitle")}
         >
-            <StandardTable
-              columns={movementColumns}
-              data={movementRows}
-              getRowKey={(row) => row.id}
-              emptyLabel={t("owner.inventory.noStockMovementRecords")}
-              loading={data.loading}
-            />
+          <StandardTable
+            columns={movementColumns}
+            data={movementRows}
+            getRowKey={(row) => row.id}
+            emptyLabel={t("owner.inventory.noStockMovementRecords")}
+            loading={data.loading}
+          />
         </ChartCard>
 
         <div className="space-y-4">
@@ -1006,7 +1006,7 @@ function InventoryDashboard() {
             )}
           </ChartCard>
 
-          <ChartCard title={t("owner.inventory.stockStatus")} subtitle={t("owner.inventory.stockStatusSubtitle")}>
+          <ChartCard title={t("owner.inventory.stockStatus")} subtitle={t("owner.inventory.stockStatusSubtitle")} isRealtime>
             {stockStatusChartData.length ? (
               <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
                 <div className="h-44">
