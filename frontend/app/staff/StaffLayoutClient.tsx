@@ -8,6 +8,7 @@ import { setupNetworkMonitoring } from "@/lib/services/errorHandling";
 import { getCurrentUser } from "@/lib/utils";
 import { canAccessStaffPath, getStaffHomePath } from "@/lib/utils/staffAccess";
 import type { StaffPosition } from "@/lib/staff/positions";
+import GlobalNotificationPrompt from "../components/shared/notifications/GlobalNotificationPrompt";
 
 type UserRole = "staff" | "manager" | "owner";
 
@@ -56,6 +57,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           />
         )}
         <main>{children}</main>
+        {!isLogin && <GlobalNotificationPrompt role="staff" />}
         <ToastContainer />
       </div>
     </RoleGuard>
