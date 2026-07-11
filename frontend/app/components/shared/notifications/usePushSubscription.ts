@@ -3,6 +3,16 @@
 import { useState, useEffect } from "react";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 
+const SW_READY_TIMEOUT_MS = 8000;
+
+const getServiceWorkerRegistration = () =>
+  Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Service worker not ready (timed out)")), SW_READY_TIMEOUT_MS)
+    ),
+  ]);
+
 export function usePushSubscription(role: string = "staff") {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
@@ -31,7 +41,7 @@ export function usePushSubscription(role: string = "staff") {
 
   const checkSubscription = async () => {
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getServiceWorkerRegistration();
       const subscription = await registration.pushManager.getSubscription();
       setIsSubscribed(!!subscription);
     } catch (error) {
@@ -50,7 +60,7 @@ export function usePushSubscription(role: string = "staff") {
     setIsLoading(true);
 
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getServiceWorkerRegistration();
 
       // Ask for permission explicitly if not granted
       const permission = await Notification.requestPermission();

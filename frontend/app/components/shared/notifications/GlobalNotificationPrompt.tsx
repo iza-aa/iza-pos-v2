@@ -8,6 +8,7 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
   const { isSubscribed, isSupported, isLoading, hasChecked, subscribe } = usePushSubscription(role);
   const [isVisible, setIsVisible] = useState(false);
   const [isIosStandalone, setIsIosStandalone] = useState(true); // Assume true initially to prevent flicker
+  const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
     // Only run on client
@@ -28,6 +29,7 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
     const isIosStandaloneNavigator = (window.navigator as Navigator & { standalone?: boolean }).standalone;
     const standalone = isIosStandaloneNavigator || window.matchMedia('(display-mode: standalone)').matches;
     
+    setIsIos(isIosDevice);
     if (isIosDevice) {
       setIsIosStandalone(!!standalone);
     }
@@ -35,12 +37,16 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
     // Show if:
     // 1. Not subscribed AND supported (Android, Desktop, iOS standalone)
     // 2. OR iOS device but not standalone (needs instruction to add to home screen)
+    // 3. OR iOS device, standalone, but push isn't supported (e.g. iOS < 16.4) — explain instead of staying silent
     if (!isSubscribed) {
-      if (isSupported || (isIosDevice && !standalone)) {
+      if (isSupported || (isIosDevice && !standalone) || (isIosDevice && standalone && !isSupported)) {
         setIsVisible(true);
       }
     }
   }, [hasChecked, isSubscribed, isSupported]);
+
+  const showAddToHomeScreenInstructions = isIos && !isIosStandalone && !isSupported;
+  const showUnsupportedNotice = isIos && isIosStandalone && !isSupported;
 
   const handleDismiss = () => {
     setIsVisible(false);
@@ -63,16 +69,18 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
             </h3>
             
             <p className="mt-1 text-sm text-gray-500 leading-relaxed">
-              {!isIosStandalone && !isSupported ? (
+              {showAddToHomeScreenInstructions ? (
                 <>Untuk menerima notifikasi secara real-time, silakan tap <strong>Share</strong> di bawah, lalu pilih <strong>Add to Home Screen</strong>.</>
+              ) : showUnsupportedNotice ? (
+                <>Notifikasi belum didukung di perangkat ini. Pastikan iOS sudah versi <strong>16.4</strong> atau lebih baru (Settings → General → About → Software Version).</>
               ) : (
                 <>Aktifkan notifikasi untuk menerima pemberitahuan pesanan baru secara real-time.</>
               )}
             </p>
 
             <div className="mt-4 flex gap-3">
-              {(!isIosStandalone && !isSupported) ? (
-                // Only show dismiss for iOS browser instruction
+              {(showAddToHomeScreenInstructions || showUnsupportedNotice) ? (
+                // Only show dismiss for iOS instruction / unsupported notice
                 <button
                   type="button"
                   onClick={handleDismiss}
