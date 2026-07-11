@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/owner/reset-password?token=${resetToken}`;
+  const origin = req.headers.get("origin") || req.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const resetLink = `${origin}/owner/reset-password?token=${resetToken}`;
   
   // Send Email via SMTP
   const emailHtml = `
