@@ -514,7 +514,6 @@ export default function CustomerCheckoutPage() {
       setIsSubmitting(false);
     }
   };
-  };
 
   const handlePaymentConfirmed = async () => {
     try {

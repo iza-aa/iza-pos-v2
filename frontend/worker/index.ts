@@ -1,6 +1,11 @@
 /// <reference lib="webworker" />
 declare let self: ServiceWorkerGlobalScope;
 
+// Required by next-pwa / workbox to inject the precache manifest
+// DO NOT REMOVE this line — build will fail without it
+// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+self.__WB_MANIFEST;
+
 // To disable all workbox logging during development
 self.__WB_DISABLE_DEV_LOGS = true;
 
