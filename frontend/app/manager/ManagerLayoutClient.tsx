@@ -6,6 +6,7 @@ import { Navbar, Toast as ToastContainer } from "../components/ui";
 import RoleGuard from "../components/shared/auth/RoleGuard";
 import { setupNetworkMonitoring } from "@/lib/services/errorHandling";
 import { getCurrentUser } from "@/lib/utils";
+import GlobalNotificationPrompt from "../components/shared/notifications/GlobalNotificationPrompt";
 
 type UserRole = "staff" | "manager" | "owner";
 
@@ -47,6 +48,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
       <div>
         <Navbar role="manager" canSwitchRole={currentRole === "owner"} />
         <main>{children}</main>
+        <GlobalNotificationPrompt role="manager" />
         <ToastContainer />
       </div>
     </RoleGuard>

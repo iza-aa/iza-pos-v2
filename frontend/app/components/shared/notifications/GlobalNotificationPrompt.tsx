@@ -25,7 +25,8 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
 
     // Detect iOS and standalone mode
     const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const standalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    const isIosStandaloneNavigator = (window.navigator as Navigator & { standalone?: boolean }).standalone;
+    const standalone = isIosStandaloneNavigator || window.matchMedia('(display-mode: standalone)').matches;
     
     if (isIosDevice) {
       setIsIosStandalone(!!standalone);

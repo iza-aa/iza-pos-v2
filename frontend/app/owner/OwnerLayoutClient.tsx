@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Navbar, Toast as ToastContainer } from "../components/ui";
 import RoleGuard from "../components/shared/auth/RoleGuard";
 import { setupNetworkMonitoring } from "@/lib/services/errorHandling";
+import GlobalNotificationPrompt from "../components/shared/notifications/GlobalNotificationPrompt";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,6 +38,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
       <div>
         <Navbar role="owner" canSwitchRole={true} />
         <main>{children}</main>
+        <GlobalNotificationPrompt role="owner" />
         <ToastContainer />
       </div>
     </RoleGuard>
