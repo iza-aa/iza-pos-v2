@@ -19,6 +19,7 @@ import {
   getJakartaNow,
   formatJakartaTime,
   getMinutesDifference,
+  getJakartaDateValue,
 } from "@/lib/utils";
 import { showSuccess, showError } from "@/lib/services/errorHandling";
 import { logActivity } from "@/lib/services/activity/activityLogger";
@@ -990,7 +991,7 @@ export default function StaffOrderPage() {
   const visibleKanbanColumns = kanbanColumns;
 
   const dateRangeOrders = orderList.filter((order) => {
-    const orderDateValue = order.createdAt.slice(0, 10);
+    const orderDateValue = getJakartaDateValue(order.createdAt);
     return orderDateValue >= dateRange.startDate && orderDateValue <= dateRange.endDate;
   });
 
@@ -1032,7 +1033,7 @@ export default function StaffOrderPage() {
       }
     }
 
-    const orderDateValue = order.createdAt.slice(0, 10);
+    const orderDateValue = getJakartaDateValue(order.createdAt);
     const matchesDate =
       orderDateValue >= dateRange.startDate && orderDateValue <= dateRange.endDate;
 
