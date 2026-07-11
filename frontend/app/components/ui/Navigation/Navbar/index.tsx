@@ -767,6 +767,13 @@ export default function Navbar({
           onClose={() => setShowNotifications(false)}
           onMarkAllRead={markAllNotificationsRead}
           onMarkRead={markNotificationRead}
+          pushRole={
+            ownerNotificationsEnabled
+              ? "owner"
+              : managerNotificationsEnabled
+                ? "manager"
+                : legacyStaffPosition || "staff"
+          }
         />
       )}
     </>

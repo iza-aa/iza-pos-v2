@@ -501,7 +501,7 @@ export default function CustomerCheckoutPage() {
       await updateTableSessionStats(createdOrder.id, financialTotals.total);
 
       // Trigger Web Push to Cashiers
-      await sendOrderNotification(createdOrder.id, createdOrder.order_number, ["cashier"]);
+      await sendOrderNotification(createdOrder.id, createdOrder.order_number, ["cashier", "owner", "manager"]);
 
       setPendingOrderNumber(createdOrder.order_number);
       setPendingOrderId(createdOrder.id);
@@ -527,7 +527,7 @@ export default function CustomerCheckoutPage() {
       }
 
       // Trigger Web Push to Kitchen
-      await sendOrderNotification(pendingOrderId, pendingOrderNumber, ["kitchen"]);
+      await sendOrderNotification(pendingOrderId, pendingOrderNumber, ["kitchen", "owner", "manager"]);
 
       try {
         const inventoryUsageResult = await recordOrderInventoryUsageWithBatches({

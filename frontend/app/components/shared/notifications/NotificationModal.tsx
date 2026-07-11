@@ -72,6 +72,7 @@ type NotificationModalProps = {
   onClose: () => void;
   onMarkAllRead: () => void;
   onMarkRead: (id: string) => void;
+  pushRole?: string;
 };
 
 export default function NotificationModal({
@@ -82,6 +83,7 @@ export default function NotificationModal({
   onClose,
   onMarkAllRead,
   onMarkRead,
+  pushRole = "staff",
 }: NotificationModalProps) {
   const router = useRouter();
   const { language, t } = useLanguage();
@@ -200,7 +202,7 @@ export default function NotificationModal({
             {t("notifications.markAllRead")}
           </button>
           
-          <PushNotificationManager />
+          <PushNotificationManager role={pushRole} />
         </div>
       </div>
     </div>
