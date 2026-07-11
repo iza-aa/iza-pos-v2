@@ -363,6 +363,7 @@ export const useAttendanceData = ({
     e.preventDefault();
 
     if (!isValidStoreSettingsForm(storeFormData)) {
+      showError("Pastikan lokasi dan radius sudah terisi dengan benar (tidak boleh kosong atau 0).");
       return;
     }
 
@@ -411,6 +412,7 @@ export const useAttendanceData = ({
     onSuccess?: () => void,
   ) => {
     if (!isValidShiftForm(shiftFormData)) {
+      showError("Pastikan semua form terisi dan rentang waktu valid (misal: waktu toleransi telat harus setelah waktu mulai).");
       return;
     }
 

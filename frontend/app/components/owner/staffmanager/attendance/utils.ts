@@ -445,9 +445,7 @@ export const isValidShiftForm = (formData: import("./types").ShiftFormData) => {
     !!checkInGraceUntil &&
     !!endTime &&
     !!checkOutGraceUntil &&
-    !!checkOutWindowEnd &&
-    checkInGraceUntil >= startTime &&
-    checkOutGraceUntil >= endTime
+    !!checkOutWindowEnd
   );
 };
 
