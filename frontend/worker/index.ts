@@ -1,22 +1,25 @@
 /// <reference lib="webworker" />
-declare let self: ServiceWorkerGlobalScope;
+const sw = self as unknown as ServiceWorkerGlobalScope & {
+  __WB_MANIFEST: unknown;
+  __WB_DISABLE_DEV_LOGS: boolean;
+};
 
 // Required by next-pwa / workbox to inject the precache manifest
 // DO NOT REMOVE this line — build will fail without it
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-self.__WB_MANIFEST;
+sw.__WB_MANIFEST;
 
 // To disable all workbox logging during development
-self.__WB_DISABLE_DEV_LOGS = true;
+sw.__WB_DISABLE_DEV_LOGS = true;
 
-self.addEventListener('push', (event) => {
+sw.addEventListener('push', (event) => {
   if (!event.data) return;
 
   try {
     const data = event.data.json();
     
     event.waitUntil(
-      self.registration.showNotification(data.title || 'New Notification', {
+      sw.registration.showNotification(data.title || 'New Notification', {
         body: data.body || 'You have a new message.',
         icon: '/icons/icon-192.png',
         badge: '/icons/icon-192.png',
@@ -31,11 +34,11 @@ self.addEventListener('push', (event) => {
   }
 });
 
-self.addEventListener('notificationclick', (event) => {
+sw.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientList) => {
+    sw.clients.matchAll({ type: 'window' }).then((clientList) => {
       const url = event.notification.data?.url || '/';
       
       for (const client of clientList) {
@@ -44,8 +47,8 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
+      if (sw.clients.openWindow) {
+        return sw.clients.openWindow(url);
       }
     })
   );
