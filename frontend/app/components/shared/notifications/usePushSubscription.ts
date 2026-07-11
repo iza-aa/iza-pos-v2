@@ -57,18 +57,21 @@ export function usePushSubscription(role: string = "staff") {
       return;
     }
 
+    // Safari/iOS only shows the permission dialog when requestPermission() is
+    // called synchronously in the user gesture handler — any `await` before it
+    // makes Safari silently skip the prompt with no error. So this must run first.
+    const permission = await Notification.requestPermission();
+
     setIsLoading(true);
 
     try {
-      const registration = await getServiceWorkerRegistration();
-
-      // Ask for permission explicitly if not granted
-      const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         showError("Notification permission denied.");
         setIsLoading(false);
         return;
       }
+
+      const registration = await getServiceWorkerRegistration();
 
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
