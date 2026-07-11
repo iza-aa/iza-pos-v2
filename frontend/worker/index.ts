@@ -1,16 +1,15 @@
 /// <reference lib="webworker" />
-const sw = self as unknown as ServiceWorkerGlobalScope & {
-  __WB_MANIFEST: unknown;
-  __WB_DISABLE_DEV_LOGS: boolean;
-};
+const sw = self as unknown as ServiceWorkerGlobalScope;
 
 // Required by next-pwa / workbox to inject the precache manifest
 // DO NOT REMOVE this line — build will fail without it
-// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-sw.__WB_MANIFEST;
+// eslint-disable-next-line @typescript-eslint/no-unused-expressions, @typescript-eslint/ban-ts-comment
+// @ts-ignore: Workbox requires the exact string self.__WB_MANIFEST
+self.__WB_MANIFEST;
 
 // To disable all workbox logging during development
-sw.__WB_DISABLE_DEV_LOGS = true;
+// @ts-ignore
+self.__WB_DISABLE_DEV_LOGS = true;
 
 sw.addEventListener('push', (event) => {
   if (!event.data) return;
