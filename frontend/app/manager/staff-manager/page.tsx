@@ -338,8 +338,12 @@ export default function ManagerStaffPage() {
       .eq("id", staffToUpdate.id);
 
     if (error) {
-      showError(error.message);
-      throw new Error(error.message);
+      let errorMessage = error.message;
+      if (errorMessage.includes("staff_email_key")) {
+        errorMessage = "Email ini sudah terdaftar pada akun staf/manajer lain. Silakan gunakan email yang berbeda.";
+      }
+      showError(errorMessage);
+      throw new Error(errorMessage);
     }
 
     await persistStaffPositions({

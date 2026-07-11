@@ -921,8 +921,12 @@ export default function StaffManagerPage() {
       .eq("id", staffToUpdate.id);
 
     if (error) {
-      showError(t("owner.staff.updateError", { message: error.message }));
-      throw new Error(error.message);
+      let errorMessage = error.message;
+      if (errorMessage.includes("staff_email_key")) {
+        errorMessage = "Email ini sudah terdaftar pada akun staf/manajer lain. Silakan gunakan email yang berbeda.";
+      }
+      showError(t("owner.staff.updateError", { message: errorMessage }));
+      throw new Error(errorMessage);
     }
 
     try {
@@ -1056,6 +1060,7 @@ export default function StaffManagerPage() {
       }
 
       const { data: insertedStaff, error } = await supabase
+
         .from("staff")
         .insert([newStaffData])
         .select("id")
@@ -1063,6 +1068,9 @@ export default function StaffManagerPage() {
 
       if (error) {
         if (error.code === "23505") {
+          if (error.message.includes("staff_email_key")) {
+            throw new Error("Email ini sudah terdaftar pada akun staf/manajer lain. Silakan gunakan email yang berbeda.");
+          }
           throw new Error(t("owner.staff.codeUsed"));
         }
 
