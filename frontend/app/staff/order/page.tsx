@@ -1062,28 +1062,28 @@ export default function StaffOrderPage() {
   };
 
   const renderOrderControls = () => (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+    <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-center lg:justify-end">
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
         placeholder="Search orders..."
         width="w-full lg:w-72"
       />
-      <CompactDateRangeFilter value={dateRange} onChange={setDateRange} />
-      <button
-        type="button"
-        onClick={() => setCorrectionModalOpen(true)}
-        className="py-2.5 rounded-lg border border-gray-300 shadow-sm bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
-      >
-        Request Correction
-      </button>
-      <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+      <div className="flex items-center justify-between gap-3 lg:contents">
+        <CompactDateRangeFilter value={dateRange} onChange={setDateRange} />
         <ViewModeToggle
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           showMapView={false}
         />
       </div>
+      <button
+        type="button"
+        onClick={() => setCorrectionModalOpen(true)}
+        className="w-full py-2.5 rounded-lg border border-gray-300 shadow-sm bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 lg:w-auto"
+      >
+        Request Correction
+      </button>
     </div>
   );
 
