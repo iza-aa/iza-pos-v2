@@ -279,6 +279,7 @@ export default function LoginStaffPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -341,6 +342,7 @@ export default function LoginStaffPage() {
           action: "login",
           staff_code: staffId.trim().toUpperCase(),
           credential: normalizedCredential,
+          remember_me: rememberMe,
         }),
       });
 
@@ -411,6 +413,7 @@ export default function LoginStaffPage() {
           login_code: pendingPinSetup.loginCode,
           new_pin: normalizedNewPin,
           confirm_pin: normalizedConfirmPin,
+          remember_me: rememberMe,
         }),
       });
 
@@ -539,6 +542,19 @@ export default function LoginStaffPage() {
                 helperText="Input dibuat seperti kode PIN agar lebih mudah dipakai staff."
                 statusText="Lupa PIN? Hubungi manager untuk reset akses."
               />
+
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                  disabled={loading}
+                  className="rounded border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-500">
+                  Ingat saya selama 7 hari di perangkat ini
+                </span>
+              </label>
 
               <button
                 type="submit"

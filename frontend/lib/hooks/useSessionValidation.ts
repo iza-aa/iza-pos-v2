@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../config/supabaseClient';
 import { getCurrentUser } from '../utils';
 
 /**
@@ -21,15 +20,15 @@ export function useSessionValidation(redirectUrl?: string) {
         return;
       }
 
-      // Query database to check if user still exists and is active
-      const { data, error } = await supabase
-        .from('staff')
-        .select('id, status, role')
-        .eq('id', user.id)
-        .maybeSingle();
+      // Query via server route (service-role key) so RLS on `staff` can't
+      // block this check — the app uses a custom PIN session, not Supabase
+      // Auth, so there is no auth.uid() for client-side RLS to match against.
+      const result = await fetch(`/api/session/validate?id=${encodeURIComponent(user.id)}`)
+        .then((response) => response.json())
+        .catch(() => null);
 
       // If user not found or inactive, logout
-      if (error || !data || data.status !== 'active') {
+      if (!result || !result.valid) {
         console.warn(`[Session Validation] User not found or inactive - logging out`);
         localStorage.clear();
         

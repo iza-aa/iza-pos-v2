@@ -259,6 +259,7 @@ const handleSetPin = async (body: Record<string, unknown>) => {
   const loginCode = normalizeCredential(body.login_code ?? body.credential);
   const newPin = normalizeCredential(body.new_pin);
   const confirmPin = normalizeCredential(body.confirm_pin);
+  const rememberMe = body.remember_me === true;
 
   if (!staffCode || !loginCode || !newPin || !confirmPin) {
     return jsonError("Staff ID, kode login, PIN baru, dan konfirmasi PIN wajib diisi.", 400);
@@ -304,7 +305,7 @@ const handleSetPin = async (body: Record<string, unknown>) => {
 
   if (error) throw error;
 
-  return buildLoginResponse({ ...staff, pin_hash: pinHash, must_change_pin: false });
+  return buildLoginResponse({ ...staff, pin_hash: pinHash, must_change_pin: false }, rememberMe);
 };
 
 const handleChangePin = async (body: Record<string, unknown>) => {
