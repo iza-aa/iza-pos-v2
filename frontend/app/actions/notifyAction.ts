@@ -2,7 +2,11 @@
 
 export async function sendOrderNotification(orderId: string, orderNumber: string, roles: string[]) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    // NEXT_PUBLIC_SITE_URL = set manually in Vercel env vars (e.g. https://iza-pos-v2.vercel.app)
+    // VERCEL_URL = auto-set by Vercel (without https://)
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     
     // Determine title and body based on roles
     const isKitchen = roles.includes('kitchen');
