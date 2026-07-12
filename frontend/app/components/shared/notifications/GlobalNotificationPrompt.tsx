@@ -61,17 +61,17 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-[9999] sm:left-auto sm:right-4 sm:w-96">
-      <div className="rounded-xl border border-blue-100 bg-white p-4 shadow-xl shadow-blue-900/5">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
         <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-white">
             <BellAlertIcon className="h-6 w-6" />
           </div>
-          
+
           <div className="flex-1 pt-0.5">
             <h3 className="text-sm font-semibold text-gray-900">
               Notifikasi Pesanan
             </h3>
-            
+
             <p className="mt-1 text-sm text-gray-500 leading-relaxed">
               {showAddToHomeScreenInstructions ? (
                 <>Untuk menerima notifikasi secara real-time, silakan tap <strong>Share</strong> di bawah, lalu pilih <strong>Add to Home Screen</strong>.</>
@@ -101,7 +101,7 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
                       setIsVisible(false); // Hide immediately on subscribe attempt
                     }}
                     disabled={isLoading}
-                    className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:opacity-70"
+                    className="flex-1 rounded-lg bg-linear-to-r from-black to-gray-600 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-70"
                   >
                     {isLoading ? "Memproses..." : "Aktifkan Sekarang"}
                   </button>
@@ -116,7 +116,7 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
               )}
             </div>
           </div>
-          
+
           <button
             type="button"
             onClick={handleDismiss}
