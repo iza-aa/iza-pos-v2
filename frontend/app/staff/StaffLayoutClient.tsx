@@ -57,7 +57,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           />
         )}
         <main>{children}</main>
-        {!isLogin && <GlobalNotificationPrompt role={staffType ?? "staff"} />}
+        {!isLogin && <GlobalNotificationPrompt role={staffType ?? "cashier"} />}
         <ToastContainer />
       </div>
     </RoleGuard>

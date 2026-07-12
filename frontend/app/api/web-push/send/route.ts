@@ -61,26 +61,33 @@ export async function POST(req: NextRequest) {
     });
 
     const sendPromises = subscriptions.map(async (sub) => {
+      // auth_keys may be stored as a JSON string or already as an object
+      const keys = typeof sub.auth_keys === 'string' ? JSON.parse(sub.auth_keys) : sub.auth_keys;
       const pushSubscription = {
         endpoint: sub.endpoint,
-        keys: sub.auth_keys
+        keys: {
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+        }
       };
 
       try {
         await webPush.sendNotification(pushSubscription, payload);
+        console.log(`[push-send] Sent to role=${sub.role} endpoint=${sub.endpoint.slice(0, 60)}...`);
       } catch (err: any) {
         // Handle cleanup for invalid endpoints
         if (err.statusCode === 404 || err.statusCode === 410) {
-          console.log(`Subscription expired/invalid for endpoint: ${sub.endpoint}. Deleting...`);
+          console.log(`[push-send] Expired subscription for endpoint: ${sub.endpoint.slice(0, 60)}. Deleting...`);
           await supabaseAdmin.from('push_subscriptions').delete().eq('id', sub.id);
         } else {
-          console.error(`Failed to send to endpoint ${sub.endpoint}:`, err);
+          console.error(`[push-send] Failed to send to endpoint ${sub.endpoint.slice(0, 60)}:`, err.statusCode, err.message);
         }
       }
     });
 
     await Promise.all(sendPromises);
 
+    console.log(`[push-send] Done. Attempted to send to ${subscriptions.length} subscription(s).`);
     return NextResponse.json({ success: true, sent: subscriptions.length });
 
   } catch (err) {
