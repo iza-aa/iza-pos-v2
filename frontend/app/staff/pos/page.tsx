@@ -287,6 +287,15 @@ export default function POSPage() {
 		useState<BookkeepingFinancialSettings>(defaultFinancialSettings);
 
 	useEffect(() => {
+		// On mobile the "Order Details" panel renders as a full-screen overlay
+		// (see the `lg:hidden` backdrop below), so it must start closed there —
+		// only desktop keeps it open by default as a normal sidebar.
+		if (window.innerWidth < 1024) {
+			setOrderDetailsOpen(false);
+		}
+	}, []);
+
+	useEffect(() => {
 		const currentUser = getCurrentUser();
 
 		if (

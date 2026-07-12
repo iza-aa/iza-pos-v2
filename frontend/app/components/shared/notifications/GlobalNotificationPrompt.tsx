@@ -60,7 +60,7 @@ export default function GlobalNotificationPrompt({ role = "staff" }: { role?: st
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[9999] sm:left-auto sm:right-4 sm:w-96">
+    <div className="fixed top-4 left-4 right-4 z-9999 sm:left-auto sm:right-4 sm:w-96">
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
         <div className="flex items-start gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-white">
