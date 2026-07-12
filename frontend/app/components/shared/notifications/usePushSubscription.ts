@@ -3,15 +3,26 @@
 import { useState, useEffect } from "react";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 
-const SW_READY_TIMEOUT_MS = 8000;
+const SW_READY_TIMEOUT_MS = 15000; // 15s — iOS can be slow on first install
 
-const getServiceWorkerRegistration = () =>
-  Promise.race([
+const getServiceWorkerRegistration = async (): Promise<ServiceWorkerRegistration> => {
+  // Ensure SW is registered before waiting for ready
+  // next-pwa auto-registers in most cases, but we do it explicitly for reliability on iOS
+  if (navigator.serviceWorker.controller === null) {
+    try {
+      await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    } catch (e) {
+      console.warn('[SW] register() failed:', e);
+    }
+  }
+
+  return Promise.race([
     navigator.serviceWorker.ready,
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Service worker not ready (timed out)")), SW_READY_TIMEOUT_MS)
     ),
   ]);
+};
 
 export function usePushSubscription(role: string = "staff") {
   const [isSubscribed, setIsSubscribed] = useState(false);
