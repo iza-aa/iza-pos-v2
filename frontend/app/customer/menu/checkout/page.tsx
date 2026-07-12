@@ -7,6 +7,7 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import QRISPayment from "@/app/components/customer/menu/checkout/QRISPayment";
 import CheckoutCartItem from "@/app/components/customer/menu/checkout/CheckoutCartItem";
 import { sendOrderNotification } from "@/app/actions/notifyAction";
+import { broadcastNewOrder } from "@/lib/services/orders/orderRealtime";
 import OrderSummary from "@/app/components/customer/menu/checkout/OrderSummary";
 import LoadingScreen from "@/app/components/customer/LoadingScreen";
 import {
@@ -497,6 +498,8 @@ export default function CustomerCheckoutPage() {
       if (itemsError) {
         throw itemsError;
       }
+
+      broadcastNewOrder(createdOrder.id);
 
       await updateTableSessionStats(createdOrder.id, financialTotals.total);
 

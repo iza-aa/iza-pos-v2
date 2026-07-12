@@ -5,6 +5,7 @@ import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentStaffInfo, getCurrentUser } from "@/lib/utils";
 import { getStaffHomePath, hasStaffPosition } from "@/lib/utils/staffAccess";
 import { logActivity } from "@/lib/services/activity/activityLogger";
+import { broadcastNewOrder } from "@/lib/services/orders/orderRealtime";
 import FoodiesMenuHeader from "@/app/components/staff/pos/FoodiesMenuHeader";
 import MenuCategories from "@/app/components/staff/pos/MenuCategories";
 import FoodItemCard from "@/app/components/staff/pos/FoodItemCard";
@@ -751,6 +752,8 @@ export default function POSPage() {
 				});
 				throw itemsError;
 			}
+
+			broadcastNewOrder(orderData.id);
 
 			const { error: paymentError } = await supabase
 				.from("payment_transactions")

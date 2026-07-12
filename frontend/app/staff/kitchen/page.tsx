@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/utils";
 import { getStaffHomePath, hasStaffPosition } from "@/lib/utils/staffAccess";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 import { supabase } from "@/lib/config/supabaseClient";
+import { ORDERS_REALTIME_CHANNEL, NEW_ORDER_BROADCAST_EVENT } from "@/lib/services/orders/orderRealtime";
 import {
   shouldRouteToKitchen,
   type ProductWithPreparationCategory,
@@ -262,9 +263,12 @@ export default function KitchenPage() {
 
     // Real-time subscription
     const subscription = supabase
-      .channel("kitchen-orders")
+      .channel(ORDERS_REALTIME_CHANNEL)
+      .on("broadcast", { event: NEW_ORDER_BROADCAST_EVENT }, () => {
+        void fetchKitchenOrders({ silent: true });
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
-        void fetchKitchenOrders();
+        void fetchKitchenOrders({ silent: true });
       })
       .subscribe();
 
@@ -273,8 +277,8 @@ export default function KitchenPage() {
     };
   }, []);
 
-  async function fetchKitchenOrders() {
-    setLoading(true);
+  async function fetchKitchenOrders({ silent = false }: { silent?: boolean } = {}) {
+    if (!silent) setLoading(true);
     try {
       // Fetch order items yang butuh kitchen (kitchen_status = pending or cooking)
       const { data, error } = await supabase
@@ -327,7 +331,7 @@ export default function KitchenPage() {
 
       if (error) throw error;
 
-      await fetchKitchenOrders();
+      await fetchKitchenOrders({ silent: true });
     } catch (error) {
       console.error("Error updating status:", error);
     }

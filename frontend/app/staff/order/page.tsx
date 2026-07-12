@@ -14,6 +14,7 @@ import CompactDateRangeFilter, {
 import type { ViewMode } from "@/app/components/ui/Common/ViewModeToggle";
 import type { OrderItem } from "@/lib/types";
 import { supabase } from "@/lib/config/supabaseClient";
+import { ORDERS_REALTIME_CHANNEL, NEW_ORDER_BROADCAST_EVENT } from "@/lib/services/orders/orderRealtime";
 import {
   parseSupabaseTimestamp,
   getJakartaNow,
@@ -150,7 +151,7 @@ export default function StaffOrderPage() {
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
 
   const fetchRefs = useRef({
-    fetchOrders: () => {},
+    fetchOrders: (_options?: { silent?: boolean }) => {},
     fetchOrderCorrections: () => {},
     fetchAvailableBaristas: () => {},
     fetchAvailableWaiters: () => {}
@@ -163,25 +164,32 @@ export default function StaffOrderPage() {
     fetchRefs.current.fetchAvailableWaiters();
 
     const channel = supabase
-      .channel("manager-orders-changes")
+      .channel(ORDERS_REALTIME_CHANNEL)
+      .on(
+        "broadcast",
+        { event: NEW_ORDER_BROADCAST_EVENT },
+        () => {
+          fetchRefs.current.fetchOrders({ silent: true });
+        },
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
         () => {
-          fetchRefs.current.fetchOrders();
+          fetchRefs.current.fetchOrders({ silent: true });
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
         () => {
-          fetchRefs.current.fetchOrders();
+          fetchRefs.current.fetchOrders({ silent: true });
         },
       )
       .subscribe();
 
     const interval = setInterval(() => {
-      fetchRefs.current.fetchOrders();
+      fetchRefs.current.fetchOrders({ silent: true });
       fetchRefs.current.fetchOrderCorrections();
       fetchRefs.current.fetchAvailableBaristas();
       fetchRefs.current.fetchAvailableWaiters();
@@ -267,8 +275,8 @@ export default function StaffOrderPage() {
 
   fetchRefs.current.fetchOrderCorrections = fetchOrderCorrections;
 
-  async function fetchOrders() {
-    setLoading(true);
+  async function fetchOrders({ silent = false }: { silent?: boolean } = {}) {
+    if (!silent) setLoading(true);
 
     try {
       const { data: ordersData, error } = await supabase
