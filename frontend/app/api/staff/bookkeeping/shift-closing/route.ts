@@ -595,12 +595,6 @@ export async function GET(request: NextRequest) {
     const context = await loadStaffShiftContext(request, businessDate);
     if ("error" in context) return context.error;
 
-    const shiftWindowError = validateShiftClosingWindow({
-      businessDate,
-      shift: context.shift,
-    });
-    if (shiftWindowError) return shiftWindowError;
-
     const snapshot = await buildShiftSnapshot({
       businessDate,
       shift: context.shift,
