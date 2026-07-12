@@ -338,7 +338,7 @@ export default function VariantSidebar({ isOpen, onClose, item, onAddToOrder, is
 			/>
 
 			{/* Sidebar */}
-			<div className={`fixed top-0 left-0 h-full w-[500px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
+			<div className={`fixed top-0 left-0 h-full w-full max-w-125 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
 				isOpen ? 'translate-x-0' : '-translate-x-full'
 			}`}>
 				<div className="h-full flex flex-col">

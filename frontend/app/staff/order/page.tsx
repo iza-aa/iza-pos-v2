@@ -1206,14 +1206,14 @@ export default function StaffOrderPage() {
       <div className="bg-gray-100">
         <div className="shrink-0 bg-gray-100 px-6 pt-6 pb-2">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide sm:flex-wrap">
               {shouldShowKanbanFilter
                 ? kanbanFilterOptions.map((option) => (
                   <button
                     key={option.key}
                     type="button"
                     onClick={() => setKanbanFilter(option.key)}
-                    className={`px-6 py-2 rounded-md text-sm font-medium transition ${kanbanFilter === option.key
+                    className={`shrink-0 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition sm:px-6 ${kanbanFilter === option.key
                       ? "bg-gray-900 text-white shadow-md"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                       }`}
@@ -1228,7 +1228,7 @@ export default function StaffOrderPage() {
                     key={option.key}
                     type="button"
                     onClick={() => setOrderFilter(option.key)}
-                    className={`px-6 py-2 rounded-md text-sm font-medium transition ${orderFilter === option.key
+                    className={`shrink-0 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition sm:px-6 ${orderFilter === option.key
                       ? "bg-gray-900 text-white shadow-md"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                       }`}

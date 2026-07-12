@@ -138,8 +138,8 @@ export default function OrderDetailModal({
               </div>
             </div>
 
-            <div className="overflow-hidden border border-gray-100 rounded-lg">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto border border-gray-100 rounded-lg">
+              <table className="w-full min-w-125 text-left text-sm">
                 <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase">
                   <tr>
                     <th className="px-4 py-2.5">Item</th>

@@ -414,7 +414,9 @@ export default function CustomerCheckoutPage() {
       discount: 0,
       total: totals.total,
       payment_method: "QRIS",
-      payment_status: "pending",
+      // Order is only created once the customer confirms payment (see
+      // handlePaymentConfirmed), so it's always already paid by this point.
+      payment_status: "paid",
       notes: notes.trim() || null,
     };
 
@@ -435,7 +437,7 @@ export default function CustomerCheckoutPage() {
     return data as CreatedOrder;
   };
 
-  const placeOrder = async () => {
+  const placeOrder = () => {
     if (cart.length === 0) {
       showError("Your cart is empty");
       return;
@@ -446,19 +448,35 @@ export default function CustomerCheckoutPage() {
       return;
     }
 
+    // No order is created here. It's only inserted once the customer
+    // actually confirms payment in handlePaymentConfirmed below — otherwise
+    // an abandoned/incomplete QRIS payment would still show up as a live
+    // order to staff and kitchen.
+    const orderNumberPrefix = isDineIn ? "QR" : "TA";
+    const orderNumber = `${orderNumberPrefix}-${Date.now()}`;
+    const pickupCode = isTakeaway ? generatePickupCode() : null;
+
+    setPendingOrderNumber(orderNumber);
+    setPendingPickupCode(pickupCode);
+    setShowQRISPayment(true);
+  };
+
+  const handlePaymentConfirmed = async () => {
     setIsSubmitting(true);
 
     try {
-      const orderNumberPrefix = isDineIn ? "QR" : "TA";
-      const orderNumber = `${orderNumberPrefix}-${Date.now()}`;
-      const pickupCode = isTakeaway ? generatePickupCode() : null;
       const cleanCustomerName =
         customerName.trim() || createFallbackCustomerName(orderMode, tableSession);
 
       let createdOrder: CreatedOrder;
 
       try {
-        createdOrder = await createOrder(orderNumber, cleanCustomerName, pickupCode, financialTotals);
+        createdOrder = await createOrder(
+          pendingOrderNumber,
+          cleanCustomerName,
+          pendingPickupCode,
+          financialTotals,
+        );
       } catch (error) {
         if (isDuplicateActiveTableSessionError(error)) {
           console.error(
@@ -467,12 +485,15 @@ export default function CustomerCheckoutPage() {
           );
 
           showError("This table session is already active. Please refresh the page and try again.");
+          setShowQRISPayment(false);
           setIsSubmitting(false);
           return;
         }
 
         throw error;
       }
+
+      setPendingOrderId(createdOrder.id);
 
       const productIds = cart.map((item) => item.productId);
       const productLookup = await fetchProductLookup(productIds);
@@ -506,36 +527,13 @@ export default function CustomerCheckoutPage() {
       // Trigger Web Push to Cashiers
       await sendOrderNotification(createdOrder.id, createdOrder.order_number, ["cashier", "owner", "manager"]);
 
-      setPendingOrderNumber(createdOrder.order_number);
-      setPendingOrderId(createdOrder.id);
-      setPendingPickupCode(createdOrder.pickup_code);
-      setShowQRISPayment(true);
-      setIsSubmitting(false);
-    } catch (error) {
-      console.error("Order error:", JSON.stringify(error, null, 2), error);
-      showError("Failed to create order. Please try again.");
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePaymentConfirmed = async () => {
-    try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ payment_status: "paid" })
-        .eq("id", pendingOrderId);
-
-      if (error) {
-        throw error;
-      }
-
       // Trigger Web Push to Kitchen
-      await sendOrderNotification(pendingOrderId, pendingOrderNumber, ["kitchen", "owner", "manager"]);
+      await sendOrderNotification(createdOrder.id, createdOrder.order_number, ["kitchen", "owner", "manager"]);
 
       try {
         const inventoryUsageResult = await recordOrderInventoryUsageWithBatches({
-          orderId: pendingOrderId,
-          orderNumber: pendingOrderNumber,
+          orderId: createdOrder.id,
+          orderNumber: createdOrder.order_number,
           items: cart.map((item) => ({
             productId: item.productId,
             productName: item.name,
@@ -557,7 +555,7 @@ export default function CustomerCheckoutPage() {
         localStorage.setItem("customer_name", customerName.trim());
       }
 
-      localStorage.setItem("current_order_id", pendingOrderId);
+      localStorage.setItem("current_order_id", createdOrder.id);
 
       if (pendingPickupCode) {
         localStorage.setItem("current_pickup_code", pendingPickupCode);
@@ -574,6 +572,8 @@ export default function CustomerCheckoutPage() {
     } catch (error) {
       console.error("Payment confirmation error:", JSON.stringify(error, null, 2), error);
       showError("Failed to confirm payment. Please try again.");
+      setShowQRISPayment(false);
+      setIsSubmitting(false);
     }
   };
 

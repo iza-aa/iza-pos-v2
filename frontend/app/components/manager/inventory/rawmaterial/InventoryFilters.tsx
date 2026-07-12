@@ -18,13 +18,13 @@ export default function InventoryFilters({
   onCategoryChange
 }: InventoryFiltersProps) {
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide sm:flex-wrap">
       {/* Category Pills */}
       {categories.map((cat) => (
         <button
           key={cat.id}
           onClick={() => onCategoryChange(cat.id)}
-          className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition ${
+          className={`shrink-0 whitespace-nowrap px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition ${
             selectedCategory === cat.id
               ? 'bg-gray-900 text-white'
               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'

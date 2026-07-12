@@ -1302,7 +1302,7 @@ export default function RawMaterialsTab({ view = "raw-materials" }: RawMaterials
           </div>
         ) : (
           <div className="mb-4 shrink-0">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide sm:flex-wrap">
               {[
                 { key: "all", label: "All" },
                 { key: "active", label: "Active" },
@@ -1314,7 +1314,7 @@ export default function RawMaterialsTab({ view = "raw-materials" }: RawMaterials
                   key={filter.key}
                   type="button"
                   onClick={() => setBatchFilter(filter.key as BatchFilter)}
-                  className={`h-10 rounded-lg px-4 text-sm font-semibold transition ${
+                  className={`h-10 shrink-0 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition ${
                     batchFilter === filter.key
                       ? "bg-gray-900 text-white"
                       : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
