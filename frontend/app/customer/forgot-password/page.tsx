@@ -69,7 +69,7 @@ export default function CustomerForgotPasswordPage() {
             Back to Login
           </button>
           <div className="flex justify-center mt-6">
-            <img src="/logo/IZALogo2.png" alt="Logo" className="w-20" />
+            <img src="/icons/lefttoplogolight.png" alt="Logo" className="w-20" />
           </div>
           <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-gray-900">
             Forgot Password

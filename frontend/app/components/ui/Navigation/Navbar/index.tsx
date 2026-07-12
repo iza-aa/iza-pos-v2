@@ -491,7 +491,7 @@ export default function Navbar({
         <div className="flex items-center justify-between h-14">
           {/* Left: Logo */}
           <div className="flex items-center">
-            <img src="/logo/IZALogo2.png" alt="Logo" className="w-12 h-8 object-contain" />
+            <img src="/icons/lefttoplogolight.png" alt="Logo" className="w-12 h-8 object-contain" />
           </div>
 
           {/* Center: Nav Items (Desktop) */}
@@ -573,7 +573,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={toggleLanguage}
-              className="hidden md:flex items-center justify-center rounded-full border border-gray-200 bg-white transition hover:bg-gray-100"
+              className="hidden md:flex h-10 w-12 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:bg-gray-100"
               title={t('common.language')}
               aria-label={t('common.language')}
             >
@@ -582,7 +582,7 @@ export default function Navbar({
                 alt={languageFlagAlt}
                 width={28}
                 height={28}
-                className="h-7 w-7 rounded-full object-cover"
+                className="h-6 w-8 rounded-md object-cover"
               />
             </button>
 
@@ -633,123 +633,148 @@ export default function Navbar({
 
       {/* Mobile Menu */}
       {showMobileMenu && (
-        <div className="md:hidden fixed inset-0 top-14.25 bg-white z-40 overflow-y-auto">
-          {/* Owner/Profile Section - Moved to Top */}
-          <div className="px-4 py-3 border-b border-gray-200">
-            <div className="flex items-center gap-3">
+        <div className="md:hidden fixed inset-0 top-14.25 z-40">
+          <style jsx>{`
+            @keyframes slide-in-right {
+              from {
+                transform: translateX(100%);
+              }
+              to {
+                transform: translateX(0);
+              }
+            }
+            .animate-slide-in-right {
+              animation: slide-in-right 0.25s ease-out;
+            }
+          `}</style>
+
+          {/* Backdrop covers the remaining 1/3 of the screen */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowMobileMenu(false)}
+          />
+
+          {/* Drawer panel: slides in from the right, 2/3 of the screen width */}
+          <div className="animate-slide-in-right absolute right-0 top-0 h-full w-2/3 max-w-sm overflow-y-auto bg-white shadow-xl">
+            {/* Profile Section - Moved to Top */}
+            <div className="space-y-3 border-b border-gray-200 px-4 py-4">
               <button
-                onClick={() => {
-                  setShowNotifications(true)
-                  setShowMobileMenu(false)
-                }}
-                className="relative p-2 rounded-lg hover:bg-gray-100"
-                aria-label={t('notifications.open')}
-              >
-                <BellIcon className="w-5 h-5 text-gray-600" />
-                {ownerNotificationsEnabled || managerNotificationsEnabled || staffNotificationsEnabled ? renderNotificationBadge() : null}
-              </button>
-              <button 
                 onClick={() => {
                   setShowProfile(true)
                   setShowMobileMenu(false)
                 }}
-                className="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-gray-100"
+                className="flex w-full items-center gap-3 rounded-lg p-2 hover:bg-gray-100"
               >
-                <img 
+                <img
                   key={`mobile-${avatarSrc}`}
-                  src={avatarSrc} 
-                  alt="Avatar" 
-                  className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
+                  src={avatarSrc}
+                  alt="Avatar"
+                  className="h-10 w-10 shrink-0 rounded-full object-cover border-2 border-gray-200"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = getFallbackAvatar(userName)
                   }}
                 />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">{userName}</p>
-                  <p className="text-xs text-gray-500 capitalize">{visibleRoleText}{storedStaffCode ? ` • ${storedStaffCode}` : ''}</p>
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+                  <p className="truncate text-xs text-gray-500 capitalize">{visibleRoleText}{storedStaffCode ? ` • ${storedStaffCode}` : ''}</p>
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="flex h-10 w-12 items-center justify-center rounded-lg border border-gray-200 bg-white"
-                aria-label={t('common.language')}
-              >
-                <Image
-                  src={languageFlagSrc}
-                  alt={languageFlagAlt}
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 rounded-full object-cover"
-                />
-              </button>
-            </div>
-          </div>
 
-          {/* Nav Items - Menu Section */}
-          <div className="px-4 py-3 border-b border-gray-200">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-              {t('nav.menu')}
-            </p>
-            <div className="space-y-1">
-              {navItems.map((item, idx) => {
-                const Icon = activeTab === idx ? item.iconSolid : item.icon
-                const isActive = activeTab === idx
-                
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      router.push(item.path)
-                      setShowMobileMenu(false)
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-gray-900 text-white font-medium'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {getItemLabel(item)}
-                  </button>
-                )
-              })}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowNotifications(true)
+                    setShowMobileMenu(false)
+                  }}
+                  className="relative flex flex-1 min-w-0 items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-100"
+                  aria-label={t('notifications.open')}
+                >
+                  <BellIcon className="h-5 w-5 shrink-0 text-gray-600" />
+                  <span className="truncate text-sm text-gray-600">{t('notifications.open')}</span>
+                  {ownerNotificationsEnabled || managerNotificationsEnabled || staffNotificationsEnabled ? renderNotificationBadge() : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleLanguage}
+                  className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white"
+                  aria-label={t('common.language')}
+                >
+                  <Image
+                    src={languageFlagSrc}
+                    alt={languageFlagAlt}
+                    width={28}
+                    height={28}
+                    className="h-6 w-8 rounded-md object-cover"
+                  />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Role Switcher for Mobile - Moved to Bottom */}
-          {canSwitchRole && (
-            <div className="px-4 py-3 bg-gray-50">
+            {/* Nav Items - Menu Section */}
+            <div className="px-4 py-3 border-b border-gray-200">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-                {t('nav.switchPortal')}
+                {t('nav.menu')}
               </p>
-              <div className="flex gap-2">
-                {(Object.keys(roleConfig) as Role[]).map((r) => {
-                  const config = roleConfig[r]
-                  const Icon = config.icon
-                  const isActive = selectedRole === r
-                  
+              <div className="space-y-1">
+                {navItems.map((item, idx) => {
+                  const Icon = activeTab === idx ? item.iconSolid : item.icon
+                  const isActive = activeTab === idx
+
                   return (
                     <button
-                      key={r}
+                      key={item.label}
                       onClick={() => {
-                        handleRoleSwitch(r)
+                        router.push(item.path)
                         setShowMobileMenu(false)
                       }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border-b-2 ${
-                        isActive 
-                          ? 'bg-gray-100 text-gray-900 border-gray-900' 
-                          : 'bg-white text-gray-500 border-transparent hover:bg-gray-50'
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                        isActive
+                          ? 'bg-gray-900 text-white font-medium'
+                          : 'text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
-                      {t(config.labelKey as TranslationKey)}
+                      <Icon className="w-5 h-5" />
+                      {getItemLabel(item)}
                     </button>
                   )
                 })}
               </div>
             </div>
-          )}
+
+            {/* Role Switcher for Mobile - Moved to Bottom */}
+            {canSwitchRole && (
+              <div className="px-4 py-3 bg-gray-50">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                  {t('nav.switchPortal')}
+                </p>
+                <div className="flex flex-col gap-2">
+                  {(Object.keys(roleConfig) as Role[]).map((r) => {
+                    const config = roleConfig[r]
+                    const Icon = config.icon
+                    const isActive = selectedRole === r
+
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => {
+                          handleRoleSwitch(r)
+                          setShowMobileMenu(false)
+                        }}
+                        className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border-b-2 ${
+                          isActive
+                            ? 'bg-gray-100 text-gray-900 border-gray-900'
+                            : 'bg-white text-gray-500 border-transparent hover:bg-gray-50'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {t(config.labelKey as TranslationKey)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

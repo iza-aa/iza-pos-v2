@@ -155,7 +155,7 @@ function CompleteProfileContent() {
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 text-center">
             <img
-              src="/logo/IZALogo2.png"
+              src="/icons/lefttoplogolight.png"
               alt="IZA Coffee"
               className="mx-auto h-16 w-auto object-contain"
             />

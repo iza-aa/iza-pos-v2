@@ -61,7 +61,7 @@ export default function CustomerResetPasswordPage() {
       <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-xl">
         <div>
           <div className="flex justify-center">
-            <img src="/logo/IZALogo2.png" alt="Logo" className="w-20" />
+            <img src="/icons/lefttoplogolight.png" alt="Logo" className="w-20" />
           </div>
           <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-gray-900">
             Set New Password

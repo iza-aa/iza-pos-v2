@@ -134,7 +134,7 @@ export default function OwnerLoginPage() {
 				<div className="w-full max-w-sm">
 					<div className="flex items-center mb-6 justify-center">
 						<img
-							src="/logo/IZALogo2.png"
+							src="/icons/lefttoplogolight.png"
 							alt="Logo"
 							className="w-20 mr-3"
 						/>

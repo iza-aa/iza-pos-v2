@@ -484,7 +484,7 @@ export default function LoginStaffPage() {
         <div className="w-full max-w-md p-2 sm:p-6">
           <div className="mb-8 flex items-center justify-center">
             <Image
-              src="/logo/IZALogo2.png"
+              src="/icons/lefttoplogolight.png"
               alt="IZA POS"
               width={96}
               height={64}

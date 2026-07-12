@@ -128,7 +128,7 @@ export default function ManagerLoginPage() {
       <div className="w-full md:w-[40%] lg:w-[30%] flex flex-col justify-center items-center bg-white p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center mb-8 justify-center">
-            <img src="/logo/IZALogo2.png" alt="Logo" className="w-20 mr-3" />
+            <img src="/icons/lefttoplogolight.png" alt="Logo" className="w-20 mr-3" />
           </div>
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800">Manager Login</h2>

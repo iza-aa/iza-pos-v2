@@ -151,7 +151,7 @@ export default function CustomerLayout({
             className="flex items-center"
           >
             <img
-              src="/logo/IZALogo2.png"
+              src="/icons/lefttoplogolight.png"
               alt="IZA Coffee"
               className="h-9 w-auto object-contain"
             />
