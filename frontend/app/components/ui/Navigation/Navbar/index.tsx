@@ -657,46 +657,44 @@ export default function Navbar({
           {/* Drawer panel: slides in from the right, 2/3 of the screen width */}
           <div className="animate-slide-in-right absolute right-0 top-0 h-full w-2/3 max-w-sm overflow-y-auto bg-white shadow-xl">
             {/* Profile Section - Moved to Top */}
-            <div className="space-y-3 border-b border-gray-200 px-4 py-4">
-              <button
-                onClick={() => {
-                  setShowProfile(true)
-                  setShowMobileMenu(false)
-                }}
-                className="flex w-full items-center gap-3 rounded-lg p-2 hover:bg-gray-100"
-              >
-                <img
-                  key={`mobile-${avatarSrc}`}
-                  src={avatarSrc}
-                  alt="Avatar"
-                  className="h-10 w-10 shrink-0 rounded-full object-cover border-2 border-gray-200"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = getFallbackAvatar(userName)
-                  }}
-                />
-                <div className="min-w-0 text-left">
-                  <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
-                  <p className="truncate text-xs text-gray-500 capitalize">{visibleRoleText}{storedStaffCode ? ` • ${storedStaffCode}` : ''}</p>
-                </div>
-              </button>
-
+            <div className="border-b border-gray-200 px-4 py-4">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowProfile(true)
+                    setShowMobileMenu(false)
+                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 hover:bg-gray-100"
+                >
+                  <img
+                    key={`mobile-${avatarSrc}`}
+                    src={avatarSrc}
+                    alt="Avatar"
+                    className="h-10 w-10 shrink-0 rounded-full object-cover border-2 border-gray-200"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getFallbackAvatar(userName)
+                    }}
+                  />
+                  <div className="min-w-0 text-left">
+                    <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+                    <p className="truncate text-xs text-gray-500 capitalize">{visibleRoleText}{storedStaffCode ? ` • ${storedStaffCode}` : ''}</p>
+                  </div>
+                </button>
                 <button
                   onClick={() => {
                     setShowNotifications(true)
                     setShowMobileMenu(false)
                   }}
-                  className="relative flex flex-1 min-w-0 items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-100"
+                  className="relative shrink-0 rounded-lg p-2 hover:bg-gray-100"
                   aria-label={t('notifications.open')}
                 >
-                  <BellIcon className="h-5 w-5 shrink-0 text-gray-600" />
-                  <span className="truncate text-sm text-gray-600">{t('notifications.open')}</span>
+                  <BellIcon className="h-5 w-5 text-gray-600" />
                   {ownerNotificationsEnabled || managerNotificationsEnabled || staffNotificationsEnabled ? renderNotificationBadge() : null}
                 </button>
                 <button
                   type="button"
                   onClick={toggleLanguage}
-                  className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white"
+                  className="shrink-0 rounded-lg p-2 hover:bg-gray-100"
                   aria-label={t('common.language')}
                 >
                   <Image
@@ -704,7 +702,7 @@ export default function Navbar({
                     alt={languageFlagAlt}
                     width={28}
                     height={28}
-                    className="h-6 w-8 rounded-md object-cover"
+                    className="h-6 w-8 rounded object-cover"
                   />
                 </button>
               </div>
