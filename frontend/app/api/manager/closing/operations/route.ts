@@ -298,9 +298,14 @@ export async function POST(request: NextRequest) {
       const expenseDate = String(body.expenseDate || "").trim();
       const category = String(body.category || "").trim();
       const amount = toNumber(body.amount);
+      const receiptUrl = String(body.receiptUrl || "").trim();
 
       if (!DATE_PATTERN.test(expenseDate) || !category || amount <= 0) {
         return NextResponse.json({ error: "Expense date, category, and amount are required." }, { status: 400 });
+      }
+
+      if (!receiptUrl) {
+        return NextResponse.json({ error: "Receipt picture is required." }, { status: 400 });
       }
 
       const { data, error } = await supabase
@@ -311,7 +316,7 @@ export async function POST(request: NextRequest) {
           amount,
           payment_method: body.paymentMethod || null,
           vendor: body.vendor || null,
-          receipt_url: body.receiptUrl || null,
+          receipt_url: receiptUrl,
           note: body.note || null,
           created_by: requester.id,
           updated_at: new Date().toISOString(),

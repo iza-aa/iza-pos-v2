@@ -188,10 +188,44 @@ export default function ManagerClosingPage() {
   const [selectedDeposit, setSelectedDeposit] = useState<DepositRow | null>(null);
   const [verifyForm, setVerifyForm] = useState({ receivedAmount: "", status: "verified", managerNotes: "" });
   const [cashForm, setCashForm] = useState({ shiftId: "", openingCash: "", closingFloat: "", note: "" });
-  const [expenseForm, setExpenseForm] = useState({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", note: "" });
+  const [expenseForm, setExpenseForm] = useState({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", receiptUrl: "", note: "" });
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [recheckModalOpen, setRecheckModalOpen] = useState(false);
   const [recheckShiftId, setRecheckShiftId] = useState("");
   const [recheckNote, setRecheckNote] = useState("");
+
+  const handleUploadReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingReceipt(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/owner/bookkeeping/expenses/receipt", {
+        method: "POST",
+        headers: {
+          "x-user-id": currentUser?.id || "",
+          "x-user-name": currentUser?.name || "",
+          "x-user-role": currentUser?.role || "",
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to upload receipt");
+      }
+
+      setExpenseForm((current) => ({ ...current, receiptUrl: result.receiptUrl }));
+    } catch (error) {
+      console.error("Receipt upload failed:", error);
+      alert(error instanceof Error ? error.message : "Failed to upload receipt");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   const currentUser = useMemo(() => getCurrentUser(), []);
 
@@ -837,7 +871,7 @@ export default function ManagerClosingPage() {
             </button>
             <button
               type="button"
-              disabled={saving || !expenseForm.category || !expenseForm.amount}
+              disabled={saving || uploadingReceipt || !expenseForm.category || !expenseForm.amount || !expenseForm.receiptUrl.trim()}
               onClick={async () => {
                 const saved = await postAction(
                   {
@@ -849,7 +883,7 @@ export default function ManagerClosingPage() {
                 );
 
                 if (saved) {
-                  setExpenseForm({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", note: "" });
+                  setExpenseForm({ category: expenseCategories[0].value, amount: "", paymentMethod: "Cash", vendor: "", receiptUrl: "", note: "" });
                   setExpenseModalOpen(false);
                 }
               }}
@@ -897,6 +931,25 @@ export default function ManagerClosingPage() {
               />
             </label>
           </div>
+
+          <label className="block text-sm font-semibold text-gray-700">
+            Receipt Picture <span className="text-red-500">*</span>
+            <div className="mt-2 flex flex-col gap-2">
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleUploadReceipt}
+                disabled={uploadingReceipt}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold outline-none transition focus:border-gray-900"
+              />
+              {uploadingReceipt && <span className="text-sm font-medium text-blue-600">Uploading...</span>}
+              {expenseForm.receiptUrl && !uploadingReceipt && (
+                <a href={expenseForm.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:underline">
+                  View Uploaded Receipt
+                </a>
+              )}
+            </div>
+          </label>
 
           <label className="block text-sm font-semibold text-gray-700">
             {t("manager.closing.note")}

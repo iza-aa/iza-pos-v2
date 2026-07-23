@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBookkeepingSupabaseClient } from "@/lib/services/bookkeeping/bookkeepingServer";
+import { type SupabaseClient } from "@supabase/supabase-js";
 
 const RECEIPT_BUCKET = "receiptexpense";
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
@@ -29,11 +30,40 @@ const sanitizeFileName = (value: string) => {
     .slice(0, 80) || "receipt";
 };
 
+const ensureReceiptBucket = async (supabaseAdmin: SupabaseClient) => {
+  const { data: existingBucket, error: getBucketError } = await supabaseAdmin.storage.getBucket(RECEIPT_BUCKET);
+
+  if (existingBucket) {
+    if (!existingBucket.public) {
+      const { error: updateBucketError } = await supabaseAdmin.storage.updateBucket(RECEIPT_BUCKET, {
+        public: true,
+        fileSizeLimit: MAX_UPLOAD_SIZE_BYTES,
+      });
+      if (updateBucketError) throw updateBucketError;
+    }
+    return;
+  }
+
+  const message = String(getBucketError?.message || "").toLowerCase();
+  const statusCode = String((getBucketError as { statusCode?: string | number } | null)?.statusCode || "");
+
+  if (getBucketError && !message.includes("not found") && statusCode !== "404" && statusCode !== "400") {
+    throw getBucketError;
+  }
+
+  const { error: createBucketError } = await supabaseAdmin.storage.createBucket(RECEIPT_BUCKET, {
+    public: true,
+    fileSizeLimit: MAX_UPLOAD_SIZE_BYTES,
+  });
+
+  if (createBucketError) throw createBucketError;
+};
+
 export async function POST(request: NextRequest) {
   const requester = getRequester(request);
 
-  if (!requester.id || requester.role !== "owner") {
-    return jsonError("Owner access required.", 403);
+  if (!requester.id || (requester.role !== "owner" && requester.role !== "manager")) {
+    return jsonError("Owner or Manager access required.", 403);
   }
 
   try {
@@ -57,6 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createBookkeepingSupabaseClient();
+    await ensureReceiptBucket(supabase);
+    
     const buffer = Buffer.from(await file.arrayBuffer());
     const filePath = `${requester.id}/${Date.now()}-${sanitizeFileName(file.name)}`;
 
@@ -77,7 +109,7 @@ export async function POST(request: NextRequest) {
     await supabase.from("activity_logs").insert({
       user_id: requester.id,
       user_name: requester.name,
-      user_role: "owner",
+      user_role: requester.role,
       action: "CREATE",
       action_category: "FINANCIAL",
       action_description: "Uploaded bookkeeping expense receipt",

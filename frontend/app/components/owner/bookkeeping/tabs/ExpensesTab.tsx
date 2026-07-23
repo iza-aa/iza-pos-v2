@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { StandardModal } from "@/app/components/shared";
 import StandardTable, { type StandardTableColumn } from "@/app/components/shared/StandardTable";
 import { useLanguage } from "@/app/components/shared/i18n";
@@ -51,6 +51,38 @@ export default function ExpensesTab({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const categoryRef = useRef<HTMLInputElement | null>(null);
   const amountRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState("");
+
+  const handleUploadReceipt = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingReceipt(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/owner/bookkeeping/expenses/receipt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to upload receipt");
+      }
+
+      setForm((current) => ({ ...current, receiptUrl: result.receiptUrl }));
+      setTouched((current) => ({ ...current, receiptUrl: true }));
+    } catch (error) {
+      console.error("Receipt upload failed:", error);
+      alert(error instanceof Error ? error.message : "Failed to upload receipt");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   useEffect(() => {
     if (!modalOpen) setForm(emptyForm(data.dateRange.endDate));
@@ -99,6 +131,10 @@ export default function ExpensesTab({
       amountRef.current?.focus();
       return;
     }
+    if (!form.receiptUrl.trim()) {
+      setTouched((current) => ({ ...current, receiptUrl: true }));
+      return;
+    }
 
     onSaveExpense?.(form);
     setModalOpen(false);
@@ -145,6 +181,19 @@ export default function ExpensesTab({
       isAction: true,
       render: (row) => (
         <div className="flex items-center gap-2">
+          {row.receiptUrl && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedReceiptUrl(row.receiptUrl!);
+                setReceiptModalOpen(true);
+              }}
+              className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+              aria-label={`View receipt for ${row.category}`}
+            >
+              <EyeIcon className="h-5 w-5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => openEdit(row)}
@@ -216,7 +265,7 @@ export default function ExpensesTab({
             <button
               type="button"
               onClick={submit}
-              disabled={!onSaveExpense || savingExpense}
+              disabled={!onSaveExpense || savingExpense || uploadingReceipt || !form.receiptUrl.trim()}
               className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
               {savingExpense ? t("owner.bookkeeping.saving") : t("owner.bookkeeping.saveExpense")}
@@ -281,13 +330,24 @@ export default function ExpensesTab({
             />
           </label>
           <label className="block md:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-gray-800">Receipt URL</span>
-            <input
-              value={form.receiptUrl}
-              onChange={(event) => setForm((current) => ({ ...current, receiptUrl: event.target.value }))}
-              className="w-full rounded-lg border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition"
-              placeholder="Optional receipt file URL"
-            />
+            <span className="mb-2 block text-sm font-bold text-gray-800">
+              Receipt Picture <span className="text-red-500">*</span>
+            </span>
+            <div className="flex flex-col gap-2">
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleUploadReceipt}
+                disabled={uploadingReceipt}
+                className={`w-full rounded-lg border bg-white px-4 py-3 text-sm font-semibold outline-none transition ${touched.receiptUrl && !form.receiptUrl.trim() ? "border-red-500 text-red-500" : "border-gray-900 text-gray-900"}`}
+              />
+              {uploadingReceipt && <span className="text-sm font-medium text-blue-600">Uploading...</span>}
+              {form.receiptUrl && !uploadingReceipt && (
+                <a href={form.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:underline">
+                  View Uploaded Receipt
+                </a>
+              )}
+            </div>
           </label>
           <label className="block md:col-span-2">
             <span className="mb-2 block text-sm font-bold text-gray-800">{t("owner.bookkeeping.note")}</span>
@@ -300,6 +360,29 @@ export default function ExpensesTab({
             />
           </label>
         </div>
+        </StandardModal>
+        
+        <StandardModal
+          isOpen={receiptModalOpen}
+          title="Receipt Detail"
+          description="View the attached receipt for this expense."
+          maxWidthClassName="max-w-4xl"
+          onClose={() => setReceiptModalOpen(false)}
+          footer={
+            <button
+              type="button"
+              onClick={() => setReceiptModalOpen(false)}
+              className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-bold text-white transition hover:bg-gray-800"
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="flex justify-center p-4">
+            {selectedReceiptUrl && (
+              <img src={selectedReceiptUrl} alt="Receipt" className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-sm border border-gray-200" />
+            )}
+          </div>
         </StandardModal>
       </StandardPanel>
     </div>

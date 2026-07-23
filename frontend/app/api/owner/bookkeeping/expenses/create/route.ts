@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Expense category and amount are required." }, { status: 400 });
   }
 
+  if (!body.receiptUrl || !body.receiptUrl.trim()) {
+    return NextResponse.json({ error: "Receipt picture is required." }, { status: 400 });
+  }
+
   try {
     const supabase = createBookkeepingSupabaseClient();
     await assertBookkeepingDatesAreOpen({
