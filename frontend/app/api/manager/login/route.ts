@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { setInternalSessionCookie } from "@/lib/auth/internalSession";
+import { createSupabaseJwt } from "@/lib/auth/supabaseJwt";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,5 +65,22 @@ export async function POST(req: NextRequest) {
     staffCode: staff.staff_code ?? "",
     staffType: null,
   }, rememberMe);
+
+  const supabaseToken = await createSupabaseJwt({
+    role: "authenticated",
+    app_role: "manager",
+    sub: staff.id,
+  });
+
+  response.cookies.set({
+    name: "sb-access-token",
+    value: supabaseToken,
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    ...(rememberMe ? { maxAge: 7 * 24 * 60 * 60 } : { maxAge: 8 * 60 * 60 }),
+  });
+
   return response;
 }

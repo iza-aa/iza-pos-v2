@@ -7,6 +7,7 @@ export interface CustomerAccountSession {
   email: string | null;
   loyalty_points: number;
   member_since: string | null;
+  supabase_token?: string;
 }
 
 const CUSTOMER_SESSION_KEY = "customer_session";
@@ -63,6 +64,7 @@ export function getStoredCustomerAccount(): CustomerAccountSession | null {
       loyalty_points: normalizePoints(parsed.loyalty_points),
       member_since:
         typeof parsed.member_since === "string" ? parsed.member_since : null,
+      supabase_token: typeof parsed.supabase_token === "string" ? parsed.supabase_token : undefined,
     };
   } catch {
     clearCustomerAccount();

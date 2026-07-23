@@ -573,7 +573,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={toggleLanguage}
-              className="hidden md:flex h-10 w-12 items-center justify-center rounded-lg border border-gray-200 bg-white transition hover:bg-gray-100"
+              className="hidden md:flex h-10 w-12 items-center justify-center rounded-lg bg-white transition hover:bg-gray-100"
               title={t('common.language')}
               aria-label={t('common.language')}
             >

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseJwt } from "@/lib/auth/supabaseJwt";
 
 interface RegisterBody {
   name?: unknown;
@@ -119,9 +120,18 @@ export async function POST(request: Request) {
         );
       }
 
+      const supabaseToken = await createSupabaseJwt({
+        role: "authenticated",
+        app_role: "customer",
+        sub: customer.id,
+      });
+
       return NextResponse.json({
         success: true,
-        customer: toCustomerSession(customer),
+        customer: {
+          ...toCustomerSession(customer),
+          supabase_token: supabaseToken,
+        },
       });
     }
 
@@ -151,9 +161,18 @@ export async function POST(request: Request) {
 
     const customer = createdCustomer as CustomerRow;
 
+    const supabaseToken = await createSupabaseJwt({
+      role: "authenticated",
+      app_role: "customer",
+      sub: customer.id,
+    });
+
     return NextResponse.json({
       success: true,
-      customer: toCustomerSession(customer),
+      customer: {
+        ...toCustomerSession(customer),
+        supabase_token: supabaseToken,
+      },
     });
   } catch (error) {
     console.error("Customer register API error:", error);
