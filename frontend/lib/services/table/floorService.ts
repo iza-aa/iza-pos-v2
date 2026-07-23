@@ -3,14 +3,14 @@
  * Handles all floor-related operations
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import type { Floor, FloorCreateInput, FloorUpdateInput, FloorWithTables } from '@/lib/types/floor';
 
 /**
  * Get all floors
  */
 export async function getFloors(): Promise<Floor[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -29,7 +29,7 @@ export async function getFloors(): Promise<Floor[]> {
  * Get active floors only
  */
 export async function getActiveFloors(): Promise<Floor[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -49,7 +49,7 @@ export async function getActiveFloors(): Promise<Floor[]> {
  * Get floors with table counts
  */
 export async function getFloorsWithTables(): Promise<FloorWithTables[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -81,7 +81,7 @@ export async function getFloorsWithTables(): Promise<FloorWithTables[]> {
  * Get a single floor by ID
  */
 export async function getFloorById(id: string): Promise<Floor | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -101,7 +101,7 @@ export async function getFloorById(id: string): Promise<Floor | null> {
  * Get floor by floor number
  */
 export async function getFloorByNumber(floorNumber: number): Promise<Floor | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -121,7 +121,7 @@ export async function getFloorByNumber(floorNumber: number): Promise<Floor | nul
  * Create a new floor
  */
 export async function createFloor(input: FloorCreateInput): Promise<Floor> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -145,7 +145,7 @@ export async function createFloor(input: FloorCreateInput): Promise<Floor> {
  * Update an existing floor
  */
 export async function updateFloor(id: string, input: FloorUpdateInput): Promise<Floor> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('floors')
@@ -166,7 +166,7 @@ export async function updateFloor(id: string, input: FloorUpdateInput): Promise<
  * Delete a floor (soft delete by setting is_active = false)
  */
 export async function deleteFloor(id: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Check if floor has tables
   const { data: tables } = await supabase
@@ -194,7 +194,7 @@ export async function deleteFloor(id: string): Promise<void> {
  * Hard delete a floor (use with caution)
  */
 export async function hardDeleteFloor(id: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Check if floor has tables
   const { data: tables } = await supabase
@@ -221,7 +221,7 @@ export async function hardDeleteFloor(id: string): Promise<void> {
  * Toggle floor active status
  */
 export async function toggleFloorStatus(id: string): Promise<Floor> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Get current status
   const floor = await getFloorById(id);
@@ -249,7 +249,7 @@ export async function toggleFloorStatus(id: string): Promise<Floor> {
  * Check if floor number already exists
  */
 export async function floorNumberExists(floorNumber: number, excludeId?: string): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   let query = supabase
     .from('floors')

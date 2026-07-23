@@ -3,7 +3,7 @@
  * Handles all table-related operations
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import type { 
   Table, 
   TableCreateInput, 
@@ -16,7 +16,7 @@ import type {
  * Get all tables with optional filters
  */
 export async function getTables(filters?: TableFilters): Promise<TableWithFloor[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   let query = supabase
     .from('tables')
@@ -61,7 +61,7 @@ export async function getTables(filters?: TableFilters): Promise<TableWithFloor[
  * Get a single table by ID
  */
 export async function getTableById(id: string): Promise<TableWithFloor | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -87,7 +87,7 @@ export async function getTableById(id: string): Promise<TableWithFloor | null> {
  * Get table by table number
  */
 export async function getTableByNumber(tableNumber: string): Promise<TableWithFloor | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -113,7 +113,7 @@ export async function getTableByNumber(tableNumber: string): Promise<TableWithFl
  * Create a new table
  */
 export async function createTable(input: TableCreateInput): Promise<Table> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -141,7 +141,7 @@ export async function createTable(input: TableCreateInput): Promise<Table> {
  * Update an existing table
  */
 export async function updateTable(id: string, input: TableUpdateInput): Promise<Table> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -162,7 +162,7 @@ export async function updateTable(id: string, input: TableUpdateInput): Promise<
  * Delete a table
  */
 export async function deleteTable(id: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { error } = await supabase
     .from('tables')
@@ -183,7 +183,7 @@ export async function updateTablePosition(
   position_x: number, 
   position_y: number
 ): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { error } = await supabase
     .from('tables')
@@ -222,7 +222,7 @@ export async function getOccupiedTables(floor_id?: string): Promise<TableWithFlo
  * Check if table number already exists
  */
 export async function tableNumberExists(tableNumber: string, excludeId?: string): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   let query = supabase
     .from('tables')
@@ -247,7 +247,7 @@ export async function tableNumberExists(tableNumber: string, excludeId?: string)
  * Get tables without QR codes
  */
 export async function getTablesWithoutQR(floor_id?: string): Promise<TableWithFloor[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   let query = supabase
     .from('tables')

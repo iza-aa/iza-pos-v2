@@ -20,12 +20,14 @@ export default function ExceptionsTab({
 }) {
   const { t } = useLanguage();
   const reviewTone = (row: BookkeepingException) => {
-    if (row.reviewStatus === "waiting_manager_review" || row.status === "open") return "warning";
+    if (row.reviewStatus === "waiting_manager_review") return "warning";
+    if (row.status === "open") return "danger";
     return "success";
   };
 
   const reviewLabel = (row: BookkeepingException) => {
-    if (row.reviewStatus === "waiting_manager_review" || row.status === "open") return t("owner.bookkeeping.waitingReview");
+    if (row.reviewStatus === "waiting_manager_review") return t("owner.bookkeeping.waitingReview");
+    if (row.status === "open") return t("owner.bookkeeping.unresolved") || "Unresolved";
     return t("owner.bookkeeping.reviewed");
   };
 
@@ -65,7 +67,7 @@ export default function ExceptionsTab({
     },
     {
       key: "status",
-      header: t("owner.bookkeeping.managerReview"),
+      header: t("owner.bookkeeping.status") || "Status",
       render: (row) => (
         <div className="min-w-[150px]">
           <SemanticBadge tone={reviewTone(row)}>{reviewLabel(row)}</SemanticBadge>

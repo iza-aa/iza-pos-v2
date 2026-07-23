@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
 import { canAccessEndShift } from "@/lib/utils/staffAccess";
-import { supabase } from "@/lib/config/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { getJakartaTodayDate } from "@/lib/services/bookkeeping/bookkeepingDate";
 import { getDefaultDateRange, type DateRangeValue } from "@/app/components/shared";
@@ -13,7 +13,9 @@ import { QR_READER_ELEMENT_ID, MAX_LOCATION_ACCURACY_METERS, staffAttendanceTabs
 import { toSafeString, toNullableString, normalizeStaffPosition, getUnknownErrorMessage, getSingleRelation, normalizeShift, normalizeCheckInStatus, normalizeCheckOutStatus, normalizeAttendance, getTodayDateString, getIsoWeekday, addDaysToDateString, getStatusLabel, getStatusClassName, getCurrentLocation, getLocationErrorMessage, formatDate, getTodayFullDateString, formatTime, formatDistance, getDuration, formatCurrency, formatClosingStatus, getClosingStatusClassName, getSetupGuidance, extractPresenceCodeFromQrText, getScannerErrorMessage } from "../utils";
 
 export function useAttendanceData() {
-useSessionValidation();
+  useSessionValidation();
+  
+  const supabase = useMemo(() => createClient(), []);
 
   const currentUser = getCurrentUser();
   const userId = currentUser?.id ?? null;

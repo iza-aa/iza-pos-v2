@@ -4,7 +4,7 @@
  */
 
 import QRCode from "qrcode";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import type { Table } from "@/lib/types/table";
 
 type BulkGenerateResult = {
@@ -84,7 +84,7 @@ export async function generateAndSaveTableQR(
   tableId: string,
   tableNumber: string,
 ): Promise<Table> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const customerUrl = generateCustomerUrl(tableId);
@@ -163,7 +163,7 @@ export async function generateBulkTableQR(
  * no storage file deletion is required here.
  */
 export async function deleteTableQR(tableId: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("tables")
@@ -199,7 +199,7 @@ export async function downloadQRCode(tableId: string, tableNumber: string): Prom
  * Print QR code
  */
 export async function printQRCode(tableId: string, tableNumber: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("tables")

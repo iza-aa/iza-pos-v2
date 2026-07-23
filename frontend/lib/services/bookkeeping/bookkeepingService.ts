@@ -876,7 +876,6 @@ const buildExceptions = ({
     }
 
     if (
-      activeShifts.length > 0 &&
       (isValidOrder(order) || isCancelledOrder(order)) &&
       !activeShifts.some((shift) => isOrderInShift(order, shift))
     ) {

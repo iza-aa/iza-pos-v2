@@ -9,6 +9,25 @@ export const supabase = createClient(
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    }
+    },
+    global: {
+      fetch: (url, options) => {
+        if (typeof document !== 'undefined') {
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [name, value] = cookie.split('=').map((c) => c.trim());
+            if (name === 'sb-access-token') {
+              options = options || {};
+              options.headers = {
+                ...options.headers,
+                Authorization: `Bearer ${value}`,
+              };
+              break;
+            }
+          }
+        }
+        return fetch(url, options);
+      },
+    },
   }
 )

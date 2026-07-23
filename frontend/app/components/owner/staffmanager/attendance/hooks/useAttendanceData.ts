@@ -330,29 +330,52 @@ export const useAttendanceData = ({
     setLocationLoading(true);
 
     try {
-      const position = await new Promise<GeolocationPosition>(
-        (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          });
-        },
-      );
+      let lat: string;
+      let lon: string;
+      let isFallback = false;
+
+      try {
+        const position = await new Promise<GeolocationPosition>(
+          (resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            });
+          },
+        );
+        lat = position.coords.latitude.toString();
+        lon = position.coords.longitude.toString();
+      } catch (nativeErr: any) {
+        console.warn("Native geolocation failed, attempting IP fallback...", nativeErr);
+        // Fallback to IP-based location since desktop browsers often fail native geolocation
+        const res = await fetch("https://ipapi.co/json/");
+        if (!res.ok) {
+          throw new Error(nativeErr?.message || "Failed to get current location (and IP fallback failed)");
+        }
+        const data = await res.json();
+        if (data.error || !data.latitude || !data.longitude) {
+          throw new Error(nativeErr?.message || "Failed to get current location (and IP fallback returned invalid data)");
+        }
+        lat = data.latitude.toString();
+        lon = data.longitude.toString();
+        isFallback = true;
+      }
 
       setStoreFormData((prev) => ({
         ...prev,
-        store_latitude: position.coords.latitude.toString(),
-        store_longitude: position.coords.longitude.toString(),
+        store_latitude: lat,
+        store_longitude: lon,
       }));
 
-      showSuccess("Location updated successfully");
-    } catch (err: unknown) {
-      console.error("Error getting location:", err);
-      const errorMessage =
-        err instanceof GeolocationPositionError
-          ? err.message
-          : "Failed to get current location";
+      if (isFallback) {
+        showSuccess("Location estimated based on network (IP) due to device limitations");
+      } else {
+        showSuccess("Location updated successfully");
+      }
+    } catch (err: any) {
+      const errorMessage = err?.message || (typeof err === 'string' ? err : "Failed to get current location");
+      console.error("Error getting location:", errorMessage, err);
       showError(errorMessage);
     } finally {
       setLocationLoading(false);

@@ -3,7 +3,8 @@
  * Handles table status updates and real-time subscriptions
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import type { TableStatus } from '@/lib/types/table';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -14,7 +15,7 @@ export async function updateTableStatus(
   tableId: string, 
   status: TableStatus
 ): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { error } = await supabase
     .from('tables')
@@ -34,7 +35,7 @@ export async function updateTableStatusByNumber(
   tableNumber: string, 
   status: TableStatus
 ): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { error } = await supabase
     .from('tables')
@@ -106,7 +107,7 @@ export function subscribeToTableStatus(
   tableId: string,
   callback: (status: TableStatus) => void
 ): RealtimeChannel {
-  const supabase = createClient();
+  const supabase = createBrowserClient();
   
   const channel = supabase
     .channel(`table-${tableId}`)
@@ -136,7 +137,7 @@ export function subscribeToFloorTables(
   floorId: string,
   callback: (table: Record<string, unknown>) => void
 ): RealtimeChannel {
-  const supabase = createClient();
+  const supabase = createBrowserClient();
   
   const channel = supabase
     .channel(`floor-${floorId}`)
@@ -163,7 +164,7 @@ export function subscribeToFloorTables(
 export function subscribeToAllTables(
   callback: (payload: Record<string, unknown>) => void
 ): RealtimeChannel {
-  const supabase = createClient();
+  const supabase = createBrowserClient();
   
   const channel = supabase
     .channel('all-tables')
@@ -192,7 +193,7 @@ export async function unsubscribe(channel: RealtimeChannel): Promise<void> {
  * Get current table status
  */
 export async function getTableStatus(tableId: string): Promise<TableStatus | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -214,7 +215,7 @@ export async function getTableStatus(tableId: string): Promise<TableStatus | nul
 export async function getTableStatusByNumber(
   tableNumber: string
 ): Promise<TableStatus | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -250,7 +251,7 @@ export async function isTableOccupied(tableId: string): Promise<boolean> {
  * Get table occupancy statistics
  */
 export async function getTableOccupancyStats() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')
@@ -279,7 +280,7 @@ export async function getTableOccupancyStats() {
  * Get floor occupancy statistics
  */
 export async function getFloorOccupancyStats(floorId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('tables')

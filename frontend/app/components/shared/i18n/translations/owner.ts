@@ -952,6 +952,7 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.suggestedFix": "Suggested Fix",
     "owner.bookkeeping.managerReview": "Manager Review",
     "owner.bookkeeping.waitingReview": "Waiting Review",
+    "owner.bookkeeping.unresolved": "Unresolved",
     "owner.bookkeeping.reviewed": "Reviewed",
     "owner.bookkeeping.by": "by",
     "owner.bookkeeping.reviewQueueDescription":
@@ -2184,6 +2185,7 @@ export const ownerTranslations: Record<Language, Record<string, string>> = {
     "owner.bookkeeping.suggestedFix": "Saran Perbaikan",
     "owner.bookkeeping.managerReview": "Review Manager",
     "owner.bookkeeping.waitingReview": "Menunggu Review",
+    "owner.bookkeeping.unresolved": "Belum Terselesaikan",
     "owner.bookkeeping.reviewed": "Sudah Direview",
     "owner.bookkeeping.by": "oleh",
     "owner.bookkeeping.reviewQueueDescription":

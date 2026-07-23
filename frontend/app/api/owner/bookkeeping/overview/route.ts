@@ -566,12 +566,12 @@ export async function GET(request: NextRequest) {
 
     data.entries = mergeEntries(data.entries, storedRows.entries);
 
-    if (storedRows.exceptions.length > 0) {
-      data.exceptions = storedRows.exceptions;
-      data.summary.unresolvedExceptions = storedRows.exceptions.filter(
-        (exception) => exception.status === "open",
-      ).length;
-    }
+    const exceptionMap = new Map(data.exceptions.map((e) => [e.id, e]));
+    storedRows.exceptions.forEach((e) => exceptionMap.set(e.id, e));
+    data.exceptions = Array.from(exceptionMap.values());
+    data.summary.unresolvedExceptions = data.exceptions.filter(
+      (exception) => exception.status === "open",
+    ).length;
 
     data.shiftClosings = mergeShiftClosings(data.shiftClosings, storedRows.shiftClosings);
     data.summary.openingCashTotal = data.shiftClosings.reduce((sum, row) => sum + row.openingCash, 0);
