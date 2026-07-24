@@ -236,7 +236,10 @@ export default function TableEditor({
       });
 
       if (!response.ok) {
-        throw new Error(t('manager.table.qrGenerateFailed'));
+        const errorBody = (await response.json().catch(() => ({}))) as ApiErrorResponse;
+        throw new Error(
+          errorBody.message || errorBody.error || t('manager.table.qrGenerateFailed'),
+        );
       }
 
       showSuccess(t('manager.table.qrGenerated'));

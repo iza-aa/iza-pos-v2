@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isTableQrToken } from "@/lib/services/table/qrToken.js";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -53,6 +54,13 @@ type StartTableSessionResponse =
       error: string;
       details?: Record<string, unknown>;
     };
+
+const LEGACY_TABLE_QR_VALUE_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isTableQrValue(value: string): boolean {
+  return isTableQrToken(value) || LEGACY_TABLE_QR_VALUE_PATTERN.test(value);
+}
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -164,16 +172,8 @@ function getStringFromRequest(
   return null;
 }
 
-function getReceivedKeys(body: unknown): string[] {
-  if (!isRecord(body)) {
-    return [];
-  }
-
-  return Object.keys(body);
-}
-
 async function closePreviousSession(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   previousSessionId: string,
   nextTableId: string,
 ) {
@@ -221,7 +221,7 @@ async function closePreviousSession(
 }
 
 async function closeStaleEmptySession(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   session: TableSessionRow,
 ) {
   const startedAt = new Date(session.started_at).getTime();
@@ -255,7 +255,7 @@ async function closeStaleEmptySession(
 }
 
 async function findActiveSessionForTable(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ): Promise<TableSessionRow | null> {
   const { data, error } = await supabase
@@ -277,7 +277,7 @@ async function findActiveSessionForTable(
 }
 
 async function createTableSession(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ): Promise<TableSessionRow> {
   const { data, error } = await supabase
@@ -309,7 +309,7 @@ async function createTableSession(
 }
 
 async function getOrCreateActiveSession(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ): Promise<TableSessionRow> {
   const activeSession = await findActiveSessionForTable(supabase, tableId);
@@ -343,7 +343,7 @@ async function getOrCreateActiveSession(
 }
 
 async function getFloorName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   floorId: string | null,
 ): Promise<string | null> {
   if (!floorId) {
@@ -369,10 +369,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await readRequestBody(request);
 
-    const tableId = getStringFromRequest(request, body, [
-      "table_id",
-      "tableId",
-      "id",
+    const tableQrValue = getStringFromRequest(request, body, [
+      "table_token",
+      "tableToken",
       "token",
     ]);
 
@@ -383,42 +382,34 @@ export async function POST(request: NextRequest) {
       "sessionId",
     ]);
 
-    if (!tableId) {
-      return createErrorResponse("Table ID is required.", 400, {
-        received_keys: getReceivedKeys(body),
-      });
+    if (!tableQrValue || !isTableQrValue(tableQrValue)) {
+      return createErrorResponse("Invalid table QR code.", 400);
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: tableData, error: tableError } = await supabase
       .from("tables")
       .select("id, table_number, floor_id, capacity, status, is_active")
-      .eq("id", tableId)
+      .like("qr_code_url", `%/customer/table/${tableQrValue}`)
       .maybeSingle();
 
     if (tableError) {
-      return createErrorResponse("Failed to read table.", 500, {
-        table_id: tableId,
-        supabase_error: tableError.message,
-      });
+      console.error("Failed to read QR table:", tableError);
+      return createErrorResponse("Failed to read table.", 500);
     }
 
     if (!tableData) {
-      return createErrorResponse("Table not found.", 404, {
-        table_id: tableId,
-      });
+      return createErrorResponse("Table not found.", 404);
     }
 
     const table = tableData as TableRow;
 
     if (table.is_active !== true) {
-      return createErrorResponse("This table is currently unavailable.", 400, {
-        table_id: tableId,
-        table_number: table.table_number,
-        is_active: table.is_active,
-      });
+      return createErrorResponse("This table is currently unavailable.", 400);
     }
+
+    const tableId = table.id;
 
     if (previousSessionId) {
       await closePreviousSession(supabase, previousSessionId, tableId);
@@ -431,8 +422,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Start table session error:", error);
 
-    return createErrorResponse("Failed to start table session.", 500, {
-      error_message: error instanceof Error ? error.message : String(error),
-    });
+    return createErrorResponse("Failed to start table session.", 500);
   }
 }

@@ -27,8 +27,7 @@ type StartTableSessionResponse =
   | {
       success: false;
       error: string;
-      details?: Record<string, unknown>;
-    };
+};
 
 interface StoredTableSession {
   session_id: string;
@@ -61,17 +60,6 @@ function getTableIdFromCurrentUrl(): string | null {
   }
 
   return decodeURIComponent(lastSegment).trim();
-}
-
-function getDebugPathInfo(): string {
-  if (typeof window === "undefined") {
-    return "window is not available";
-  }
-
-  const pathname = window.location.pathname;
-  const segments = pathname.split("/").filter(Boolean);
-
-  return `pathname=${pathname} | segments=${JSON.stringify(segments)}`;
 }
 
 function parseStoredTableSession(value: string | null): StoredTableSession | null {
@@ -128,7 +116,6 @@ export default function CustomerTableSessionPage() {
   const router = useRouter();
 
   const [error, setError] = useState("");
-  const [debugInfo, setDebugInfo] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Preparing your table session...");
 
   useEffect(() => {
@@ -136,13 +123,10 @@ export default function CustomerTableSessionPage() {
 
     const startSession = async () => {
       const tableId = getTableIdFromCurrentUrl();
-      const currentDebugInfo = getDebugPathInfo();
 
       if (!isMounted) {
         return;
       }
-
-      setDebugInfo(currentDebugInfo);
 
       if (!tableId) {
         setError("Invalid table QR code.");
@@ -164,7 +148,7 @@ export default function CustomerTableSessionPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            table_id: tableId,
+            table_token: tableId,
             previous_session_id: previousSession?.session_id ?? null,
           }),
         });
@@ -172,14 +156,9 @@ export default function CustomerTableSessionPage() {
         const result = (await response.json()) as StartTableSessionResponse;
 
         if (!response.ok || !result.success) {
-          const detailText =
-            result.success === false && result.details
-              ? ` ${JSON.stringify(result.details)}`
-              : "";
-
           throw new Error(
             result.success === false
-              ? `${result.error}${detailText}`
+              ? result.error
               : "Failed to start table session.",
           );
         }
@@ -228,14 +207,6 @@ export default function CustomerTableSessionPage() {
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">{error}</p>
-
-          {debugInfo ? (
-            <div className="mt-4 rounded-2xl bg-gray-50 p-3 text-left">
-              <p className="wrap-break-words text-xs leading-5 text-gray-500">
-                {debugInfo}
-              </p>
-            </div>
-          ) : null}
 
           <div className="mt-6 space-y-3">
             <button

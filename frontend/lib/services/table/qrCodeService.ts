@@ -6,6 +6,7 @@
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import type { Table } from "@/lib/types/table";
+import { createTableQrToken } from "./qrToken.js";
 
 type BulkGenerateResult = {
   success: number;
@@ -41,10 +42,10 @@ function getBaseUrl(): string {
 /**
  * Generate customer URL for a table.
  * Current professional QR flow:
- * /customer/table/{tableId}
+ * /customer/table/{qrToken}
  */
-export function generateCustomerUrl(tableId: string): string {
-  return `${getBaseUrl()}/customer/table/${encodeURIComponent(tableId)}`;
+export function generateCustomerUrl(qrToken: string): string {
+  return `${getBaseUrl()}/customer/table/${encodeURIComponent(qrToken)}`;
 }
 
 /**
@@ -70,8 +71,8 @@ export async function generateQRCode(data: string): Promise<string> {
 /**
  * Generate QR code for a table
  */
-export async function generateTableQR(tableId: string): Promise<string> {
-  const customerUrl = generateCustomerUrl(tableId);
+export async function generateTableQR(qrToken: string): Promise<string> {
+  const customerUrl = generateCustomerUrl(qrToken);
   return generateQRCode(customerUrl);
 }
 
@@ -87,7 +88,8 @@ export async function generateAndSaveTableQR(
   const supabase = await createClient();
 
   try {
-    const customerUrl = generateCustomerUrl(tableId);
+    const qrToken = createTableQrToken();
+    const customerUrl = generateCustomerUrl(qrToken);
     const qrCodeImage = await generateQRCode(customerUrl);
 
     const { data, error } = await supabase

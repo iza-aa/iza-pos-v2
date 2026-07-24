@@ -278,8 +278,8 @@ export default function ClosingsTab({
           <div>
             <p className="font-semibold text-gray-900">{formatCurrency(actual)}</p>
             {variance !== 0 ? (
-              <p className={`text-[10px] font-bold mt-0.5 ${variance < 0 ? "text-[#C81E1E]" : "text-[#008A3D]"}`}>
-                Var: {variance > 0 ? "+" : ""}{formatCurrency(variance)}
+              <p className={`text-[8px] font-bold mt-0.5 ${variance < 0 ? "text-[#C81E1E]" : "text-[#008A3D]"}`}>
+                {variance > 0 ? "+" : ""}{formatCurrency(variance)}
               </p>
             ) : (
               <p className="text-[10px] text-gray-400 mt-0.5">No Var</p>
@@ -426,18 +426,17 @@ export default function ClosingsTab({
                 <span className="font-semibold text-gray-600">Status Amplop:</span>
                 <div>
                   {selectedClosingForEnv.deposit ? (
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${
-                      selectedClosingForEnv.deposit.status === "verified"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : selectedClosingForEnv.deposit.status === "disputed"
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${selectedClosingForEnv.deposit.status === "verified"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : selectedClosingForEnv.deposit.status === "disputed"
                         ? "bg-rose-50 text-rose-700 border-rose-200"
                         : "bg-amber-50 text-amber-700 border-amber-200"
-                    }`}>
+                      }`}>
                       {selectedClosingForEnv.deposit.status === "verified"
                         ? "Cocok (Verified)"
                         : selectedClosingForEnv.deposit.status === "disputed"
-                        ? "Selisih (Disputed)"
-                        : "Menunggu Verifikasi"}
+                          ? "Selisih (Disputed)"
+                          : "Menunggu Verifikasi"}
                     </span>
                   ) : (
                     <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 text-xs font-bold text-gray-500 border border-gray-200">
@@ -450,7 +449,7 @@ export default function ClosingsTab({
 
             <div className="rounded-xl border border-gray-150 p-4 space-y-2 bg-white">
               <h4 className="font-bold text-gray-950 mb-2 border-b border-gray-100 pb-1.5">Rincian Nominal Kas Setoran</h4>
-              
+
               <div className="flex justify-between text-xs font-medium">
                 <span className="text-gray-500">Ekspektasi Setoran (Sistem):</span>
                 <span className="text-gray-900 font-semibold">
@@ -500,7 +499,7 @@ export default function ClosingsTab({
                 <div className="flex justify-between">
                   <span className="text-gray-500">Waktu Verifikasi:</span>
                   <span className="text-gray-900 font-semibold">
-                    {selectedClosingForEnv.deposit.verifiedAt 
+                    {selectedClosingForEnv.deposit.verifiedAt
                       ? new Date(selectedClosingForEnv.deposit.verifiedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })
                       : "-"}
                   </span>
