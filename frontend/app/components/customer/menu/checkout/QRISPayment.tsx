@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 interface QRISPaymentProps {
   orderNumber: string
   totalAmount: number
-  onPaymentConfirmed: () => void
+  onPaymentConfirmed: () => Promise<void>
   onCancel: () => void
 }
 
@@ -57,12 +57,16 @@ export default function QRISPayment({ orderNumber, totalAmount, onPaymentConfirm
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     setIsProcessing(true)
     // Simulate payment confirmation delay
-    setTimeout(() => {
-      onPaymentConfirmed()
-    }, 1500)
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    try {
+      await onPaymentConfirmed()
+    } catch {
+      setIsProcessing(false)
+    }
   }
 
   return (

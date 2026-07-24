@@ -54,6 +54,37 @@ interface CreatedOrder {
   pickup_code: string | null;
 }
 
+interface QrOrderPayload {
+  order_number: string;
+  customer_name: string;
+  customer_id: string | null;
+  table_number: string | null;
+  table_id: null;
+  table_session_id: string | null;
+  order_source: "qr";
+  order_type: "Dine in" | "Take Away";
+  fulfillment_method: "table_service" | "counter_pickup";
+  pickup_code: string | null;
+  status: "new";
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  payment_method: "QRIS";
+  payment_status: "paid";
+  notes: string | null;
+}
+
+interface QrOrderItemPayload {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  base_price: number;
+  variants: unknown[] | null;
+  total_price: number;
+  kitchen_status: KitchenStatus;
+}
+
 interface ProductCategory {
   name: string | null;
   preparation_station?: PreparationStation | string | null;
@@ -168,30 +199,6 @@ function generatePickupCode(): string {
   return `TA-${timestampPart}${randomPart}`;
 }
 
-function isDuplicateActiveTableSessionError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const maybeError = error as {
-    code?: unknown;
-    message?: unknown;
-    details?: unknown;
-  };
-
-  const code = typeof maybeError.code === "string" ? maybeError.code : "";
-  const message = typeof maybeError.message === "string" ? maybeError.message : "";
-  const details = typeof maybeError.details === "string" ? maybeError.details : "";
-
-  return (
-    code === "23505" &&
-    (message.includes("table_sessions_one_active_per_table_idx") ||
-      details.includes("table_sessions_one_active_per_table_idx") ||
-      message.includes("duplicate key value") ||
-      details.includes("already exists"))
-  );
-}
-
 export default function CustomerCheckoutPage() {
   const router = useRouter();
 
@@ -203,7 +210,6 @@ export default function CustomerCheckoutPage() {
   const [initializing, setInitializing] = useState(true);
   const [showQRISPayment, setShowQRISPayment] = useState(false);
   const [pendingOrderNumber, setPendingOrderNumber] = useState("");
-  const [pendingOrderId, setPendingOrderId] = useState("");
   const [pendingPickupCode, setPendingPickupCode] = useState<string | null>(null);
   const [financialSettings, setFinancialSettings] =
     useState<BookkeepingFinancialSettings>(defaultFinancialSettings);
@@ -373,7 +379,7 @@ export default function CustomerCheckoutPage() {
     }
   };
 
-  const createOrder = async (
+  const createOrderPayload = (
     orderNumber: string,
     cleanCustomerName: string,
     pickupCode: string | null,
@@ -383,9 +389,9 @@ export default function CustomerCheckoutPage() {
       tax: number;
       total: number;
     },
-  ): Promise<CreatedOrder> => {
+  ): QrOrderPayload => {
     const account = getStoredCustomerAccount();
-    const baseOrderPayload = {
+    const baseOrderPayload: QrOrderPayload = {
       order_number: orderNumber,
       customer_name: cleanCustomerName,
       customer_id: account?.id ?? null,
@@ -420,21 +426,29 @@ export default function CustomerCheckoutPage() {
       notes: notes.trim() || null,
     };
 
-    const { data, error } = await supabase
-      .from("orders")
-      .insert([baseOrderPayload])
-      .select("id, order_number, pickup_code")
-      .single();
+    return baseOrderPayload;
+  };
 
-    if (error) {
-      throw error;
+  const submitOrderWithItems = async (
+    order: QrOrderPayload,
+    items: QrOrderItemPayload[],
+  ): Promise<CreatedOrder> => {
+    const response = await fetch("/api/customer/qr-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order, items }),
+    });
+    const result = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      error?: string;
+      order?: CreatedOrder;
+    };
+
+    if (!response.ok || !result.success || !result.order) {
+      throw new Error(result.error || "Failed to create QR order.");
     }
 
-    if (!data) {
-      throw new Error("Order was not created.");
-    }
-
-    return data as CreatedOrder;
+    return result.order;
   };
 
   const placeOrder = () => {
@@ -468,42 +482,14 @@ export default function CustomerCheckoutPage() {
       const cleanCustomerName =
         customerName.trim() || createFallbackCustomerName(orderMode, tableSession);
 
-      let createdOrder: CreatedOrder;
-
-      try {
-        createdOrder = await createOrder(
-          pendingOrderNumber,
-          cleanCustomerName,
-          pendingPickupCode,
-          financialTotals,
-        );
-      } catch (error) {
-        if (isDuplicateActiveTableSessionError(error)) {
-          console.error(
-            "Order blocked by duplicate active table session. This usually means an orders trigger is trying to create a table session even though table_session_id already exists.",
-            error,
-          );
-
-          showError("This table session is already active. Please refresh the page and try again.");
-          setShowQRISPayment(false);
-          setIsSubmitting(false);
-          return;
-        }
-
-        throw error;
-      }
-
-      setPendingOrderId(createdOrder.id);
-
       const productIds = cart.map((item) => item.productId);
       const productLookup = await fetchProductLookup(productIds);
 
-      const orderItems = cart.map((item) => {
+      const orderItems: QrOrderItemPayload[] = cart.map((item) => {
         const product = productLookup.find((productItem) => productItem.id === item.productId);
         const kitchenStatus = getKitchenStatusForCartItem(product);
 
         return {
-          order_id: createdOrder.id,
           product_id: item.productId,
           product_name: item.name,
           quantity: item.quantity,
@@ -514,11 +500,13 @@ export default function CustomerCheckoutPage() {
         };
       });
 
-      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-
-      if (itemsError) {
-        throw itemsError;
-      }
+      const orderPayload = createOrderPayload(
+        pendingOrderNumber,
+        cleanCustomerName,
+        pendingPickupCode,
+        financialTotals,
+      );
+      const createdOrder = await submitOrderWithItems(orderPayload, orderItems);
 
       broadcastNewOrder(createdOrder.id);
 
@@ -572,8 +560,8 @@ export default function CustomerCheckoutPage() {
     } catch (error) {
       console.error("Payment confirmation error:", JSON.stringify(error, null, 2), error);
       showError("Failed to confirm payment. Please try again.");
-      setShowQRISPayment(false);
       setIsSubmitting(false);
+      throw error;
     }
   };
 
