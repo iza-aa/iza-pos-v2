@@ -26,6 +26,7 @@ import {
 } from "@/lib/customer/customerAccount";
 import {
   type CustomerTableSession,
+  getStoredCustomerTableSession,
   validateStoredCustomerTableSession,
 } from "@/lib/customer/customerSession";
 
@@ -115,19 +116,36 @@ export default function CustomerLayout({
 
     let isMounted = true;
 
-    const validateSession = async () => {
+    const validateSession = async (reloadWhenExpired: boolean) => {
+      const hadTableSession = Boolean(getStoredCustomerTableSession());
       const validSession = await validateStoredCustomerTableSession();
 
       if (isMounted) {
         setTableSession(validSession);
         setCustomerAccount(getStoredCustomerAccount());
+
+        if (reloadWhenExpired && hadTableSession && !validSession) {
+          window.location.reload();
+        }
       }
     };
 
-    void validateSession();
+    void validateSession(false);
+    const interval = window.setInterval(() => {
+      void validateSession(true);
+    }, 60_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void validateSession(true);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       isMounted = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isClient, pathname]);
 
@@ -204,28 +222,6 @@ export default function CustomerLayout({
           </button>
         </div>
       </div>
-
-      {false && tableSession ? (
-        <div className="hidden border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:block">
-          <p className="text-sm">
-            <span className="font-bold">{tableSession.table_number}</span>
-            {tableSession.floor_name ? (
-              <span className="ml-2 text-gray-300">• {tableSession.floor_name}</span>
-            ) : null}
-          </p>
-        </div>
-      ) : null}
-
-      {false && tableSession ? (
-        <div className="border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:hidden">
-          <p className="text-xs">
-            <span className="font-semibold">{tableSession.table_number}</span>
-            {tableSession.floor_name ? (
-              <span className="ml-2 text-gray-400">• {tableSession.floor_name}</span>
-            ) : null}
-          </p>
-        </div>
-      ) : null}
 
       <main>{children}</main>
 

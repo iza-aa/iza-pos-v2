@@ -155,13 +155,13 @@ export default function PaymentModal({
     {
       value: 'table_service',
       title: 'Dine In',
-      description: 'Customer eats at the restaurant using a table number.',
+      description: 'Customer eats at the coffee shop.',
       icon: BuildingOffice2Icon,
     },
     {
       value: 'counter_pickup',
       title: 'Counter Pickup',
-      description: 'Use order number/customer name. Suitable when the shop is quiet.',
+      description: 'Use order number/customer name.',
       icon: ClipboardDocumentCheckIcon,
     },
   ];
@@ -276,7 +276,7 @@ export default function PaymentModal({
                 htmlFor="table-number"
                 className="mb-2 block text-sm font-semibold text-gray-800"
               >
-                Table Number <span className="text-red-500">*</span>
+                Order Number <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -291,7 +291,7 @@ export default function PaymentModal({
               />
 
               <p className="mt-1 text-xs text-gray-500">
-                Enter the table number used by the customer.
+                Enter the order number used by the customer.
               </p>
             </section>
           ) : (

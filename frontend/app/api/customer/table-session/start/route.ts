@@ -55,7 +55,7 @@ type StartTableSessionResponse =
       details?: Record<string, unknown>;
     };
 
-const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
+const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served", "served"];
 
 class ActiveOrderTableSwitchError extends Error {
   constructor() {
@@ -247,7 +247,7 @@ async function closeStaleEmptySession(
   const totalOrders = session.total_orders ?? 0;
 
   const isEmptySession = orderIds.length === 0 && totalOrders === 0;
-  const isStale = ageMinutes >= 240;
+  const isStale = ageMinutes >= 10;
 
   if (!isEmptySession || !isStale) {
     return false;

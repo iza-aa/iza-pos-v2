@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTableSessionExpiry } from "@/lib/customer/tableSessionExpiry.js";
 
 type TableSessionRow = {
   id: string;
   table_id: string;
   started_at: string;
   ended_at: string | null;
+};
+
+type RelatedOrderRow = {
+  status: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
 };
 
 type TableRow = {
@@ -45,7 +52,6 @@ type ValidateTableSessionResponse =
       details?: Record<string, unknown>;
     };
 
-const SESSION_TTL_MINUTES = 240;
 const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -105,10 +111,6 @@ function getDurationMinutes(startedAt: string): number {
   }
 
   return Math.max(0, Math.floor((Date.now() - startedAtTime) / 60000));
-}
-
-function isSessionStale(session: Pick<TableSessionRow, "started_at">): boolean {
-  return getDurationMinutes(session.started_at) >= SESSION_TTL_MINUTES;
 }
 
 async function tableHasBlockingOrders(
@@ -189,24 +191,37 @@ async function releaseTableIfSafe(
   }
 }
 
-async function expireSessionIfStale(
+async function expireSessionIfNeeded(
   supabase: ReturnType<typeof createAdminClient>,
   session: TableSessionRow,
 ) {
-  if (!isSessionStale(session)) {
-    return false;
+  const { data, error } = await supabase
+    .from("orders")
+    .select("status, completed_at, updated_at")
+    .or(`table_session_id.eq.${session.id},table_id.eq.${session.table_id}`);
+
+  if (error) {
+    throw error;
   }
 
-  const hasBlockingOrders = await tableHasBlockingOrders(supabase, session.table_id);
+  const expiry = getTableSessionExpiry({
+    startedAt: session.started_at,
+    orders: ((data ?? []) as RelatedOrderRow[]).map((order) => ({
+      status: order.status ?? "",
+      completedAt: order.completed_at ?? order.updated_at,
+    })),
+  });
 
-  if (hasBlockingOrders) {
+  if (!expiry.expired) {
     return false;
   }
 
   await closeSession(
     supabase,
     session,
-    `Closed automatically after ${SESSION_TTL_MINUTES} minutes of inactivity.`,
+    expiry.reason === "empty_session"
+      ? "Closed automatically after 10 minutes without an order."
+      : "Closed automatically 5 minutes after the final order was served or completed.",
   );
 
   await releaseTableIfSafe(supabase, session.table_id);
@@ -277,12 +292,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const expiredByTtl = await expireSessionIfStale(supabase, session);
+    const expiredByPolicy = await expireSessionIfNeeded(supabase, session);
 
-    if (expiredByTtl) {
+    if (expiredByPolicy) {
       return createErrorResponse("Table session has expired.", 410, true, {
         session_id: sessionId,
-        ttl_minutes: SESSION_TTL_MINUTES,
       });
     }
 
