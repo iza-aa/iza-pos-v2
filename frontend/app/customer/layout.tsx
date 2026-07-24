@@ -188,8 +188,8 @@ export default function CustomerLayout({
       </header>
 
       <div className="border-b border-gray-800 bg-gray-900 px-4 py-2 text-white">
-        <div className="relative mx-auto flex max-w-6xl items-center justify-center">
-          <p className="pr-24 text-xs sm:text-sm">
+        <div className="relative mx-auto flex h-6 max-w-6xl items-center">
+          <p className="absolute left-1/2 max-w-[calc(100%-7rem)] -translate-x-1/2 truncate text-center text-xs sm:text-sm">
             <span className="font-bold">{tableSession?.table_number ?? "Takeaway"}</span>
             {tableSession?.floor_name ? (
               <span className="ml-2 text-gray-300">• {tableSession.floor_name}</span>

@@ -152,6 +152,7 @@ export default function StaffOrderPage() {
   const [availableBaristas, setAvailableBaristas] = useState<AvailableStaffOption[]>([]);
   const [availableWaiters, setAvailableWaiters] = useState<AvailableStaffOption[]>([]);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
+  const [reviewingCorrectionId, setReviewingCorrectionId] = useState<string>("");
 
   const fetchRefs = useRef({
     fetchOrders: (_options?: { silent?: boolean }) => {},
@@ -994,6 +995,34 @@ export default function StaffOrderPage() {
     }
   }
 
+  const handleReviewCorrection = async (correctionId: string) => {
+    try {
+      setReviewingCorrectionId(correctionId);
+      const response = await fetch("/api/orders/corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "review",
+          correctionId,
+          reviewNote: "Reviewed by manager from Order table",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to review correction.");
+      }
+      showSuccess("Correction marked as reviewed.");
+      
+      // refresh lists
+      fetchRefs.current.fetchOrders({ silent: true });
+      fetchRefs.current.fetchOrderCorrections();
+    } catch (error) {
+      showError(error instanceof Error ? error.message : "Failed to review correction.");
+    } finally {
+      setReviewingCorrectionId("");
+    }
+  };
+
   const isKanbanView = viewMode === "card";
   const isTableListView = viewMode === "table";
   const shouldShowOrderFilter = isTableListView;
@@ -1403,6 +1432,8 @@ export default function StaffOrderPage() {
                     correction.id,
                   ]),
                 )}
+                onReviewCorrection={isManagerDomain ? handleReviewCorrection : undefined}
+                reviewingCorrectionId={reviewingCorrectionId}
               />
             </div>
           )}
