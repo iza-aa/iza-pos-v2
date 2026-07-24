@@ -34,3 +34,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Staff attendance
+
+Attendance uses two devices. A staff member with the cashier position opens **QR Absensi** from `/staff/pos` on the outlet tablet. Each staff member, including the cashier, signs in on their own phone, opens `/staff/attendance`, and scans that QR from the attendance modal. The server validates the signed-in staff identity, QR token, shift, outlet location, and the owner/manager-configured attendance radius before it records clock in or clock out.

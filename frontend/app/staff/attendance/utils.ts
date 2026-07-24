@@ -1,4 +1,5 @@
 import { getJakartaTodayDate } from "@/lib/services/bookkeeping/bookkeepingDate";
+import { extractAttendanceQrCode } from "@/lib/services/attendance/attendanceQr";
 import type { CheckInStatus, CheckOutStatus, AttendanceRecord, ShiftRecord, RawRelationValue } from "./types";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
 
@@ -321,28 +322,7 @@ export const getSetupGuidance = (message: string) => {
 };
 
 export const extractPresenceCodeFromQrText = (text: string) => {
-  const trimmedText = text.trim();
-
-  if (!trimmedText) return "";
-
-  try {
-    const url = new URL(trimmedText);
-    const code = url.searchParams.get("code");
-
-    if (code) {
-      return code.trim();
-    }
-  } catch {
-    // QR may contain only the raw code, not a full URL.
-  }
-
-  const codeMatch = trimmedText.match(/[?&]code=([^&]+)/i);
-
-  if (codeMatch?.[1]) {
-    return decodeURIComponent(codeMatch[1]).trim();
-  }
-
-  return trimmedText.trim();
+  return extractAttendanceQrCode(text) ?? "";
 };
 
 export const getScannerErrorMessage = (error: unknown) => {

@@ -74,6 +74,9 @@ export function useAttendanceData() {
   const html5QrCodeRef = useRef<Html5QrcodeInstance | null>(null);
   const scannerStartingRef = useRef(false);
   const scannerHasDecodedRef = useRef(false);
+  const submitAttendanceRef = useRef<(codeOverride?: string) => Promise<void>>(
+    async () => {},
+  );
 
   const canClockIn = !todayAttendance;
   const canClockOut = todayAttendance && !todayAttendance.clock_out_at;
@@ -501,7 +504,7 @@ export function useAttendanceData() {
     }
   }, [activeAttendanceTab, canUseEndShift]);
 
-  const stopQrScanner = useCallback(async () => {
+  const stopQrScanner = useCallback(async (closeModal = true) => {
     scannerHasDecodedRef.current = false;
     scannerStartingRef.current = false;
 
@@ -521,7 +524,9 @@ export function useAttendanceData() {
       html5QrCodeRef.current = null;
     }
 
-    setScannerOpen(false);
+    if (closeModal) {
+      setScannerOpen(false);
+    }
     setScannerLoading(false);
   }, []);
 
@@ -565,13 +570,15 @@ export function useAttendanceData() {
           setPresenceCode(scannedCode);
           setCodeError("");
           setQrStatus("verified");
-          setScannerMessage("QR was read successfully. Continue attendance submission.");
+          setScannerMessage("QR berhasil dibaca. Memeriksa lokasi perangkat...");
 
           if (navigator.vibrate) {
             navigator.vibrate(200);
           }
 
-          void stopQrScanner();
+          void stopQrScanner(false).then(() => {
+            void submitAttendanceRef.current(scannedCode);
+          });
         },
       );
 
@@ -591,16 +598,7 @@ export function useAttendanceData() {
     };
   }, [stopQrScanner]);
 
-  const handleVerifyManualCode = () => {
-    const trimmed = presenceCode.trim();
-    if (!trimmed) return;
-    setPresenceCode(trimmed);
-    setQrStatus("verified");
-    setCodeError("");
-    void stopQrScanner();
-  };
-
-  const handleAttendanceSubmit = async () => {
+  async function handleAttendanceSubmit(codeOverride?: string) {
     setCodeError("");
     setLocationMessage("");
 
@@ -616,11 +614,6 @@ export function useAttendanceData() {
 
     if (staff.status !== "active") {
       showError("This staff account is inactive and cannot submit attendance.");
-      return;
-    }
-
-    if (!staff.staff_code) {
-      showError("Staff code was not found. Contact the owner or manager.");
       return;
     }
 
@@ -649,7 +642,7 @@ export function useAttendanceData() {
       return;
     }
 
-    const normalizedCode = presenceCode.trim();
+    const normalizedCode = (codeOverride ?? presenceCode).trim();
 
     if (!normalizedCode) {
       const message = "Scan the attendance QR first.";
@@ -722,24 +715,29 @@ export function useAttendanceData() {
         `Location was read with accuracy ±${Math.round(accuracy)} m. Processing attendance...`
       );
 
-      const { data, error } = await supabase.rpc("submit_qr_attendance", {
-        p_code: normalizedCode,
-        p_credential: staff.staff_code,
-        p_latitude: latitude,
-        p_longitude: longitude,
-        p_accuracy: accuracy,
+      const response = await fetch("/api/staff/attendance/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: normalizedCode,
+          latitude,
+          longitude,
+          accuracy,
+        }),
       });
+      const payload = await response.json().catch(() => ({}));
 
-      if (error) {
-        const errorMsg = error.message || "Failed to submit attendance.";
+      if (!response.ok || !payload.success) {
+        const errorMsg = String(
+          payload.error ?? "Attendance could not be processed. Please scan the latest QR code.",
+        );
         setCodeError(errorMsg);
         setQrStatus("invalid");
         showError(errorMsg);
-        setSubmitting(false);
         return;
       }
 
-      const result = data as {
+      const result = payload.data as {
         success?: boolean;
         title?: string;
         message?: string;
@@ -768,6 +766,7 @@ export function useAttendanceData() {
         ? `${result.title ?? "Attendance submitted"}. Status: ${result.statusLabel}.${formattedDistance}`
         : `${result.message ?? "Attendance submitted."}${formattedDistance}`;
 
+      setScannerMessage(successMessage);
       showSuccess(successMessage);
     } catch (error) {
       console.error("Failed to submit attendance:", error);
@@ -790,7 +789,9 @@ export function useAttendanceData() {
       setLocationMessage("");
       setSubmitting(false);
     }
-  };
+  }
+
+  submitAttendanceRef.current = handleAttendanceSubmit;
 
   const handleShiftClosingSubmit = async () => {
     if (!userId || currentUser?.role !== "staff") {
@@ -1063,8 +1064,6 @@ export function useAttendanceData() {
     loadShiftClosingData,
     stopQrScanner,
     startQrScanner,
-    handleVerifyManualCode,
-    handleAttendanceSubmit,
     handleShiftClosingSubmit,
     handleShiftOpeningSubmit,
     handleCashMovementSubmit,

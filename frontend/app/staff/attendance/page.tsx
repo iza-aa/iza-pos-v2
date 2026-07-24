@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
-import { canAccessEndShift } from "@/lib/utils/staffAccess";
+import { hasStaffPosition } from "@/lib/utils/staffAccess";
+import AttendanceKioskModal from "@/app/components/staff/attendance/AttendanceKioskModal";
 import { supabase } from "@/lib/config/supabaseClient";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { SidebarTabset, DateRangeFilter, getDefaultDateRange, type DateRangeValue } from "@/app/components/shared";
@@ -118,14 +119,20 @@ export default function AttendancePage() {
     loadShiftClosingData,
     stopQrScanner,
     startQrScanner,
-    handleVerifyManualCode,
-    handleAttendanceSubmit,
     handleShiftClosingSubmit,
     handleShiftOpeningSubmit,
     handleCashMovementSubmit,
     renderMetricCard,
     renderStatusBadge
   } = useAttendanceData();
+  const [attendanceKioskOpen, setAttendanceKioskOpen] = useState(false);
+  const canOpenAttendanceKiosk =
+    currentUser?.role === "staff" &&
+    hasStaffPosition({
+      position: "cashier",
+      positions: currentUser.positions,
+      staffType: currentUser.staffType,
+    });
 
   const renderAbsencePanel = () => (
     <div className="w-full mx-auto py-2">
@@ -247,44 +254,6 @@ export default function AttendancePage() {
                 )}
               </button>
             </div>
-
-            {/* QR Scan Status Banner inside Action Card */}
-            {presenceCode.trim() ? (
-              <div className={`rounded-xl border p-3.5 flex items-center justify-between text-xs font-semibold ${
-                qrStatus === "verified"
-                  ? "border-emerald-200 bg-emerald-50/50 text-emerald-800"
-                  : qrStatus === "invalid"
-                  ? "border-rose-200 bg-rose-50/50 text-rose-800"
-                  : "border-gray-200 bg-gray-50 text-gray-500"
-              }`}>
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>
-                    QR Status: {qrStatus === "verified" ? "Verified Outlet" : qrStatus === "invalid" ? "Invalid QR Code" : "Unscanned"}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {qrStatus === "unscanned" && (
-                    <span className="text-[9px] font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
-                      Pending Verification
-                    </span>
-                  )}
-                  {qrStatus === "verified" && (
-                    <button
-                      type="button"
-                      onClick={() => void handleAttendanceSubmit()}
-                      disabled={submitting}
-                      className="text-[10px] font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1 rounded-lg  transition-all"
-                    >
-                      {submitting ? "Submitting..." : "Submit Now"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : null}
 
             {/* Grace & Schedule Warnings */}
             {(checkInWarning || scheduleWarning) && (
@@ -416,8 +385,11 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          {/* Trigger button for History modal */}
-          <div>
+          <div
+            className={
+              canOpenAttendanceKiosk ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : ""
+            }
+          >
             <button
               type="button"
               onClick={() => setHistoryModalOpen(true)}
@@ -428,6 +400,18 @@ export default function AttendancePage() {
               </svg>
               Attendance History
             </button>
+            {canOpenAttendanceKiosk ? (
+              <button
+                type="button"
+                onClick={() => setAttendanceKioskOpen(true)}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25v13.5A2.25 2.25 0 0118.75 21H5.25A2.25 2.25 0 013 18.75V5.25zM8.25 8.25h2.25v2.25H8.25V8.25zm5.25 0h2.25v2.25H13.5V8.25zm-5.25 5.25h2.25v2.25H8.25V13.5zm5.25 0h2.25v2.25H13.5V13.5z" />
+                </svg>
+                QR Absensi
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -908,42 +892,31 @@ export default function AttendancePage() {
                   </div>
                 )}
 
-
-
-                {/* Manual Code Entry (Alternative) */}
-                <div className="mt-5  pt-4 space-y-2 text-left">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                    Manual Code Entry (Alternative)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={presenceCode}
-                      onChange={(event) => {
-                        const val = event.target.value;
-                        setPresenceCode(val);
-                        setQrStatus("unscanned");
-                        setCodeError("");
-                      }}
-                      placeholder="Enter outlet presence code"
-                      className="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-3 font-mono text-xs uppercase outline-none transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50 disabled:text-gray-400 text-gray-900"
-                      disabled={submitting}
-                    />
-                    {presenceCode.trim() && qrStatus !== "verified" && (
-                      <button
-                        type="button"
-                        onClick={handleVerifyManualCode}
-                        className="px-4 rounded-xl bg-gray-900 text-white text-xs font-bold transition hover:bg-gray-800"
-                      >
-                        Verify
-                      </button>
-                    )}
+                {codeError && (
+                  <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {codeError}
                   </div>
-                </div>
+                )}
+
+                {qrStatus === "invalid" && (
+                  <button
+                    type="button"
+                    onClick={() => void startQrScanner()}
+                    disabled={submitting}
+                    className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-gray-900 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Scan ulang
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
+
+        <AttendanceKioskModal
+          isOpen={attendanceKioskOpen}
+          onClose={() => setAttendanceKioskOpen(false)}
+        />
 
         {historyModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
