@@ -787,6 +787,7 @@ export function useAttendanceData() {
       setQrStatus("invalid");
       showError(message);
     } finally {
+      setLocationMessage("");
       setSubmitting(false);
     }
   };
