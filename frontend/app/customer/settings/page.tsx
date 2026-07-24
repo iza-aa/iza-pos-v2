@@ -250,7 +250,7 @@ const handleLogout = async () => {
             </button>
 
             <p className="mt-3 text-xs leading-5 text-gray-500">
-              To order from another table, scan the QR code on that table. Your old table session will be closed automatically.
+              To change tables, use Scan Meja in the top bar. A table with an active order can only be moved by staff.
             </p>
           </section>
         ) : (

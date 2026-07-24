@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isTableQrToken } from "@/lib/services/table/qrToken.js";
+import { isTableQrValue } from "@/lib/customer/tableQr.js";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -55,11 +55,12 @@ type StartTableSessionResponse =
       details?: Record<string, unknown>;
     };
 
-const LEGACY_TABLE_QR_VALUE_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
 
-function isTableQrValue(value: string): boolean {
-  return isTableQrToken(value) || LEGACY_TABLE_QR_VALUE_PATTERN.test(value);
+class ActiveOrderTableSwitchError extends Error {
+  constructor() {
+    super("The current table has an active order.");
+  }
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -200,6 +201,21 @@ async function closePreviousSession(
 
   if (session.ended_at || session.table_id === nextTableId) {
     return;
+  }
+
+  const { data: activeOrders, error: activeOrdersError } = await supabase
+    .from("orders")
+    .select("id")
+    .or(`table_session_id.eq.${session.id},table_id.eq.${session.table_id}`)
+    .in("status", BLOCKING_ORDER_STATUSES)
+    .limit(1);
+
+  if (activeOrdersError) {
+    throw activeOrdersError;
+  }
+
+  if ((activeOrders ?? []).length > 0) {
+    throw new ActiveOrderTableSwitchError();
   }
 
   const startedAt = new Date(session.started_at).getTime();
@@ -412,7 +428,18 @@ export async function POST(request: NextRequest) {
     const tableId = table.id;
 
     if (previousSessionId) {
-      await closePreviousSession(supabase, previousSessionId, tableId);
+      try {
+        await closePreviousSession(supabase, previousSessionId, tableId);
+      } catch (error) {
+        if (error instanceof ActiveOrderTableSwitchError) {
+          return createErrorResponse(
+            "You still have an active order at your current table. Please ask staff to move your table.",
+            409,
+          );
+        }
+
+        throw error;
+      }
     }
 
     const session = await getOrCreateActiveSession(supabase, tableId);

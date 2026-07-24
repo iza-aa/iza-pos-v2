@@ -7,6 +7,7 @@ import {
   Cog6ToothIcon,
   GiftIcon,
   HomeIcon,
+  QrCodeIcon,
   ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -17,6 +18,7 @@ import {
   ShoppingBagIcon as ShoppingBagIconSolid,
 } from "@heroicons/react/24/solid";
 import RewardPromptTab from "@/app/components/customer/reward/RewardPromptTab";
+import TableQrScannerModal from "@/app/components/customer/TableQrScannerModal";
 import { Toast as ToastContainer } from "@/app/components/ui";
 import {
   type CustomerAccountSession,
@@ -100,6 +102,7 @@ export default function CustomerLayout({
   const [customerAccount, setCustomerAccount] =
     useState<CustomerAccountSession | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isTableScannerOpen, setIsTableScannerOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -184,7 +187,26 @@ export default function CustomerLayout({
         </div>
       </header>
 
-      {tableSession ? (
+      <div className="border-b border-gray-800 bg-gray-900 px-4 py-2 text-white">
+        <div className="relative mx-auto flex max-w-6xl items-center justify-center">
+          <p className="pr-24 text-xs sm:text-sm">
+            <span className="font-bold">{tableSession?.table_number ?? "Takeaway"}</span>
+            {tableSession?.floor_name ? (
+              <span className="ml-2 text-gray-300">• {tableSession.floor_name}</span>
+            ) : null}
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsTableScannerOpen(true)}
+            className="absolute right-0 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50"
+          >
+            <QrCodeIcon className="h-4 w-4" />
+            Scan Meja
+          </button>
+        </div>
+      </div>
+
+      {false && tableSession ? (
         <div className="hidden border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:block">
           <p className="text-sm">
             <span className="font-bold">{tableSession.table_number}</span>
@@ -195,7 +217,7 @@ export default function CustomerLayout({
         </div>
       ) : null}
 
-      {tableSession ? (
+      {false && tableSession ? (
         <div className="border-b border-gray-800 bg-gray-900 px-4 py-2 text-center text-white lg:hidden">
           <p className="text-xs">
             <span className="font-semibold">{tableSession.table_number}</span>
@@ -234,6 +256,10 @@ export default function CustomerLayout({
       </nav>
 
       {!customerAccount ? <RewardPromptTab /> : null}
+      <TableQrScannerModal
+        isOpen={isTableScannerOpen}
+        onClose={() => setIsTableScannerOpen(false)}
+      />
       <ToastContainer />
     </div>
   );
