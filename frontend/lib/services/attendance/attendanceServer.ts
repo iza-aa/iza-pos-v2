@@ -5,6 +5,7 @@ import {
   verifyInternalSessionToken,
 } from "@/lib/auth/internalSession";
 import { normalizeStaffPosition, type StaffPosition } from "@/lib/staff/positions";
+import { ATTENDANCE_STAFF_SELECT } from "./attendanceStaffQuery";
 
 type StaffPositionRow = {
   position?: unknown;
@@ -16,8 +17,6 @@ type StaffRow = {
   role: string;
   status: string;
   staff_code: string | null;
-  staff_type: string | null;
-  staff_positions?: StaffPositionRow[] | null;
 };
 
 export type VerifiedAttendanceStaff = {
@@ -41,19 +40,16 @@ export const createAttendanceServiceClient = (): SupabaseClient => {
   });
 };
 
-const getActivePositions = (staff: StaffRow): StaffPosition[] => {
-  const positionRows = Array.isArray(staff.staff_positions)
-    ? staff.staff_positions
-    : [];
-  const activePositions = positionRows
+const getActivePositions = (
+  positionRows: StaffPositionRow[] | null,
+): StaffPosition[] => {
+  const rows = Array.isArray(positionRows) ? positionRows : [];
+  const activePositions = rows
     .filter((position) => position.is_active !== false)
     .map((position) => normalizeStaffPosition(position.position))
     .filter((position): position is StaffPosition => Boolean(position));
 
-  if (positionRows.length > 0) return Array.from(new Set(activePositions));
-
-  const legacyPosition = normalizeStaffPosition(staff.staff_type);
-  return legacyPosition ? [legacyPosition] : [];
+  return Array.from(new Set(activePositions));
 };
 
 export const getVerifiedAttendanceStaff = async (
@@ -68,9 +64,7 @@ export const getVerifiedAttendanceStaff = async (
   const supabase = createAttendanceServiceClient();
   const { data, error } = await supabase
     .from("staff")
-    .select(
-      "id, role, status, staff_code, staff_type, staff_positions(position, is_active)",
-    )
+    .select(ATTENDANCE_STAFF_SELECT)
     .eq("id", session.sub)
     .maybeSingle();
 
@@ -88,12 +82,23 @@ export const getVerifiedAttendanceStaff = async (
     return null;
   }
 
+  const { data: positions, error: positionsError } = await supabase
+    .from("staff_positions")
+    .select("position, is_active")
+    .eq("staff_id", staff.id);
+
+  if (positionsError) {
+    console.warn("Attendance position lookup failed.", positionsError);
+  }
+
   return {
     id: staff.id,
     role: "staff",
     status: "active",
     staffCode,
-    positions: getActivePositions(staff),
+    positions: getActivePositions(
+      positionsError ? null : (positions as StaffPositionRow[] | null),
+    ),
   };
 };
 

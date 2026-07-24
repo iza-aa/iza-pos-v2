@@ -7,6 +7,8 @@ import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { getJakartaTodayDate } from "@/lib/services/bookkeeping/bookkeepingDate";
 import { getDefaultDateRange, type DateRangeValue } from "@/app/components/shared";
 import { OWNER_SEMANTIC_TONES } from "@/lib/constants/theme";
+import { useLanguage } from "@/app/components/shared/i18n/LanguageProvider";
+import { getAttendanceErrorTranslationKey } from "@/lib/services/attendance/attendanceApiErrors";
 
 import type { CheckInStatus, CheckOutStatus, StaffAttendanceTab, ShiftRecord, StaffRecord, AttendanceRecord, StoreSettings, ShiftClosingData, AssignmentRecord, Html5QrcodeConfig, Html5QrcodeInstance, Html5QrcodeConstructor, RawRelationValue } from "../types";
 import { QR_READER_ELEMENT_ID, MAX_LOCATION_ACCURACY_METERS, staffAttendanceTabs } from "../constants";
@@ -14,6 +16,7 @@ import { toSafeString, toNullableString, normalizeStaffPosition, getUnknownError
 
 export function useAttendanceData() {
   useSessionValidation();
+  const { t } = useLanguage();
   
   const supabase = useMemo(() => createClient(), []);
 
@@ -728,9 +731,7 @@ export function useAttendanceData() {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok || !payload.success) {
-        const errorMsg = String(
-          payload.error ?? "Attendance could not be processed. Please scan the latest QR code.",
-        );
+        const errorMsg = t(getAttendanceErrorTranslationKey(payload.errorCode));
         setCodeError(errorMsg);
         setQrStatus("invalid");
         showError(errorMsg);
@@ -746,7 +747,7 @@ export function useAttendanceData() {
       } | null;
 
       if (!result?.success) {
-        const errorMsg = "Attendance could not be processed. Please scan the latest QR code.";
+        const errorMsg = t("staffAttendance.qrExpired");
         setCodeError(errorMsg);
         setQrStatus("invalid");
         showError(errorMsg);

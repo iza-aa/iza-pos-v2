@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   if (!staff) {
     return NextResponse.json(
-      { success: false, error: "Staff authentication is required." },
+      { success: false, errorCode: "AUTH_REQUIRED" },
       { status: 401 },
     );
   }
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     accuracy < 0
   ) {
     return NextResponse.json(
-      { success: false, error: "Attendance location data is invalid." },
+      { success: false, errorCode: "INVALID_LOCATION" },
       { status: 400 },
     );
   }
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Attendance submission RPC rejected:", error);
       return NextResponse.json(
-        { success: false, error: "Attendance could not be processed. Scan the latest QR again." },
+        { success: false, errorCode: "SUBMIT_REJECTED" },
         { status: 422 },
       );
     }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Attendance submission failed:", error);
     return NextResponse.json(
-      { success: false, error: "Attendance could not be processed. Please try again." },
+      { success: false, errorCode: "SUBMIT_FAILED" },
       { status: 500 },
     );
   }

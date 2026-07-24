@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClockIcon, QrCodeIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { QRCodeSVG } from "qrcode.react";
+import { useLanguage } from "@/app/components/shared/i18n/LanguageProvider";
+import { getAttendanceErrorTranslationKey } from "@/lib/services/attendance/attendanceApiErrors";
 import { buildAttendanceQrPayload } from "@/lib/services/attendance/attendanceQr";
 
 type PresenceCode = { id: string; code: string; expires_at: string };
-type KioskResponse = { success?: boolean; data?: PresenceCode; error?: string };
+type KioskResponse = { success?: boolean; data?: PresenceCode; errorCode?: string };
 
 type AttendanceKioskModalProps = {
   isOpen: boolean;
@@ -25,6 +27,7 @@ const getRemainingSeconds = (expiresAt?: string) => {
 };
 
 export default function AttendanceKioskModal({ isOpen, onClose }: AttendanceKioskModalProps) {
+  const { t } = useLanguage();
   const [activeCode, setActiveCode] = useState<PresenceCode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -46,13 +49,13 @@ export default function AttendanceKioskModal({ isOpen, onClose }: AttendanceKios
       const payload = (await response.json().catch(() => ({}))) as KioskResponse;
 
       if (!response.ok || !payload.success || !payload.data) {
-        throw new Error(payload.error ?? "QR absensi tidak tersedia.");
+        throw new Error(t(getAttendanceErrorTranslationKey(payload.errorCode)));
       }
 
       setActiveCode(payload.data);
       setRemainingSeconds(getRemainingSeconds(payload.data.expires_at));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "QR absensi tidak tersedia.");
+      setError(loadError instanceof Error ? loadError.message : t("staffAttendance.qrUnavailable"));
     } finally {
       setLoading(false);
     }
@@ -101,11 +104,11 @@ export default function AttendanceKioskModal({ isOpen, onClose }: AttendanceKios
               <QrCodeIcon className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">QR Absensi Staff</h2>
-              <p className="mt-0.5 text-sm text-gray-300">Scan dari HP staff yang sudah login.</p>
+              <h2 className="text-lg font-bold">{t("staffAttendance.kioskTitle")}</h2>
+              <p className="mt-0.5 text-sm text-gray-300">{t("staffAttendance.kioskSubtitle")}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-300 transition hover:bg-white/10 hover:text-white" aria-label="Tutup QR absensi">
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-300 transition hover:bg-white/10 hover:text-white" aria-label={t("staffAttendance.closeKiosk")}>
             <XMarkIcon className="h-5 w-5" />
           </button>
         </header>
@@ -114,27 +117,27 @@ export default function AttendanceKioskModal({ isOpen, onClose }: AttendanceKios
           {loading && !qrPayload ? (
             <div className="py-16">
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
-              <p className="mt-4 text-sm font-semibold text-gray-600">Menyiapkan QR absensi...</p>
+              <p className="mt-4 text-sm font-semibold text-gray-600">{t("staffAttendance.preparingQr")}</p>
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm font-medium text-rose-700">
               <p>{error}</p>
-              <button type="button" onClick={() => void loadCode()} className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-800">Coba lagi</button>
+              <button type="button" onClick={() => void loadCode()} className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-800">{t("staffAttendance.retry")}</button>
             </div>
           ) : qrPayload ? (
             <>
               <div className="inline-flex rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-                <QRCodeSVG value={qrPayload} size={280} level="M" includeMargin aria-label="QR absensi staff" />
+                <QRCodeSVG value={qrPayload} size={280} level="M" includeMargin aria-label={t("staffAttendance.kioskTitle")} />
               </div>
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
                 <ClockIcon className="h-4 w-4" />
-                Berganti dalam {remainingSeconds}s
+                {t("staffAttendance.refreshesIn", { seconds: remainingSeconds })}
               </div>
-              <p className="mt-5 text-xs leading-5 text-gray-500">Staff membuka menu Attendance dari HP sendiri, scan QR ini, lalu mengizinkan lokasi untuk clock in atau clock out.</p>
+              <p className="mt-5 text-xs leading-5 text-gray-500">{t("staffAttendance.kioskInstructions")}</p>
             </>
           ) : null}
 
-          <button type="button" onClick={onClose} className="mt-6 h-11 w-full rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-700 transition hover:bg-gray-50">Tutup</button>
+          <button type="button" onClick={onClose} className="mt-6 h-11 w-full rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-700 transition hover:bg-gray-50">{t("common.close")}</button>
         </div>
       </section>
     </div>

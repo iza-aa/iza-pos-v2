@@ -20,7 +20,7 @@ const getKioskRequester = async (request: NextRequest) => {
   if (!staff) {
     return {
       error: NextResponse.json(
-        { success: false, error: "Staff authentication is required." },
+        { success: false, errorCode: "AUTH_REQUIRED" },
         { status: 401 },
       ),
     };
@@ -29,7 +29,7 @@ const getKioskRequester = async (request: NextRequest) => {
   if (!canOpenAttendanceKiosk(staff)) {
     return {
       error: NextResponse.json(
-        { success: false, error: "Cashier access is required." },
+        { success: false, errorCode: "CASHIER_ACCESS" },
         { status: 403 },
       ),
     };
@@ -59,7 +59,7 @@ const getCodeResponse = async (
     const code = getPresenceCode(data);
     if (!code) {
       return NextResponse.json(
-        { success: false, error: "Attendance QR is unavailable." },
+        { success: false, errorCode: "QR_UNAVAILABLE" },
         { status: 500 },
       );
     }
@@ -68,7 +68,7 @@ const getCodeResponse = async (
   } catch (error) {
     console.error("Failed to load attendance kiosk code:", error);
     return NextResponse.json(
-      { success: false, error: "Attendance QR is unavailable." },
+      { success: false, errorCode: "QR_UNAVAILABLE" },
       { status: 500 },
     );
   }

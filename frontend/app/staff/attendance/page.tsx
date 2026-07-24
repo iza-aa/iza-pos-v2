@@ -5,6 +5,7 @@ import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { getCurrentUser } from "@/lib/utils";
 import { hasStaffPosition } from "@/lib/utils/staffAccess";
 import AttendanceKioskModal from "@/app/components/staff/attendance/AttendanceKioskModal";
+import { useLanguage } from "@/app/components/shared/i18n/LanguageProvider";
 import { supabase } from "@/lib/config/supabaseClient";
 import { showError, showSuccess } from "@/lib/services/errorHandling";
 import { SidebarTabset, DateRangeFilter, getDefaultDateRange, type DateRangeValue } from "@/app/components/shared";
@@ -24,6 +25,7 @@ import { toSafeString, toNullableString, normalizeStaffPosition, getUnknownError
 import { useAttendanceData } from "./hooks/useAttendanceData";
 
 export default function AttendancePage() {
+  const { t } = useLanguage();
   const {
     currentUser,
     userId,
@@ -409,7 +411,7 @@ export default function AttendancePage() {
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25v13.5A2.25 2.25 0 0118.75 21H5.25A2.25 2.25 0 013 18.75V5.25zM8.25 8.25h2.25v2.25H8.25V8.25zm5.25 0h2.25v2.25H13.5V8.25zm-5.25 5.25h2.25v2.25H8.25V13.5zm5.25 0h2.25v2.25H13.5V13.5z" />
                 </svg>
-                QR Absensi
+                {t("staffAttendance.kioskButton")}
               </button>
             ) : null}
           </div>

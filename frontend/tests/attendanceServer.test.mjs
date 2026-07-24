@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+test("uses only current staff columns for attendance verification", async () => {
+  const { ATTENDANCE_STAFF_SELECT } = await import(
+    "../lib/services/attendance/attendanceStaffQuery.js"
+  );
+
+  assert.equal(ATTENDANCE_STAFF_SELECT, "id, role, status, staff_code");
+  assert.equal(ATTENDANCE_STAFF_SELECT.includes("staff_type"), false);
+});
+
 test("allows active staff cashier to open the kiosk", async () => {
   const { canOpenAttendanceKiosk } = await import(
     "../lib/services/attendance/attendanceKioskAccess.js"
