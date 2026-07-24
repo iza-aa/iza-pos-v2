@@ -14,16 +14,19 @@ export const supabase = createClient(
       fetch: (url, options) => {
         if (typeof document !== 'undefined') {
           const cookies = document.cookie.split(';');
+          let token: string | undefined;
           for (const cookie of cookies) {
             const [name, value] = cookie.split('=').map((c) => c.trim());
             if (name === 'sb-access-token') {
-              options = options || {};
-              options.headers = {
-                ...options.headers,
-                Authorization: `Bearer ${value}`,
-              };
+              token = value;
               break;
             }
+          }
+          if (token) {
+            options = options || {};
+            const headers = new Headers(options.headers);
+            headers.set('Authorization', `Bearer ${token}`);
+            options.headers = headers;
           }
         }
         return fetch(url, options);
