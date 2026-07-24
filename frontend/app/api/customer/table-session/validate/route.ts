@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type TableSessionRow = {
   id: string;
@@ -47,6 +47,8 @@ type ValidateTableSessionResponse =
 
 const SESSION_TTL_MINUTES = 240;
 const BLOCKING_ORDER_STATUSES = ["new", "preparing", "partially-served"];
+const SESSION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -54,7 +56,7 @@ function normalizeString(value: unknown): string | null {
   }
 
   const cleanValue = decodeURIComponent(value).trim();
-  return cleanValue || null;
+  return cleanValue && SESSION_ID_PATTERN.test(cleanValue) ? cleanValue : null;
 }
 
 function createErrorResponse(
@@ -110,7 +112,7 @@ function isSessionStale(session: Pick<TableSessionRow, "started_at">): boolean {
 }
 
 async function tableHasBlockingOrders(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ) {
   const { data, error } = await supabase
@@ -128,7 +130,7 @@ async function tableHasBlockingOrders(
 }
 
 async function closeSession(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   session: Pick<TableSessionRow, "id" | "started_at">,
   notes: string,
 ) {
@@ -148,7 +150,7 @@ async function closeSession(
 }
 
 async function releaseTableIfSafe(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ) {
   const hasBlockingOrders = await tableHasBlockingOrders(supabase, tableId);
@@ -188,7 +190,7 @@ async function releaseTableIfSafe(
 }
 
 async function expireSessionIfStale(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   session: TableSessionRow,
 ) {
   if (!isSessionStale(session)) {
@@ -213,7 +215,7 @@ async function expireSessionIfStale(
 }
 
 async function getFloorName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   floorId: string | null,
 ): Promise<string | null> {
   if (!floorId) {
@@ -245,7 +247,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: sessionData, error: sessionError } = await supabase
       .from("table_sessions")

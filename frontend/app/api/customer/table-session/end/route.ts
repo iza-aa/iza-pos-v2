@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type EndTableSessionBody = {
   session_id?: unknown;
@@ -64,7 +64,7 @@ function getDurationMinutes(startedAt: string): number {
 }
 
 async function tableHasBlockingOrders(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ) {
   const { data, error } = await supabase
@@ -84,7 +84,7 @@ async function tableHasBlockingOrders(
 }
 
 async function releaseTableIfSafe(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tableId: string,
 ) {
   const hasBlockingOrders = await tableHasBlockingOrders(supabase, tableId);
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       return createErrorResponse("Valid session ID is required.", 400);
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: sessionData, error: sessionError } = await supabase
       .from("table_sessions")
