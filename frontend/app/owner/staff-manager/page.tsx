@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/config/supabaseClient";
 import { ViewModeToggle, DeleteModal } from "@/app/components/ui";
 import {
   BusinessDateFilter,
@@ -122,11 +122,6 @@ type GeneratedLoginCodeModal = {
 };
 
 const STAFF_ROLES_WITH_LOGIN: StaffRole[] = ["manager", "owner"];
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 const normalizeText = (value: unknown) =>
   String(value ?? "")
