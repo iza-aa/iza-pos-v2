@@ -66,6 +66,7 @@ const menuConfig = {
   manager: [
     { label: 'Menu', labelKey: 'nav.manager.menu', path: '/manager/menu', icon: QueueListIcon, iconSolid: QueueListIconSolid },
     { label: 'Inventory', labelKey: 'nav.manager.inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Order', labelKey: 'nav.manager.order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Closing', labelKey: 'nav.manager.closing', path: '/manager/closing', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Staff Manager', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', labelKey: 'nav.manager.table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },
@@ -99,6 +100,7 @@ const ownerAccessMenu = {
   manager: [
     { label: 'Menu', labelKey: 'nav.manager.menu', path: '/manager/menu', icon: QueueListIcon, iconSolid: QueueListIconSolid },
     { label: 'Inventory', labelKey: 'nav.manager.inventory', path: '/manager/inventory', icon: ArchiveBoxIcon, iconSolid: ArchiveBoxIconSolid },
+    { label: 'Order', labelKey: 'nav.manager.order', path: '/manager/order', icon: ShoppingCartIcon, iconSolid: ShoppingCartIconSolid },
     { label: 'Closing', labelKey: 'nav.manager.closing', path: '/manager/closing', icon: BanknotesIcon, iconSolid: BanknotesIconSolid },
     { label: 'Staff Manager', labelKey: 'nav.manager.staff', path: '/manager/staff-manager', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
     { label: 'Table', labelKey: 'nav.manager.table', path: '/manager/table-management', icon: SquaresPlusIcon, iconSolid: QueueListIconSolid },

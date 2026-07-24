@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useSessionValidation } from "@/lib/hooks/useSessionValidation";
 import { POLLING_INTERVALS } from "@/lib/constants";
 import { OrderCard } from "@/app/components/shared";
@@ -138,7 +139,9 @@ export default function StaffOrderPage() {
   const [orderList, setOrderList] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const pathname = usePathname();
+  const isManagerDomain = pathname?.startsWith("/manager");
+  const [viewMode, setViewMode] = useState<ViewMode>(isManagerDomain ? "table" : "card");
   const [dateRange, setDateRange] = useState<DateRangeValue>(() =>
     getDefaultDateRange(),
   );
@@ -1071,19 +1074,23 @@ export default function StaffOrderPage() {
       />
       <div className="flex items-center justify-between gap-3 lg:contents">
         <CompactDateRangeFilter value={dateRange} onChange={setDateRange} />
-        <ViewModeToggle
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          showMapView={false}
-        />
+        {!isManagerDomain && (
+          <ViewModeToggle
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            showMapView={false}
+          />
+        )}
       </div>
-      <button
-        type="button"
-        onClick={() => setCorrectionModalOpen(true)}
-        className="w-full py-2.5 rounded-lg border border-gray-300 shadow-sm bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 lg:w-auto"
-      >
-        Request Correction
-      </button>
+      {!isManagerDomain && (
+        <button
+          type="button"
+          onClick={() => setCorrectionModalOpen(true)}
+          className="w-full py-2.5 rounded-lg border border-gray-300 shadow-sm bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 lg:w-auto"
+        >
+          Request Correction
+        </button>
+      )}
     </div>
   );
 

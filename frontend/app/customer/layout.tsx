@@ -201,7 +201,6 @@ export default function CustomerLayout({
             className="absolute right-0 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50"
           >
             <QrCodeIcon className="h-4 w-4" />
-            Scan Meja
           </button>
         </div>
       </div>

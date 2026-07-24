@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CameraIcon,
-  ClipboardDocumentIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -46,7 +45,6 @@ export default function TableQrScannerModal({
   const scannerRef = useRef<ScannerInstance | null>(null);
   const decodedRef = useRef(false);
   const submittingRef = useRef(false);
-  const [manualValue, setManualValue] = useState("");
   const [message, setMessage] = useState("");
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,7 +129,6 @@ export default function TableQrScannerModal({
     let cancelled = false;
     decodedRef.current = false;
     submittingRef.current = false;
-    setManualValue("");
     setMessage("");
     setIsStarting(true);
 
@@ -182,18 +179,6 @@ export default function TableQrScannerModal({
     };
   }, [handleDecodedValue, isOpen, stopScanner]);
 
-  const handleManualSubmit = async () => {
-    const tableQrValue = extractTableQrValue(manualValue);
-
-    if (!tableQrValue) {
-      setMessage("Paste a valid table QR URL.");
-      return;
-    }
-
-    await stopScanner();
-    await startTableSession(tableQrValue);
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -230,34 +215,6 @@ export default function TableQrScannerModal({
         {message ? (
           <p className="mt-3 text-center text-sm leading-5 text-gray-600">{message}</p>
         ) : null}
-
-        <div className="mt-5 border-t border-gray-100 pt-4">
-          <label htmlFor="table-qr-url" className="text-sm font-semibold text-gray-900">
-            Camera unavailable?
-          </label>
-          <p className="mt-1 text-xs leading-5 text-gray-500">
-            Paste the table QR URL instead.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="table-qr-url"
-              value={manualValue}
-              onChange={(event) => setManualValue(event.target.value)}
-              placeholder="https://.../customer/table/..."
-              disabled={isSubmitting}
-              className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-200"
-            />
-            <button
-              type="button"
-              onClick={() => void handleManualSubmit()}
-              disabled={isSubmitting || !manualValue.trim()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              <ClipboardDocumentIcon className="h-4 w-4" />
-              Use
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
