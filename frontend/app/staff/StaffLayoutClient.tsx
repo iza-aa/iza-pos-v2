@@ -31,7 +31,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       setCurrentRole(role);
     }
 
-    if (
+    if (!isLogin && user?.role === "manager") {
+      router.replace("/manager/menu");
+    } else if (
       !isLogin &&
       user?.role === "staff" &&
       !canAccessStaffPath({

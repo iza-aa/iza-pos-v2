@@ -997,10 +997,16 @@ export default function StaffOrderPage() {
 
   const handleReviewCorrection = async (correctionId: string) => {
     try {
+      if (!currentUser) throw new Error("User not found");
       setReviewingCorrectionId(correctionId);
       const response = await fetch("/api/orders/corrections", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+          "x-user-name": currentUser.name,
+          "x-user-role": currentUser.role,
+        },
         body: JSON.stringify({
           action: "review",
           correctionId,
