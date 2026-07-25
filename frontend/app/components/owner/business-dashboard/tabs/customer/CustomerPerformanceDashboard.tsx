@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
@@ -60,8 +61,16 @@ export default function CustomerPerformanceDashboard() {
     { name: t("owner.customer.guest"), value: metrics.guestOrders.length },
   ].filter((item) => item.value > 0);
   const aovData = [
-    { name: t("owner.customer.member"), aov: Math.round(metrics.memberAov) },
-    { name: t("owner.customer.guest"), aov: Math.round(metrics.guestAov) },
+    {
+      name: t("owner.customer.member"),
+      aov: Math.round(metrics.memberAov),
+      fill: OWNER_CHART_COLORS.INDIGO_BLUE,
+    },
+    {
+      name: t("owner.customer.guest"),
+      aov: Math.round(metrics.guestAov),
+      fill: "#A0D7FD",
+    },
   ];
   const insightTone =
     loyaltyInsight.status === "Healthy"
@@ -222,9 +231,12 @@ export default function CustomerPerformanceDashboard() {
                 <Tooltip content={<StandardTooltip />} />
                 <Bar
                   dataKey="aov"
-                  fill={OWNER_CHART_COLORS.INDIGO_BLUE}
                   radius={[8, 8, 0, 0]}
-                />
+                >
+                  {aovData.map((item) => (
+                    <Cell key={item.name} fill={item.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
