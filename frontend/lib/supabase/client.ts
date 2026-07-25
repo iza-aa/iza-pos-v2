@@ -5,36 +5,43 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 import { getStoredCustomerAccount } from '@/lib/customer/customerAccount';
+import { createSupabaseTokenRefreshingFetch } from '@/lib/supabase/customJwtRefresh';
 
-export function createClient() {
-  let token: string | undefined;
+const getBrowserSupabaseToken = () => {
+  if (typeof document === 'undefined') return undefined;
 
-  // 1. Check for staff/manager/owner token in cookies
-  if (typeof document !== 'undefined') {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.split('=').map((c) => c.trim());
-      if (name === 'sb-access-token') {
-        token = value;
-        break;
-      }
-    }
-    
-    // 2. Check for customer token in localStorage
-    if (!token) {
-      const customerSession = getStoredCustomerAccount();
-      if (customerSession?.supabase_token) {
-        token = customerSession.supabase_token;
-      }
-    }
+  const staffToken = document.cookie
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith('sb-access-token='))
+    ?.slice('sb-access-token='.length);
+  if (staffToken) return staffToken;
+
+  return getStoredCustomerAccount()?.supabase_token;
+};
+
+const authorizeWithCurrentToken = (options: RequestInit = {}) => {
+  const token = getBrowserSupabaseToken();
+  const headers = new Headers(options.headers);
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
+  return { ...options, headers };
+};
+
+export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       global: {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetch: createSupabaseTokenRefreshingFetch({
+          fetchImpl: fetch,
+          refreshPath: '/api/session/refresh-supabase-token',
+          authorizeRequest: authorizeWithCurrentToken,
+        }),
       },
     }
   );

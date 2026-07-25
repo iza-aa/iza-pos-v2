@@ -59,7 +59,7 @@ export const isExpiredCustomSupabaseJwtResponse = async (response) => {
 };
 ```
 
-`createSupabaseTokenRefreshingFetch` must keep one in-flight POST refresh promise, throw on a non-OK refresh, reset the promise in `finally`, and call `authorizeRequest(options)` independently for the original request and one retry.
+`createSupabaseTokenRefreshingFetch` must keep one in-flight POST refresh promise, reset the promise in `finally`, and call `authorizeRequest(options)` independently for the original request and one retry. If refresh is non-OK or fails, return the original expired response unchanged instead of throwing or retrying again.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -134,7 +134,7 @@ Expected: PASS.
 ```js
 test("does not retry the REST request when refresh fails", async () => {
   // First REST call returns PGRST303; refresh returns 401.
-  // Assert the wrapper rejects and the REST call count remains one.
+  // Assert the wrapper returns the original 401 and the REST call count remains one.
 });
 
 test("shares one refresh between concurrent expired requests", async () => {

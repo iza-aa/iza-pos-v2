@@ -1,4 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
+import { createSupabaseTokenRefreshingFetch } from '@/lib/supabase/customJwtRefresh'
+
+const authorizeWithStaffToken = (options: RequestInit = {}) => {
+  const headers = new Headers(options.headers)
+
+  if (typeof document !== 'undefined') {
+    const token = document.cookie
+      .split(';')
+      .map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith('sb-access-token='))
+      ?.slice('sb-access-token='.length)
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
+  }
+
+  return { ...options, headers }
+}
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,26 +30,11 @@ export const supabase = createClient(
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     },
     global: {
-      fetch: (url, options) => {
-        if (typeof document !== 'undefined') {
-          const cookies = document.cookie.split(';');
-          let token: string | undefined;
-          for (const cookie of cookies) {
-            const [name, value] = cookie.split('=').map((c) => c.trim());
-            if (name === 'sb-access-token') {
-              token = value;
-              break;
-            }
-          }
-          if (token) {
-            options = options || {};
-            const headers = new Headers(options.headers);
-            headers.set('Authorization', `Bearer ${token}`);
-            options.headers = headers;
-          }
-        }
-        return fetch(url, options);
-      },
+      fetch: createSupabaseTokenRefreshingFetch({
+        fetchImpl: fetch,
+        refreshPath: '/api/session/refresh-supabase-token',
+        authorizeRequest: authorizeWithStaffToken,
+      }),
     },
   }
 )
