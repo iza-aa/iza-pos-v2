@@ -5,7 +5,7 @@ export const getSupabaseAccessTokenCookieOptions = () => ({
   secure: process.env.NODE_ENV === "production",
   sameSite: /** @type {"lax"} */ ("lax"),
   path: "/",
-  maxAge: SUPABASE_ACCESS_TOKEN_TTL_SECONDS,
+  maxAge: 7 * 24 * 60 * 60, // 7 days (matches internal session remember me duration)
 });
 
 export const isExpiredCustomSupabaseJwtResponse = async (response) => {
