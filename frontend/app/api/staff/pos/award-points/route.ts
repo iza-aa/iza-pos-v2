@@ -4,7 +4,7 @@ import {
   INTERNAL_SESSION_COOKIE,
   verifyInternalSessionToken,
 } from "@/lib/auth/internalSession";
-import { defaultLoyaltySettings } from "@/app/api/owner/loyalty-settings/route";
+import { defaultLoyaltySettings } from "@/lib/services/loyalty/loyaltySettings";
 
 interface AwardPointsRequest {
   orderId: string;

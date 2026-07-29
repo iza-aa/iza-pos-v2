@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBookkeepingSupabaseClient } from "@/lib/services/bookkeeping/bookkeepingServer";
+import {
+  type LoyaltySettings,
+  defaultLoyaltySettings,
+} from "@/lib/services/loyalty/loyaltySettings";
 
-export type LoyaltySettings = {
-  pointsPerAmount: number;
-  amountPerPoints: number;
-  minimumOrderAmount: number;
-  isActive: boolean;
-  updatedAt: string | null;
-  updatedBy: string | null;
-};
+export type { LoyaltySettings };
 
 type LoyaltySettingsRow = {
   id: string;
@@ -21,15 +18,6 @@ type LoyaltySettingsRow = {
 };
 
 const SETTINGS_ID = "global";
-
-export const defaultLoyaltySettings: LoyaltySettings = {
-  pointsPerAmount: 1,
-  amountPerPoints: 10000,
-  minimumOrderAmount: 0,
-  isActive: true,
-  updatedAt: null,
-  updatedBy: null,
-};
 
 const getRequester = (request: NextRequest) => ({
   id: request.headers.get("x-user-id") ?? "",
