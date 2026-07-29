@@ -197,16 +197,34 @@ async function expireSessionIfNeeded(
 ) {
   const { data, error } = await supabase
     .from("orders")
-    .select("status, completed_at, updated_at")
+    .select("status, completed_at, updated_at, created_at, table_session_id")
     .or(`table_session_id.eq.${session.id},table_id.eq.${session.table_id}`);
 
   if (error) {
     throw error;
   }
 
+  const sessionStartTime = new Date(session.started_at).getTime();
+
+  const relevantOrders = ((data ?? []) as (RelatedOrderRow & {
+    created_at?: string | null;
+    table_session_id?: string | null;
+  })[]).filter((order) => {
+    if (order.table_session_id === session.id) {
+      return true;
+    }
+
+    if (!order.created_at) {
+      return false;
+    }
+
+    const orderCreatedTime = new Date(order.created_at).getTime();
+    return !Number.isNaN(orderCreatedTime) && orderCreatedTime >= sessionStartTime;
+  });
+
   const expiry = getTableSessionExpiry({
     startedAt: session.started_at,
-    orders: ((data ?? []) as RelatedOrderRow[]).map((order) => ({
+    orders: relevantOrders.map((order) => ({
       status: order.status ?? "",
       completedAt: order.completed_at ?? order.updated_at,
     })),
